@@ -1,4 +1,9 @@
 
+#ifndef PARLAY_INTERNAL_WORK_STEALING_JOB_HPP_
+#define PARLAY_INTERNAL_WORK_STEALING_JOB_HPP_
+
+#include <cassert>
+
 namespace parlay {
 
 // Jobs are thunks -- i.e., functions that take no arguments
@@ -36,3 +41,5 @@ template<typename F>
 JobImpl<F> make_job(F& f) { return JobImpl(f); }
 
 }
+
+#endif  // PARLAY_INTERNAL_WORK_STEALING_JOB_HPP_
