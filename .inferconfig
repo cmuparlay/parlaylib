@@ -1,0 +1,9 @@
+// Settings for infer
+//
+// Formatted as JSON records. Values are OCAML regular expressions.
+//
+
+{
+  "report-suppress-errors": [],
+  "report-blacklist-path-regex": []
+}

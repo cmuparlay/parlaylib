@@ -1,0 +1,8 @@
+// Settings for cppcheck
+//
+// Suppresses errors that match the format:
+//
+//         [error id]:[filename]:[line]
+//
+// The [filename] and [line] are optional. If [error id]
+// is a wildcard '*', all error ids match. 

@@ -1,2 +1,3 @@
-# parlaylib
+# ParlayLib
+
 New name for pbbslib
