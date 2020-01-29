@@ -1,6 +1,6 @@
 
-#ifndef PARLAY_INTERNAL_WORK_STEALING_JOB_HPP_
-#define PARLAY_INTERNAL_WORK_STEALING_JOB_HPP_
+#ifndef PARLAY_INTERNAL_WORK_STEALING_JOB_H_
+#define PARLAY_INTERNAL_WORK_STEALING_JOB_H_
 
 #include <cassert>
 
@@ -43,4 +43,4 @@ JobImpl<F> make_job(F& f) { return JobImpl(f); }
 
 }
 
-#endif  // PARLAY_INTERNAL_WORK_STEALING_JOB_HPP_
+#endif  // PARLAY_INTERNAL_WORK_STEALING_JOB_H_
