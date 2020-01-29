@@ -19,8 +19,8 @@
 // }
 //
 
-#ifndef PARLAY_SCHEDULER_HPP_
-#define PARLAY_SCHEDULER_HPP_
+#ifndef PARLAY_SCHEDULER_H_
+#define PARLAY_SCHEDULER_H_
 
 #include <cstdlib>
 
@@ -343,4 +343,4 @@ private:
 
 }  // namespace parlay
 
-#endif  // PARLAY_SCHEDULER_HPP_
+#endif  // PARLAY_SCHEDULER_H_

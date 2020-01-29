@@ -4,6 +4,8 @@
 
 #include <cassert>
 
+#include <atomic>
+
 namespace parlay {
 
 // Jobs are thunks -- i.e., functions that take no arguments
@@ -13,8 +15,7 @@ struct WorkStealingJob {
   WorkStealingJob() {
     done.store(false, std::memory_order_relaxed);
   }
-  ~WorkStealingJob() {
-  }
+  ~WorkStealingJob() = default;
   void operator()() {
     assert(done.load(std::memory_order_relaxed) == false);
     execute();

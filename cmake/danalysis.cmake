@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------
 #           DAnalysis: Dan's static analysis framework
 #
-# - Supports cppcheck, clang-tidy, infer, and include-what-you-use
+# - Supports cppcheck, clang-tidy, and include-what-you-use
 # - Creates targets for individual files and for analyzing all files
 #
 # -------------------------------------------------------------------
@@ -9,7 +9,6 @@
 # User options to enable static analysis tools
 option(CPPCHECK "Enable cppcheck static analysis" OFF)
 option(CLANG_TIDY "Enable clang-tidy static analysis" OFF)
-option(INFER "Enable infer static analysis" OFF)
 option(IWYU "Enable include-what-you-use analysis" OFF)
 
 macro(CONFIGURE_DANALYSIS)
@@ -17,6 +16,9 @@ macro(CONFIGURE_DANALYSIS)
   set(oneValueArgs "")
   set(multiValueArgs INCLUDES FILES)
   cmake_parse_arguments(CONFIGURE_DANALYSIS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+  # Deal with multiple include paths
+  list(TRANSFORM CONFIGURE_DANALYSIS_INCLUDES PREPEND "-I")
 
   set(STATIC_ANALYSIS_TARGETS "")
 
@@ -39,10 +41,12 @@ macro(CONFIGURE_DANALYSIS)
       set(CPPCHECK_ARGS
         "--enable=warning,performance,style,portability,missingInclude"
         "--suppress=missingIncludeSystem"
-        "-I${CONFIGURE_DANALYSIS_INCLUDES}"
+        "${CONFIGURE_DANALYSIS_INCLUDES}"
         "--error-exitcode=1"
         "--inline-suppr"
         "--suppressions-list=${CMAKE_SOURCE_DIR}/.cppcheck-suppress"
+        "--language=c++"
+        "-UPARLAY_CILK"
       )
 
       # Create a target for each library header that runs cppcheck on that file
@@ -96,9 +100,9 @@ macro(CONFIGURE_DANALYSIS)
         "-quiet"
       )
       set(CLANG_TIDY_COMPILER_ARGS
+        "-xc++"
         "-std=c++17"
-        "-I${CONFIGURE_DANALYSIS_INCLUDES}"
-        "-stdlib=libc++"
+        "${CONFIGURE_DANALYSIS_INCLUDES}"
       )
 
       # Create a target for each library header that runs clang-tidy on that file
@@ -136,77 +140,6 @@ macro(CONFIGURE_DANALYSIS)
     message(STATUS "clang-tidy:                   Disabled (enable with -DCLANG_TIDY=On)")
   endif()
 
-  # ---------------------------- infer --------------------------------
-
-  if(INFER)
-
-    # Find infer executable
-    find_program(
-      INFER_EXE
-      NAMES "infer"
-      DOC "Path to infer executable"
-    )
-
-    # Find clang executable (required to run infer)
-    find_program(
-      CLANGXX_EXE
-      NAMES "clang++"
-      DOC "Path to clang++ executable"
-    )
-
-    if(NOT INFER_EXE)
-      message(FATAL_ERROR "infer enabled but could not find infer executable")
-    elseif(NOT CLANGXX_EXE)
-      message(FATAL_ERROR "infer enabled but could not find clang++ executable, which is required by infer")
-    else()
-      message(STATUS "infer:                        Enabled (${INFER_EXE})")
-
-      # Args for infer
-      set(INFER_ARGS
-        "--no-progress-bar"
-        "--fail-on-issue"
-      )
-      set(INFER_COMPILER_ARGS
-        "--std=c++17"
-        "-I${CONFIGURE_DANALYSIS_INCLUDES}"
-        "-stdlib=libc++"
-      )
-
-      # Create a target for each library header that runs infer on that file
-      set(INFER_TARGETS "")
-      foreach(LIB_FILE ${CONFIGURE_DANALYSIS_FILES})
-        string(REGEX REPLACE "/" "-" TARGET_NAME ${LIB_FILE})
-        set(INFER_TARGET_NAME "infer-${TARGET_NAME}")
-        add_custom_target(
-          ${INFER_TARGET_NAME}
-          COMMAND ${INFER_EXE} run ${INFER_ARGS}
-          --
-          ${CLANGXX_EXE} ${INFER_COMPILER_ARGS}
-          ${LIB_FILE}
-        )
-        set(INFER_TARGETS ${INFER_TARGETS} "${INFER_TARGET_NAME}")
-      endforeach()
-
-      # Custom target to run infer on all library files sequentially
-      add_custom_target(infer)
-      add_dependencies(infer ${INFER_TARGETS})
-      
-      # Custom target to run infer on all library files at once
-      add_custom_target(
-        infer-all
-        COMMAND ${INFER_EXE} run ${INFER_ARGS}
-        --
-        ${CLANGXX_EXE} ${INFER_COMPILER_ARGS}
-        ${CONFIGURE_DANALYSIS_FILES}
-      )
-
-      set(STATIC_ANALYSIS_TARGETS ${STATIC_ANALYSIS_TARGETS} infer-all)
-
-    endif()
-  else()
-    message(STATUS "infer:                        Disabled (enable with -DINFER=On)")
-  endif()
-
   # ----------------------- include-what-you-use --------------------------
 
   if(IWYU)
@@ -224,10 +157,10 @@ macro(CONFIGURE_DANALYSIS)
      
       # Args for IWYU
       set(IWYU_ARGS 
-        "-I${CONFIGURE_DANALYSIS_INCLUDES}"
-        "-I${CONFIGURE_DANALYSIS_INCLUDES}/parlay"
+        "${CONFIGURE_DANALYSIS_INCLUDES}"
         "-w"
         "-std=c++17"
+        "-xc++"
       )
 
       # Create a target for each library header that runs infer on that file
