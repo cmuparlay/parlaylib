@@ -5,7 +5,7 @@
 #include <numeric>
 #include <thread>
 
-#include <parlay/scheduler.hpp>
+#include <parlay/scheduler.h>
 
 void go_sleep(unsigned int t) {
   std::this_thread::sleep_for(std::chrono::milliseconds(t));
