@@ -62,6 +62,7 @@ flags_supported("${SANITIZER_BLACKLIST}" BLACKLIST_SUPPORT)
 if (BUILD_ASAN OR BUILD_UBSAN OR BUILD_TSAN OR BUILD_MSAN)
   if(NOT BLACKLIST_SUPPORT)
     message(STATUS "Warning: Sanitizer blacklists are not supported by the compiler. False positives may be encountered.")
+    set(SANITIZER_BLACKLIST "")
   endif()
 else()
   set(SANITIZER_BLACKLIST "")
@@ -85,7 +86,8 @@ if(BUILD_UBSAN)
   if(UBSAN_SUPPORT)
     message(STATUS "UndefinedBehaviourSanitizer:  Enabled")
   else()
-    message(STATUS "UndefinedBehaviourSanitizer is not supported by the compiler")
+    message(STATUS "UndefinedBehaviourSanitizer:  Disabled (Not fully supported by the compiler)")
+    set(BUILD_UBSAN Off)
   endif()
 else()
   message(STATUS "UndefinedBehaviourSanitizer:  Disabled (Enable with -DBUILD_UBSAN=On)")
@@ -182,53 +184,64 @@ endif()
   
 # Add a test target for the given source file linked with the given
 # sanitizer flags (or none for no sanitizer instrumentation)
-function(add_dtest SOURCENAME SANITIZER_FLAGS ABBRV)
-  add_executable(${SOURCENAME}-${ABBRV} ${SOURCENAME}.cpp)
-  target_link_libraries(${SOURCENAME}-${ABBRV} PRIVATE parlay)
-  target_compile_options(${SOURCENAME}-${ABBRV} PRIVATE
+# This creates a target with the name ${TESTNAME}-${ABBRV}
+function(add_dtest TESTNAME SOURCENAMES SANITIZER_FLAGS ABBRV TESTLIB ADDITIONAL_LIBS ADDITIONAL_FLAGS)
+  add_executable(${TESTNAME}-${ABBRV} ${SOURCENAMES})
+  target_link_libraries(${TESTNAME}-${ABBRV} PRIVATE ${TESTLIB})
+  target_link_libraries(${TESTNAME}-${ABBRV} PRIVATE ${ADDITIONAL_LIBS})
+  target_compile_options(${TESTNAME}-${ABBRV} PRIVATE
     -Wall -Wextra -Wfatal-errors
     -g -Og -fno-omit-frame-pointer
     ${SANITIZER_FLAGS} ${SANITIZER_BLACKLIST}
+    ${ADDITIONAL_FLAGS}
   )
-  target_link_options(${SOURCENAME}-${ABBRV} PRIVATE
+  target_link_options(${TESTNAME}-${ABBRV} PRIVATE
     -fno-omit-frame-pointer
     ${SANITIZER_FLAGS} ${SANITIZER_BLACKLIST}
+    ${ADDITIONAL_FLAGS}
   )
   if (USE_LIBCXX)
-    use_libcxx(${SOURCENAME}-${ABBRV})
+    use_libcxx(${TESTNAME}-${ABBRV})
   endif()
-  gtest_discover_tests(${SOURCENAME}-${ABBRV} TEST_SUFFIX "-${ABBRV}")
+  gtest_discover_tests(${TESTNAME}-${ABBRV} TEST_SUFFIX "-${ABBRV}")
 endfunction()
 
 # Adds tests based on the given source file with sanitizer instrumentation
-function(add_dtests SOURCENAME)
+function(add_dtests)
+
+  # Parse arguments
+  set(options OPTIONAL "")
+  set(oneValueArgs NAME)
+  set(multiValueArgs FILES LIBS FLAGS)
+  cmake_parse_arguments(CONFIGURE_ADD_DTESTS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+  
+  set(TESTNAME ${CONFIGURE_ADD_DTESTS_NAME})
+  set(TESTFILES ${CONFIGURE_ADD_DTESTS_FILES})
+  set(TESTLIBS ${CONFIGURE_ADD_DTESTS_LIBS})
+  set(TESTFLAGS ${CONFIGURE_ADD_DTESTS_FLAGS})
+
   # Vanilla test -- no instrumentation
-  add_dtest(${SOURCENAME} "" "nosan")
-  target_link_libraries(${SOURCENAME}-nosan PRIVATE gtest_main)
+  add_dtest("${TESTNAME}" "${TESTFILES}" "" "nosan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
 
   # Test with ASAN (AddressSanitizer)
   if(BUILD_ASAN)
-    add_dtest(${SOURCENAME} "${ASAN_FLAGS}" "asan")
-    target_link_libraries(${SOURCENAME}-asan PRIVATE gtest_main)
+    add_dtest("${TESTNAME}" "${TESTFILES}" "${ASAN_FLAGS}" "asan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
   endif()
 
   # Test with UBSAN (UndefinedBehaviourSanitizer)
   if(BUILD_UBSAN)
-    add_dtest(${SOURCENAME} "${UBSAN_FLAGS}" "ubsan")
-    target_link_libraries(${SOURCENAME}-ubsan PRIVATE gtest_main)
+    add_dtest("${TESTNAME}" "${TESTFILES}" "${UBSAN_FLAGS}" "ubsan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
   endif()
 
   # Test with TSAN (ThreadSanitizer)
   if(BUILD_TSAN)
-    add_dtest(${SOURCENAME} "${TSAN_FLAGS}" "tsan")
-    target_link_libraries(${SOURCENAME}-tsan PRIVATE gtest_main)
+    add_dtest("${TESTNAME}" "${TESTFILES}" "${TSAN_FLAGS}" "tsan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
   endif()
 
   # Test with MSAN (MemorySanitizer)
   if (BUILD_MSAN)
-    add_dtest(${SOURCENAME} "${MSAN_FLAGS}" "msan")
-    add_msan_instrumentation(${SOURCENAME}-msan)
-    target_link_libraries(${SOURCENAME}-msan PRIVATE gtest_main-msan)
+    add_dtest("${TESTNAME}" "${TESTFILES}" "${MSAN_FLAGS}" "msan" gtest_main-msan "${TESTLIBS}" "${TESTFLAGS}")
+    add_msan_instrumentation(${TESTNAME}-msan)
   endif()
 endfunction()
 
