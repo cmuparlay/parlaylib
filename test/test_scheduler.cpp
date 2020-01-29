@@ -53,7 +53,7 @@ long long int simple_reduce(parlay::fork_join_scheduler& fj, It begin, It end) {
 }
 
 TEST(TestScheduler, TestReduce) {
-  size_t n = 2;
+  size_t n = 1000;
   parlay::fork_join_scheduler fj;
   std::vector<int> v(n);
   std::iota(std::begin(v), std::end(v), 0);
@@ -63,7 +63,7 @@ TEST(TestScheduler, TestReduce) {
 }
 
 TEST(TestScheduler, TestParFor) {
-  size_t n = 2;
+  size_t n = 1000;
   parlay::fork_join_scheduler fj;
   std::vector<int> v(n);
   fj.parfor(0, n, [&](auto i) {
