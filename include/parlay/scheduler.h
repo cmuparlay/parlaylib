@@ -36,7 +36,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "internal/work_stealing_job.hpp"
+#include "internal/work_stealing_job.h"
 
 namespace parlay {
 
