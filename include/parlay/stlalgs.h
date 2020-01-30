@@ -294,6 +294,20 @@ namespace parlay {
     return r;
   }
 
+  template<typename Seq, typename Monoid, typename UnaryOp>
+  auto transform_reduce(Seq const &s, Monoid m, UnaryOp unary_op) {
+    using T = typename Seq::value_type;
+    auto transformed_seq = delayed_seq<T>(s.size(), [&](size_t i) { return unary_op(s[i]); });
+    return reduce(transformed_seq, m);
+  }
+  
+  template<typename Seq, typename Monoid, typename UnaryOp>
+  auto transform_exclusive_scan(Seq const &s, Monoid m, UnaryOp unary_op) {
+    using T = typename Seq::value_type;
+    auto transformed_seq = delayed_seq<T>(s.size(), [&](size_t i) { return unary_op(s[i]); });
+    return scan(transformed_seq, m);
+  }
+
 }  // namespace parlay
 
 #endif  // PARLAY_STLALGS_H_
