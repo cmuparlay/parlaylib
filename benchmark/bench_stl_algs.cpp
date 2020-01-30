@@ -296,19 +296,19 @@ static void bench_stable_sort(benchmark::State& state) {
   }
 }
 
-static void bench_transform_reduce(benchmark::State& state) {
-  size_t n = state.range(0);
-  auto v = random_vector(n);
-  for (auto _ : state) {
-    parlay::transform_reduce(v, parlay::addm<int>{}, [](auto x) { return 2*x; });
-  }
-}
-
 static void bench_transform_exclusive_scan(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
   for (auto _ : state) {
     parlay::transform_exclusive_scan(v, parlay::addm<int>{}, [](auto x) { return 2*x; });
+  }
+}
+
+static void bench_transform_reduce(benchmark::State& state) {
+  size_t n = state.range(0);
+  auto v = random_vector(n);
+  for (auto _ : state) {
+    parlay::transform_reduce(v, parlay::addm<int>{}, [](auto x) { return 2*x; });
   }
 }
 
@@ -355,6 +355,6 @@ BENCH(rotate, 100000000);
 BENCH(search, 100000000);
 BENCH(sort, 100000000);
 BENCH(stable_sort, 100000000);
-BENCH(transform_reduce, 100000000);
 BENCH(transform_exclusive_scan, 100000000);
+BENCH(transform_reduce, 100000000);
 BENCH(unique, 100000000);
