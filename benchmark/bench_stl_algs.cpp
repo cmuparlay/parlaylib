@@ -24,9 +24,18 @@ int rand() { return dist(generator); }
 // of uniformly random non-negative 32-bit integers
 std::vector<int> random_vector(size_t n) {
   std::vector<int> a(n);
-  parlay::parallel_for(0, n, [&](auto i) {
+  for (size_t i = 0; i < n; i++) {
     a[i] = rand();
-  });
+  }
+  return a;
+}
+
+std::vector<int> random_sorted_vector(size_t n) {
+  std::vector<int> a(n);
+  auto step = std::numeric_limits<int>::max() / n;
+  for (size_t i = 1; i < n; i++) {
+    a[i] = a[i-1] + (rand() % step);
+  }
   return a;
 }
 
@@ -109,7 +118,7 @@ static void bench_find_end(benchmark::State& state) {
 }
 
 static void bench_find_first_of(benchmark::State& state) {
-  size_t n = (size_t)sqrt(state.range(0));
+  size_t n = state.range(0);
   auto v = random_vector(n);
   auto v2 = random_vector(n);
   for (auto _ : state) {
@@ -143,8 +152,7 @@ static void bench_for_each(benchmark::State& state) {
 
 static void bench_is_partitioned(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = random_vector(n);
-  std::sort(std::begin(v), std::end(v));
+  auto v = random_sorted_vector(n);
   for (auto _ : state) {
     parlay::is_partitioned(v, [&](auto x) { return x < v[n/2]; });
   }
@@ -152,8 +160,7 @@ static void bench_is_partitioned(benchmark::State& state) {
 
 static void bench_is_sorted(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = random_vector(n);
-  std::sort(std::begin(v), std::end(v));
+  auto v = random_sorted_vector(n);
   for (auto _ : state) {
     parlay::is_sorted(v, std::less<int>{});
   }
@@ -161,8 +168,7 @@ static void bench_is_sorted(benchmark::State& state) {
 
 static void bench_is_sorted_until(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = random_vector(n);
-  std::sort(std::begin(v), std::end(v));
+  auto v = random_sorted_vector(n);
   for (auto _ : state) {
     parlay::is_sorted_until(v, std::less<int>{});
   }
@@ -264,11 +270,54 @@ static void bench_rotate(benchmark::State& state) {
 }
 
 static void bench_search(benchmark::State& state) {
-  size_t n = (size_t)sqrt(state.range(0));
-  auto v = random_vector(n);
-  auto v2 = random_vector(n/2);
+  size_t n = state.range(0);
+  auto v = std::vector<int>(n, 1);
+  auto v2 = std::vector<int>(n/2, 1);
   for (auto _ : state) {
     parlay::search(v, v2);
+  }
+}
+
+static void bench_sort(benchmark::State& state) {
+  size_t n = state.range(0);
+  auto v = random_vector(n);
+  auto r = parlay::make_range(&v[0], &v[0] + v.size());
+  for (auto _ : state) {
+    parlay::sort(r, std::less<int>{});
+  }
+}
+
+static void bench_stable_sort(benchmark::State& state) {
+  size_t n = state.range(0);
+  auto v = random_vector(n);
+  auto r = parlay::make_range(&v[0], &v[0] + v.size());
+  for (auto _ : state) {
+    parlay::stable_sort(r, std::less<int>{});
+  }
+}
+
+static void bench_transform_reduce(benchmark::State& state) {
+  size_t n = state.range(0);
+  auto v = random_vector(n);
+  for (auto _ : state) {
+    parlay::transform_reduce(v, parlay::addm<int>{}, [](auto x) { return 2*x; });
+  }
+}
+
+static void bench_transform_exclusive_scan(benchmark::State& state) {
+  size_t n = state.range(0);
+  auto v = random_vector(n);
+  for (auto _ : state) {
+    parlay::transform_exclusive_scan(v, parlay::addm<int>{}, [](auto x) { return 2*x; });
+  }
+}
+
+static void bench_unique(benchmark::State& state) {
+  size_t n = state.range(0);
+  auto v = random_sorted_vector(n);
+  auto r = parlay::make_range(std::begin(v), std::end(v));
+  for (auto _ : state) {
+    parlay::unique(r, std::equal_to<int>{});
   }
 }
 
@@ -285,7 +334,7 @@ BENCH(equal, 100000000);
 BENCH(exclusive_scan, 100000000);
 BENCH(find, 100000000);
 BENCH(find_end, 100000000);
-BENCH(find_first_of, 100000000);
+BENCH(find_first_of, 10000);
 BENCH(find_if, 100000000);
 BENCH(find_if_not, 100000000);
 BENCH(for_each, 100000000);
@@ -304,3 +353,8 @@ BENCH(remove_if, 100000000);
 BENCH(reverse, 100000000);
 BENCH(rotate, 100000000);
 BENCH(search, 100000000);
+BENCH(sort, 100000000);
+BENCH(stable_sort, 100000000);
+BENCH(transform_reduce, 100000000);
+BENCH(transform_exclusive_scan, 100000000);
+BENCH(unique, 100000000);
