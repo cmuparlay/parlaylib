@@ -44,6 +44,10 @@ target_link_libraries(parlay INTERFACE Threads::Threads)
 # GCC requires linking against libatomic
 target_link_libraries(parlay INTERFACE atomic)
 
+# Enable 16 byte CAS
+target_compile_definitions(parlay INTERFACE -DMCX16)
+target_compile_options(parlay INTERFACE -mcx16)
+
 # -------------------------------------------------------------------
 #                       Static analysis
 
@@ -56,9 +60,9 @@ add_subdirectory(analysis)
 message(STATUS "-------------------------- Unit Tests ------------------------")
 
 # User option to build unit tests
-option(BUILD_TESTS  "Build unit tests"       OFF)
+option(PARLAY_TESTS  "Build unit tests"       OFF)
 
-if (BUILD_TESTS)
+if (PARLAY_TESTS)
   # Set CMake options for GoogleTest
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
   set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
@@ -87,9 +91,42 @@ if (BUILD_TESTS)
   add_subdirectory(test)
 
 else()
-  message(STATUS "testing: Disabled (enable with -DBUILD_TESTS=On)")
+  message(STATUS "testing: Disabled (enable with -DPARLAY_TESTS=On)")
 endif()
 
 # -------------------------------------------------------------------
 #                       Benchmarks
 
+message(STATUS "------------------- Benchmarks --------------------")
+
+# User option to build benchmarks
+option(PARLAY_BENCHMARK    "Build microbenchmarks"  OFF)
+
+if (PARLAY_BENCHMARK)
+  # Benchmark should not run its own unit tests
+  set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+  set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+
+  # Download Benchmark library
+  include(FetchContent)
+  FetchContent_Declare(benchmark
+    GIT_REPOSITORY  https://github.com/google/benchmark
+    GIT_TAG         master
+  )
+  FetchContent_GetProperties(benchmark)
+  if(NOT benchmark_POPULATED)
+    message(STATUS "benchmarks: Configuring Google Benchmark")
+    FetchContent_Populate(benchmark)
+    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE BOOL "")
+    add_subdirectory(${benchmark_SOURCE_DIR}
+                     ${benchmark_BINARY_DIR}
+                     EXCLUDE_FROM_ALL)
+  endif()
+
+  # Include benchmark targets
+  message(STATUS "benchmarks: Enabled")
+  add_subdirectory(benchmark)
+
+else()
+  message(STATUS "benchmarks: Disabled (enable with -DPARLAY_BENCHMARK=On)")
+endif()
