@@ -30,11 +30,24 @@ std::vector<int> random_vector(size_t n) {
   return a;
 }
 
+// Generate a random sorted vector of length n
+// consisting of random non-negative 32-bit integers
 std::vector<int> random_sorted_vector(size_t n) {
   std::vector<int> a(n);
   auto step = std::numeric_limits<int>::max() / n;
   for (size_t i = 1; i < n; i++) {
     a[i] = a[i-1] + (rand() % step);
+  }
+  return a;
+}
+
+// Generate a random vector of pairs of (0,1) doubles
+std::vector<std::pair<double,double>> random_double_pairs(size_t n) {
+  std::vector<std::pair<double,double>> a(n);
+  for (size_t i = 0; i < n; i++) {
+    double x = 1.0 * rand() / std::numeric_limits<int>::max();
+    double y = 1.0 * rand() / std::numeric_limits<int>::max();
+    a[i] = std::make_pair(x, y);
   }
   return a;
 }
@@ -288,21 +301,23 @@ static void bench_search(benchmark::State& state) {
   }
 }
 
+// Use pairs of doubles to distinguish the benchmark
+// from the integer sort benchmark
 static void bench_sort(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = random_vector(n);
+  auto v = random_double_pairs(n);
   auto r = parlay::make_range(&v[0], &v[0] + v.size());
   for (auto _ : state) {
-    parlay::sort(r, std::less<int>{});
+    parlay::sort(r, std::less<std::pair<double,double>>{});
   }
 }
 
 static void bench_stable_sort(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = random_vector(n);
+  auto v = random_double_pairs(n);
   auto r = parlay::make_range(&v[0], &v[0] + v.size());
   for (auto _ : state) {
-    parlay::stable_sort(r, std::less<int>{});
+    parlay::stable_sort(r, std::less<std::pair<double,double>>{});
   }
 }
 
