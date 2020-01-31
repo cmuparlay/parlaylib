@@ -227,6 +227,16 @@ static void bench_mismatch(benchmark::State& state) {
   }
 }
 
+// Called "kth_smallest" in parlay
+static void bench_nth_element(benchmark::State& state) {
+  size_t n = state.range(0);
+  auto v = random_vector(n);
+  auto r = parlay::make_range(std::begin(v), std::end(v));
+  for (auto _ : state) {
+    parlay::kth_smallest(r, n/2, std::less<int>{});
+  }
+}
+
 static void bench_none_of(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
@@ -347,6 +357,7 @@ BENCH(merge, 100000000);
 BENCH(min_element, 100000000);
 BENCH(minmax_element, 100000000);
 BENCH(mismatch, 100000000);
+BENCH(nth_element, 100000000);
 BENCH(none_of, 100000000);
 BENCH(reduce, 100000000);
 BENCH(remove_if, 100000000);
