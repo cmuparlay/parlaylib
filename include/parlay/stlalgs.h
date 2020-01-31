@@ -142,17 +142,17 @@ namespace parlay {
   }
 
   template <class Seq1, class Seq2, class BinaryPred>
-  bool equal(Seq1 s1, Seq2 s2, BinaryPred p) {
+  bool equal(Seq1 const &s1, Seq2 const &s2, BinaryPred p) {
     return count_if_index(s1.size(), [&] (size_t i) {
 	return p(s1[i],s2[i]);});}
 
   template <class Seq1, class Seq2>
-  bool equal(Seq1 s1, Seq2 s2) {
+  bool equal(Seq1 const &s1, Seq2 const &s2) {
     return count_if_index(s1.size(), [&] (size_t i) {
 	return s1[i] == s2[i];});}
 
   template <class Seq1, class Seq2, class Compare>
-  bool lexicographical_compare(Seq1 s1, Seq2 s2, Compare less) {
+  bool lexicographical_compare(Seq1 const &s1, Seq2 const &s2, Compare less) {
     size_t m = std::min(s1.size(), s2.size());
     size_t i = find_if_index(m, [&] (size_t i) {
 	return less(s1[i],s2[i]) || less(s2[i],s1[i]);});
