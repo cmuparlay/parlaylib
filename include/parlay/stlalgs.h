@@ -228,7 +228,10 @@ namespace parlay {
   template <class Seq, class UnaryPred>
   auto remove_if(Seq const &S, UnaryPred f) {
     using T = typename Seq::value_type;
-    return filter(S, [&] (T a) {return !f(a);});
+    auto flags = parlay::dseq(S.size(), [&](auto i) {
+      return f(S[i]);
+    });
+    return split_two(S, flags);
   }
 
   template <class Seq, class Compare>
