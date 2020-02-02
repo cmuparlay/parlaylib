@@ -191,18 +191,18 @@ namespace parlay {
   template <typename T, typename Get_Key>
   void integer_sort_inplace(range<T*> In,
 			    Get_Key const &g,
-			    size_t num_buckets=0) {
+			    size_t bits=0) {
     sequence<T> Tmp = sequence<T>::no_init(In.size());
-    integer_sort_(In, Tmp.slice(), In, g, num_buckets, 0, true);
+    integer_sort_(In, Tmp.slice(), In, g, bits, 0, true);
   }
 
   template <typename Seq, typename Get_Key>
   sequence<typename Seq::value_type> integer_sort(Seq const &In, Get_Key const &g,
-						  size_t num_buckets=0) {
+						  size_t bits=0) {
     using T = typename Seq::value_type;
     sequence<T> Out = sequence<T>::no_init(In.size());
     sequence<T> Tmp = sequence<T>::no_init(In.size());
-    integer_sort_(In, Out.slice(), Tmp.slice(), g, num_buckets, 0, false);
+    integer_sort_(In, Out.slice(), Tmp.slice(), g, bits, 0, false);
     return Out;
   }
 
