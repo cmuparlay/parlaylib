@@ -1,5 +1,12 @@
 // Benchmarks for Parlay's implementation of
 // common C++ standard library algorithms
+//
+// Note: We use std::vector everywhere instead
+// of parlay::sequence since the goal of this
+// benchmark is to compare performance against
+// other implementations of the C++ parallel
+// standard library algorithms, so we want the
+// underlying containers to be consistent.
 
 #include <limits>
 #include <random>
@@ -10,45 +17,48 @@
 #include <parlay/merge.h>
 #include <parlay/monoid.h>
 #include <parlay/parallel.h>
+#include <parlay/random.h>
 #include <parlay/sequence_ops.h>
 #include <parlay/stlalgs.h>
 
 // ------------------------- Utilities -------------------------------
 
 // Thread local random number generation
-thread_local std::default_random_engine generator;
-thread_local std::uniform_int_distribution<int> dist(0, std::numeric_limits<int>::max());
-int rand() { return dist(generator); }
+thread_local size_t rand_i = 0;
+thread_local parlay::random rng(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+size_t my_rand() { return rng.ith_rand(rand_i++); }
 
 // Generate a random vector of length n consisting
-// of uniformly random non-negative 32-bit integers
+// of random non-negative 32-bit integers.
+// taking them mod 2^32.
 std::vector<int> random_vector(size_t n) {
   std::vector<int> a(n);
-  for (size_t i = 0; i < n; i++) {
-    a[i] = rand();
-  }
+  parlay::parallel_for(0, n, [&](auto i) {
+    a[i] = my_rand() % (1LL << 32);
+  });
   return a;
 }
 
-// Generate a random sorted vector of length n
-// consisting of random non-negative 32-bit integers
+// Generate a random sorted vector of length n consisting
+// of random non-negative 32-bit integers.
 std::vector<int> random_sorted_vector(size_t n) {
-  std::vector<int> a(n);
-  auto step = std::numeric_limits<int>::max() / n;
-  for (size_t i = 1; i < n; i++) {
-    a[i] = a[i-1] + (rand() % step);
-  }
-  return a;
+  auto a = random_vector(n);
+  parlay::parallel_for(0, n, [&](auto i) {
+    a[i] = a[i] % (std::numeric_limits<int>::max() / n);
+  });
+  std::vector<int> p(n);
+  std::partial_sum(std::begin(a), std::end(a), std::begin(p));
+  return p;
 }
 
-// Generate a random vector of pairs of (0,1) doubles
+// Generate a random vector of pairs of (0,1) doubles.
 std::vector<std::pair<double,double>> random_double_pairs(size_t n) {
+  auto x = random_vector(n), y = random_vector(n);
   std::vector<std::pair<double,double>> a(n);
-  for (size_t i = 0; i < n; i++) {
-    double x = 1.0 * rand() / std::numeric_limits<int>::max();
-    double y = 1.0 * rand() / std::numeric_limits<int>::max();
-    a[i] = std::make_pair(x, y);
-  }
+  parlay::parallel_for(0, n, [&](auto i) {
+    a[i].first = 1.0 * x[i] / std::numeric_limits<int>::max();
+    a[i].second = 1.0 * y[i] / std::numeric_limits<int>::max();
+  });
   return a;
 }
 
@@ -384,3 +394,4 @@ BENCH(stable_sort, 100000000);
 BENCH(transform_exclusive_scan, 100000000);
 BENCH(transform_reduce, 100000000);
 BENCH(unique, 100000000);
+

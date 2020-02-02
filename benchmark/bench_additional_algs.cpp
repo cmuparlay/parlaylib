@@ -4,36 +4,30 @@
 #include <functional>
 #include <limits>
 #include <random>
+#include <thread>
 #include <vector>
 
 #include <benchmark/benchmark.h>
 
 #include <parlay/collect_reduce.h>
 #include <parlay/integer_sort.h>
+#include <parlay/random.h>
 
 // ------------------------- Utilities -------------------------------
 
 // Thread local random number generation
-thread_local std::default_random_engine generator;
-thread_local std::uniform_int_distribution<int> dist(0, std::numeric_limits<int>::max());
-int rand() { return dist(generator); }
+thread_local size_t rand_i = 0;
+thread_local parlay::random rng(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+size_t my_rand() { return rng.ith_rand(rand_i++); }
 
 // Generate a random vector of length n consisting
-// of uniformly random non-negative 32-bit integers
+// of random non-negative 32-bit integers.
+// taking them mod 2^32.
 std::vector<int> random_vector(size_t n) {
   std::vector<int> a(n);
-  for (size_t i = 0; i < n; i++) {
-    a[i] = rand();
-  }
-  return a;
-}
-
-std::vector<int> random_sorted_vector(size_t n) {
-  std::vector<int> a(n);
-  auto step = std::numeric_limits<int>::max() / n;
-  for (size_t i = 1; i < n; i++) {
-    a[i] = a[i-1] + (rand() % step);
-  }
+  parlay::parallel_for(0, n, [&](auto i) {
+    a[i] = my_rand() % (1LL << 32);
+  });
   return a;
 }
 
