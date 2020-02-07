@@ -162,8 +162,8 @@ namespace parlay {
   template <class Seq, class Eql>
   sequence<typename Seq::value_type>
   unique (Seq const &s, Eql eq) {
-    sequence<bool> b(s.size(), [&] (size_t i) {
-	return (i == 0) || !eq(s[i],s[i-1]);});
+    auto b = delayed_seq<bool>(s.size(), [&] (size_t i) {
+	return (i == 0) || !eq(s[i],s[i-1]); });
     return pack(s, b);
   }
 
