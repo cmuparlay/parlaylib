@@ -14,9 +14,8 @@ size_t my_rand() { return rng.ith_rand(rand_i++); }
 // of random non-negative 64-bit integers.
 std::vector<long long> random_vector(size_t n) {
   std::vector<long long> a(n);
-  parlay::random seed;
   parlay::parallel_for(size_t(0), n, [&](auto i) {
-    a[i] = seed.ith_rand(i);
+    a[i] = my_rand();
   });
   return a;
 }
