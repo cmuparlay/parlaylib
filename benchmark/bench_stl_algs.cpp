@@ -104,11 +104,11 @@ static void bench_find_end(benchmark::State& state) {
 static void bench_find_first_of(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
-  auto v2 = random_vector(n);
+  auto v2 = random_vector(100);
   auto r = parlay::make_range(&v[0], &v[0] + v.size());
   auto r2 = parlay::make_range(&v2[0], &v2[0] + v2.size());
   for (auto _ : state) {
-    parlay::find_first_of(r, r2, [](auto x, auto y) { return x == y; });
+    parlay::find_first_of(r, r2, std::equal_to<long long>{});
   }
 }
 
