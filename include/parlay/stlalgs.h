@@ -213,11 +213,13 @@ std::pair<size_t, size_t> minmax_element(Seq const &S, Compare comp) {
   return parlay::reduce(SS, make_monoid(f, P(n, n)));
 }
 
+/* Operates in-place */
 template <class Seq>
-sequence<typename Seq::value_type> reverse(Seq const &S) {
-  size_t n = S.size();
-  return sequence<typename Seq::value_type>(
-      S.size(), [&](size_t i) { return S[n - i - 1]; });
+auto reverse(Seq &S) {
+  auto n = S.size();
+  parallel_for(0, n/2, [&] (size_t i) {
+    std::swap(S[i], S[n - i - 1]);
+  }, 2048);
 }
 
 template <class Seq>
@@ -254,7 +256,6 @@ template <class Seq, class UnaryPred>
 auto remove_if(Seq const &S, UnaryPred f) {
   auto flags = delayed_seq<bool>(S.size(), [&](auto i) { return f(S[i]); });
   return pack(S, flags);
-//  return split_two(S, flags);
 }
 
 template <class Seq, class Compare>

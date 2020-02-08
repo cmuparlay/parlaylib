@@ -219,7 +219,9 @@ static void bench_nth_element(benchmark::State& state) {
   auto v = random_vector(n);
   auto r = parlay::make_range(std::begin(v), std::end(v));
   for (auto _ : state) {
-    parlay::kth_smallest(r, n/2, std::less<long long>{});
+    auto kth = parlay::kth_smallest(r, n/2, std::less<long long>{});
+    auto fl = parlay::delayed_seq<bool>(n, [&] (size_t i) { return r[i] <= kth; });
+    parlay::split_two(r, fl);
   }
 }
 
@@ -245,7 +247,7 @@ static void bench_remove_if(benchmark::State& state) {
   auto v = random_vector(n);
   auto r = parlay::make_range(std::begin(v), std::end(v));
   for (auto _ : state) {
-    parlay::remove_if(r, [](auto x) { return x % 2 == 0; } );
+    auto ret = parlay::remove_if(r, [](auto x) { return x % 2 == 0; } );
   }
 }
 
@@ -355,4 +357,3 @@ BENCH(stable_sort, 100000000);
 BENCH(transform_exclusive_scan, 100000000);
 BENCH(transform_reduce, 100000000);
 BENCH(unique, 100000000);
-
