@@ -254,8 +254,9 @@ size_t is_partitioned(Seq const &S, UnaryPred f) {
 
 template <class Seq, class UnaryPred>
 auto remove_if(Seq const &S, UnaryPred f) {
-  auto flags = parlay::dseq(S.size(), [&](auto i) { return f(S[i]); });
-  return split_two(S, flags);
+  auto flags = delayed_seq<bool>(S.size(), [&](auto i) { return f(S[i]); });
+  return pack(S, flags);
+//  return split_two(S, flags);
 }
 
 template <class Seq, class Compare>
