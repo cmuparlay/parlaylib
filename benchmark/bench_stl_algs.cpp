@@ -31,33 +31,33 @@ size_t my_rand() { return rng.ith_rand(rand_i++); }
 // Generate a random vector of length n consisting
 // of random non-negative 32-bit integers.
 // taking them mod 2^32.
-std::vector<int> random_vector(size_t n) {
-  std::vector<int> a(n);
+std::vector<long long> random_vector(size_t n) {
+  std::vector<long long> a(n);
   parlay::parallel_for(0, n, [&](auto i) {
-    a[i] = my_rand() % (1LL << 32);
+    a[i] = my_rand(); // % (1LL << 32);
   });
   return a;
 }
 
 // Generate a random sorted vector of length n consisting
 // of random non-negative 32-bit integers.
-std::vector<int> random_sorted_vector(size_t n) {
+std::vector<long long> random_sorted_vector(size_t n) {
   auto a = random_vector(n);
   parlay::parallel_for(0, n, [&](auto i) {
-    a[i] = a[i] % (std::numeric_limits<int>::max() / n);
+    a[i] = a[i] % (std::numeric_limits<long long>::max() / n);
   });
-  std::vector<int> p(n);
+  std::vector<long long> p(n);
   std::partial_sum(std::begin(a), std::end(a), std::begin(p));
   return p;
 }
 
-// Generate a random vector of pairs of (0,1) doubles.
-std::vector<std::pair<double,double>> random_double_pairs(size_t n) {
+// Generate a random vector of pairs of (0,1) long longs.
+std::vector<std::pair<long long,long long>> random_long_long_pairs(size_t n) {
   auto x = random_vector(n), y = random_vector(n);
-  std::vector<std::pair<double,double>> a(n);
+  std::vector<std::pair<long long,long long>> a(n);
   parlay::parallel_for(0, n, [&](auto i) {
-    a[i].first = 1.0 * x[i] / std::numeric_limits<int>::max();
-    a[i].second = 1.0 * y[i] / std::numeric_limits<int>::max();
+    a[i].first = 1.0 * x[i] / std::numeric_limits<long long>::max();
+    a[i].second = 1.0 * y[i] / std::numeric_limits<long long>::max();
   });
   return a;
 }
@@ -119,7 +119,7 @@ static void bench_exclusive_scan(benchmark::State& state) {
   auto v = random_vector(n);
   auto r = parlay::make_range(std::begin(v), std::end(v));
   for (auto _ : state) {
-    parlay::scan(r, parlay::addm<int>{});
+    parlay::scan(r, parlay::addm<long long>{});
   }
 }
 
@@ -185,7 +185,7 @@ static void bench_is_sorted(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_sorted_vector(n);
   for (auto _ : state) {
-    parlay::is_sorted(v, std::less<int>{});
+    parlay::is_sorted(v, std::less<long long>{});
   }
 }
 
@@ -193,7 +193,7 @@ static void bench_is_sorted_until(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_sorted_vector(n);
   for (auto _ : state) {
-    parlay::is_sorted_until(v, std::less<int>{});
+    parlay::is_sorted_until(v, std::less<long long>{});
   }
 }
 
@@ -202,7 +202,7 @@ static void bench_lexicographical_compare(benchmark::State& state) {
   auto v = random_vector(n);
   auto v2 = v;
   for (auto _ : state) {
-    parlay::lexicographical_compare(v, v2, std::less<int>{});
+    parlay::lexicographical_compare(v, v2, std::less<long long>{});
   }
 }
 
@@ -210,18 +210,18 @@ static void bench_max_element(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
   for (auto _ : state) {
-    parlay::max_element(v, std::less<int>{});
+    parlay::max_element(v, std::less<long long>{});
   }
 }
 
 static void bench_merge(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = random_vector(n);
-  auto v2 = random_vector(n);
+  auto v = random_sorted_vector(n);
+  auto v2 = random_sorted_vector(n);
   auto r = parlay::make_range(std::begin(v), std::end(v));
   auto r2 = parlay::make_range(std::begin(v2), std::end(v2));
   for (auto _ : state) {
-    parlay::merge(r, r2, std::less<int>{});
+    parlay::merge(r, r2, std::less<long long>{});
   }
 }
 
@@ -229,7 +229,7 @@ static void bench_min_element(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
   for (auto _ : state) {
-    parlay::min_element(v, std::less<int>{});
+    parlay::min_element(v, std::less<long long>{});
   }
 }
 
@@ -237,7 +237,7 @@ static void bench_minmax_element(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
   for (auto _ : state) {
-    parlay::minmax_element(v, std::less<int>{});
+    parlay::minmax_element(v, std::less<long long>{});
   }
 }
 
@@ -256,7 +256,7 @@ static void bench_nth_element(benchmark::State& state) {
   auto v = random_vector(n);
   auto r = parlay::make_range(std::begin(v), std::end(v));
   for (auto _ : state) {
-    parlay::kth_smallest(r, n/2, std::less<int>{});
+    parlay::kth_smallest(r, n/2, std::less<long long>{});
   }
 }
 
@@ -273,7 +273,7 @@ static void bench_reduce(benchmark::State& state) {
   auto v = random_vector(n);
   auto r = parlay::make_range(std::begin(v), std::end(v));
   for (auto _ : state) {
-    parlay::reduce(r, parlay::addm<int>{});
+    parlay::reduce(r, parlay::addm<long long>{});
   }
 }
 
@@ -304,8 +304,8 @@ static void bench_rotate(benchmark::State& state) {
 
 static void bench_search(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = std::vector<int>(n, 1);
-  auto v2 = std::vector<int>(n/2, 1);
+  auto v = std::vector<long long>(n, 1);
+  auto v2 = std::vector<long long>(n/2, 1);
   for (auto _ : state) {
     parlay::search(v, v2);
   }
@@ -315,19 +315,19 @@ static void bench_search(benchmark::State& state) {
 // from the integer sort benchmark
 static void bench_sort(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = random_double_pairs(n);
+  auto v = random_long_long_pairs(n);
   auto r = parlay::make_range(&v[0], &v[0] + v.size());
   for (auto _ : state) {
-    parlay::sort(r, std::less<std::pair<double,double>>{});
+    parlay::sort(r, std::less<std::pair<long long,long long>>{});
   }
 }
 
 static void bench_stable_sort(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = random_double_pairs(n);
+  auto v = random_long_long_pairs(n);
   auto r = parlay::make_range(&v[0], &v[0] + v.size());
   for (auto _ : state) {
-    parlay::stable_sort(r, std::less<std::pair<double,double>>{});
+    parlay::stable_sort(r, std::less<std::pair<long long,long long>>{});
   }
 }
 
@@ -335,7 +335,7 @@ static void bench_transform_exclusive_scan(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
   for (auto _ : state) {
-    parlay::transform_exclusive_scan(v, parlay::addm<int>{}, [](auto x) { return 2*x; });
+    parlay::transform_exclusive_scan(v, parlay::addm<long long>{}, [](auto x) { return 2*x; });
   }
 }
 
@@ -343,7 +343,7 @@ static void bench_transform_reduce(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
   for (auto _ : state) {
-    parlay::transform_reduce(v, parlay::addm<int>{}, [](auto x) { return 2*x; });
+    parlay::transform_reduce(v, parlay::addm<long long>{}, [](auto x) { return 2*x; });
   }
 }
 
@@ -352,7 +352,7 @@ static void bench_unique(benchmark::State& state) {
   auto v = random_sorted_vector(n);
   auto r = parlay::make_range(std::begin(v), std::end(v));
   for (auto _ : state) {
-    parlay::unique(r, std::equal_to<int>{});
+    parlay::unique(r, std::equal_to<long long>{});
   }
 }
 

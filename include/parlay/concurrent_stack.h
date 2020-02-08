@@ -13,16 +13,15 @@
 #ifndef PARLAY_CONCURRENT_STACK_H_
 #define PARLAY_CONCURRENT_STACK_H_
 
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 #include <iostream>
 #include "utilities.h"
 
 namespace parlay {
 
-template<typename T>
+template <typename T>
 class concurrent_stack {
-
   struct Node {
     T value;
     Node* next;
@@ -42,57 +41,57 @@ class concurrent_stack {
     CAS_t head;
 
     size_t length(Node* n) {
-      if (n == NULL) return 0;
-      else return n->length;
+      if (n == NULL)
+        return 0;
+      else
+        return n->length;
     }
 
-  public:
+   public:
     prim_concurrent_stack() {
       head.NC.node = NULL;
       head.NC.counter = 0;
       std::atomic_thread_fence(std::memory_order_seq_cst);
     }
 
-    size_t size() {
-      return length(head.NC.node);}
+    size_t size() { return length(head.NC.node); }
 
-    void push(Node* newNode){
+    void push(Node* newNode) {
       CAS_t oldHead, newHead;
       do {
-	oldHead = head;
-	newNode->next = oldHead.NC.node;
-	newNode->length = length(oldHead.NC.node) + 1;
-	//std::atomic_thread_fence(std::memory_order_release);
-	std::atomic_thread_fence(std::memory_order_seq_cst);
-	newHead.NC.node = newNode;
-	newHead.NC.counter = oldHead.NC.counter + 1;
-      } while (!__sync_bool_compare_and_swap_16(&head.x,oldHead.x, newHead.x));
+        oldHead = head;
+        newNode->next = oldHead.NC.node;
+        newNode->length = length(oldHead.NC.node) + 1;
+        // std::atomic_thread_fence(std::memory_order_release);
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+        newHead.NC.node = newNode;
+        newHead.NC.counter = oldHead.NC.counter + 1;
+      } while (!__sync_bool_compare_and_swap_16(&head.x, oldHead.x, newHead.x));
     }
     Node* pop() {
       Node* result;
       CAS_t oldHead, newHead;
       do {
-	oldHead = head;
-	result = oldHead.NC.node;
-	if (result == NULL) return result;
-	newHead.NC.node = result->next;
-	newHead.NC.counter = oldHead.NC.counter + 1;
-      } while (!__sync_bool_compare_and_swap_16(&head.x,oldHead.x, newHead.x));
+        oldHead = head;
+        result = oldHead.NC.node;
+        if (result == NULL) return result;
+        newHead.NC.node = result->next;
+        newHead.NC.counter = oldHead.NC.counter + 1;
+      } while (!__sync_bool_compare_and_swap_16(&head.x, oldHead.x, newHead.x));
 
       return result;
     }
-  };// __attribute__((aligned(16)));
+  };  // __attribute__((aligned(16)));
 
   prim_concurrent_stack a;
   prim_concurrent_stack b;
 
  public:
-
-  size_t size() { return a.size();}
+  size_t size() { return a.size(); }
 
   void push(T v) {
     Node* x = b.pop();
-    if (!x) x = (Node*) malloc(sizeof(Node));
+    if (!x) x = (Node*)malloc(sizeof(Node));
     x->value = v;
     a.push(x);
   }
@@ -113,7 +112,7 @@ class concurrent_stack {
   }
 
   concurrent_stack() {}
-  ~concurrent_stack() { clear();}
+  ~concurrent_stack() { clear(); }
 };
 
 }  // namespace parlay
