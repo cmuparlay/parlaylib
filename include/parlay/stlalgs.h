@@ -3,9 +3,11 @@
 #ifndef PARLAY_STLALGS_H_
 #define PARLAY_STLALGS_H_
 
+#include "binary_search.h"
 #include "kth_smallest.h"
 #include "sample_sort.h"
 #include "sequence_ops.h"
+#include "hash_table.h"
 
 namespace parlay {
 
@@ -92,11 +94,12 @@ size_t find_if_not(Seq const &S, UnaryPred p) {
 
 template <class Seq1, class Seq2, class BinaryPred>
 size_t find_first_of(Seq1 const &S1, Seq2 const &S2, BinaryPred p) {
+  using T = typename Seq2::value_type;
+  auto sorted_S2 = sort(S2, std::less<T>());
+  auto n = S2.size();
   return find_if_index(S1.size(), [&](size_t i) {
-    size_t j;
-    for (j = 0; j < S2.size(); j++)
-      if (p(S1[i], S2[j])) break;
-    return (j < S2.size());
+    auto ind = binary_search(sorted_S2, S1[i], std::less<T>());
+    return ind != n && p(S1[i], sorted_S2[i]);
   });
 }
 
