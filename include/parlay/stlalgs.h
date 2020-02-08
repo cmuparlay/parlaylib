@@ -7,7 +7,6 @@
 #include "kth_smallest.h"
 #include "sample_sort.h"
 #include "sequence_ops.h"
-#include "hash_table.h"
 
 namespace parlay {
 

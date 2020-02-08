@@ -21,46 +21,7 @@
 #include <parlay/sequence_ops.h>
 #include <parlay/stlalgs.h>
 
-// ------------------------- Utilities -------------------------------
-
-// Thread local random number generation
-thread_local size_t rand_i = 0;
-thread_local parlay::random rng(std::hash<std::thread::id>{}(std::this_thread::get_id()));
-size_t my_rand() { return rng.ith_rand(rand_i++); }
-
-// Generate a random vector of length n consisting
-// of random non-negative 32-bit integers.
-// taking them mod 2^32.
-std::vector<long long> random_vector(size_t n) {
-  std::vector<long long> a(n);
-  parlay::parallel_for(0, n, [&](auto i) {
-    a[i] = my_rand(); // % (1LL << 32);
-  });
-  return a;
-}
-
-// Generate a random sorted vector of length n consisting
-// of random non-negative 32-bit integers.
-std::vector<long long> random_sorted_vector(size_t n) {
-  auto a = random_vector(n);
-  parlay::parallel_for(0, n, [&](auto i) {
-    a[i] = a[i] % (std::numeric_limits<long long>::max() / n);
-  });
-  std::vector<long long> p(n);
-  std::partial_sum(std::begin(a), std::end(a), std::begin(p));
-  return p;
-}
-
-// Generate a random vector of pairs of (0,1) long longs.
-std::vector<std::pair<long long,long long>> random_long_long_pairs(size_t n) {
-  auto x = random_vector(n), y = random_vector(n);
-  std::vector<std::pair<long long,long long>> a(n);
-  parlay::parallel_for(0, n, [&](auto i) {
-    a[i].first = 1.0 * x[i] / std::numeric_limits<long long>::max();
-    a[i].second = 1.0 * y[i] / std::numeric_limits<long long>::max();
-  });
-  return a;
-}
+#include "util.h"
 
 // ------------------------- Benchmarks -------------------------------
 
@@ -313,11 +274,9 @@ static void bench_search(benchmark::State& state) {
   }
 }
 
-// Use pairs of doubles to distinguish the benchmark
-// from the integer sort benchmark
 static void bench_sort(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = random_long_long_pairs(n);
+  auto v = random_pairs(n);
   auto r = parlay::make_range(&v[0], &v[0] + v.size());
   for (auto _ : state) {
     parlay::sort(r, std::less<std::pair<long long,long long>>{});
@@ -326,7 +285,7 @@ static void bench_sort(benchmark::State& state) {
 
 static void bench_stable_sort(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = random_long_long_pairs(n);
+  auto v = random_pairs(n);
   auto r = parlay::make_range(&v[0], &v[0] + v.size());
   for (auto _ : state) {
     parlay::stable_sort(r, std::less<std::pair<long long,long long>>{});
