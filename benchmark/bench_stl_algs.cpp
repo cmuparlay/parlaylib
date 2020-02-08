@@ -269,8 +269,11 @@ static void bench_rotate(benchmark::State& state) {
 
 static void bench_search(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = std::vector<long long>(n, 1);
-  auto v2 = std::vector<long long>(n/2, 1);
+  auto v = std::vector<long long>(n, 0);
+  parlay::parallel_for(1, n/100, [&](auto i) {
+    v[i*100-1] = 1;
+  });
+  auto v2 = std::vector<long long>(100, 0);
   for (auto _ : state) {
     parlay::search(v, v2);
   }
