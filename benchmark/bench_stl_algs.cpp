@@ -247,7 +247,8 @@ static void bench_remove_if(benchmark::State& state) {
   auto v = random_vector(n);
   auto r = parlay::make_range(std::begin(v), std::end(v));
   for (auto _ : state) {
-    auto ret = parlay::remove_if(r, [](auto x) { return x % 2 == 0; } );
+    /* note that we do not remove in-place here */
+    parlay::remove_if(r, [](auto x) { return x % 2 == 0; } );
   }
 }
 
@@ -316,6 +317,9 @@ static void bench_transform_reduce(benchmark::State& state) {
 static void bench_unique(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_sorted_vector(n);
+  parlay::parallel_for(0, n, [&] (size_t i) {
+    v[i] = v[i] >> 56UL;
+  });
   auto r = parlay::make_range(std::begin(v), std::end(v));
   for (auto _ : state) {
     parlay::unique(r, std::equal_to<long long>{});
