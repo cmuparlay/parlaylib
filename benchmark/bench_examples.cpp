@@ -119,10 +119,10 @@ double integrate(size_t num_samples, double start, double end, F f) {
 static void bench_integrate(benchmark::State& state) {
   size_t n = state.range(0);
   auto f = [&] (double q) -> double {
-    return 2*q;
+    return pow(q, 2);
   };
   double start = static_cast<double>(0);
-  double end = static_cast<double>(n) / 1000;
+  double end = static_cast<double>(1000);
   for (auto _ : state) {
     integrate(n, start, end, f);
   }
