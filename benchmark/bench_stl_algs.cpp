@@ -28,6 +28,7 @@
 static void bench_adjacent_find(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
+  v[n/5] = v[n/5 + 1];
   for (auto _ : state) {
     parlay::adjacent_find(v);
   }
@@ -87,8 +88,9 @@ static void bench_exclusive_scan(benchmark::State& state) {
 static void bench_find(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
+  auto query = v[n/5];
   for (auto _ : state) {
-    parlay::find(v, 0);
+    parlay::find(v, query);
   }
 }
 
@@ -155,7 +157,7 @@ static void bench_is_sorted(benchmark::State& state) {
 static void bench_is_sorted_until(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_sorted_vector(n);
-  v[n/10] = 0;
+  v[n/5] = 0;
   for (auto _ : state) {
     parlay::is_sorted_until(v, std::less<long long>{});
   }

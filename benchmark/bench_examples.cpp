@@ -106,6 +106,29 @@ static void bench_mcss(benchmark::State& state) {
   }
 }
 
+// ---------------------------- Integration ----------------------------
+
+template <typename F>
+double integrate(size_t num_samples, double start, double end, F f) {
+   double delta = (end-start)/num_samples;
+   auto samples = parlay::delayed_seq<double>(num_samples, [&] (size_t i) {
+        return f(start + delta/2 + i * delta); });
+   return delta * parlay::reduce(samples, parlay::addm<double>());
+}
+
+static void bench_integrate(benchmark::State& state) {
+  size_t n = state.range(0);
+  auto f = [&] (double q) -> double {
+    return 2*q;
+  };
+  double start = static_cast<double>(0);
+  double end = static_cast<double>(n) / 1000;
+  for (auto _ : state) {
+    integrate(n, start, end, f);
+  }
+}
+
+
 // ------------------------- Registration -------------------------------
 
 #define BENCH(NAME, N) BENCHMARK(bench_ ## NAME)->UseRealTime()->Unit(benchmark::kMillisecond)->Arg(N);
@@ -113,4 +136,5 @@ static void bench_mcss(benchmark::State& state) {
 BENCH(wordcount, 100000000);
 BENCH(prime_sieve, 10000000);
 BENCH(mcss, 100000000);
+BENCH(integrate, 100000000);
 
