@@ -14,8 +14,10 @@ namespace parlay {
 using uchar = unsigned char;
 using uint = unsigned int;
 
-template <class T, class KT>
-void radix_step_(T* A, T* B, KT* keys, size_t* counts, size_t n, size_t m) {
+template <class RangeT, class KT>
+void radix_step_(RangeT A, RangeT B, KT* keys,
+		 size_t* counts, size_t m) {
+  size_t n = A.size();
   for (size_t i = 0; i < m; i++) counts[i] = 0;
   for (size_t j = 0; j < n; j++) {
     size_t k = keys[j];
@@ -46,13 +48,15 @@ void to_heap_order(T* In, T* Out, size_t root, size_t l, size_t r) {
 }
 
 // returns true if all equal
-template <class T, class binOp>
-bool get_buckets(range<T*> A, uchar* buckets, binOp f, size_t rounds) {
+template <class RangeT, class binOp>
+bool get_buckets(RangeT A, uchar* buckets, binOp f, size_t rounds) {
+  using T = typename RangeT::value_type;
   size_t n = A.size();
   size_t num_buckets = (1 << rounds);
   size_t over_sample = 1 + n / (num_buckets * 400);
   size_t sample_set_size = num_buckets * over_sample;
   size_t num_pivots = num_buckets - 1;
+  
   auto sample_set =
       sequence<T>(sample_set_size, [&](size_t i) { return A[hash64(i) % n]; });
 
@@ -75,8 +79,8 @@ bool get_buckets(range<T*> A, uchar* buckets, binOp f, size_t rounds) {
   return false;
 }
 
-template <class T, class binOp>
-void base_sort(range<T*> in, range<T*> out, binOp f, bool stable,
+template <class RangeT, class binOp>
+void base_sort(RangeT in, RangeT out, binOp f, bool stable,
                bool inplace) {
   if (stable)
     merge_sort_(in, out, f, inplace);
@@ -87,8 +91,8 @@ void base_sort(range<T*> in, range<T*> out, binOp f, bool stable,
   }
 }
 
-template <class T, class binOp>
-void bucket_sort_r(range<T*> in, range<T*> out, binOp f, bool stable,
+template <class RangeT, class binOp>
+void bucket_sort_r(RangeT in, RangeT out, binOp f, bool stable,
                    bool inplace) {
   size_t n = in.size();
   size_t bits = 4;
@@ -102,7 +106,7 @@ void bucket_sort_r(range<T*> in, range<T*> out, binOp f, bool stable,
     if (get_buckets(in, buckets, f, bits)) {
       base_sort(in, out, f, stable, inplace);
     } else {
-      radix_step_(in.begin(), out.begin(), buckets, counts, n, num_buckets);
+      radix_step_(in, out, buckets, counts, num_buckets);
       auto loop = [&](size_t j) {
         size_t start = counts[j];
         size_t end = (j == num_buckets - 1) ? n : counts[j + 1];
@@ -114,8 +118,9 @@ void bucket_sort_r(range<T*> in, range<T*> out, binOp f, bool stable,
   }
 }
 
-template <class T, class binOp>
-void bucket_sort(range<T*> in, binOp f, bool stable = false) {
+template <class RangeT, class binOp>
+void bucket_sort(RangeT in, binOp f, bool stable = false) {
+  using T = typename RangeT::value_type;
   size_t n = in.size();
   auto tmp = sequence<T>::no_init(n);
   bucket_sort_r(in.slice(), tmp.slice(), f, stable, true);

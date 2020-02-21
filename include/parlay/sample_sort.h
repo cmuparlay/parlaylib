@@ -55,8 +55,9 @@ void merge_seq(E* sA, E* sB, s_size_t* sC, size_t lA, size_t lB, Compare f) {
   *sC = eA - sA;
 }
 
-template <typename T, typename Compare>
-void seq_sort_inplace(range<T*> A, const Compare& less, bool stable) {
+template <typename RangeT, typename Compare>
+void seq_sort_inplace(RangeT A, const Compare& less, bool stable) {
+  using T = typename RangeT::value_type;
 #if defined(OPENMP)
   quicksort_serial(A.begin(), A.size(), less);
 #else
