@@ -4,42 +4,32 @@
 
 #include <parlay/random.h>
 #include <parlay/utilities.h>
-
-// Thread local random number generation
-thread_local size_t rand_i = 0;
-thread_local parlay::random rng(std::hash<std::thread::id>{}(std::this_thread::get_id()));
-size_t my_rand() { return rng.ith_rand(rand_i++); }
+#include <parlay/stlalgs.h>
 
 // Generate a random vector of length n consisting
 // of random non-negative 64-bit integers.
-std::vector<long long> random_vector(size_t n) {
-  std::vector<long long> a(n);
-  parlay::parallel_for(size_t(0), n, [&](auto i) {
-    a[i] = my_rand();
-  });
-  return a;
+parlay::sequence<long long> random_vector(size_t n) {
+  parlay::random r(0);
+  return parlay::sequence<long long>(n, [&] (auto i) {
+      return r.ith_rand(i);
+    });
 }
 
 // Generate a random sorted vector of length n consisting
 // of random non-negative 64-bit integers.
-std::vector<long long> random_sorted_vector(size_t n) {
+parlay::sequence<long long> random_sorted_vector(size_t n) {
   auto a = random_vector(n);
-  parlay::parallel_for(size_t(0), n, [&](auto i) {
-    a[i] = a[i] % (std::numeric_limits<long long>::max() / n);
-  });
-  std::vector<long long> p(n);
-  std::partial_sum(std::begin(a), std::end(a), std::begin(p));
-  return p;
+  parlay::sort_inplace(a.slice(), [] (long long a, long long b) {
+      return a < b;}); //std::less<long long>());
+  return a;
 }
 
 // Generate a random vector of pairs of 64-bit integers.
-std::vector<std::pair<long long, long long>> random_pairs(size_t n) {
-  auto x = random_vector(n), y = random_vector(n);
-  std::vector<std::pair<long long, long long>> a(n);
-  parlay::parallel_for(size_t(0), n, [&](auto i) {
-    a[i] = std::make_pair(my_rand(), my_rand());
-  });
-  return a;
+parlay::sequence<std::pair<long long, long long>> random_pairs(size_t n) {
+  parlay::random r(0);
+  return parlay::sequence<std::pair<long long, long long>>(n, [&] (size_t i) {
+      return std::make_pair(r.ith_rand(2*i), r.ith_rand(2*i + 1));
+    });
 }
 
 #endif  // PARLAY_BENCHMARK_UTIL_H_

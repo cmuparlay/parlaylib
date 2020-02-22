@@ -191,7 +191,8 @@ std::vector<size_t> default_sizes() {
   size_t log_max_size = parlay::log2_up(getMemorySize() / 64);
 
   std::vector<size_t> sizes;
-  for (size_t i = log_min_size; i <= log_max_size; i++) sizes.push_back(1 << i);
+  for (size_t i = log_min_size; i <= log_max_size; i++)
+    sizes.push_back(((size_t) 1) << i);
   return sizes;
 }
 

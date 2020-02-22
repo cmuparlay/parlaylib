@@ -4,11 +4,18 @@
 
 #include <initializer_list>
 #include <iterator>
-
-#include "alloc.h"
-#include "utilities.h"
+#include <iostream>
+#include "parallel.h"
 
 namespace parlay {
+
+#ifdef PARLAY_ALLOC_H_
+  template <typename T>
+  using _default_allocator = parlay::allocator<T>;
+#else
+  template <typename T>
+  using _default_allocator = std::allocator<T>;
+#endif
 
 #ifdef __cpp_concepts
 template <typename T>
@@ -35,6 +42,11 @@ concept bool Range = Seq<T>&& requires(T t, size_t u) {
 
 constexpr bool report_copy = false;
 constexpr bool bounds_check = false;
+
+template <typename T>
+inline void _assign_uninitialized(T& a, const T& b) {
+  new (static_cast<void*>(std::addressof(a))) T(b);
+}
 
 template <typename Iterator>
 struct range {
@@ -101,7 +113,7 @@ auto dseq(size_t n, F f) -> delayed_sequence<decltype(f(0)), F> {
   return delayed_sequence<T, F>(n, f);
 }
 
-template <typename T, typename Allocator = parlay::allocator<T>>
+template <typename T, typename Allocator = _default_allocator<T>>
 struct sequence {
  public:
   using value_type = T;
@@ -158,19 +170,18 @@ struct sequence {
   // constructs a sequence of length sz initialized with v
   sequence(const size_t sz, value_type v) {
     T* start = alloc_no_init(sz);
-    parallel_for(
-        0, sz, [=](size_t i) { assign_uninitialized(start[i], (value_type)v); },
-        300);
+    parallel_for(0, sz, [=] (size_t i) {
+	_assign_uninitialized(start[i], (value_type)v); },
+      300);
   };
 
   // constructs a sequence by applying f to indices [0, ..., sz-1]
   template <typename Func>
   sequence(const size_t sz, Func f, size_t granularity = 300) {
     value_type* start = alloc_no_init(sz);
-    parallel_for(
-        0, sz,
-        [&](size_t i) { assign_uninitialized<value_type>(start[i], f(i)); },
-        granularity);
+    parallel_for(0, sz, [&](size_t i) {
+	_assign_uninitialized<value_type>(start[i], f(i)); },
+      granularity);
   };
 
   // construct a sequence from initializer list
@@ -370,8 +381,9 @@ struct sequence {
   template <class Iter>
   void copy_from(Iter a, size_t sz) {
     value_type* start = alloc_no_init(sz);
-    parallel_for(0, sz, [&](size_t i) { assign_uninitialized(start[i], a[i]); },
-                 1000);
+    parallel_for(0, sz, [&](size_t i) {
+	_assign_uninitialized(start[i], a[i]); },
+      1000);
   }
 };
 

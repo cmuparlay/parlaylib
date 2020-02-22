@@ -2,9 +2,6 @@
 #ifndef PARLAY_BUCKET_SORT_H_
 #define PARLAY_BUCKET_SORT_H_
 
-#include <algorithm>
-
-#include "alloc.h"
 #include "quicksort.h"
 #include "sequence_ops.h"
 #include "utilities.h"
@@ -107,7 +104,7 @@ void bucket_sort_r(RangeT in, RangeT out, binOp f, bool stable,
       base_sort(in, out, f, stable, inplace);
     } else {
       radix_step_(in, out, buckets, counts, num_buckets);
-      auto loop = [&](size_t j) {
+      auto loop = [&] (size_t j) {
         size_t start = counts[j];
         size_t end = (j == num_buckets - 1) ? n : counts[j + 1];
         bucket_sort_r(out.slice(start, end), in.slice(start, end), f, stable,

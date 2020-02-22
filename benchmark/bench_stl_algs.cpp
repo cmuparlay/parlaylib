@@ -14,9 +14,10 @@
 
 #include <benchmark/benchmark.h>
 
+#include <parlay/parallel.h>
+#include <parlay/alloc.h>
 #include <parlay/merge.h>
 #include <parlay/monoid.h>
-#include <parlay/parallel.h>
 #include <parlay/random.h>
 #include <parlay/sequence_ops.h>
 #include <parlay/stlalgs.h>
@@ -223,7 +224,8 @@ static void bench_nth_element(benchmark::State& state) {
   auto r = parlay::make_range(std::begin(v), std::end(v));
   for (auto _ : state) {
     auto kth = parlay::kth_smallest(r, n/2, std::less<long long>{});
-    auto fl = parlay::delayed_seq<bool>(n, [&] (size_t i) { return r[i] <= kth; });
+    auto fl = parlay::delayed_seq<bool>(n, [&] (size_t i) {
+	return r[i] <= kth; });
     parlay::split_two(r, fl);
   }
 }
@@ -273,11 +275,10 @@ static void bench_rotate(benchmark::State& state) {
 
 static void bench_search(benchmark::State& state) {
   size_t n = state.range(0);
-  auto v = std::vector<long long>(n, 0);
-  parlay::parallel_for(1, n/100, [&](auto i) {
-    v[i*100-1] = 1;
+  parlay::sequence<long long> v(n, [&] (auto i) {
+      return i%100 == 99;
   });
-  auto v2 = std::vector<long long>(100, 0);
+  parlay::sequence<long long> v2(100, (long long) 0);
   for (auto _ : state) {
     parlay::search(v, v2);
   }
@@ -286,18 +287,16 @@ static void bench_search(benchmark::State& state) {
 static void bench_sort(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_pairs(n);
-  auto r = parlay::make_range(&v[0], &v[0] + v.size());
   for (auto _ : state) {
-    parlay::sort(r, std::less<std::pair<long long,long long>>{});
+    parlay::sort(v, std::less<std::pair<long long,long long>>{});
   }
 }
 
 static void bench_stable_sort(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_pairs(n);
-  auto r = parlay::make_range(&v[0], &v[0] + v.size());
   for (auto _ : state) {
-    parlay::stable_sort(r, std::less<std::pair<long long,long long>>{});
+    parlay::stable_sort(v, std::less<std::pair<long long,long long>>{});
   }
 }
 
