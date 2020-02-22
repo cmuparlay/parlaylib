@@ -186,7 +186,7 @@ struct pool_allocator {
 // ****************************************
 
 // these are bucket sizes used by the default allocator.
-std::vector<size_t> default_sizes() {
+inline std::vector<size_t> default_sizes() {
   size_t log_min_size = 4;
   size_t log_max_size = parlay::log2_up(getMemorySize() / 64);
 
@@ -271,88 +271,58 @@ block_allocator type_allocator<T>::allocator = block_allocator(sizeof(T));
 //    ifdefed to either use malloc or the pbbs allocator
 // ****************************************
 
-#ifdef USEMALLOC
+// #ifdef USEMALLOC
 
-#include <malloc.h>
+// #include <malloc.h>
 
-struct __mallopt {
-  __mallopt() {
-    mallopt(M_MMAP_MAX, 0);
-    mallopt(M_TRIM_THRESHOLD, -1);
-  }
-};
+// struct __mallopt {
+//   __mallopt() {
+//     mallopt(M_MMAP_MAX, 0);
+//     mallopt(M_TRIM_THRESHOLD, -1);
+//   }
+// };
 
-__mallopt __mallopt_var;
+// __mallopt __mallopt_var;
 
-inline void* my_alloc(size_t i) { return malloc(i); }
-inline void my_free(void* p) { free(p); }
-void allocator_clear() {}
-void allocator_reserve(size_t bytes) {}
+// inline void* my_alloc(size_t i) { return malloc(i); }
+// inline void my_free(void* p) { free(p); }
+// void allocator_clear() {}
+// void allocator_reserve(size_t bytes) {}
 
-#else
+// #else
 
-constexpr size_t size_offset = 1;  // in size_t sized words
+// constexpr size_t size_offset = 1;  // in size_t sized words
 
-// needs to be at least size_offset * size_offset(size_t)
-inline size_t header_size(size_t n) {  // in bytes
-  return (n >= 1024) ? 64 : (n & 15) ? 8 : (n & 63) ? 16 : 64;
-}
+// // needs to be at least size_offset * size_offset(size_t)
+// inline size_t header_size(size_t n) {  // in bytes
+//   return (n >= 1024) ? 64 : (n & 15) ? 8 : (n & 63) ? 16 : 64;
+// }
 
-// allocates and tags with a header (8, 16 or 64 bytes) that contains the size
-void* my_alloc(size_t n) {
-  size_t hsize = header_size(n);
-  void* ptr;
-  ptr = default_allocator.allocate(n + hsize);
-  void* r = (void*)(((char*)ptr) + hsize);
-  *(((size_t*)r) - size_offset) = n;  // puts size in header
-  return r;
-}
+// // allocates and tags with a header (8, 16 or 64 bytes) that contains the size
+// void* my_alloc(size_t n) {
+//   size_t hsize = header_size(n);
+//   void* ptr;
+//   ptr = default_allocator.allocate(n + hsize);
+//   void* r = (void*)(((char*)ptr) + hsize);
+//   *(((size_t*)r) - size_offset) = n;  // puts size in header
+//   return r;
+// }
 
-// reads the size, offsets the header and frees
-void my_free(void* ptr) {
-  size_t n = *(((size_t*)ptr) - size_offset);
-  size_t hsize = header_size(n);
-  if (hsize > (1ul << 48)) {
-    std::cout << "corrupted header in my_free" << std::endl;
-    throw std::bad_alloc();
-  }
-  default_allocator.deallocate((void*)(((char*)ptr) - hsize), n + hsize);
-}
+// // reads the size, offsets the header and frees
+// void my_free(void* ptr) {
+//   size_t n = *(((size_t*)ptr) - size_offset);
+//   size_t hsize = header_size(n);
+//   if (hsize > (1ul << 48)) {
+//     std::cout << "corrupted header in my_free" << std::endl;
+//     throw std::bad_alloc();
+//   }
+//   default_allocator.deallocate((void*)(((char*)ptr) - hsize), n + hsize);
+// }
 
-void allocator_clear() { default_allocator.clear(); }
+// void allocator_clear() { default_allocator.clear(); }
 
-void allocator_reserve(size_t bytes) { default_allocator.reserve(bytes); }
-#endif
-
-// ****************************************
-//    common across allocators (key routines used by sequences)
-// ****************************************
-
-// Does not initialize the array
-template <typename E>
-E* new_array_no_init(size_t n) {
-  return (E*)my_alloc(n * sizeof(E));
-}
-
-// Initializes in parallel
-template <typename E>
-E* new_array(size_t n) {
-  E* r = new_array_no_init<E>(n);
-  if (!std::is_trivially_default_constructible<E>::value)
-    parallel_for(0, n, [&](size_t i) { new ((void*)(r + i)) E; });
-  return r;
-}
-
-inline void free_array(void* a) { my_free(a); }
-
-// Destructs in parallel
-template <typename E>
-void delete_array(E* A, size_t n) {
-  // C++14 -- supported by gnu C++11
-  if (!std::is_trivially_destructible<E>::value)
-    parallel_for(0, n, [&](size_t i) { A[i].~E(); });
-  my_free(A);
-}
+// void allocator_reserve(size_t bytes) { default_allocator.reserve(bytes); }
+// #endif
 
 }  // namespace parlay
 

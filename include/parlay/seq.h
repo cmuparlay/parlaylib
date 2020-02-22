@@ -117,7 +117,6 @@ template <typename T, typename Allocator = _default_allocator<T>>
 struct sequence {
  public:
   using value_type = T;
-  // using iterator = T*;
 
   sequence() { empty(); }
 
@@ -137,24 +136,6 @@ struct sequence {
     val = a.val;
     a.empty();
   }
-
-  // // copy assignment
-  // sequence& operator = (const sequence& a) {
-  //   if (report_copy && !a.is_small())
-  // 	cout << "copy assignment: len: " << a.size()
-  // 	     << " element size: " << sizeof(T) << endl;
-  //   if (this != &a) {
-  // 	clear();
-  // 	if (a.is_small()) val = a.val;
-  // 	else copy_from(a.val.large.s, a.val.large.n);}
-  //   return *this;
-  // }
-
-  // //move assignment
-  // sequence& operator = (sequence&& a) {
-  //   if (this != &a) {clear(); val = a.val; a.empty();}
-  //   return *this;
-  // }
 
   // unified copy/move assignment using the copy and swap idiom
   // now safer for exceptions
@@ -261,7 +242,6 @@ struct sequence {
   // and sets pointer to Null (empty());
   void clear_no_destruct() {
     if (size() != 0 && !is_small())
-      // pbbs::free_array(val.large.s);
       Allocator().deallocate(val.large.s, val.large.n);
     empty();
   }
@@ -362,7 +342,6 @@ struct sequence {
       val.small[flag_loc] = sz;
       return (value_type*)&val.small;
     } else {
-      // T* loc = (sz == 0) ? NULL : pbbs::new_array_no_init<T>(sz);
       value_type* loc = (sz == 0) ? NULL : Allocator().allocate(sz);
       set(loc, sz);
       return loc;

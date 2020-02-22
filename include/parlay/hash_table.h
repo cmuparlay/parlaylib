@@ -47,7 +47,7 @@ class hashtable {
   size_t m;
   eType empty;
   HASH hashStruct;
-  eType* TA;
+  sequence<eType> TA;
   using index = long;
 
   static void clear(eType* A, size_t n, eType v) {
@@ -74,14 +74,13 @@ class hashtable {
   // Size is the maximum number of values the hash table will hold.
   // Overfilling the table could put it into an infinite loop.
   hashtable(size_t size, HASH hashF, float load = 1.5)
-      : m(((size_t)100.0 + load * size)),
-        empty(hashF.empty()),
-        hashStruct(hashF),
-        TA(new_array_no_init<eType>(m)) {
-    clear(TA, m, empty);
+    : m(((size_t)100.0 + load * size)),
+      empty(hashF.empty()),
+      hashStruct(hashF),
+      TA(sequence<eType>(m, empty)) {
   }
 
-  ~hashtable() { delete_array(TA, m); };
+  ~hashtable() { };
 
   // prioritized linear probing
   //   a new key will bump an existing key up if it has a higher priority
