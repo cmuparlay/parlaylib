@@ -41,9 +41,6 @@ target_compile_features(parlay INTERFACE cxx_std_17)
 find_package(Threads REQUIRED)
 target_link_libraries(parlay INTERFACE Threads::Threads)
 
-# GCC requires linking against libatomic
-target_link_libraries(parlay INTERFACE atomic)
-
 # Enable 16 byte CAS
 target_compile_definitions(parlay INTERFACE -DMCX16)
 target_compile_options(parlay INTERFACE -mcx16)

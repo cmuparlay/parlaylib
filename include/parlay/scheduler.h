@@ -46,9 +46,10 @@ struct Deque {
   using qidx = unsigned int;
   using tag_t = unsigned int;
 
-  // use std::atomic<age_t> for atomic access. struct is
-  // 64 bits, so it can be used atomically without locks
-  struct age_t {
+  // use std::atomic<age_t> for atomic access.
+  // Note: Explicit alignment specifier required
+  // to ensure that Clang inlines atomic loads.
+  struct alignas(int64_t) age_t {
     tag_t tag;
     qidx top;
   };
