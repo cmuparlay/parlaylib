@@ -11,10 +11,10 @@
 namespace parlay {
 
 // number of threads available from OS
-static int num_workers();
+inline int num_workers();
 
 // id of running thread, should be numbered from [0...num-workers)
-static int worker_id();
+inline int worker_id();
 
 // parallel loop from start (inclusive) to end (exclusive) running
 // function f.
@@ -23,14 +23,14 @@ static int worker_id();
 //      if 0 (default) then the scheduler will decide
 //    conservative uses a safer scheduler
 template <typename F>
-static void parallel_for(long start, long end, F f, long granularity = 0,
+inline void parallel_for(long start, long end, F f, long granularity = 0,
                          bool conservative = false);
 
 // runs the thunks left and right in parallel.
 //    both left and write should map void to void
 //    conservative uses a safer scheduler
 template <typename Lf, typename Rf>
-static void par_do(Lf left, Rf right, bool conservative = false);
+inline void par_do(Lf left, Rf right, bool conservative = false);
 
 }  // namespace parlay
 

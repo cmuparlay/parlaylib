@@ -7,7 +7,14 @@ namespace parlay {
 
 // Use a "Meyer singleton" to provide thread-safe 
 // initialisation and destruction of the scheduler
-static fork_join_scheduler& __get_scheduler() {
+//
+// The declaration of __get_scheduler must be extern
+// inline to ensure that there is only ever one copy
+// of the scheduler. This is guaranteed by the C++
+// standard: 7.1.2/4 A static local variable in an
+// extern inline function always refers to the same
+// object.
+extern inline fork_join_scheduler& __get_scheduler() {
   static fork_join_scheduler fj;
   return fj;
 }
