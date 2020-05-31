@@ -5,7 +5,7 @@
 #include <numeric>
 #include <thread>
 
-// Use OMP for scheduling
+// Use Cilk for scheduling
 #define PARLAY_CILK
 #include <parlay/parallel.h>
 
