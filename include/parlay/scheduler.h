@@ -22,6 +22,7 @@
 #ifndef PARLAY_SCHEDULER_H_
 #define PARLAY_SCHEDULER_H_
 
+#include <cstdint>
 #include <cstdlib>
 
 #include <algorithm>
@@ -33,7 +34,6 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <type_traits>
 #include <vector>
 
 #include "internal/work_stealing_job.h"
