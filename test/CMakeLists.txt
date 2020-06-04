@@ -3,6 +3,7 @@ include(dtest)
 # ------------------------------ Range and Slice -------------------------------
 
 add_dtests(NAME test_range FILES test_range.cpp LIBS parlay)
+add_dtests(NAME test_slice FILES test_slice.cpp LIBS parlay)
 
 # ----------------------------- Parlay Scheduling ------------------------------
 

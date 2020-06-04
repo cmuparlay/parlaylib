@@ -10,4 +10,5 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/parallel.h
     ${PARLAY_INCLUDE_DIR}/parlay/range.h
     ${PARLAY_INCLUDE_DIR}/parlay/scheduler.h
+    ${PARLAY_INCLUDE_DIR}/parlay/slice.h
 )

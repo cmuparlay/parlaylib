@@ -5,6 +5,7 @@
 
 #include <parlay/parallel.h>
 #include <parlay/range.h>
+#include <parlay/slice.h>
 
 template<PARLAY_RANGE_TYPE R>
 auto f(R&& r) {
@@ -34,4 +35,10 @@ TEST(TestRange, TestVector) {
 TEST(TestRange, TestArray) {
   PARLAY_RANGE a = std::array<int, 3>{1,2,3};
   ASSERT_EQ(a.size(), 3);
+}
+
+TEST(TestRange, TestSlice) {
+  std::vector<int> a = {1,2,3};
+  PARLAY_RANGE s = parlay::make_slice(a);
+  ASSERT_EQ(s.size(), 3);
 }
