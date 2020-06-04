@@ -13,7 +13,6 @@
 
 Checks:            'bugprone-*,
                     clang-analyzer-*,
-                    modernize-*,
                     performance-*,
                     portability-*'
 WarningsAsErrors:  ''
