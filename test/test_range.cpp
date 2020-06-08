@@ -3,6 +3,7 @@
 #include <numeric>
 #include <vector>
 
+#include <parlay/delayed_sequence.h>
 #include <parlay/parallel.h>
 #include <parlay/range.h>
 #include <parlay/slice.h>
@@ -35,6 +36,11 @@ TEST(TestRange, TestVector) {
 TEST(TestRange, TestArray) {
   PARLAY_RANGE a = std::array<int, 3>{1,2,3};
   ASSERT_EQ(a.size(), 3);
+}
+
+TEST(TestRange, TestDelayedSequence) {
+  PARLAY_RANGE a = parlay::delayed_sequence<int>(10, [](size_t x) -> int { return x; });
+  ASSERT_EQ(a.size(), 10);
 }
 
 TEST(TestRange, TestSlice) {

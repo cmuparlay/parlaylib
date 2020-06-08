@@ -3,6 +3,7 @@
 #include <numeric>
 #include <vector>
 
+#include <parlay/delayed_sequence.h>
 #include <parlay/parallel.h>
 #include <parlay/slice.h>
 
@@ -90,5 +91,13 @@ TEST(TestSlice, TestMutableView) {
     s[i] += 1;
     ASSERT_EQ(s[i], i+1);
     ASSERT_EQ(a[i], i+1);
+  }
+}
+
+TEST(TestSlice, TestDelayedSequence) {
+  parlay::delayed_sequence<int> ds(1000, [](int x) { return x; });
+  auto s = parlay::make_slice(ds);
+  for (size_t i = 0; i < 1000; i++) {
+    ASSERT_EQ(s[i], ds[i]);
   }
 }
