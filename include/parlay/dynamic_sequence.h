@@ -159,10 +159,6 @@ struct _sequence_base {
           set_capacity(capacity);
         }
 
-      ~capacitated_buffer() {
-        assert(buffer == nullptr);
-      }
-
       void free_buffer(allocator_type& a) {
         a.deallocate((value_type*)buffer, get_capacity() + offset);
         buffer = nullptr;
@@ -194,6 +190,8 @@ struct _sequence_base {
       uint64_t n : 63;
       uint64_t flag : 1;
       
+      ~_long() = delete;
+      
       size_t capacity() const {
         return buffer.get_capacity();
       }
@@ -215,6 +213,7 @@ struct _sequence_base {
       unsigned char flag : 1;
       
       _short() : n(0), flag(0) { }
+      ~_short() = delete;
       
       size_t capacity() const {
         return (sizeof(_long) - 1) / sizeof(value_type);
@@ -233,6 +232,7 @@ struct _sequence_base {
     // By default, we store an empty short sequence
     union _data_impl {
       _data_impl() : small() { }
+      ~_data_impl() { }
       _long large;
       _short small;
     } _data;
@@ -379,7 +379,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   }
 
   // destroys all elements and frees all memory
-  ~sequence() = default;
+  ~sequence() { };
 
   iterator begin() { return impl.data(); }
   iterator end() { return impl.data() + impl.size(); }
@@ -624,9 +624,19 @@ class sequence : protected _sequence_base<T, Allocator> {
   }
   
   void assign(std::initializer_list<value_type> l) {
-    impl.clear();
-    initialize_range(std::begin(l), std::end(l),
-      std::iterator_traits<decltype(std::begin(l))>::iterator_category());
+    assign(std::begin(l), std::end(l));
+  }
+  
+  template<PARLAY_RANGE_TYPE R>
+  void assign(R&& r) {
+    if (std::is_lvalue_reference<R>::value) {
+      return assign(std::begin(r), std::end(r));
+    }
+    else {
+      return assign(std::make_move_iterator(std::begin(r)),
+              std::make_move_iterator(std::end(r)));
+    }
+    assign(std::begin(r), std::end(r));
   }
 
   value_type& front() { return *begin(); }
