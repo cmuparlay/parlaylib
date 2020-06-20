@@ -580,8 +580,17 @@ class sequence : protected _sequence_base<T, Allocator> {
       return emplace_back(std::forward<Args>(args)...);
     }
     else {
-      impl.ensure_capacity(size() + 1);  // Required to make sure that the
-      auto the_tail = pop_tail(p);       // emplace_back iterator remains valid
+      // p might be invalidated when the capacity is increased,
+      // so we need to remember where it occurs in the sequence
+      auto pos = p - begin();
+      impl.ensure_capacity(size() + 1);
+      p = begin() + pos;
+
+      // Note that "it" is guaranteed to remain valid even after
+      // the call to move_append since we ensured that there was
+      // sufficient capacity already, so a second reallocation will
+      // never happen after this point
+      auto the_tail = pop_tail(p);
       auto it = emplace_back(std::forward<Args>(args)...);
       move_append(the_tail);
       return it;
@@ -799,6 +808,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   template<typename _ForwardIterator>
   void initialize_range(_ForwardIterator first, _ForwardIterator last, std::forward_iterator_tag) {
     auto n = std::distance(first, last);
+    assert(n >= 0);
     impl.ensure_capacity(n);
     std::uninitialized_copy(first, last, impl.data());
     impl.set_size(n);
@@ -807,6 +817,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   template<typename _RandomAccessIterator>
   void initialize_range(_RandomAccessIterator first, _RandomAccessIterator last, std::random_access_iterator_tag) {
     auto n = std::distance(first, last);
+    assert(n >= 0);
     impl.ensure_capacity(n);
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {
@@ -898,7 +909,16 @@ class sequence : protected _sequence_base<T, Allocator> {
   }
   
   iterator insert_n(iterator p, size_t n, const value_type& v) {
+    // p might be invalidated when the capacity is increased,
+    // so we have to remember where it is in the sequence
+    auto pos = p - begin();
     impl.ensure_capacity(size() + n);
+    p = begin() + pos;
+
+    // Note that "it" is guaranteed to remain valid even after
+    // the call to move_append since we ensured that there was
+    // sufficient capacity already, so a second reallocation will
+    // never happen after this point
     auto the_tail = pop_tail(p);
     auto it = append_n(n, v);
     move_append(the_tail);
