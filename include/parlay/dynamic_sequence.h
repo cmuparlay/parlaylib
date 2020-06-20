@@ -1,6 +1,27 @@
 // A sequence is a dynamic array supporting parallel
 // modification operations. It can be thought of as a
 // parallel version of std::vector.
+//
+// It has the following features:
+// - Parallel modification operations
+// - It is 16 bytes**, so it can be compare-exchanged (CAS'd)
+//   if a 16-byte CAS operation is available.
+// - It supports small-size optimization (SSO).
+//   * For sequences whose elements fit in <= 15 bytes, they
+//     will be stored inline with no heap allocation
+//   * SSO is only applied for trivial types, to ensure
+//     that small sequences are still CASable.
+// - It supports the interface of std::vector, so it can be
+//   used as a parallel drop-in replacement
+// - It supports custom memory allocators
+// - Supports sequences of size up to 2^48 - 1
+//
+// ** parlay::sequence is only 16 bytes with compilers / platforms
+// that support GNU C's packed struct extension, and when the allocator
+// is stateless. On other compilers or platforms, parlay::sequence might
+// be 24 bytes, plus the size of the allocator.
+
+#include <cstring>
 
 #include <initializer_list>
 #include <iterator>
@@ -14,41 +35,63 @@
 namespace parlay {
 
 // This base class handles memory allocation for sequences.
-// We inherit from Allocator to employ empty base optimization
-// so that the size of the sequence type is not increased when
-// the allocator is stateless.
 //
-// This base class handles whether the sequence is big or small
+// It also handles whether the sequence is big or small
 // (small size optimized). Conversion from small to large and
 // all allocations are handled here. The main sequence class
-// handles the higher level logic that is agnostic to the memory
-// under the hood.
+// handles the higher level logic.
 template <typename T, typename Allocator>
 struct _sequence_base {
+
+  // The maximum length of a sequence is 2^48 - 1.
+  constexpr static uint64_t _max_size = (1LL << 48LL) - 1LL;
 
   using allocator_type = Allocator;
   using byte_type = unsigned char;
   using value_type = T;
 
   // This class handles internal memory allocation and whether
-  // the sequence is big or small. Currently only works for
-  // little endian systems. Specifically, the union type stores
-  // one of two bitfields,
+  // the sequence is big or small. We inherit from Allocator to
+  // employ empty base optimization so that the size of the
+  // sequence type is not increased when the allocator is stateless.
+  // The memory layout is organized roughly as follows:
   //
-  // LONG:
-  //  void*          buffer     ---->   size_t        capacity
-  //  uint64_t : 63  n                  value_type[]  elements
-  //  uint64_t : 1   flag
+  // struct {
   //
-  // SHORT:
-  //  unsigned char[15]  buffer
-  //  unsigned char : 7  n
-  //  unsigned char : 1  flag
+  //   union {
+  //     // Long sequence
+  //     struct {
+  //       void*            buffer     --->   size_t        capacity
+  //       uint64_t         n : 48            value_type[]  elements
+  //     }
+  //     // Short sequence
+  //     struct {
+  //       unsigned char    buffer[15]
+  //     }
+  //   }
   //
-  // And we just pray that the flag bits line up and go in the
-  // same bit for both of them. This should work for little endian
-  // systems in general, but it's technically undefined behaviour
-  // because it requires type punning the union.
+  //   uint8_t              small_n : 7
+  //   uint8_t              flag    : 1
+  // }
+  //
+  // The union contains either a long sequence, which is a pointer
+  // to a heap-allocated buffer prepended with its capacity, and a
+  // 48-bit integer that stores the current size of the sequence.
+  // Alternatively, it contains a short sequence, which is 15 bytes
+  // of inline memory used to store elements of type T. The 1 bit
+  // flag indicates whether the sequence is long (1) or short (0).
+  // If the sequence is short, its size is stored in the 7-bit size
+  // variable. This means that a zero-initialized object represents
+  // a valid empty sequence. Short size optimization is only enabled
+  // for trivial types, which means that a sequence is trivially
+  // movable (i.e. you can move it by copying its raw bytes and zeroing
+  // out the old one).
+  //
+  // On compilers / platforms that support the GNU C packed struct
+  // extension, all of this fits into 16 bytes. This means that sequences
+  // can be compare-exchanged (CAS'ed) on platforms that support a
+  // 16-byte CAS operation. On other compilers / platforms, a sequence
+  // might be 24 bytes.
   //
   struct _sequence_impl : public allocator_type {
 
@@ -75,44 +118,39 @@ struct _sequence_base {
     // Move assignment
     _sequence_impl& operator=(_sequence_impl&& other) noexcept {
       clear();
-      move_from(other);
+      move_from(std::move(other));
     }
 
-    // Swap a sequence backend with another
+    // Swap a sequence backend with another. Since small sequences
+    // must contain trivial types, a sequence can always be swapped
+    // by swapping raw bytes.
     void swap(_sequence_impl& other) {
-      auto tmp = _sequence_impl(std::move(other));
-      other = std::move(*this);
-      *this = std::move(tmp);
+      // Swap raw bytes
+      byte_type tmp[sizeof(*this)];
+      std::memcpy(&tmp, this, sizeof(*this));
+      std::memcpy(this, &other, sizeof(*this));
+      std::memcpy(&other, &tmp, sizeof(*this));
     }
-    
+
     // Destroy a sequence backend
     ~_sequence_impl() {
       clear();
     }
 
     // Move the contents of other into this sequence
-    // Assumes that this sequence is empty.
+    // Assumes that this sequence is empty. Callers
+    // should call clear() before calling this function.
     void move_from(_sequence_impl&& other) {
-      if (other.is_small()) {
-        // Move initialize the sequence from the elements of the old one
-        auto buffer = data();
-        auto other_buffer = other._data.small.data();
-        parallel_for(0, other._data.small.n, [&](size_t i) {
-          initialize(buffer + i, std::move(other_buffer[i]));
-          other_buffer[i].~value_type();
-        });
-        _data.small.n = other._data.small.n;
-        _data.small.flag = 0;
-      }
-      else {
-        // Steal the buffer from the other sequence.
-        // Moving individual elements is not required
-        _data.large.buffer = other._data.large.buffer;
-        _data.large.n = other._data.large.n;
-        _data.large.flag = 1;        
-      }
-      other._data.small.n = 0;
-      other._data.small.flag = 0;
+      assert(size() == 0);
+      // Since small sequences contain trivial types,
+      // moving them just means copying their raw bytes,
+      // and zeroing out the old sequence. For large
+      // sequences, this will copy their buffer pointer
+      // and size.
+      std::memcpy(this, &other, sizeof(*this));
+      
+      other._data.flag = 0;
+      other._data.small_n = 0;
     }
 
     // Call the destructor on all elements
@@ -121,7 +159,7 @@ struct _sequence_base {
         auto n = size();
         auto current_buffer = data();
         parallel_for(0, n, [&](size_t i) {
-          current_buffer[i].~value_type();
+          destroy(&current_buffer[i]);
         });
       }
     }
@@ -129,12 +167,15 @@ struct _sequence_base {
     // Destroy all elements, free the buffer (if any)
     // and set the sequence to the empty sequence
     void clear() {
-      destroy_all();
+      // Small sequences can only hold trivial
+      // types, so no destruction is necessary
       if (!is_small()) {
+        destroy_all();
         _data.large.buffer.free_buffer(*this);
       }
-      _data.small.n = 0;
-      _data.small.flag = 0;
+      
+      _data.flag = 0;
+      _data.small_n = 0;
     }
 
     // A buffer of value_types with a size_t prepended
@@ -146,7 +187,7 @@ struct _sequence_base {
     // the allocator to do so, so free_buffer(alloc) must be
     // called manually before the buffer is destroyed!
     struct capacitated_buffer {
-      
+
       // It takes "offset" objects of (value_type) to have enough
       // memory to store a size_t. We use this to prepend the buffer
       // with its capacity.
@@ -160,7 +201,9 @@ struct _sequence_base {
         }
 
       void free_buffer(allocator_type& a) {
-        a.deallocate((value_type*)buffer, get_capacity() + offset);
+        assert(buffer != nullptr);
+        auto size = get_capacity() + offset;
+        a.deallocate((value_type*)buffer, size);
         buffer = nullptr;
       }
 
@@ -184,13 +227,28 @@ struct _sequence_base {
     };
 
     // A not-short-size-optimized sequence. Elements are
-    // stored in a heap-allocated buffer.
+    // stored in a heap-allocated buffer. We use a 48-bit
+    // integer to store the size so that there is room left
+    // over for the flag to discriminate between small and
+    // large sequences.
+    
+    // This requires the GNU C packed struct extension which
+    // might not always be available, in which case this object
+    // will be 16 bytes, making the entire sequence 24 bytes.
     struct _long {
       capacitated_buffer buffer;
-      uint64_t n : 63;
-      uint64_t flag : 1;
+      uint64_t n : 48;
       
+      _long() = delete;
       ~_long() = delete;
+      
+      void set_size(size_t new_size) {
+        n = new_size;
+      }
+      
+      size_t get_size() const {
+        return n;
+      }
       
       size_t capacity() const {
         return buffer.get_capacity();
@@ -203,20 +261,32 @@ struct _sequence_base {
       const value_type* data() const {
         return buffer.data();
       }
-    };
+    }
+#if defined(__GNUC__)
+    // Pack this struct into 14 bytes if possible
+    __attribute__((packed))
+#endif
+    ;
 
     // A short-size-optimized sequence. Elements are stored
     // inline in the data structure.
     struct _short {
       byte_type buffer[15];
-      unsigned char n : 7;
-      unsigned char flag : 1;
       
-      _short() : n(0), flag(0) { }
+      _short() = delete;
       ~_short() = delete;
       
       size_t capacity() const {
-        return (sizeof(_long) - 1) / sizeof(value_type);
+        // The following check prevents the use of small-size
+        // optimization for non-trivial types. This is important
+        // because we want small-size optimized sequences to be
+        // trivially copyable/movable.
+        if (std::is_trivial<value_type>::value) {
+          return (sizeof(_long) - 1) / sizeof(value_type);
+        }
+        else {
+          return 0;
+        }
       }
       
       value_type* data() {
@@ -228,25 +298,35 @@ struct _sequence_base {
       }
     };
 
-    // Store either a short or a long sequence
-    // By default, we store an empty short sequence
-    union _data_impl {
-      _data_impl() : small() { }
-      ~_data_impl() { }
-      _long large;
-      _short small;
+    // Store either a short or a long sequence. By default, we
+    // store an empty short sequence, which can be represented
+    // by a zero-initialized object.
+    //
+    // Flag is used to discriminate which type is currently stored
+    // by the union. 1 corresponds to a long sequence, 0 to a short
+    // sequence.
+    struct _data_impl {
+      _data_impl() : small_n(0), flag(0) { }
+      ~_data_impl() { };
+      
+      union {
+        _short small;
+        _long large;
+      };
+      
+      uint8_t small_n : 7;
+      uint8_t flag : 1;
     } _data;
 
     // Returns true if the sequence is in small size mode
     bool is_small() const {
-      return sizeof(value_type) <= sizeof(size_t) &&
-        _data.small.flag == 0;
+      return _data.flag == 0;
     }
 
     // Return the size of the sequence
     size_t size() const {
-      if (is_small()) return _data.small.n;
-      else return _data.large.n;
+      if (is_small()) return _data.small_n;
+      else return _data.large.get_size();
     }
 
     // Return the capacity of the sequence
@@ -267,8 +347,8 @@ struct _sequence_base {
 
     void set_size(size_t new_size) {
       assert(new_size <= capacity());
-      if (is_small()) _data.small.n = new_size;
-      else _data.large.n = new_size;
+      if (is_small()) _data.small_n = new_size;
+      else _data.large.set_size(new_size);
     }
     
     // Constructs am object of type value_type at an
@@ -281,7 +361,7 @@ struct _sequence_base {
     
     // Destroy the object of type value_type pointed to by p
     void destroy(value_type* p) {
-      std::allocator_traits<allocator_type>::destroy(p);
+      std::allocator_traits<allocator_type>::destroy(*this, p);
     }
 
     // Return a reference to the i'th element
@@ -301,7 +381,6 @@ struct _sequence_base {
       // Allocate a new buffer and move the current
       // contents of the sequence into the new buffer
       if (current < desired) {
-        
         // Allocate a new buffer that is at least
         // 50% larger than the old capacity
         size_t new_capacity = std::max(desired,
@@ -324,9 +403,9 @@ struct _sequence_base {
         }
         
         // Assign the new stuff
+        _data.flag = 1;  // large sequence
         _data.large.buffer = new_buffer;
-        _data.large.n = n;
-        _data.large.flag = 1;
+        _data.large.set_size(n);
       }
     }
   };
@@ -352,14 +431,19 @@ class sequence : protected _sequence_base<T, Allocator> {
   using value_type = T;
   using reference = T&;
   using const_reference = const T&;
+  using difference_type = std::ptrdiff_t;
+  using size_type = size_t;
+  using pointer = T*;
+  using const_pointer = const T*;
+  
   using iterator = T*;
   using const_iterator = const T*;
   using reverse_iterator = std::reverse_iterator<iterator>;
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-  using difference_type = std::ptrdiff_t;
-  using size_type = size_t;
+  
   
   using _sequence_base<T, Allocator>::impl;
+  using _sequence_base<T, Allocator>::_max_size;
 
   // creates an empty sequence
   sequence() : _sequence_base<T, Allocator>() { }
@@ -374,7 +458,7 @@ class sequence : protected _sequence_base<T, Allocator> {
 
   // copy and move assignment
   sequence<T, Allocator>& operator=(sequence<T, Allocator> b) {
-    std::swap(*this, b);
+    swap(b);
     return *this;
   }
 
@@ -414,7 +498,14 @@ class sequence : protected _sequence_base<T, Allocator> {
 
   size_type size() const { return impl.size(); }
 
-  size_type max_size() const { return (1LL << (sizeof(size_type)-1)) - 1; }
+  size_type max_size() const {
+    if (std::numeric_limits<size_type>::max() < _max_size) {
+      return std::numeric_limits<size_type>::max();
+    }
+    else {
+      return _max_size;
+    }
+  }
 
   bool empty() const { return size() == 0; }
   
@@ -518,9 +609,9 @@ class sequence : protected _sequence_base<T, Allocator> {
     return append_dispatch(first, last, std::is_integral<_Iterator>());
   }
   
-  template<PARLAY_RANGE_TYPE R>
+  template<typename R>
   iterator append(R&& r) {
-    if (std::is_lvalue_reference<R>::value) {
+    if constexpr (std::is_lvalue_reference<R>::value) {
       return append(std::begin(r), std::end(r));
     }
     else {
@@ -550,9 +641,9 @@ class sequence : protected _sequence_base<T, Allocator> {
     return insert_dispatch(p, i, j, std::is_integral<_Iterator>());
   }
 
-  template<PARLAY_RANGE_TYPE R>
+  template<typename R>
   iterator insert(iterator p, R&& r) {
-    if (std::is_lvalue_reference<R>::value) {
+    if constexpr (std::is_lvalue_reference<R>::value) {
       return insert(p, std::begin(r), std::end(r));
     }
     else {
@@ -627,9 +718,9 @@ class sequence : protected _sequence_base<T, Allocator> {
     assign(std::begin(l), std::end(l));
   }
   
-  template<PARLAY_RANGE_TYPE R>
+  template<typename R>
   void assign(R&& r) {
-    if (std::is_lvalue_reference<R>::value) {
+    if constexpr (std::is_lvalue_reference<R>::value) {
       return assign(std::begin(r), std::end(r));
     }
     else {
@@ -645,20 +736,20 @@ class sequence : protected _sequence_base<T, Allocator> {
   const value_type& front() const { return *begin(); }
   const value_type& back() const { return *(end() - 1); }
   
-  sequence<value_type> head(iterator p) {
-    return sequence<value_type>{begin(), p};
+  auto head(iterator p) {
+    return make_slice(begin(), p);
   }
   
-  sequence<value_type> head(size_t len) {
-    return sequence<value_type>{begin(), begin() + len};
+  auto head(size_t len) {
+    return make_slice(begin(), begin() + len);
   }
 
-  sequence<value_type> tail(iterator p) {
-    return sequence<value_type>{p, end()};
+  auto tail(iterator p) {
+    return make_slice(p, end());
   }
   
-  sequence<value_type> tail(size_t len) {
-    return tail(end() - len);
+  auto tail(size_t len) {
+    return make_slice(end() - len, end());
   }
 
   // Remove all elements of the subsequence beginning at the element
@@ -734,7 +825,8 @@ class sequence : protected _sequence_base<T, Allocator> {
   
   template<typename _Iterator>
   void initialize_dispatch(_Iterator first, _Iterator last, std::false_type) {
-    initialize_range(first, last, std::iterator_traits<_Iterator>::iterator_category());
+    initialize_range(first, last, typename
+      std::iterator_traits<_Iterator>::iterator_category());
   }
   
   // Use tag dispatch to distinguish between the (n, value)
@@ -742,12 +834,13 @@ class sequence : protected _sequence_base<T, Allocator> {
   
   template<typename _Integer>
   iterator append_dispatch(_Integer first, _Integer last, std::true_type) {
-    append_n(first, last);
+    return append_n(first, last);
   }
   
   template<typename _Iterator>
   iterator append_dispatch(_Iterator first, _Iterator last, std::false_type) {
-    append_range(first, last, std::iterator_traits<_Iterator>::iterator_category());
+    return append_range(first, last, typename
+      std::iterator_traits<_Iterator>::iterator_category());
   }
   
   iterator append_n(size_t n, const value_type& t) {
@@ -787,6 +880,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     impl.ensure_capacity(size() + n);
     auto it = end();
     parallel_for(0, n, [&](size_t i) { impl.initialize(it + i, first[i]); });
+    impl.set_size(size() + n);
     return it;
   }
   
@@ -822,26 +916,21 @@ class sequence : protected _sequence_base<T, Allocator> {
   }
   
   // Append the given range, moving its elements into this sequence
-  template<PARLAY_RANGE_TYPE R>
+  template<typename R>
   void move_append(R&& r) {
-    append(std::make_move_iterator(std::begin(r)), std::make_move_iterator(std::end(r)));
+    append(std::make_move_iterator(std::begin(r)),
+      std::make_move_iterator(std::end(r)));
   }
   
 };
 
-// exchange the values of a and b
-template<typename T, typename Allocator>
-inline void swap(sequence<T, Allocator>& a, sequence<T, Allocator>& b) {
-  a.swap(b);
-}
-
 // Convert an arbitrary range into a sequence
-template<PARLAY_RANGE_TYPE R>
+template<typename R>
 auto to_sequence(R&& r) -> sequence<typename std::remove_const<
                             typename std::remove_reference<
                             decltype(*std::begin(std::declval<R&>()))
                             >::type>::type> {
-  if (std::is_lvalue_reference<R>::value) {
+  if constexpr (std::is_lvalue_reference<R>::value) {
     return {std::begin(r), std::end(r)};
   }
   else {
@@ -851,3 +940,13 @@ auto to_sequence(R&& r) -> sequence<typename std::remove_const<
 }
 
 }  // namespace parlay
+
+namespace std {
+
+// exchange the values of a and b
+template<typename T, typename Allocator>
+inline void swap(parlay::sequence<T, Allocator>& a, parlay::sequence<T, Allocator>& b) {
+  a.swap(b);
+}
+
+}  // namespace std
