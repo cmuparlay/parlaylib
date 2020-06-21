@@ -224,6 +224,23 @@ TEST(TestSequence, TestSubscriptConst) {
   }
 }
 
+TEST(TestSequence, TestAt) {
+  auto s = parlay::sequence<int>{1,2,3,4,5};
+  for (int i = 0; i < 5; i++) {
+    ASSERT_EQ(s.at(i), i+1);
+    s.at(i) = i * 2;
+    ASSERT_EQ(s.at(i), i * 2);
+  }
+}
+
+TEST(TestSequence, TestAtConst) {
+  auto s = parlay::sequence<int>{1,2,3,4,5};
+  const auto& sr = s;
+  for (int i = 0; i < 5; i++) {
+    ASSERT_EQ(sr.at(i), i+1);
+  }
+}
+
 TEST(TestSequence, TestEmplace) {
   auto s = parlay::sequence<int>{1,2,4,5};
   auto s2 = parlay::sequence<int>{1,2,3,4,5};
@@ -331,4 +348,287 @@ TEST(TestSequence, TestAppendMoveNonTrivial) {
   ASSERT_TRUE(s2[0] == nullptr);
   ASSERT_EQ(*s1[0], 5);
   ASSERT_EQ(*s1[1], 6);
+}
+
+TEST(TestSequence, TestInsert) {
+  auto s = parlay::sequence<int>{1,2,4,5};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5};
+  ASSERT_FALSE(s.empty());
+  s.insert(s.begin() + 2, 3);
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestInsertMove) {
+  auto s = parlay::sequence<std::unique_ptr<int>>{};
+  s.emplace_back(std::make_unique<int>(1));
+  s.emplace_back(std::make_unique<int>(3));
+  ASSERT_FALSE(s.empty());
+  s.insert(s.begin() + 1, std::make_unique<int>(2));
+  ASSERT_EQ(*s[1], 2);
+}
+
+TEST(TestSequence, TestInsertCopies) {
+  auto s = parlay::sequence<int>{1,2,4,5};
+  auto s2 = parlay::sequence<int>{1,2,3,3,3,3,3,4,5};
+  ASSERT_FALSE(s.empty());
+  s.insert(s.begin() + 2, 5, 3);
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestInsertIteratorRange) {
+  auto s = parlay::sequence<int>{1,2,8,9};
+  auto s2 = parlay::sequence<int>{3,4,5,6,7};
+  auto s3 = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  ASSERT_FALSE(s.empty());
+  s.insert(s.begin() + 2, s2.begin(), s2.end());
+  ASSERT_EQ(s, s3);
+}
+
+TEST(TestSequence, TestInsertRange) {
+  auto s = parlay::sequence<int>{1,2,8,9};
+  auto s2 = parlay::sequence<int>{3,4,5,6,7};
+  auto s3 = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  ASSERT_FALSE(s.empty());
+  s.insert(s.begin() + 2, s2);
+  ASSERT_EQ(s, s3);
+}
+
+TEST(TestSequence, TestInsertInitializerList) {
+  auto s = parlay::sequence<int>{1,2,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  ASSERT_FALSE(s.empty());
+  s.insert(s.begin() + 2, {3,4,5,6,7});
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestErase) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,4,6,7,8,9};
+  ASSERT_FALSE(s.empty());
+  s.erase(s.begin() + 4);
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestEraseIteratorRange) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,7,8,9};
+  ASSERT_FALSE(s.empty());
+  s.erase(s.begin() + 3, s.begin() + 6);
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestPopBack) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5,6,7,8};
+  ASSERT_FALSE(s.empty());
+  s.pop_back();
+  ASSERT_EQ(s.size(), 8);
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestSize) {
+  auto s = parlay::sequence<int>{};
+  ASSERT_EQ(s.size(), 0);
+  s.push_back(1);
+  ASSERT_EQ(s.size(), 1);
+  s.pop_back();
+  ASSERT_EQ(s.size(), 0);
+  s.append(5, 10);
+  ASSERT_EQ(s.size(), 5);
+  s.erase(s.begin() + 1, s.begin() + 3);
+  ASSERT_EQ(s.size(), 3);
+  s.insert(s.begin(), 10, 3);
+  ASSERT_EQ(s.size(), 13);
+}
+
+TEST(TestSequence, TestClear) {
+  auto s = parlay::sequence<int>{1,2,3};
+  ASSERT_FALSE(s.empty());
+  s.clear();
+  ASSERT_TRUE(s.empty());
+}
+
+TEST(TestSequence, TestResizeUp) {
+  auto s = parlay::sequence<int>{1,2,3};
+  ASSERT_EQ(s.size(), 3);
+  s.resize(10);
+  ASSERT_EQ(s.size(), 10);
+  for (int i = 3; i < 10; i++) {
+    ASSERT_EQ(s[i], 0);
+  }
+}
+
+TEST(TestSequence, TestResizeValue) {
+  auto s = parlay::sequence<int>{1,2,3};
+  ASSERT_EQ(s.size(), 3);
+  s.resize(10, 42);
+  ASSERT_EQ(s.size(), 10);
+  for (int i = 3; i < 10; i++) {
+    ASSERT_EQ(s[i], 42);
+  }
+}
+
+TEST(TestSequence, TestResizeDown) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5};
+  ASSERT_FALSE(s.empty());
+  s.resize(5);
+  ASSERT_EQ(s.size(), 5);
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestAssignIteratorRange) {
+  auto s = parlay::sequence<int>{};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5,6};
+  s.assign(s2.begin(), s2.end());
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestAssignRange) {
+  auto s = parlay::sequence<int>{};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5,6};
+  s.assign(s2);
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestAssignInitializerList) {
+  auto s = parlay::sequence<int>{};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5,6};
+  s.assign({1,2,3,4,5,6});
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestAssignCopies) {
+  auto s = parlay::sequence<int>{};
+  s.assign(10, 42);
+  ASSERT_EQ(s.size(), 10);
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(s[i], 42);
+  }
+}
+
+TEST(TestSequence, TestFront) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  ASSERT_EQ(s.front(), 1);
+  s.front() = 42;
+  ASSERT_EQ(s.front(), 42);
+  ASSERT_EQ(s[0], 42);
+}
+
+TEST(TestSequence, TestFrontConst) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  const auto& sr = s;
+  ASSERT_EQ(sr.front(), 1);
+}
+
+TEST(TestSequence, TestBack) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  ASSERT_EQ(s.back(), 9);
+  s.back() = 42;
+  ASSERT_EQ(s.back(), 42);
+  ASSERT_EQ(s[8], 42);
+}
+
+TEST(TestSequence, TestBackConst) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  const auto& sr = s;
+  ASSERT_EQ(sr.back(), 9);
+}
+
+TEST(TestSequence, TestHead) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5};
+  auto h = s.head(5);
+  ASSERT_EQ(h.size(), 5);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), h.begin()));
+  for (auto& x : h) { x++; }
+  for (int i = 0; i < 5; i++) {
+    ASSERT_EQ(s[i], s2[i]+1);
+  }
+}
+
+TEST(TestSequence, TestHeadConst) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5};
+  auto h = s.head(5);
+  ASSERT_EQ(h.size(), 5);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), h.begin()));
+}
+
+TEST(TestSequence, TestTail) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{5,6,7,8,9};
+  auto t = s.tail(5);
+  ASSERT_EQ(t.size(), 5);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), t.begin()));
+  for (auto& x : t) { x++; }
+  for (int i = 0; i < 5; i++) {
+    ASSERT_EQ(s[i+4], s2[i]+1);
+  }
+}
+
+TEST(TestSequence, TestTailConst) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{5,6,7,8,9};
+  auto t = s.tail(5);
+  ASSERT_EQ(t.size(), 5);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), t.begin()));
+}
+
+TEST(TestSequence, TestHead2) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5};
+  auto h = s.head(s.begin() + 5);
+  ASSERT_EQ(h.size(), 5);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), h.begin()));
+  for (auto& x : h) { x++; }
+  for (int i = 0; i < 5; i++) {
+    ASSERT_EQ(s[i], s2[i]+1);
+  }
+}
+
+TEST(TestSequence, TestHeadConst2) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5};
+  auto h = s.head(s.begin() + 5);
+  ASSERT_EQ(h.size(), 5);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), h.begin()));
+}
+
+TEST(TestSequence, TestTail2) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{5,6,7,8,9};
+  auto t = s.tail(s.end() - 5);
+  ASSERT_EQ(t.size(), 5);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), t.begin()));
+  for (auto& x : t) { x++; }
+  for (int i = 0; i < 5; i++) {
+    ASSERT_EQ(s[i+4], s2[i]+1);
+  }
+}
+
+TEST(TestSequence, TestTailConst2) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{5,6,7,8,9};
+  auto t = s.tail(s.end() - 5);
+  ASSERT_EQ(t.size(), 5);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), t.begin()));
+}
+
+TEST(TestSequence, TestPopTail) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{5,6,7,8,9};
+  auto t = s.pop_tail(5);
+  ASSERT_EQ(s.size(), 4);
+  ASSERT_EQ(t.size(), 5);
+  ASSERT_EQ(s2, t);
+}
+
+TEST(TestSequence, TestPopTail2) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{5,6,7,8,9};
+  auto t = s.pop_tail(s.end() - 5);
+  ASSERT_EQ(s.size(), 4);
+  ASSERT_EQ(t.size(), 5);
+  ASSERT_EQ(s2, t);
 }
