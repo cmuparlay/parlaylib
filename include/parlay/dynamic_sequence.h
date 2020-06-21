@@ -31,6 +31,7 @@
 
 #include "parallel.h"
 #include "range.h"
+#include "slice.h"
 
 namespace parlay {
 
@@ -699,7 +700,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto buffer = impl.data();
     if (new_size < current) {
       parallel_for(new_size, current, [&](size_t i) {
-        impl.destroy(&buffer[i], v);
+        impl.destroy(&buffer[i]);
       });
     }
     else {
@@ -758,6 +759,24 @@ class sequence : protected _sequence_base<T, Allocator> {
   }
   
   auto tail(size_t len) {
+    return make_slice(end() - len, end());
+  }
+  
+  // Const versions of slices
+  
+  auto head(iterator p) const {
+    return make_slice(begin(), p);
+  }
+  
+  auto head(size_t len) const {
+    return make_slice(begin(), begin() + len);
+  }
+
+  auto tail(iterator p) const {
+    return make_slice(p, end());
+  }
+  
+  auto tail(size_t len) const {
     return make_slice(end() - len, end());
   }
 
@@ -922,7 +941,6 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto the_tail = pop_tail(p);
     auto it = append_n(n, v);
     move_append(the_tail);
-    impl.set_size(size() + n);
     return it;
   }
   
