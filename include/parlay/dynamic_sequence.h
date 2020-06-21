@@ -106,7 +106,7 @@ struct _sequence_base {
       auto buffer = data();
       auto other_buffer = other.data();
       parallel_for(0, n, [&](size_t i) {
-        initialize(buffer + i, other_buffer[i]);
+        initialize_explicit(buffer + i, other_buffer[i]);
       });
       set_size(n);
     }
@@ -360,6 +360,23 @@ struct _sequence_base {
         *this, p, std::forward<Args>(args)...);
     }
     
+    // Perform a copy or move initialization. This is equivalent
+    // to initialize(v) above, except that it will not allow
+    // accidental implicit conversions. This prevents someone
+    // from, for example, attempting to append {1,2,3} to a 
+    // sequence of vectors, and ending up with 3 new vectors
+    // of length 1,2,3 respectively.
+    
+    void initialize_explicit(value_type* p, const value_type& v) {
+      std::allocator_traits<allocator_type>::construct(
+        *this, p, v);
+    }
+    
+    void initialize_explicit(value_type* p, value_type&& v) {
+      std::allocator_traits<allocator_type>::construct(
+        *this, p, std::move(v));
+    }
+    
     // Destroy the object of type value_type pointed to by p
     void destroy(value_type* p) {
       std::allocator_traits<allocator_type>::destroy(*this, p);
@@ -394,7 +411,7 @@ struct _sequence_base {
         auto dest_buffer = new_buffer.data();
         auto current_buffer = data();
         parallel_for(0, n, [&](size_t i) {
-          initialize(dest_buffer + i, std::move(current_buffer[i]));
+          initialize_explicit(dest_buffer + i, std::move(current_buffer[i]));
           current_buffer[i].~value_type();
         });
         
@@ -707,7 +724,7 @@ class sequence : protected _sequence_base<T, Allocator> {
       impl.ensure_capacity(new_size);
       auto buffer = impl.data();
       parallel_for(current, new_size, [&](size_t i) {
-        impl.initialize(&buffer[i], v);
+        impl.initialize_explicit(&buffer[i], v);
       });
     }
     impl.set_size(new_size);
@@ -812,7 +829,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     impl.ensure_capacity(n);
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {
-      impl.initialize(buffer + i, v);
+      impl.initialize_explicit(buffer + i, v);
     });
     impl.set_size(n);
   }
@@ -829,7 +846,10 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto n = std::distance(first, last);
     assert(n >= 0);
     impl.ensure_capacity(n);
-    std::uninitialized_copy(first, last, impl.data());
+    auto buffer = impl.data();
+    for (size_t i = 0; first != last; i++, first++) {
+      impl.initialize_explicit(buffer + i, *first);
+    }
     impl.set_size(n);
   }
   
@@ -840,7 +860,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     impl.ensure_capacity(n);
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {
-      impl.initialize(buffer + i, first[i]);
+      impl.initialize_explicit(buffer + i, first[i]);
     });
     impl.set_size(n);
   }
@@ -876,7 +896,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   iterator append_n(size_t n, const value_type& t) {
     impl.ensure_capacity(size() + n);
     auto it = end();
-    parallel_for(0, n, [&](size_t i) { impl.initialize(it + i, t); });
+    parallel_for(0, n, [&](size_t i) { impl.initialize_explicit(it + i, t); });
     impl.set_size(size() + n);
     return it;
   }
@@ -909,7 +929,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto n = std::distance(first, last);
     impl.ensure_capacity(size() + n);
     auto it = end();
-    parallel_for(0, n, [&](size_t i) { impl.initialize(it + i, first[i]); });
+    parallel_for(0, n, [&](size_t i) { impl.initialize_explicit(it + i, first[i]); });
     impl.set_size(size() + n);
     return it;
   }
