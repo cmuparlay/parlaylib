@@ -361,8 +361,8 @@ struct _sequence_base {
     }
     
     // Perform a copy or move initialization. This is equivalent
-    // to initialize(v) above, except that it will not allow
-    // accidental implicit conversions. This prevents someone
+    // to initialize(forward(v)) above, except that it will not
+    // allow accidental implicit conversions. This prevents someone
     // from, for example, attempting to append {1,2,3} to a 
     // sequence of vectors, and ending up with 3 new vectors
     // of length 1,2,3 respectively.
@@ -984,7 +984,7 @@ class sequence : protected _sequence_base<T, Allocator> {
 
 // Convert an arbitrary range into a sequence
 template<typename R>
-auto to_sequence(R&& r) -> sequence<typename std::remove_const<
+inline auto to_sequence(R&& r) -> sequence<typename std::remove_const<
                             typename std::remove_reference<
                             decltype(*std::begin(std::declval<R&>()))
                             >::type>::type> {
