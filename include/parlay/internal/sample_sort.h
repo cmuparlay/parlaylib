@@ -176,7 +176,7 @@ void sample_sort_(SeqIn In, SeqOut Out, const Compare& less,
   }
 }
 
-template <class Seq, typename Compare>
+template <typename Seq, typename Compare>
 auto sample_sort(Seq const& A, const Compare& less, bool stable = false)
     -> sequence<typename Seq::value_type> {
   using T = typename Seq::value_type;

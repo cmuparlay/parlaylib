@@ -100,6 +100,15 @@ auto size(const R& r) {
   return std::end(r) - std::begin(r);
 }
 
+// Determine the value type of a range
+template<typename T>
+struct range_value_type {
+  using type = decltype(*std::begin(std::declval<T&>()));
+}
+
+template<typename T>
+using range_value_type_t = range_value_type<T>::type;
+
 }
 
 #endif  // PARLAY_RANGE_H

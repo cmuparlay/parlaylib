@@ -4,18 +4,20 @@
 
 #include <iostream>
 
-#include "monoid.h"
-#include "seq.h"
-#include "utilities.h"
+#include "../delayed_sequence.h"
+#include "../monoid.h"
+#include "../seq.h"
+#include "../utilities.h"
 
 namespace parlay {
+namespace internal {
 
-template <class UnaryFunc>
+template <typename UnaryFunc>
 auto tabulate(size_t n, UnaryFunc f) -> sequence<decltype(f(0))> {
   return sequence<decltype(f(0))>(n, [&](size_t i) { return f(i); });
 }
 
-template <SEQ Seq, class UnaryFunc>
+template <typename Seq, typename UnaryFunc>
 auto map(Seq const &A, UnaryFunc f) -> sequence<decltype(f(A[0]))> {
   return tabulate(A.size(), [&](size_t i) { return f(A[i]); });
 }
@@ -23,19 +25,20 @@ auto map(Seq const &A, UnaryFunc f) -> sequence<decltype(f(A[0]))> {
 // delayed version of map
 // requires C++14 or greater, both since return type is not defined (a lambda)
 //   and for support of initialization of the closure lambda capture
-template <SEQ Seq, class UnaryFunc>
-auto dmap(Seq &&A, UnaryFunc &&f) {
+template <typename Seq, typename UnaryFunc>
+auto dmap(Seq&& A, UnaryFunc&& f) {
   size_t n = A.size();
-  return dseq(n, [ f = std::forward<UnaryFunc>(f),
-                   A = std::forward<Seq>(A) ](size_t i) { return f(A[i]); });
+  return delayed_sequence<decltype(A[0])>(n,
+    [ f = std::forward<UnaryFunc>(f), A = std::forward<Seq>(A) ]
+      (size_t i) { return f(A[i]); });
 }
 
-template <class T>
+template <typename T>
 auto singleton(T const &v) -> sequence<T> {
   return sequence<T>(1, v);
 }
 
-template <SEQ Seq, RANGE Range>
+template <typename Seq, typename Range>
 auto copy(Seq const &A, Range R, flags) -> void {
   parallel_for(0, A.size(), [&](size_t i) { R[i] = A[i]; });
 }
@@ -50,7 +53,7 @@ inline size_t num_blocks(size_t n, size_t block_size) {
     return (1 + ((n)-1) / (block_size));
 }
 
-template <class F>
+template <typename F>
 void sliced_for(size_t n, size_t block_size, const F &f, flags fl = no_flag) {
   size_t l = num_blocks(n, block_size);
   auto body = [&](size_t i) {
@@ -61,7 +64,7 @@ void sliced_for(size_t n, size_t block_size, const F &f, flags fl = no_flag) {
   parallel_for(0, l, body, 1, 0 != (fl & fl_conservative));
 }
 
-template <SEQ Seq, class Monoid>
+template <typename Seq, typename Monoid>
 auto reduce_serial(Seq const &A, Monoid m) -> typename Seq::value_type {
   using T = typename Seq::value_type;
   T r = A[0];
@@ -69,7 +72,7 @@ auto reduce_serial(Seq const &A, Monoid m) -> typename Seq::value_type {
   return r;
 }
 
-template <SEQ Seq, class Monoid>
+template <typename Seq, typename Monoid>
 auto reduce(Seq const &A, Monoid m, flags fl = no_flag) ->
     typename Seq::value_type {
   using T = typename Seq::value_type;
@@ -90,7 +93,7 @@ auto reduce(Seq const &A, Monoid m, flags fl = no_flag) ->
 
 const flags fl_scan_inclusive = (1 << 4);
 
-template <SEQ In_Seq, RANGE Out_Seq, class Monoid>
+template <typename In_Seq, typename Out_Seq, class Monoid>
 auto scan_serial(In_Seq const &In, Out_Seq Out, Monoid const &m,
                  typename In_Seq::value_type offset, flags fl = no_flag) ->
     typename In_Seq::value_type {
@@ -113,7 +116,7 @@ auto scan_serial(In_Seq const &In, Out_Seq Out, Monoid const &m,
   return r;
 }
 
-template <SEQ In_Seq, RANGE Out_Range, class Monoid>
+template <typename In_Seq, typename Out_Range, class Monoid>
 auto scan_(In_Seq const &In, Out_Range Out, Monoid const &m, flags fl = no_flag)
     -> typename In_Seq::value_type {
   using T = typename In_Seq::value_type;
@@ -133,13 +136,13 @@ auto scan_(In_Seq const &In, Out_Range Out, Monoid const &m, flags fl = no_flag)
   return total;
 }
 
-template <RANGE Range, class Monoid>
+template <typename Range, typename Monoid>
 auto scan_inplace(Range In, Monoid m, flags fl = no_flag) ->
     typename Range::value_type {
   return scan_(In, In, m, fl);
 }
 
-template <SEQ In_Seq, class Monoid>
+template <typename In_Seq, typename Monoid>
 auto scan(In_Seq const &In, Monoid m, flags fl = no_flag)
     -> std::pair<sequence<typename In_Seq::value_type>,
                  typename In_Seq::value_type> {
@@ -149,7 +152,7 @@ auto scan(In_Seq const &In, Monoid m, flags fl = no_flag)
 }
 
 // do in place if rvalue reference to a sequence<T>
-template <class T, class Monoid>
+template <typename T, typename Monoid>
 auto scan(sequence<T> &&In, Monoid m, flags fl = no_flag)
     -> std::pair<sequence<T>, T> {
   sequence<T> Out = std::move(In);
@@ -157,14 +160,14 @@ auto scan(sequence<T> &&In, Monoid m, flags fl = no_flag)
   return std::make_pair(std::move(Out), total);
 }
 
-template <SEQ Seq>
+template <typename Seq>
 size_t sum_bools_serial(Seq const &I) {
   size_t r = 0;
   for (size_t j = 0; j < I.size(); j++) r += I[j];
   return r;
 }
 
-template <SEQ In_Seq, class Bool_Seq>
+template <typename In_Seq, typename Bool_Seq>
 auto pack_serial(In_Seq const &In, Bool_Seq const &Fl)
     -> sequence<typename In_Seq::value_type> {
   using T = typename In_Seq::value_type;
@@ -177,7 +180,7 @@ auto pack_serial(In_Seq const &In, Bool_Seq const &Fl)
   return Out;
 }
 
-template <class Slice, class Slice2, RANGE Out_Seq>
+template <typename Slice, typename Slice2, RANGE Out_Seq>
 size_t pack_serial_at(Slice In, Slice2 Fl, Out_Seq Out) {
   size_t k = 0;
   for (size_t i = 0; i < In.size(); i++)
@@ -185,7 +188,7 @@ size_t pack_serial_at(Slice In, Slice2 Fl, Out_Seq Out) {
   return k;
 }
 
-template <SEQ In_Seq, SEQ Bool_Seq>
+template <typename In_Seq, typename Bool_Seq>
 auto pack(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
     -> sequence<typename In_Seq::value_type> {
   using T = typename In_Seq::value_type;
@@ -206,7 +209,7 @@ auto pack(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
 }
 
 // Pack the output to the output range.
-template <SEQ In_Seq, SEQ Bool_Seq, RANGE Out_Seq>
+template <typename In_Seq, typename Bool_Seq, typename Out_Seq>
 size_t pack_out(In_Seq const &In, Bool_Seq const &Fl, Out_Seq Out,
                 flags fl = no_flag) {
   size_t n = In.size();
@@ -226,7 +229,7 @@ size_t pack_out(In_Seq const &In, Bool_Seq const &Fl, Out_Seq Out,
   return m;
 }
 
-template <SEQ In_Seq, class F>
+template <typename In_Seq, typename F>
 auto filter(In_Seq const &In, F f) -> sequence<typename In_Seq::value_type> {
   using T = typename In_Seq::value_type;
   size_t n = In.size();
@@ -247,13 +250,13 @@ auto filter(In_Seq const &In, F f) -> sequence<typename In_Seq::value_type> {
   return Out;
 }
 
-template <SEQ In_Seq, class F>
+template <typename In_Seq, typename F>
 auto filter(In_Seq const &In, F f, flags) {
   return filter(In, f);
 }
 
 // Filter and write the output to the output range.
-template <SEQ In_Seq, RANGE Out_Seq, class F>
+template <typename In_Seq, typename Out_Seq, typename F>
 size_t filter_out(In_Seq const &In, Out_Seq Out, F f) {
   size_t n = In.size();
   size_t l = parlay::num_blocks(n, _block_size);
@@ -272,18 +275,18 @@ size_t filter_out(In_Seq const &In, Out_Seq Out, F f) {
   return m;
 }
 
-template <SEQ In_Seq, RANGE Out_Seq, class F>
+template <typename In_Seq, typename Out_Seq, typename F>
 size_t filter_out(In_Seq const &In, Out_Seq Out, F f, flags) {
   return filter_out(In, Out, f);
 }
 
-template <class Idx_Type, SEQ Bool_Seq>
-sequence<Idx_Type> pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
+template <typename Idx_Type, typename Bool_Seq>
+auto pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
   auto identity = [](size_t i) { return (Idx_Type)i; };
-  return pack(delayed_seq<Idx_Type>(Fl.size(), identity), Fl, fl);
+  return pack(delayed_sequence<size_t>(Fl.size(), identity), Fl, fl);
 }
 
-template <SEQ In_Seq, SEQ Char_Seq>
+template <typename In_Seq, typename Char_Seq>
 std::pair<size_t, size_t> split_three(In_Seq const &In,
                                       range<typename In_Seq::value_type *> Out,
                                       Char_Seq const &Fl, flags fl = no_flag) {
@@ -327,7 +330,7 @@ std::pair<size_t, size_t> split_three(In_Seq const &In,
   return std::make_pair(m0, m1);
 }
 
-template <SEQ In_Seq, SEQ Bool_Seq>
+template <typename In_Seq, typename Bool_Seq>
 auto split_two(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
     -> std::pair<sequence<typename In_Seq::value_type>, size_t> {
   using T = typename In_Seq::value_type;
@@ -358,6 +361,7 @@ auto split_two(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
   return std::make_pair(std::move(Out), m);
 }
 
+}
 }  // namespace parlay
 
 #endif  // PARLAY_SEQUENCE_OPS_H_
