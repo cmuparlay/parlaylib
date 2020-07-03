@@ -68,7 +68,7 @@ template <typename Seq, typename Monoid>
 auto reduce_serial(Seq const &A, Monoid m) -> typename Seq::value_type {
   using T = typename Seq::value_type;
   T r = A[0];
-  for (size_t j = 1; j < A.size(); j++) r = m.f(r, A[j]);
+  for (auto j = 1; j < A.size(); j++) r = m.f(r, A[j]);
   return r;
 }
 
@@ -85,7 +85,7 @@ auto reduce(Seq const &A, Monoid m, flags fl = no_flag) ->
   }
   sequence<T> Sums(l);
   sliced_for(n, block_size, [&](size_t i, size_t s, size_t e) {
-    Sums[i] = reduce_serial(A.slice(s, e), m);
+    Sums[i] = reduce_serial(make_slice(A).cut(s, e), m);
   });
   T r = reduce(Sums, m);
   return r;
@@ -126,29 +126,29 @@ auto scan_(In_Seq const &In, Out_Range Out, Monoid const &m, flags fl = no_flag)
     return scan_serial(In, Out, m, m.identity, fl);
   sequence<T> Sums(l);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-    Sums[i] = reduce_serial(In.slice(s, e), m);
+    Sums[i] = reduce_serial(make_slice(In).cut(s, e), m);
   });
-  T total = scan_serial(Sums, Sums.slice(), m, m.identity, 0);
+  T total = scan_serial(Sums, make_slice(Sums), m, m.identity, 0);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-    auto O = Out.slice(s, e);
-    scan_serial(In.slice(s, e), O, m, Sums[i], fl);
+    auto O = make_slice(Out).cut(s, e);
+    scan_serial(make_slice(In).cut(s, e), O, m, Sums[i], fl);
   });
   return total;
 }
 
-template <typename Range, typename Monoid>
-auto scan_inplace(Range In, Monoid m, flags fl = no_flag) ->
-    typename Range::value_type {
+
+template <typename Iterator, typename Monoid>
+auto scan_inplace(slice<Iterator, Iterator> In, Monoid m, flags fl = no_flag) {
   return scan_(In, In, m, fl);
 }
 
-template <typename In_Seq, typename Monoid>
+template <typename In_Seq, class Monoid>
 auto scan(In_Seq const &In, Monoid m, flags fl = no_flag)
     -> std::pair<sequence<typename In_Seq::value_type>,
                  typename In_Seq::value_type> {
   using T = typename In_Seq::value_type;
   sequence<T> Out(In.size());
-  return std::make_pair(std::move(Out), scan_(In, Out.slice(), m, fl));
+  return std::make_pair(std::move(Out), scan_(In, make_slice(Out), m, fl));
 }
 
 // do in place if rvalue reference to a sequence<T>
@@ -156,7 +156,7 @@ template <typename T, typename Monoid>
 auto scan(sequence<T> &&In, Monoid m, flags fl = no_flag)
     -> std::pair<sequence<T>, T> {
   sequence<T> Out = std::move(In);
-  T total = scan_(Out, Out.slice(), m, fl);
+  T total = scan_(make_slice(Out), make_slice(Out), m, fl);
   return std::make_pair(std::move(Out), total);
 }
 
@@ -173,14 +173,15 @@ auto pack_serial(In_Seq const &In, Bool_Seq const &Fl)
   using T = typename In_Seq::value_type;
   size_t n = In.size();
   size_t m = sum_bools_serial(Fl);
-  sequence<T> Out = sequence<T>::no_init(m);
+  sequence<T> Out = sequence<T>::uninitialized(m);
   size_t k = 0;
   for (size_t i = 0; i < n; i++)
     if (Fl[i]) assign_uninitialized(Out[k++], In[i]);
   return Out;
 }
 
-template <typename Slice, typename Slice2, RANGE Out_Seq>
+
+template <class Slice, class Slice2, typename Out_Seq>
 size_t pack_serial_at(Slice In, Slice2 Fl, Out_Seq Out) {
   size_t k = 0;
   for (size_t i = 0; i < In.size(); i++)
@@ -197,13 +198,13 @@ auto pack(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
   if (l == 1 || fl & fl_sequential) return pack_serial(In, Fl);
   sequence<size_t> Sums(l);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-    Sums[i] = sum_bools_serial(Fl.slice(s, e));
+    Sums[i] = sum_bools_serial(make_slice(Fl).cut(s, e));
   });
-  size_t m = scan_inplace(Sums.slice(), addm<size_t>());
-  sequence<T> Out = sequence<T>::no_init(m);
+  size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
+  sequence<T> Out = sequence<T>::uninitialized(m);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-    pack_serial_at(In.slice(s, e), Fl.slice(s, e),
-                   Out.slice(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
+    pack_serial_at(make_slice(In).cut(s, e), make_slice(Fl).cut(s, e),
+                   make_slice(Out).cut(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
   });
   return Out;
 }
@@ -215,16 +216,16 @@ size_t pack_out(In_Seq const &In, Bool_Seq const &Fl, Out_Seq Out,
   size_t n = In.size();
   size_t l = num_blocks(n, _block_size);
   if (l <= 1 || fl & fl_sequential) {
-    return pack_serial_at(In, Fl.slice(0, In.size()), Out);
+    return pack_serial_at(In, make_slice(Fl).cut(0, In.size()), Out);
   }
   sequence<size_t> Sums(l);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-    Sums[i] = sum_bools_serial(Fl.slice(s, e));
+    Sums[i] = sum_bools_serial(make_slice(Fl).cut(s, e));
   });
-  size_t m = scan_inplace(Sums.slice(), addm<size_t>());
+  size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-    pack_serial_at(In.slice(s, e), Fl.slice(s, e),
-                   Out.slice(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
+    pack_serial_at(make_slice(In).cut(s, e), make_slice(Fl).cut(s, e),
+                   make_slice(Out).cut(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
   });
   return m;
 }
@@ -241,11 +242,11 @@ auto filter(In_Seq const &In, F f) -> sequence<typename In_Seq::value_type> {
     for (size_t j = s; j < e; j++) r += (Fl[j] = f(In[j]));
     Sums[i] = r;
   });
-  size_t m = scan_inplace(Sums.slice(), addm<size_t>());
-  sequence<T> Out = sequence<T>::no_init(m);
+  size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
+  sequence<T> Out = sequence<T>::uninitialized(m);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-    pack_serial_at(In.slice(s, e), Fl.slice(s, e),
-                   Out.slice(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
+    pack_serial_at(make_slice(In).cut(s, e), make_slice(Fl).cut(s, e),
+                   make_slice(Out).cut(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
   });
   return Out;
 }
@@ -267,10 +268,10 @@ size_t filter_out(In_Seq const &In, Out_Seq Out, F f) {
     for (size_t j = s; j < e; j++) r += (Fl[j] = f(In[j]));
     Sums[i] = r;
   });
-  size_t m = scan_inplace(Sums.slice(), addm<size_t>());
+  size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
   parlay::sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-    pack_serial_at(In.slice(s, e), Fl.slice(s, e),
-                   Out.slice(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
+    pack_serial_at(make_slice(In).cut(s, e), make_slice(Fl).cut(s, e),
+                   make_slice(Out).cut(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
   });
   return m;
 }
@@ -288,10 +289,10 @@ auto pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
 
 template <typename In_Seq, typename Char_Seq>
 std::pair<size_t, size_t> split_three(In_Seq const &In,
-                                      range<typename In_Seq::value_type *> Out,
+                                      slice<Iterator, Iterator> Out,
                                       Char_Seq const &Fl, flags fl = no_flag) {
   size_t n = In.size();
-  if (slice_eq(In.slice(), Out))
+  if (slice_eq(make_slice(In), Out))
     throw std::invalid_argument("In and Out cannot be the same in split_three");
   size_t l = num_blocks(n, _block_size);
   sequence<size_t> Sums0(l);
@@ -310,8 +311,8 @@ std::pair<size_t, size_t> split_three(In_Seq const &In,
                Sums1[i] = c1;
              },
              fl);
-  size_t m0 = scan_inplace(Sums0.slice(), addm<size_t>());
-  size_t m1 = scan_inplace(Sums1.slice(), addm<size_t>());
+  size_t m0 = scan_inplace(make_slice(Sums0), addm<size_t>());
+  size_t m1 = scan_inplace(make_slice(Sums1), addm<size_t>());
   sliced_for(n, _block_size,
              [&](size_t i, size_t s, size_t e) {
                size_t c0 = Sums0[i];
@@ -344,8 +345,8 @@ auto split_two(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
                Sums[i] = c;
              },
              fl);
-  size_t m = scan_inplace(Sums.slice(), addm<size_t>());
-  sequence<T> Out = sequence<T>::no_init(n);
+  size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
+  sequence<T> Out = sequence<T>::uninitialized(n);
   sliced_for(n, _block_size,
              [&](size_t i, size_t s, size_t e) {
                size_t c0 = Sums[i];

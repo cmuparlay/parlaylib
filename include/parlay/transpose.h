@@ -14,10 +14,10 @@ constexpr const size_t TRANS_THRESHHOLD = 500;
 
 inline size_t split(size_t n) { return n / 2; }
 
-template <class E>
+template <class Iterator>
 struct transpose {
-  E *A, *B;
-  transpose(E *AA, E *BB) : A(AA), B(BB) {}
+  Iterator A, B;
+  transpose(Iterator AA, Iterator BB) : A(AA), B(BB) {}
 
   void transR(size_t rStart, size_t rCount, size_t rLength, size_t cStart,
               size_t cCount, size_t cLength) {
@@ -57,12 +57,12 @@ struct transpose {
   }
 };
 
-template <class E, class int_t>
+template <class Iterator, class int_t>
 struct blockTrans {
-  E *A, *B;
+  Iterator A, B;
   int_t *OA, *OB;
 
-  blockTrans(E *AA, E *BB, int_t *OOA, int_t *OOB)
+  blockTrans(Iterator AA, Iterator BB, int_t *OOA, int_t *OOB)
       : A(AA), B(BB), OA(OOA), OB(OOB) {}
 
   void transR(size_t rStart, size_t rCount, size_t rLength, size_t cStart,
@@ -115,9 +115,9 @@ struct blockTrans {
 // From and To are of lenght n
 // counts is of length num_blocks * num_buckets
 // Data is memcpy'd into To avoiding initializers and overloaded =
-template <typename E, typename s_size_t>
-sequence<size_t> transpose_buckets(E *From, E *To,
-                                   sequence<s_size_t> const &counts, size_t n,
+template <typename Iterator, typename s_size_t>
+sequence<size_t> transpose_buckets(Iterator From, Iterator To,
+                                   sequence<s_size_t>& counts, size_t n,
                                    size_t block_size, size_t num_blocks,
                                    size_t num_buckets) {
   size_t m = num_buckets * num_blocks;
@@ -138,8 +138,8 @@ sequence<size_t> transpose_buckets(E *From, E *To,
     };
 
     // slow down?
-    dest_offsets = sequence<s_size_t>(m, get);
-    size_t sum = scan_inplace(dest_offsets.slice(), add);
+    dest_offsets = sequence<s_size_t>::from_function(m, get);
+    size_t sum = scan_inplace(make_slice(dest_offsets), add);
     if (sum != n) throw std::logic_error("in transpose, internal bad count");
 
     // send each key to correct location within its bucket
@@ -156,22 +156,22 @@ sequence<size_t> transpose_buckets(E *From, E *To,
   } else {  // for larger input do cache efficient transpose
     // sequence<s_size_t> source_offsets(counts,m+1);
     dest_offsets = sequence<s_size_t>(m);
-    transpose<s_size_t>(counts.begin(), dest_offsets.begin())
+    transpose<typename sequence<s_size_t>::iterator>(counts.begin(), dest_offsets.begin())
         .trans(num_blocks, num_buckets);
 
     // do both scans inplace
-    size_t total = scan_inplace(dest_offsets.slice(), add);
-    size_t total2 = scan_inplace(counts.slice(), add);
+    size_t total = scan_inplace(make_slice(dest_offsets), add);
+    size_t total2 = scan_inplace(make_slice(counts), add);
     if (total != n || total2 != n)
       throw std::logic_error("in transpose, internal bad count");
     counts[m] = n;
 
-    blockTrans<E, s_size_t>(From, To, counts.begin(), dest_offsets.begin())
+    blockTrans<Iterator, s_size_t>(From, To, counts.begin(), dest_offsets.begin())
         .trans(num_blocks, num_buckets);
   }
 
   // return the bucket offsets, padded with n at the end
-  return sequence<size_t>(num_buckets + 1, [&](size_t i) {
+  return sequence<size_t>::from_function(num_buckets + 1, [&](size_t i) {
     return (i == num_buckets) ? n : dest_offsets[i * num_blocks];
   });
 }

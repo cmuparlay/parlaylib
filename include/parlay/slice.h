@@ -98,6 +98,14 @@ struct slice {
   sentinel e;
 };
 
+// Two slices are equal if they refer to the same underlying
+// range via the same pair of iterators, i.e., the iterators
+// compare equal
+template<typename Iterator, typename Sentinal>
+bool operator==(slice<Iterator, Sentinal> s1, slice<Iterator, Sentinal> s2) {
+  return s1.begin() == s2.begin() && s1.end() == s2.end();
+}
+
 }
 
 #endif  // PARLAY_SLICE_H_

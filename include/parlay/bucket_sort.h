@@ -2,6 +2,7 @@
 #ifndef PARLAY_BUCKET_SORT_H_
 #define PARLAY_BUCKET_SORT_H_
 
+#include "merge_sort.h"
 #include "quicksort.h"
 #include "sequence_ops.h"
 #include "utilities.h"
@@ -55,12 +56,12 @@ bool get_buckets(RangeT A, uchar* buckets, binOp f, size_t rounds) {
   size_t num_pivots = num_buckets - 1;
   
   auto sample_set =
-      sequence<T>(sample_set_size, [&](size_t i) { return A[hash64(i) % n]; });
+      sequence<T>::from_function(sample_set_size, [&](size_t i) { return A[hash64(i) % n]; });
 
   // sort the samples
   quicksort(sample_set.begin(), sample_set_size, f);
 
-  auto pivots = sequence<T>(
+  auto pivots = sequence<T>::from_function(
       num_pivots, [&](size_t i) { return sample_set[over_sample * (i + 1)]; });
 
   if (!f(pivots[0], pivots[num_pivots - 1])) return true;
@@ -107,7 +108,7 @@ void bucket_sort_r(RangeT in, RangeT out, binOp f, bool stable,
       auto loop = [&] (size_t j) {
         size_t start = counts[j];
         size_t end = (j == num_buckets - 1) ? n : counts[j + 1];
-        bucket_sort_r(out.slice(start, end), in.slice(start, end), f, stable,
+        bucket_sort_r(make_slice(out).cut(start, end), make_slice(in).cut(start, end), f, stable,
                       !inplace);
       };
       parallel_for(0, num_buckets, loop, 4);
@@ -119,9 +120,9 @@ template <class RangeT, class binOp>
 void bucket_sort(RangeT in, binOp f, bool stable = false) {
   using T = typename RangeT::value_type;
   size_t n = in.size();
-  auto tmp = sequence<T>::no_init(n);
-  bucket_sort_r(in.slice(), tmp.slice(), f, stable, true);
-  tmp.clear_no_destruct();
+  auto tmp = sequence<T>::uninitialized(n);
+  bucket_sort_r(make_slice(in), make_slice(tmp), f, stable, true);
+  tmp.clear();
 }
 }  // namespace parlay
 

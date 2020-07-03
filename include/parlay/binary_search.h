@@ -29,7 +29,7 @@ size_t binary_search(Seq const &I, typename Seq::value_type const &v,
     else
       start = mid + 1;
   }
-  return start + linear_search(I.slice(start, end), v, less);
+  return start + linear_search(make_slice(I).cut(start, end), v, less);
 }
 
 template <typename Seq, typename F>
@@ -51,7 +51,7 @@ size_t binary_search(Seq const &I, const F &less) {
     else
       start = mid + 1;
   }
-  return start + linear_search(I.slice(start, end), less);
+  return start + linear_search(make_slice(I).cut(start, end), less);
 }
 
 }  // namespace parlay

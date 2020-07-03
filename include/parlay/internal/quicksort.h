@@ -3,42 +3,23 @@
 #define PARLAY_QUICKSORT_H_
 
 #include <algorithm>
+#include <utility>
 
 #include "sequence_ops.h"
 #include "utilities.h"
 
 namespace parlay {
 
-// use different parameters for pointer and non-pointer types
-// and depending on size
-template <typename T>
-struct is_pointer_ {
-  static const bool value = false;
-};
-template <typename T>
-struct is_pointer_<T*> {
-  static const bool value = true;
-};
 
 template <class T>
 bool base_case(T* x, size_t n) {
-  bool large = is_pointer_<T>::value || (sizeof(x) > 8);
+  bool large = std::is_pointer<T>::value || (sizeof(x) > 8);
   return large ? (n < 16) : (n < 24);
 }
 
-template <class E, class BinPred>
-void insertion_sort(E* A, size_t n, const BinPred& f) {
-  for (size_t i = 0; i < n; i++) {
-    E v = std::move(A[i]);
-    E* B = A + i;
-    while (--B >= A && f(v, *B)) copy_memory(*(B + 1), *B);
-    move_uninitialized(*(B + 1), v);
-  }
-}
-
 // cleaner, but slower -- not used
-template <class E, class BinPred>
-void insertion_sort_o(E* A, size_t n, const BinPred& f) {
+template <class Iterator, class BinPred>
+void insertion_sort(Iterator A, size_t n, const BinPred& f) {
   for (size_t i = 1; i < n; i++) {
     long j = i;
     while (--j >= 0 && f(A[j + 1], A[j])) {
@@ -48,8 +29,8 @@ void insertion_sort_o(E* A, size_t n, const BinPred& f) {
 }
 
 // sorts 5 elements taken at even stride and puts them at the front
-template <class E, class BinPred>
-void sort5(E* A, size_t n, const BinPred& f) {
+template <class Iterator, class BinPred>
+void sort5(Iterator A, size_t n, const BinPred& f) {
   size_t size = 5;
   size_t m = n / (size + 1);
   for (size_t l = 0; l < size; l++) std::swap(A[l], A[m * (l + 1)]);
@@ -60,20 +41,20 @@ void sort5(E* A, size_t n, const BinPred& f) {
 //    less than p1, greater than p2, and the rest in the middle
 // If the pivots are the same, returns a true flag to indicate middle need not
 // be sorted
-template <class E, class BinPred>
-std::tuple<E*, E*, bool> split3(E* A, size_t n, const BinPred& f) {
+template <class Iterator, class BinPred>
+std::tuple<Iterator, Iterator, bool> split3(Iterator A, size_t n, const BinPred& f) {
   sort5(A, n, f);
-  E p1 = A[1];
-  E p2 = A[3];
+  auto p1 = A[1];
+  auto p2 = A[3];
   if (!f(A[0], A[1])) p1 = p2;  // if few elements less than p1, then set to p2
   if (!f(A[3], A[4]))
     p2 = p1;  // if few elements greater than p2, then set to p1
-  E* L = A;
-  E* R = A + n - 1;
+  auto L = A;
+  auto R = A + n - 1;
   // set up initial invariants
   while (f(*L, p1)) L++;
   while (f(p2, *R)) R--;
-  E* M = L;
+  auto M = L;
   // invariants:
   //  below L is less than p1,
   //  above R is greatert than p2
@@ -101,11 +82,11 @@ std::tuple<E*, E*, bool> split3(E* A, size_t n, const BinPred& f) {
   return std::make_tuple(L, M, !f(p1, p2));
 }
 
-template <class E, class BinPred>
-void quicksort_serial(E* A, size_t n, const BinPred& f) {
+template <class Iterator, class BinPred>
+void quicksort_serial(Iterator A, size_t n, const BinPred& f) {
   while (!base_case(A, n)) {
-    E* L;
-    E* M;
+    Iterator L;
+    Iterator M;
     bool mid_eq;
     std::tie(L, M, mid_eq) = split3(A, n, f);
     if (!mid_eq) quicksort_serial(L, M - L, f);
@@ -116,13 +97,13 @@ void quicksort_serial(E* A, size_t n, const BinPred& f) {
   insertion_sort(A, n, f);
 }
 
-template <class E, class BinPred>
-void quicksort(E* A, size_t n, const BinPred& f) {
+template <class Iterator, class BinPred>
+void quicksort(Iterator A, size_t n, const BinPred& f) {
   if (n < (1 << 10))
     quicksort_serial(A, n, f);
   else {
-    E* L;
-    E* M;
+    Iterator L;
+    Iterator M;
     bool mid_eq;
     std::tie(L, M, mid_eq) = split3(A, n, f);
     auto left = [&]() { quicksort(A, L - A, f); };
@@ -136,16 +117,16 @@ void quicksort(E* A, size_t n, const BinPred& f) {
   }
 }
 
-template <class Range, class BinPred>
-void quicksort(Range A, const BinPred& f) {
+template <class Iterator, class BinPred>
+void quicksort(slice<Iterator, Iterator> A, const BinPred& f) {
   quicksort(A.begin(), A.size(), f);
 }
 
 //// Fully Parallel version below here
 
-template <class SeqA, class BinPred>
+template <class SeqA, class BinPred, typename Iterator>
 std::tuple<size_t, size_t, bool> p_split3(SeqA const& A,
-                                          range<typename SeqA::value_type*> B,
+                                          slice<Iterator, Iterator> B,
                                           const BinPred& f) {
   using E = typename SeqA::value_type;
   size_t n = A.size();
@@ -172,9 +153,12 @@ std::tuple<size_t, size_t, bool> p_split3(SeqA const& A,
 //     In and Out cannot be the same (Out is needed as temp space)
 // cut_size: is when to revert to  quicksort.
 //    If -1 then it uses a default based on number of threads
-template <class Iter, class F>
-void p_quicksort_(range<Iter> In, range<Iter> Out, const F& f,
-                  bool inplace = false, long cut_size = -1) {
+template <typename InIterator, typename OutIterator, typename F>
+void p_quicksort_(slice<InIterator, InIterator> In,
+                  slice<OutIterator, OutIterator> Out,
+                  const F& f,
+                  bool inplace = false,
+                  long cut_size = -1) {
   size_t n = In.size();
   if (cut_size == -1)
     cut_size = std::max<long>((3 * n) / num_workers(), (1 << 14));
@@ -212,9 +196,10 @@ sequence<typename SeqA::value_type> p_quicksort(SeqA const& In, const F& f) {
   return Out;
 }
 
-template <class T, class F>
-void p_quicksort_inplace(range<T*> In, const F& f) {
-  sequence<T> Tmp = sequence<T>::no_init(In.size());
+template <typename Iterator, class F>
+void p_quicksort_inplace(slice<Iterator, Iterator> In, const F& f) {
+  using value_type = typename slice<Iterator, Iterator>::value_type;
+  auto Tmp = sequence<value_type>::uninitialized(In.size());
   p_quicksort_(In, Tmp.slice(), f, true);
 }
 

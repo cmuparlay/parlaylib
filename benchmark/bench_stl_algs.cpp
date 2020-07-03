@@ -80,7 +80,7 @@ static void bench_equal(benchmark::State& state) {
 static void bench_exclusive_scan(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
-  auto r = parlay::make_range(std::begin(v), std::end(v));
+  auto r = parlay::make_slice(std::begin(v), std::end(v));
   for (auto _ : state) {
     parlay::scan(r, parlay::addm<long long>{});
   }
@@ -108,8 +108,8 @@ static void bench_find_first_of(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
   auto v2 = random_vector(100);
-  auto r = parlay::make_range(&v[0], &v[0] + v.size());
-  auto r2 = parlay::make_range(&v2[0], &v2[0] + v2.size());
+  auto r = parlay::make_slice(&v[0], &v[0] + v.size());
+  auto r2 = parlay::make_slice(&v2[0], &v2[0] + v2.size());
   for (auto _ : state) {
     parlay::find_first_of(r, r2, std::equal_to<long long>{});
   }
@@ -185,10 +185,10 @@ static void bench_merge(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_sorted_vector(n);
   auto v2 = random_sorted_vector(n);
-  auto r = parlay::make_range(std::begin(v), std::end(v));
-  auto r2 = parlay::make_range(std::begin(v2), std::end(v2));
+  auto r = parlay::make_slice(std::begin(v), std::end(v));
+  auto r2 = parlay::make_slice(std::begin(v2), std::end(v2));
   for (auto _ : state) {
-    parlay::merge(r, r2, std::less<long long>{});
+    parlay::internal::merge(r, r2, std::less<long long>{});
   }
 }
 
@@ -218,17 +218,19 @@ static void bench_mismatch(benchmark::State& state) {
 }
 
 // Called "kth_smallest" in parlay
+/*
 static void bench_nth_element(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
-  auto r = parlay::make_range(std::begin(v), std::end(v));
+  auto r = parlay::make_slice(std::begin(v), std::end(v));
   for (auto _ : state) {
     auto kth = parlay::kth_smallest(r, n/2, std::less<long long>{});
     auto fl = parlay::delayed_seq<bool>(n, [&] (size_t i) {
-	return r[i] <= kth; });
+      return r[i] <= kth; });
     parlay::split_two(r, fl);
   }
 }
+*/
 
 static void bench_none_of(benchmark::State& state) {
   size_t n = state.range(0);
@@ -241,7 +243,7 @@ static void bench_none_of(benchmark::State& state) {
 static void bench_reduce(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
-  auto r = parlay::make_range(std::begin(v), std::end(v));
+  auto r = parlay::make_slice(std::begin(v), std::end(v));
   for (auto _ : state) {
     parlay::reduce(r, parlay::addm<long long>{});
   }
@@ -250,7 +252,7 @@ static void bench_reduce(benchmark::State& state) {
 static void bench_remove_if(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
-  auto r = parlay::make_range(std::begin(v), std::end(v));
+  auto r = parlay::make_slice(std::begin(v), std::end(v));
   for (auto _ : state) {
     /* note that we do not remove in-place here */
     parlay::remove_if(r, [](auto x) { return x % 2 == 0; } );
@@ -275,7 +277,7 @@ static void bench_rotate(benchmark::State& state) {
 
 static void bench_search(benchmark::State& state) {
   size_t n = state.range(0);
-  parlay::sequence<long long> v(n, [&] (auto i) {
+  auto v = parlay::sequence<long long>::from_function(n, [&] (auto i) {
       return i%100 == 99;
   });
   parlay::sequence<long long> v2(100, (long long) 0);
@@ -322,7 +324,7 @@ static void bench_unique(benchmark::State& state) {
   parlay::parallel_for(0, n, [&] (size_t i) {
     v[i] = v[i] >> 56UL;
   });
-  auto r = parlay::make_range(std::begin(v), std::end(v));
+  auto r = parlay::make_slice(std::begin(v), std::end(v));
   for (auto _ : state) {
     parlay::unique(r, std::equal_to<long long>{});
   }
@@ -354,7 +356,7 @@ BENCH(merge, 100000000);
 BENCH(min_element, 100000000);
 BENCH(minmax_element, 100000000);
 BENCH(mismatch, 100000000);
-BENCH(nth_element, 100000000);
+//BENCH(nth_element, 100000000);
 BENCH(none_of, 100000000);
 BENCH(reduce, 100000000);
 BENCH(remove_if, 100000000);
