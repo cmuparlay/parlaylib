@@ -13,8 +13,10 @@ namespace parlay {
 // This sort is stable
 // if inplace is true then the output is placed in In and Out is just used
 // as temp space.
-template <class Iter, class F>
-void merge_sort_(range<Iter> In, range<Iter> Out, const F& f,
+template <typename InIterator, typename OutIterator, typename F>
+void merge_sort_(slice<InIterator, InIterator> In,
+                 slice<OutIterator, OutIterator> Out,
+                 const F& f,
                  bool inplace = false) {
   size_t n = In.size();
   if (base_case(In.begin(), n / 2)) {
@@ -28,30 +30,31 @@ void merge_sort_(range<Iter> In, range<Iter> Out, const F& f,
   size_t m = n / 2;
   par_do_if(
       n > 64,
-      [&]() { merge_sort_(In.slice(0, m), Out.slice(0, m), f, !inplace); },
-      [&]() { merge_sort_(In.slice(m, n), Out.slice(m, n), f, !inplace); },
+      [&]() { merge_sort_(In.cut(0, m), Out.cut(0, m), f, !inplace); },
+      [&]() { merge_sort_(In.cut(m, n), Out.cut(m, n), f, !inplace); },
       true);
   if (inplace)
-    parlay::merge_<_copy>(Out.slice(0, m), Out.slice(m, n), In, f, true);
+    internal::merge_<_copy>(Out.cut(0, m), Out.cut(m, n), In, f, true);
   else
-    parlay::merge_<_copy>(In.slice(0, m), In.slice(m, n), Out, f, true);
+    internal::merge_<_copy>(In.cut(0, m), In.cut(m, n), Out, f, true);
 }
 
-template <class T, class F>
-void merge_sort_inplace(range<T*> In, const F& f) {
-  auto B = sequence<T>::no_init(In.size());
-  merge_sort_(In.slice(), B.slice(), f, true);
-  B.clear_no_destruct();
+template <typename Iterator, class F>
+void merge_sort_inplace(slice<Iterator, Iterator> In, const F& f) {
+  using value_type = typename slice<Iterator, Iterator>::value_type;
+  auto B = sequence<value_type>::uninitialized(In.size());
+  merge_sort_(In, make_slice(B), f, true);
+  B.clear();
 }
 
 // not the most efficent way to do due to extra copy
 template <class SeqA, class F>
-sequence<typename SeqA::value_type> merge_sort(const SeqA& In, const F& f) {
-  using T = typename SeqA::value_type;
-  sequence<T> A(In);
-  merge_sort_inplace(A.slice(), f);
+auto merge_sort(const SeqA& In, const F& f) {
+  auto A = In;
+  merge_sort_inplace(make_slice(A), f);
   return A;
 }
+
 }  // namespace parlay
 
 #endif  // PARLAY_MERGE_SORT_H_

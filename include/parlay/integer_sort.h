@@ -7,6 +7,8 @@
 #include <cstdio>
 
 #include "counting_sort.h"
+#include "delayed_sequence.h"
+#include "range.h"
 #include "quicksort.h"
 #include "utilities.h"
 
@@ -45,13 +47,16 @@ void seq_radix_sort_(Slice In, Slice Out, GetKey const &g, size_t bits,
 
 // wrapper to reduce copies and avoid modifying In when not inplace
 // In and Tmp can be the same, but Out must be different
-template <class SeqIn, class Slice, class GetKey>
-void seq_radix_sort(SeqIn const &In, Slice Out, Slice Tmp, GetKey const &g,
+template <typename InIterator, typename OutIterator, typename TmpIterator, class GetKey>
+void seq_radix_sort(slice<InIterator, InIterator> In,
+                    slice<OutIterator, OutIterator> Out,
+                    slice<TmpIterator, TmpIterator> Tmp,
+                    GetKey const &g,
                     size_t key_bits, bool inplace = true) {
   bool odd = ((key_bits - 1) / radix) & 1;
   size_t n = In.size();
-  if (slice_eq(In.slice(), Tmp)) {  // inplace
-    seq_radix_sort_(Tmp.slice(), Out, g, key_bits, inplace);
+  if (In == Tmp) {  // inplace
+    seq_radix_sort_(Tmp, Out, g, key_bits, inplace);
   } else {
     if (odd) {
       for (size_t i = 0; i < n; i++) move_uninitialized(Tmp[i], In[i]);
@@ -68,12 +73,15 @@ void seq_radix_sort(SeqIn const &In, Slice Out, Slice Tmp, GetKey const &g,
 // key_bits specifies how many bits there are left
 // if inplace is true, then result will be in Tmp, otherwise in Out
 // In and Out cannot be the same, but In and Tmp should be same if inplace
-template <typename SeqIn, typename Slice, typename Get_Key>
-sequence<size_t> integer_sort_r(SeqIn const &In, Slice Out, Slice Tmp,
+template <typename InIterator, typename OutIterator, typename TmpIterator, typename Get_Key>
+sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
+                                slice<OutIterator, OutIterator> Out,
+                                slice<TmpIterator, TmpIterator> Tmp,
                                 Get_Key const &g, size_t key_bits,
                                 size_t num_buckets, bool inplace,
                                 float parallelism = 1.0) {
-  using T = typename SeqIn::value_type;
+  using T = typename slice<InIterator, InIterator>::value_type;
+  
   size_t n = In.size();
   size_t cache_per_thread = 1000000;
   size_t base_bits = log2_up(2 * (size_t)sizeof(T) * n / cache_per_thread);
@@ -100,7 +108,7 @@ sequence<size_t> integer_sort_r(SeqIn const &In, Slice Out, Slice Tmp,
     size_t num_bkts = (num_buckets == 0) ? (1 << key_bits) : num_buckets;
     // only uses one bucket optimization (last argument) if inplace
     std::tie(offsets, one_bucket) =
-        count_sort(In.slice(), Out, get_bits, num_bkts, parallelism, inplace);
+        count_sort(In, Out, make_slice(get_bits), num_bkts, parallelism, inplace);
     if (inplace && !one_bucket)
       parallel_for(0, n, [&](size_t i) { move_uninitialized(Tmp[i], Out[i]); });
     if (return_offsets)
@@ -120,7 +128,7 @@ sequence<size_t> integer_sort_r(SeqIn const &In, Slice Out, Slice Tmp,
 
     // divide into buckets
     std::tie(offsets, one_bucket) =
-        count_sort(In.slice(), Out, get_bits, num_outer_buckets, parallelism,
+        count_sort(In, Out, make_slice(get_bits), num_outer_buckets, parallelism,
                    !return_offsets);
 
     // if all but one bucket are empty, try again on lower bits
@@ -138,8 +146,8 @@ sequence<size_t> integer_sort_r(SeqIn const &In, Slice Out, Slice Tmp,
         [&](size_t i) {
           size_t start = offsets[i];
           size_t end = offsets[i + 1];
-          auto a = Out.slice(start, end);
-          auto b = Tmp.slice(start, end);
+          auto a = Out.cut(start, end);
+          auto b = Tmp.cut(start, end);
           sequence<size_t> r =
               integer_sort_r(a, b, a, g, shift_bits, num_inner_buckets,
                              !inplace, (parallelism * (end - start)) / (n + 1));
@@ -167,11 +175,15 @@ sequence<size_t> integer_sort_r(SeqIn const &In, Slice Out, Slice Tmp,
 // If num_buckets is non-zero then the output sequence will contain
 // the offsets of each bucket (num_bucket of them)
 // num_bucket must be less than or equal to 2^bits
-template <typename SeqIn, typename IterOut, typename Get_Key>
-sequence<size_t> integer_sort_(SeqIn const &In, range<IterOut> Out,
-                               range<IterOut> Tmp, Get_Key const &g,
-                               size_t bits, size_t num_buckets, bool inplace) {
-  if (slice_eq(In.slice(), Out))
+template <typename SeqIn, typename OutIterator, typename Get_Key>
+sequence<size_t> integer_sort_(SeqIn const &In,
+                               slice<OutIterator, OutIterator> Out,
+                               slice<OutIterator, OutIterator> Tmp,
+                               Get_Key const &g,
+                               size_t bits,
+                               size_t num_buckets,
+                               bool inplace) {
+  if (In == Out)
     throw std::invalid_argument(
         "in integer_sort : input and output must be different locations");
   if (bits == 0) {
@@ -184,19 +196,22 @@ sequence<size_t> integer_sort_(SeqIn const &In, range<IterOut> Out,
   return integer_sort_r(In, Out, Tmp, g, bits, num_buckets, inplace);
 }
 
-template <typename T, typename Get_Key>
-void integer_sort_inplace(range<T *> In, Get_Key const &g, size_t bits = 0) {
-  sequence<T> Tmp = sequence<T>::no_init(In.size());
+template <typename Iterator, typename Get_Key>
+void integer_sort_inplace(slice<Iterator, Iterator> In,
+                          Get_Key const &g, size_t bits = 0) {
+  using value_type = typename slice<Iterator, Iterator>::value_type;
+  auto Tmp = sequence<value_type>::uninitialized(In.size());
   integer_sort_(In, Tmp.slice(), In, g, bits, 0, true);
 }
 
 template <typename Seq, typename Get_Key>
-sequence<typename Seq::value_type> integer_sort(Seq const &In, Get_Key const &g,
-                                                size_t bits = 0) {
-  using T = typename Seq::value_type;
-  sequence<T> Out = sequence<T>::no_init(In.size());
-  sequence<T> Tmp = sequence<T>::no_init(In.size());
-  integer_sort_(In, Out.slice(), Tmp.slice(), g, bits, 0, false);
+auto integer_sort(Seq const &In,
+                  Get_Key const &g,
+                  size_t bits = 0) {
+  using value_type = range_value_type_t<Seq>;
+  auto Out = sequence<value_type>::uninitialized(In.size());
+  auto Tmp = sequence<value_type>::uninitialized(In.size());
+  integer_sort_(make_slice(In), make_slice(Out), make_slice(Tmp), g, bits, 0, false);
   return Out;
 }
 

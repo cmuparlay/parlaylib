@@ -100,6 +100,18 @@ auto size(const R& r) {
   return std::end(r) - std::begin(r);
 }
 
+// Deduce the underlying value type of a range
+template<typename T>
+struct range_value_type {
+  using type = typename std::remove_reference<
+               typename std::remove_cv<decltype(
+                 *std::begin(std::declval<T&>())
+               )>::type>::type;
+};
+
+template<typename T>
+using range_value_type_t = typename range_value_type<T>::type;
+
 }
 
 #endif  // PARLAY_RANGE_H

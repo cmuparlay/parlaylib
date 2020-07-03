@@ -80,12 +80,13 @@ void seq_count_sort_(InS In, OutS Out, KeyS Keys, s_size_t* counts,
 }
 
 // Sequential counting sort
-template <typename InS, typename OutS, typename KeyS>
-sequence<size_t> seq_count_sort(InS& In, OutS& Out, KeyS& Keys,
+template <typename InIterator, typename OutIterator, typename KeyIterator>
+sequence<size_t> seq_count_sort(slice<InIterator, InIterator> In,
+                                slice<OutIterator, OutIterator> Out,
+                                slice<KeyIterator, KeyIterator> Keys,
                                 size_t num_buckets) {
   sequence<size_t> counts(num_buckets + 1);
-  seq_count_sort_(In.slice(), Out.slice(), Keys.slice(), counts.begin(),
-                  num_buckets);
+  seq_count_sort_(In, Out, Keys, counts.begin(), num_buckets);
   counts[num_buckets] = In.size();
   return counts;
 }
@@ -94,12 +95,14 @@ sequence<size_t> seq_count_sort(InS& In, OutS& Out, KeyS& Keys,
 // returns counts, and a flag
 // If skip_if_in_one and returned flag is true, then the Input was alread
 // sorted, and it has not been moved to the output.
-template <typename s_size_t, typename InS, typename OutS, typename KeyS>
-std::pair<sequence<size_t>, bool> count_sort_(InS& In, OutS& Out, KeyS& Keys,
+template <typename s_size_t, typename InIterator, typename OutIterator, typename KeyIterator>
+std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
+                                              slice<OutIterator, OutIterator> Out,
+                                              slice<KeyIterator, KeyIterator> Keys,
                                               size_t num_buckets,
                                               float parallelism = 1.0,
                                               bool skip_if_in_one = false) {
-  using T = typename InS::value_type;
+  using T = typename slice<InIterator, InIterator>::value_type;
   size_t n = In.size();
   size_t num_threads = num_workers();
   bool is_nested = parallelism < .5;
@@ -127,12 +130,12 @@ std::pair<sequence<size_t>, bool> count_sort_(InS& In, OutS& Out, KeyS& Keys,
                [&](size_t i) {
                  s_size_t start = std::min(i * block_size, n);
                  s_size_t end = std::min(start + block_size, n);
-                 seq_count_(In.slice(start, end), Keys.slice(start, end),
+                 seq_count_(In.cut(start, end), make_slice(Keys).cut(start, end),
                             counts.begin() + i * num_buckets, num_buckets);
                },
                1, is_nested);
 
-  sequence<size_t> bucket_offsets = sequence<size_t>::no_init(num_buckets + 1);
+  sequence<size_t> bucket_offsets = sequence<size_t>::uninitialized(num_buckets + 1);
   parallel_for(0, num_buckets,
                [&](size_t i) {
                  size_t v = 0;
@@ -147,14 +150,14 @@ std::pair<sequence<size_t>, bool> count_sort_(InS& In, OutS& Out, KeyS& Keys,
   size_t num_non_zero = 0;
   for (size_t i = 0; i < num_buckets; i++)
     num_non_zero += (bucket_offsets[i] > 0);
-  size_t total = scan_inplace(bucket_offsets.slice(), addm<size_t>());
+  size_t total = scan_inplace(make_slice(bucket_offsets), addm<size_t>());
   if (skip_if_in_one && num_non_zero == 1) {
     return std::make_pair(std::move(bucket_offsets), true);
   }
 
   if (total != n) throw std::logic_error("in count_sort, internal bad count");
 
-  auto dest_offsets = sequence<s_size_t>::no_init(num_blocks * num_buckets);
+  auto dest_offsets = sequence<s_size_t>::uninitialized(num_blocks * num_buckets);
   parallel_for(0, num_buckets,
                [&](size_t i) {
                  size_t v = bucket_offsets[i];
@@ -180,8 +183,8 @@ std::pair<sequence<size_t>, bool> count_sort_(InS& In, OutS& Out, KeyS& Keys,
                [&](size_t i) {
                  s_size_t start = std::min(i * block_size, n);
                  s_size_t end = std::min(start + block_size, n);
-                 seq_write_(In.slice(start, end), Out.begin(),
-                            Keys.slice(start, end),
+                 seq_write_(In.cut(start, end), Out.begin(),
+                            make_slice(Keys).cut(start, end),
                             counts2.begin() + i * num_buckets, num_buckets);
                },
                1, is_nested);
@@ -191,10 +194,13 @@ std::pair<sequence<size_t>, bool> count_sort_(InS& In, OutS& Out, KeyS& Keys,
 
 // If skip_if_in_one and returned flag is true, then the Input was alread
 // sorted, and it has not been moved to the output.
-template <typename InS, typename KeyS>
-std::pair<sequence<size_t>, bool> count_sort(
-    InS const& In, range<typename InS::value_type*> Out, KeyS const& Keys,
-    size_t num_buckets, float parallelism = 1.0, bool skip_if_in_one = false) {
+template <typename InIterator, typename OutIterator, typename KeyIterator>
+auto count_sort(slice<InIterator, InIterator> In,
+                slice<OutIterator, OutIterator> Out,
+                slice<KeyIterator, KeyIterator> Keys,
+                size_t num_buckets,
+                float parallelism = 1.0,
+                bool skip_if_in_one = false) {
   size_t n = In.size();
   if (n != Out.size() || n != Keys.size())
     throw std::invalid_argument("lengths don't match in call to count_sort");
@@ -207,10 +213,10 @@ std::pair<sequence<size_t>, bool> count_sort(
                              skip_if_in_one);
 }
 
-template <typename InS, typename KeyS>
-std::pair<sequence<typename InS::value_type>, sequence<size_t>> count_sort(
-    InS const& In, KeyS const& Keys, size_t num_buckets) {
-  sequence<typename InS::value_type> Out(In.size());
+template <typename InIterator, typename KeyS>
+auto count_sort(slice<InIterator, InIterator> In, KeyS const& Keys, size_t num_buckets) {
+  using value_type = typename slice<InIterator, InIterator>::value_type;
+  sequence<value_type> Out(In.size());
   auto a = count_sort(In, Out.slice(), Keys, num_buckets);
   return std::make_pair(std::move(Out), std::move(a.first));
 }

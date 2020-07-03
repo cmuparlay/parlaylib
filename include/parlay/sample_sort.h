@@ -13,7 +13,6 @@
 #include <cstring>
 
 #include "bucket_sort.h"
-#include "merge_sort.h"
 #include "quicksort.h"
 #include "sequence_ops.h"
 #include "transpose.h"
@@ -55,70 +54,81 @@ void merge_seq(E* sA, E* sB, s_size_t* sC, size_t lA, size_t lB, Compare f) {
   *sC = eA - sA;
 }
 
-template <typename RangeT, typename Compare>
-void seq_sort_inplace(RangeT A, const Compare& less, bool stable) {
-  using T = typename RangeT::value_type;
+template <typename Iterator, typename Compare>
+void seq_sort_inplace(slice<Iterator, Iterator> A, const Compare& less, bool stable) {
+  using value_type = typename slice<Iterator, Iterator>::value_type;
 #if defined(OPENMP)
   quicksort_serial(A.begin(), A.size(), less);
 #else
-  if (((sizeof(T) > 8) || is_pointer_<T>::value) && !stable)
+  if (((sizeof(value_type) > 8) || std::is_pointer<value_type>::value) && !stable)
     quicksort(A.begin(), A.size(), less);
   else
     bucket_sort(A, less, stable);
-// quicksort(A.begin(), A.size(), less);
 #endif
 }
 
-template <class Seq, class Iter, typename Compare>
-void seq_sort_(Seq const& In, range<Iter> Out, const Compare& less,
-               bool inplace = false, bool stable = false) {
+template <typename InIterator, typename OutIterator, typename Compare>
+void seq_sort_(slice<InIterator, InIterator> In,
+               slice<OutIterator, OutIterator> Out,
+               const Compare& less,
+               /* inplace */ std::false_type,
+               bool stable = false) {
   size_t l = In.size();
-  if (inplace)
-    for (size_t j = 0; j < l; j++) copy_memory(Out[j], In[j]);
-  else
-    for (size_t j = 0; j < l; j++) assign_uninitialized(Out[j], In[j]);
+  for (size_t j = 0; j < l; j++) assign_uninitialized(Out[j], In[j]);
   seq_sort_inplace(Out, less, stable);
 }
 
-template <class Seq, class Iter, typename Compare>
-void small_sort_(Seq const& In, range<Iter> Out, const Compare& less,
-                 bool inplace = false, bool stable = false) {
-  if (inplace)
-    throw std::invalid_argument("bad inplace arg to small_sort");
-  else
-    seq_sort_(In, Out, less, false, stable);
+template <typename InIterator, typename OutIterator, typename Compare>
+void seq_sort_(slice<InIterator, InIterator> In,
+               slice<OutIterator, OutIterator> Out,
+               const Compare& less,
+               /* inplace */ std::true_type,
+               bool stable = false) {
+  seq_sort_inplace(In, less, stable);
 }
 
-template <class Iter1, class Iter2, typename Compare>
-void small_sort_(range<Iter1> In, range<Iter2> Out, const Compare& less,
-                 bool inplace = false, bool stable = false) {
-  if (inplace)
-    seq_sort_inplace(In, less, stable);
-  else
-    seq_sort_(In, Out, less, false, stable);
+template <class InIterator, class OutIterator, typename Compare>
+void small_sort_(slice<InIterator, InIterator> In,
+                 slice<OutIterator, OutIterator> Out,
+                 const Compare& less,
+                 /* inplace */ std::false_type,
+                 bool stable = false) {
+  seq_sort_(In, Out, less, std::false_type{}, stable);
+}
+
+template <class InIterator, class OutIterator, typename Compare>
+void small_sort_(slice<InIterator, InIterator> In,
+                 slice<OutIterator, OutIterator> Out,
+                 const Compare& less,
+                 /* inplace */ std::true_type,
+                 bool stable = false) {
+  seq_sort_inplace(In, less, stable);
 }
 
 // if inplace, then In and Out must be the same, i.e. it copies back to itsefl
 // if inplace the copy constructor or assignment is never called on the elements
 // if not inplace, then the copy constructor is called once per element
-template <typename s_size_t = size_t, class SeqIn, class SeqOut,
+template <typename s_size_t = size_t, typename inplace,
+          typename InIterator, typename OutIterator,
           typename Compare>
-void sample_sort_(SeqIn In, SeqOut Out, const Compare& less,
-                  bool inplace = false, bool stable = false) {
-  using T = typename SeqIn::value_type;
+void sample_sort_(slice<InIterator, InIterator> In,
+                  slice<OutIterator, OutIterator> Out,
+                  const Compare& less,
+                  bool stable = false) {
+  using value_type = typename slice<InIterator, InIterator>::value_type;
   size_t n = In.size();
 
   if (n < QUICKSORT_THRESHOLD) {
-    small_sort_(In, Out, less, inplace, stable);
+    small_sort_(In, Out, less, inplace{}, stable);
   } else {
     // The larger these are, the more comparisons are done but less
     // overhead for the transpose.
     size_t bucket_quotient = 4;
     size_t block_quotient = 4;
-    if (is_pointer_<T>::value) {
+    if (std::is_pointer<value_type>::value) {
       bucket_quotient = 2;
       block_quotient = 3;
-    } else if (sizeof(T) > 8) {
+    } else if (sizeof(value_type) > 8) {
       bucket_quotient = 3;
       block_quotient = 3;
     }
@@ -130,23 +140,23 @@ void sample_sort_(SeqIn In, SeqOut Out, const Compare& less,
     size_t m = num_blocks * num_buckets;
 
     // generate "random" samples with oversampling
-    sequence<T> sample_set(sample_set_size,
+    auto sample_set = sequence<value_type>::from_function(sample_set_size,
                            [&](size_t i) { return In[hash64(i) % n]; });
 
     // sort the samples
     quicksort(sample_set.begin(), sample_set_size, less);
 
     // subselect samples at even stride
-    sequence<T> pivots(num_buckets - 1,
+    auto pivots = sequence<value_type>::from_function(num_buckets - 1,
                        [&](size_t i) { return sample_set[OVER_SAMPLE * i]; });
 
-    sequence<T> Tmp = sequence<T>::no_init(n);
+    sequence<value_type> Tmp = sequence<value_type>::uninitialized(n);
 
     // sort each block and merge with samples to get counts for each bucket
     sequence<s_size_t> counts(m + 1);
     counts[m] = 0;
     sliced_for(n, block_size, [&](size_t i, size_t start, size_t end) {
-      seq_sort_(In.slice(start, end), Tmp.slice(start, end), less, inplace,
+      seq_sort_(In.cut(start, end), make_slice(Tmp).cut(start, end), less, inplace{},
                 stable);
       merge_seq(Tmp.begin() + start, pivots.begin(),
                 counts.begin() + i * num_buckets, end - start, num_buckets - 1,
@@ -157,7 +167,7 @@ void sample_sort_(SeqIn In, SeqOut Out, const Compare& less,
     auto bucket_offsets =
         transpose_buckets(Tmp.begin(), Out.begin(), counts, n, block_size,
                           num_blocks, num_buckets);
-    Tmp.clear_no_destruct();
+    Tmp.clear();
 
     // sort within each bucket
     parallel_for(0, num_buckets,
@@ -169,46 +179,36 @@ void sample_sort_(SeqIn In, SeqOut Out, const Compare& less,
                    // equal
                    if (i == 0 || i == num_buckets - 1 ||
                        less(pivots[i - 1], pivots[i])) {
-                     seq_sort_inplace(Out.slice(start, end), less, stable);
+                     seq_sort_inplace(Out.cut(start, end), less, stable);
                    }
                  },
                  1);
   }
 }
 
-template <class Seq, typename Compare>
-auto sample_sort(Seq const& A, const Compare& less, bool stable = false)
-    -> sequence<typename Seq::value_type> {
-  using T = typename Seq::value_type;
-  sequence<T> R = sequence<T>::no_init(A.size());
+template <typename Iterator, typename Compare>
+auto sample_sort(slice<Iterator, Iterator> A,
+                 const Compare& less,
+                 bool stable = false) {
+  using value_type = typename slice<Iterator, Iterator>::value_type;
+  sequence<value_type> R = sequence<value_type>::uninitialized(A.size());
   if (A.size() < ((size_t)1) << 32)
-    sample_sort_<unsigned int>(A.slice(), R.slice(), less, false, stable);
+    sample_sort_<unsigned int, std::false_type>(A, make_slice(R), less, stable);
   else
-    sample_sort_<size_t>(A.slice(), R.slice(), less, false, stable);
+    sample_sort_<size_t, std::false_type>(A, make_slice(R), less, stable);
   return R;
 }
 
-template <class Iter, typename Compare>
-void sample_sort_inplace(range<Iter> A, const Compare& less,
+template <class Iterator, typename Compare>
+void sample_sort_inplace(slice<Iterator, Iterator> A,
+                         const Compare& less,
                          bool stable = false) {
   if (A.size() < ((size_t)1) << 32)
-    sample_sort_<unsigned int>(A.slice(), A.slice(), less, true, stable);
+    sample_sort_<unsigned int, std::true_type>(A, A, less, stable);
   else
-    sample_sort_<size_t>(A.slice(), A.slice(), less, true, stable);
+    sample_sort_<size_t, std::true_type>(A, A, less, stable);
 }
 
-template <class T, typename Compare>
-auto sample_sort(sequence<T>&& A, const Compare& less, bool stable = false)
-    -> sequence<T> {
-  sample_sort_inplace(A.slice(), less, stable);
-  return std::move(A);
-}
-
-template <typename E, typename Compare, typename s_size_t>
-void sample_sort(E* A, s_size_t n, const Compare& less, bool stable = false) {
-  range<E*> B(A, A + n);
-  sample_sort_inplace(B, less, stable);
-}
 
 }  // namespace parlay
 

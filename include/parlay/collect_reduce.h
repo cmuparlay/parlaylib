@@ -384,7 +384,7 @@ sequence<typename Seq::value_type> collect_reduce_sparse(Seq const &A,
       0);
 
   sizes[num_tables] = 0;
-  size_t total = scan_inplace(sizes.slice(), addm<size_t>());
+  size_t total = scan_inplace(make_slice(sizes), addm<size_t>());
 
   // copy packed tables into contiguous result
   sequence<T> result = sequence<T>::no_init(total);

@@ -7,28 +7,29 @@
 #include <parlay/stlalgs.h>
 
 // Generate a random vector of length n consisting
-// of random non-negative 64-bit integers.
-parlay::sequence<long long> random_vector(size_t n) {
+// of random non-negative 32-bit integers.
+auto random_vector(size_t n) {
   parlay::random r(0);
-  return parlay::sequence<long long>(n, [&] (auto i) {
-      return r.ith_rand(i);
-    });
+  return parlay::sequence<long long>::from_function(n, [&] (auto i) {
+    return r.ith_rand(i) % (1LL << 32);
+  });
 }
 
 // Generate a random sorted vector of length n consisting
-// of random non-negative 64-bit integers.
-parlay::sequence<long long> random_sorted_vector(size_t n) {
+// of random non-negative 32-bit integers.
+auto random_sorted_vector(size_t n) {
   auto a = random_vector(n);
-  parlay::sort_inplace(a.slice(), [] (long long a, long long b) {
-      return a < b;}); //std::less<long long>());
+  parlay::sort_inplace(make_slice(a), [] (auto a, auto b) {
+      return a < b;});
   return a;
 }
 
-// Generate a random vector of pairs of 64-bit integers.
-parlay::sequence<std::pair<long long, long long>> random_pairs(size_t n) {
+// Generate a random vector of pairs of 32-bit integers.
+auto random_pairs(size_t n) {
   parlay::random r(0);
-  return parlay::sequence<std::pair<long long, long long>>(n, [&] (size_t i) {
-      return std::make_pair(r.ith_rand(2*i), r.ith_rand(2*i + 1));
+  return parlay::sequence<std::pair<long long, long long>>::from_function(n, [&] (size_t i) {
+      return std::make_pair(r.ith_rand(2*i) % (1LL << 32),
+                            r.ith_rand(2*i + 1) % (1LL << 32));
     });
 }
 

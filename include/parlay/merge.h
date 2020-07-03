@@ -3,10 +3,11 @@
 #define PARLAY_MERGE_H_
 
 #include "binary_search.h"
-#include "seq.h"
+#include "sequence.h"
 #include "utilities.h"
 
 namespace parlay {
+namespace internal {
 // TODO: not yet optimized to use moves instead of copies.
 
 // the following parameter can be tuned
@@ -16,9 +17,9 @@ constexpr const size_t _merge_base = PAR_GRANULARITY;
 constexpr const size_t _merge_base = 2000;
 #endif
 
-template <_copy_type ct, class SeqA, class SeqB, class F>
+template <_copy_type ct, typename SeqA, typename SeqB, typename Iterator, typename F>
 void seq_merge(SeqA const &A, SeqB const &B,
-               range<typename SeqA::value_type *> R, const F &f) {
+               slice<Iterator, Iterator> R, const F &f) {
   size_t nA = A.size();
   size_t nB = B.size();
   size_t i = 0;
@@ -49,8 +50,10 @@ void seq_merge(SeqA const &A, SeqB const &B,
 }
 
 // this merge is stable
-template <_copy_type ct, class SeqA, class SeqB, class F>
-void merge_(const SeqA &A, const SeqB &B, range<typename SeqA::value_type *> R,
+template <_copy_type ct, typename InIterator1, typename InIterator2, typename OutIterator, typename F>
+void merge_(const slice<InIterator1, InIterator1> A,
+            const slice<InIterator2, InIterator2> B,
+            slice<OutIterator, OutIterator> R,
             const F &f, bool cons = false) {
   size_t nA = A.size();
   size_t nB = B.size();
@@ -69,10 +72,10 @@ void merge_(const SeqA &A, const SeqB &B, range<typename SeqA::value_type *> R,
     if (mB == 0) mA++;  // ensures at least one on each side
     size_t mR = mA + mB;
     auto left = [&]() {
-      merge_<ct>(A.slice(0, mA), B.slice(0, mB), R.slice(0, mR), f, cons);
+      merge_<ct>(A.cut(0, mA), B.cut(0, mB), R.cut(0, mR), f, cons);
     };
     auto right = [&]() {
-      merge_<ct>(A.slice(mA, nA), B.slice(mB, nB), R.slice(mR, nR), f, cons);
+      merge_<ct>(A.cut(mA, nA), B.cut(mB, nB), R.cut(mR, nR), f, cons);
     };
     par_do(left, right, cons);
   }
@@ -82,10 +85,12 @@ template <class SeqA, class SeqB, class F>
 sequence<typename SeqA::value_type> merge(const SeqA &A, const SeqB &B,
                                           const F &f, bool cons = false) {
   using T = typename SeqA::value_type;
-  auto R = sequence<T>::no_init(A.size() + B.size());
-  merge_<_assign>(A, B, R.slice(), f, cons);
+  auto R = sequence<T>::uninitialized(A.size() + B.size());
+  merge_<_assign>(A, B, make_slice(R), f, cons);
   return R;
 }
+
+}  // namespace internal
 }  // namespace parlay
 
 #endif  // PARLAY_MERGE_H_

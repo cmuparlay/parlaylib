@@ -4,7 +4,7 @@
 
 #include "gtest/gtest.h"
 
-#include <parlay/dynamic_sequence.h>
+#include <parlay/sequence.h>
 
 
 TEST(TestSequence, TestDefaultConstruct) {

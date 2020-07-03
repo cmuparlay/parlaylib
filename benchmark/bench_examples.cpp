@@ -4,6 +4,7 @@
 
 #include <benchmark/benchmark.h>
 
+#include <parlay/delayed_sequence.h>
 #include <parlay/monoid.h>
 #include <parlay/sequence_ops.h>
 
@@ -14,7 +15,7 @@ std::tuple<size_t,size_t,size_t> wc(Seq const &s) {
   // Create a delayed sequence of pairs of integers:
   // the first is 1 if it is line break, 0 otherwise;
   // the second is 1 if the start of a word, 0 otherwise.
-  auto f = parlay::dseq(s.size(), [&] (size_t i) {
+  auto f = parlay::delayed_seq<std::pair<size_t, size_t>>(s.size(), [&] (size_t i) {
     bool is_line_break = s[i] == '\n';
     bool word_start = ((i == 0 || std::isspace(s[i-1])) && !std::isspace(s[i]));
     return std::make_pair<size_t,size_t>(is_line_break, word_start);
@@ -32,8 +33,7 @@ std::tuple<size_t,size_t,size_t> wc(Seq const &s) {
 static void bench_wordcount(benchmark::State& state) {
   size_t n = state.range(0);
   std::string s(n, 'b');
-  auto r = parlay::make_range(std::begin(s), std::end(s));
-
+  auto r = parlay::make_slice(s);
   for (auto _ : state) {
     wc(r);
   }
@@ -86,7 +86,7 @@ typename Seq::value_type mcss(Seq const &A) {
       ta + tb
     );
   };
-  auto S = parlay::dseq(A.size(), [&] (size_t i) {
+  auto S = parlay::delayed_seq<std::tuple<T,T,T,T>>(A.size(), [&] (size_t i) {
     return std::make_tuple(A[i],A[i],A[i],A[i]);
   });
   auto m = parlay::make_monoid(f, std::tuple<T,T,T,T>(0,0,0,0));

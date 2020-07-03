@@ -4,8 +4,9 @@
 #define PARLAY_STLALGS_H_
 
 #include "binary_search.h"
-#include "kth_smallest.h"
+#include "delayed_sequence.h"
 #include "sample_sort.h"
+#include "sequence.h"
 #include "sequence_ops.h"
 
 namespace parlay {
@@ -225,7 +226,7 @@ auto reverse(Seq &S) {
 template <class Seq>
 sequence<typename Seq::value_type> rotate(Seq const &S, size_t r) {
   size_t n = S.size();
-  return sequence<typename Seq::value_type>(S.size(), [&](size_t i) {
+  return sequence<typename Seq::value_type>::from_function(S.size(), [&](size_t i) {
     size_t j = (i < r) ? n - r + i : i - r;
     return S[j];
   });
@@ -260,7 +261,7 @@ auto remove_if(Seq const &S, UnaryPred f) {
 
 template <class Seq, class Compare>
 sequence<typename Seq::value_type> sort(Seq const &S, Compare less) {
-  return sample_sort(S, less, false);
+  return sample_sort(make_slice(S), less, false);
 }
 
 template <class T, class Compare>
@@ -268,14 +269,14 @@ sequence<T> sort(sequence<T> &&S, Compare less) {
   return sample_sort(std::forward<sequence<T>>(S), less, false);
 }
 
-template <class Iter, class Compare>
-void sort_inplace(range<Iter> A, const Compare &f) {
+template <class Iterator, class Compare>
+void sort_inplace(slice<Iterator, Iterator> A, const Compare &f) {
   sample_sort_inplace(A, f);
 };
 
 template <class Seq, class Compare>
 sequence<typename Seq::value_type> stable_sort(Seq const &S, Compare less) {
-  return sample_sort(S, less, true);
+  return sample_sort(make_slice(S), less, true);
 }
 
 template <class Seq, class Compare>
@@ -310,7 +311,7 @@ template <class Seq>
 auto flatten(Seq const &s) -> sequence<typename Seq::value_type::value_type> {
   using T = typename Seq::value_type::value_type;
   sequence<size_t> offsets(s.size(), [&](size_t i) { return s[i].size(); });
-  size_t len = scan_inplace(offsets.slice(), addm<size_t>());
+  size_t len = scan_inplace(make_slice(offsets), addm<size_t>());
   auto r = sequence<T>::no_init(len);
   parallel_for(0, s.size(), [&](size_t i) {
     parallel_for(

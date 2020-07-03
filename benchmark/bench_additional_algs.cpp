@@ -20,7 +20,7 @@
 static void bench_integer_sort(benchmark::State& state) {
   size_t n = state.range(0);
   auto v = random_vector(n);
-  auto r = parlay::make_range(&v[0], &v[0] + v.size());
+  auto r = parlay::make_slice(v);
   for (auto _ : state) {
     parlay::integer_sort(r, [](auto x) { return x; }, 32);
   }
