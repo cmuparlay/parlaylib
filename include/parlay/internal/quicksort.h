@@ -13,6 +13,7 @@ namespace internal {
 
 template <class Iterator>
 bool base_case(Iterator x, size_t n) {
+  return n < 5;
   using value_type = typename std::iterator_traits<Iterator>::value_type;
   bool large = std::is_pointer<value_type>::value || (sizeof(x) > 8);
   return large ? (n < 16) : (n < 24);
@@ -43,25 +44,31 @@ void sort5(Iterator A, size_t n, const BinPred& f) {
 // be sorted
 template <class Iterator, class BinPred>
 std::tuple<Iterator, Iterator, bool> split3(Iterator A, size_t n, const BinPred& f) {
+  assert(n >= 5);
   sort5(A, n, f);
-  auto p1 = A[1];
-  auto p2 = A[3];
-  if (!f(A[0], A[1])) p1 = p2;  // if few elements less than p1, then set to p2
-  if (!f(A[3], A[4]))
-    p2 = p1;  // if few elements greater than p2, then set to p1
-  auto L = A;
-  auto R = A + n - 1;
+  
+  // Use A[1] and A[3] as the pivots. Move them to
+  // the front so that A[0] and A[1] are the pivots
+  std::swap(A[0], A[1]);
+  std::swap(A[1], A[3]);
+  const auto& p1 = A[0];
+  const auto& p2 = A[1];
+  bool pivots_equal = !f(p1, p2);
+  
   // set up initial invariants
+  auto L = A + 2;
+  auto R = A + n - 1;
   while (f(*L, p1)) L++;
   while (f(p2, *R)) R--;
   auto M = L;
+  
   // invariants:
   //  below L is less than p1,
-  //  above R is greatert than p2
+  //  above R is greater than p2
   //  between L and M are between p1 and p2 inclusive
   //  between M and R are unprocessed
   while (M <= R) {
-    // E mid = *M;
+
     if (f(*M, p1)) {
       std::swap(*M, *L);
       L++;
@@ -71,25 +78,29 @@ std::tuple<Iterator, Iterator, bool> split3(Iterator A, size_t n, const BinPred&
         std::swap(*L, *M);
         L++;
       }
-      // if (f(*R,p1)) {*M = *L; *L = *R; L++;}
-      // else {*M = *R;}
-      //*R = mid;
+
       R--;
       while (f(p2, *R)) R--;
     }
     M++;
   }
-  return std::make_tuple(L, M, !f(p1, p2));
+
+  // Swap the pivots into position
+  L -= 2;
+  std::swap(A[1], *(L+1));
+  std::swap(A[0], *L);
+  std::swap(*(L+1), *R);
+
+  return std::make_tuple(L, M, pivots_equal);
 }
 
 template <class Iterator, class BinPred>
 void quicksort_serial(Iterator A, size_t n, const BinPred& f) {
   while (!base_case(A, n)) {
-    Iterator L;
-    Iterator M;
+    Iterator L, M;
     bool mid_eq;
     std::tie(L, M, mid_eq) = split3(A, n, f);
-    if (!mid_eq) quicksort_serial(L, M - L, f);
+    if (!mid_eq) quicksort_serial(L+1, M - L-1, f);
     quicksort_serial(M, A + n - M, f);
     n = L - A;
   }
@@ -107,7 +118,7 @@ void quicksort(Iterator A, size_t n, const BinPred& f) {
     bool mid_eq;
     std::tie(L, M, mid_eq) = split3(A, n, f);
     auto left = [&]() { quicksort(A, L - A, f); };
-    auto mid = [&]() { quicksort(L, M - L, f); };
+    auto mid = [&]() { quicksort(L + 1, M - L - 1, f); };
     auto right = [&]() { quicksort(M, A + n - M, f); };
 
     if (!mid_eq)

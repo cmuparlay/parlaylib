@@ -37,8 +37,6 @@ TEST(TestQuicksort, TestSortInplaceCustomCompare) {
   ASSERT_TRUE(std::is_sorted(std::rbegin(s), std::rend(s)));
 }
 
-
-/*
 TEST(TestQuicksort, TestQuicksortUncopyable) {
   auto s = parlay::tabulate(100000, [](int i) -> UncopyableThing {
     return UncopyableThing(i);
@@ -53,6 +51,7 @@ TEST(TestQuicksort, TestQuicksortUncopyable) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
+
 TEST(TestQuicksort, TestQuicksortSelfReferential) {
   auto s = parlay::tabulate(100000, [](int i) -> SelfReferentialThing {
     return SelfReferentialThing(i);
@@ -66,4 +65,3 @@ TEST(TestQuicksort, TestQuicksortSelfReferential) {
   ASSERT_EQ(s, s2);
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
-*/
