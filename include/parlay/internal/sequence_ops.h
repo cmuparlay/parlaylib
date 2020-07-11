@@ -6,7 +6,7 @@
 
 #include "../delayed_sequence.h"
 #include "../monoid.h"
-#include "../seq.h"
+#include "../sequence.h"
 #include "../utilities.h"
 
 namespace parlay {
@@ -68,7 +68,7 @@ template <typename Seq, typename Monoid>
 auto reduce_serial(Seq const &A, Monoid m) -> typename Seq::value_type {
   using T = typename Seq::value_type;
   T r = A[0];
-  for (auto j = 1; j < A.size(); j++) r = m.f(r, A[j]);
+  for (size_t j = 1; j < A.size(); j++) r = m.f(r, A[j]);
   return r;
 }
 
@@ -260,16 +260,16 @@ auto filter(In_Seq const &In, F f, flags) {
 template <typename In_Seq, typename Out_Seq, typename F>
 size_t filter_out(In_Seq const &In, Out_Seq Out, F f) {
   size_t n = In.size();
-  size_t l = parlay::num_blocks(n, _block_size);
-  parlay::sequence<size_t> Sums(l);
-  parlay::sequence<bool> Fl(n);
-  parlay::sliced_for(n, parlay::_block_size, [&](size_t i, size_t s, size_t e) {
+  size_t l = num_blocks(n, _block_size);
+  sequence<size_t> Sums(l);
+  sequence<bool> Fl(n);
+  sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     size_t r = 0;
     for (size_t j = s; j < e; j++) r += (Fl[j] = f(In[j]));
     Sums[i] = r;
   });
   size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
-  parlay::sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
+  sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     pack_serial_at(make_slice(In).cut(s, e), make_slice(Fl).cut(s, e),
                    make_slice(Out).cut(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
   });
@@ -287,9 +287,9 @@ auto pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
   return pack(delayed_sequence<size_t>(Fl.size(), identity), Fl, fl);
 }
 
-template <typename In_Seq, typename Char_Seq>
-std::pair<size_t, size_t> split_three(In_Seq const &In,
-                                      slice<Iterator, Iterator> Out,
+template <typename InIterator, typename OutIterator, typename Char_Seq>
+std::pair<size_t, size_t> split_three(slice<InIterator, InIterator> In,
+                                      slice<OutIterator, OutIterator> Out,
                                       Char_Seq const &Fl, flags fl = no_flag) {
   size_t n = In.size();
   if (slice_eq(make_slice(In), Out))

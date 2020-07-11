@@ -5,16 +5,21 @@
 #include "merge_sort.h"
 #include "quicksort.h"
 #include "sequence_ops.h"
-#include "utilities.h"
+
+#include "../utilities.h"
 
 namespace parlay {
+namespace internal {
 
 using uchar = unsigned char;
 using uint = unsigned int;
 
-template <class RangeT, class KT>
-void radix_step_(RangeT A, RangeT B, KT* keys,
-		 size_t* counts, size_t m) {
+template <typename InIterator, typename OutIterator, typename KT>
+void radix_step_(slice<InIterator, InIterator> A,
+                 slice<OutIterator, OutIterator> B,
+                 KT* keys,
+                 size_t* counts,
+                 size_t m) {
   size_t n = A.size();
   for (size_t i = 0; i < m; i++) counts[i] = 0;
   for (size_t j = 0; j < n; j++) {
@@ -30,33 +35,39 @@ void radix_step_(RangeT A, RangeT B, KT* keys,
 
   for (long j = n - 1; j >= 0; j--) {
     long x = --counts[keys[j]];
-    copy_memory(B[x], A[j]);
+    B[x] = std::move(A[j]);
   }
 }
 
-template <class T>
-void to_heap_order(T* In, T* Out, size_t root, size_t l, size_t r) {
+template <typename InIterator, typename OutIterator>
+void to_heap_order(InIterator In,
+                   OutIterator Out,
+                   size_t root,
+                   size_t l,
+                   size_t r) {
   size_t n = r - l;
   size_t m = l + n / 2;
-  // copy_memory(Out[root], In[m]);
-  Out[root] = In[m];
+  Out[root] = std::move(In[m]);
   if (n == 1) return;
   to_heap_order(In, Out, 2 * root + 1, l, m);
   to_heap_order(In, Out, 2 * root + 2, m + 1, r);
 }
 
 // returns true if all equal
-template <class RangeT, class binOp>
-bool get_buckets(RangeT A, uchar* buckets, binOp f, size_t rounds) {
-  using T = typename RangeT::value_type;
+template <typename Iterator, typename BinaryOp>
+bool get_buckets(slice<Iterator, Iterator> A,
+                 uchar* buckets,
+                 BinaryOp f,
+                 size_t rounds) {
+  using T = typename slice<Iterator, Iterator>::value_type;
   size_t n = A.size();
   size_t num_buckets = (1 << rounds);
   size_t over_sample = 1 + n / (num_buckets * 400);
   size_t sample_set_size = num_buckets * over_sample;
   size_t num_pivots = num_buckets - 1;
   
-  auto sample_set =
-      sequence<T>::from_function(sample_set_size, [&](size_t i) { return A[hash64(i) % n]; });
+  auto sample_set = sequence<T>::from_function(sample_set_size,
+    [&](size_t i) { return A[hash64(i) % n]; });
 
   // sort the samples
   quicksort(sample_set.begin(), sample_set_size, f);
@@ -77,20 +88,32 @@ bool get_buckets(RangeT A, uchar* buckets, binOp f, size_t rounds) {
   return false;
 }
 
-template <class RangeT, class binOp>
-void base_sort(RangeT in, RangeT out, binOp f, bool stable,
+template <typename InIterator, typename OutIterator, typename BinaryOp>
+void base_sort(slice<InIterator, InIterator> in,
+               slice<OutIterator, OutIterator> out,
+               BinaryOp f,
+               bool stable,
                bool inplace) {
-  if (stable)
-    merge_sort_(in, out, f, inplace);
+  if (stable) {
+    auto n = in.size();
+    size_t levels = n > MERGE_SORT_BASE ? log2_up(n / MERGE_SORT_BASE) : 0;
+    merge_sort_(in, out, f, levels, inplace);
+  }
   else {
     quicksort(in.begin(), in.size(), f);
-    if (!inplace)
-      for (size_t i = 0; i < in.size(); i++) copy_memory(out[i], in[i]);
+    if (!inplace) {
+      std::copy(std::make_move_iterator(in.begin()),
+                std::make_move_iterator(in.end()),
+                out.begin());
+    }
   }
 }
 
-template <class RangeT, class binOp>
-void bucket_sort_r(RangeT in, RangeT out, binOp f, bool stable,
+template <typename InIterator, typename OutIterator, typename BinaryOp>
+void bucket_sort_r(slice<InIterator, InIterator> in,
+                   slice<OutIterator, OutIterator> out,
+                   BinaryOp f,
+                   bool stable,
                    bool inplace) {
   size_t n = in.size();
   size_t bits = 4;
@@ -108,22 +131,22 @@ void bucket_sort_r(RangeT in, RangeT out, binOp f, bool stable,
       auto loop = [&] (size_t j) {
         size_t start = counts[j];
         size_t end = (j == num_buckets - 1) ? n : counts[j + 1];
-        bucket_sort_r(make_slice(out).cut(start, end), make_slice(in).cut(start, end), f, stable,
-                      !inplace);
+        bucket_sort_r(make_slice(out).cut(start, end), make_slice(in).cut(start, end), f, stable, !inplace);
       };
       parallel_for(0, num_buckets, loop, 4);
     }
   }
 }
 
-template <class RangeT, class binOp>
-void bucket_sort(RangeT in, binOp f, bool stable = false) {
-  using T = typename RangeT::value_type;
+template <typename Iterator, typename BinaryOp>
+void bucket_sort(slice<Iterator, Iterator> in, BinaryOp f, bool stable = false) {
+  using T = typename slice<Iterator, Iterator>::value_type;
   size_t n = in.size();
   auto tmp = sequence<T>::uninitialized(n);
   bucket_sort_r(make_slice(in), make_slice(tmp), f, stable, true);
-  tmp.clear();
 }
+
+}  // namespace internal
 }  // namespace parlay
 
 #endif  // PARLAY_BUCKET_SORT_H_

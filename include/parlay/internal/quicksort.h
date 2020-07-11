@@ -6,18 +6,18 @@
 #include <utility>
 
 #include "sequence_ops.h"
-#include "utilities.h"
+#include "../utilities.h"
 
 namespace parlay {
+namespace internal {
 
-
-template <class T>
-bool base_case(T* x, size_t n) {
-  bool large = std::is_pointer<T>::value || (sizeof(x) > 8);
+template <class Iterator>
+bool base_case(Iterator x, size_t n) {
+  using value_type = typename std::iterator_traits<Iterator>::value_type;
+  bool large = std::is_pointer<value_type>::value || (sizeof(x) > 8);
   return large ? (n < 16) : (n < 24);
 }
 
-// cleaner, but slower -- not used
 template <class Iterator, class BinPred>
 void insertion_sort(Iterator A, size_t n, const BinPred& f) {
   for (size_t i = 1; i < n; i++) {
@@ -124,6 +124,8 @@ void quicksort(slice<Iterator, Iterator> A, const BinPred& f) {
 
 //// Fully Parallel version below here
 
+// ---------------  Not currently tested or used ----------------
+
 template <class SeqA, class BinPred, typename Iterator>
 std::tuple<size_t, size_t, bool> p_split3(SeqA const& A,
                                           slice<Iterator, Iterator> B,
@@ -203,6 +205,7 @@ void p_quicksort_inplace(slice<Iterator, Iterator> In, const F& f) {
   p_quicksort_(In, Tmp.slice(), f, true);
 }
 
+}  // namespace internal
 }  // namespace parlay
 
 #endif  // PARLAY_QUICKSORT_H_

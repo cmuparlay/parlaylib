@@ -10,6 +10,38 @@
 #include "slice.h"
 
 namespace parlay {
+  
+// Internal dispatch functions
+  
+namespace internal {
+  
+// Sort an integer_sequence
+template<PARLAY_RANGE_TYPE R>
+auto sort_dispatch(const R& in, /* is_integral */ std::true_type) {
+  return integer_sort(in);
+}
+
+// Sort a non-integer sequence
+template<PARLAY_RANGE_TYPE R>
+auto sort_dispatch(const R& in, /* is_integral */ std::false_type) {
+  using value_type = range_value_type_t<R>;
+  return sample_sort(make_slice(in), std::less<value_type>{});
+}
+
+// Sort an integer sequence in place
+template<PARLAY_RANGE_TYPE R>
+auto sort_inplace_dispatch(R& in, /* is_integral */ std::true_type) {
+  return integer_sort_inplace(in);
+}
+
+// Sort a non-integer sequence in place
+template<PARLAY_RANGE_TYPE R>
+auto sort_inplace_dispatch(R& in, /* is_integral */ std::false_type) {
+  using value_type = range_value_type_t<R>;
+  return sample_sort_inplace(make_slice(in), std::less<value_type>{});
+}
+
+}  // namespace internal
 
 /* -------------------- Map and Tabulate -------------------- */
 
@@ -17,7 +49,11 @@ namespace parlay {
 //   f(0), f(1), ... f(n)
 template<typename UnaryOp>
 auto tabulate(size_t n, UnaryOp&& f) {
-  return sequence<decltype(f(0))>::tabulate(n, f);
+  return sequence<typename std::remove_reference<
+                  typename std::remove_cv<
+                  decltype(f(0))
+                  >::type>::type>::
+                  from_function(n, f);
 }
 
 // Return a sequence consisting of the elements
@@ -37,8 +73,11 @@ auto map(R&& r, UnaryOp&& f) {
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto dmap(R&& r, UnaryOp&& f) {
   size_t n = size(r);
-  return delayed_sequence<decltype(A[0])>(n,
-    [ f = std::forward<UnaryFunc>(f), r = std::forward<R>(r) ]
+  return delayed_sequence<typename std::remove_reference<
+                          typename std::remove_cv<
+                          decltype(f(std::declval<range_value_type_t<R>&>()))
+                          >::type>::type>
+    (n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
       (size_t i) { return f(std::begin(r)[i]); });
 }
 
@@ -60,18 +99,45 @@ void copy(const R_in& in, R_out& out) {
 // to m. That is, given a sequence r[0], ..., r[n-1], and
 // an associative operation +, compute
 //  r[0] + r[1] + ... + r[n-1]
-template<PARLAY_RANGE_TYPE R typename Monoid>
+template<PARLAY_RANGE_TYPE R, typename Monoid>
 auto reduce(const R& r, Monoid&& m) {
   return internal::reduce(make_slice(r), std::forward<Monoid>(m));
 }
 
 // Compute the sum of the elements of r
-template<PARLAY_RANGE_TYPE R typename Monoid>
+template<PARLAY_RANGE_TYPE R>
 auto reduce(const R& r) {
-  return reduce(r, addm<decltype(*std::begin(r))>());
+  using value_type = range_value_type_t<R>;
+  return reduce(r, addm<value_type>());
 }
 
 /* ---------------------- Scans --------------------- */
+
+template<PARLAY_RANGE_TYPE R>
+auto scan(const R& r) {
+  using value_type = range_value_type_t<R>;
+  return internal::scan(make_slice(r), addm<value_type>());
+}
+
+template<PARLAY_RANGE_TYPE R>
+auto scan_inclusive(const R& r) {
+  using value_type = range_value_type_t<R>;
+  return internal::scan(make_slice(r), addm<value_type>(),
+    internal::fl_scan_inclusive);
+}
+
+template<PARLAY_RANGE_TYPE R>
+auto scan_inplace(R& r) {
+  using value_type = range_value_type_t<R>;
+  return internal::scan_inplace(make_slice(r), addm<value_type>());
+}
+
+template<PARLAY_RANGE_TYPE R>
+auto scan_inclusive_inplace(R& r) {
+  using value_type = range_value_type_t<R>;
+  return internal::scan_inplace(make_slice(r), addm<value_type>(),
+    internal::fl_scan_inclusive);
+}
 
 template<PARLAY_RANGE_TYPE R, typename Monoid>
 auto scan(const R& r, Monoid&& m) {
@@ -99,12 +165,12 @@ auto scan_inclusive_inplace(R& r, Monoid&& m) {
 
 template<PARLAY_RANGE_TYPE R, PARLAY_RANGE_TYPE BoolSeq>
 auto pack(const R& r, const BoolSeq& b) {
-  static_assert(std::is_convertible<decltype(std::begin(b)[0]), bool>::value);
+  static_assert(std::is_convertible<decltype(*std::begin(b)), bool>::value);
   return internal::pack(make_slice(r), make_slice(b));
 }
 
 template<PARLAY_RANGE_TYPE R_in, PARLAY_RANGE_TYPE BoolSeq, PARLAY_RANGE_TYPE R_out>
-auto pack_into(const R& in, const BoolSeq& b, R_out& out) {
+auto pack_into(const R_in& in, const BoolSeq& b, R_out& out) {
   static_assert(std::is_convertible<decltype(*std::begin(b)), bool>::value);
   return internal::pack_out(make_slice(in), b, make_slice(out));
 }
@@ -113,7 +179,14 @@ auto pack_into(const R& in, const BoolSeq& b, R_out& out) {
 // b[i] is true, or is implicitly convertible to true.
 template<PARLAY_RANGE_TYPE BoolSeq>
 auto pack_index(const BoolSeq& b) {
-  return internal::pack_index(make_slice(b));
+  return internal::pack_index<size_t>(make_slice(b));
+}
+
+// Return a sequence consisting of the indices such that
+// b[i] is true, or is implicitly convertible to true.
+template<typename IndexType, PARLAY_RANGE_TYPE BoolSeq>
+auto pack_index(const BoolSeq& b) {
+  return internal::pack_index<IndexType>(make_slice(b));
 }
 
 /* ----------------------- Filter --------------------- */
@@ -139,10 +212,8 @@ auto filter_into(const R_in& in, R_out& out, UnaryPred&& f) {
 // Sort the given sequence and return the sorted sequence
 template<PARLAY_RANGE_TYPE R>
 auto sort(const R& in) {
-  // If value_type is an integer type, calls integer_sort,
-  // otherwise uses sample_sort.
-  using value_type = typename range_value_type_t<R>;
-  return internal::sort_dispatch(in, std::is_integral<value_type>{});
+  using value_type = range_value_type_t<R>;
+  return internal::sample_sort(make_slice(in), std::less<value_type>());
 }
 
 // Sort the given sequence with respect to the given
@@ -150,42 +221,40 @@ auto sort(const R& in) {
 // for an element x < y in the sequence, comp(x,y) = true
 template<PARLAY_RANGE_TYPE R, typename Compare>
 auto sort(const R& in, Compare&& comp) {
-  return sample_sort(make_slice(in), std::forward<Compare>(comp));
+  return internal::sample_sort(make_slice(in), std::forward<Compare>(comp));
 }
 
 template<PARLAY_RANGE_TYPE R>
 auto stable_sort(const R& in) {
-  using value_type = typename range_value_type_t<R>;
-  return sample_sort(make_slice(in), std::less<value_type>{}, true);
+  using value_type = range_value_type_t<R>;
+  return internal::sample_sort(make_slice(in), std::less<value_type>{}, true);
 }
 
 template<PARLAY_RANGE_TYPE R, typename Compare>
 auto stable_sort(const R& in, Compare&& comp) {
-  return sample_sort(make_slice(in), std::forward<Compare>(comp), true);
+  return internal::sample_sort(make_slice(in), std::forward<Compare>(comp), true);
 }
 
 template<PARLAY_RANGE_TYPE R>
 auto sort_inplace(R& in) {
-  // If value_type is an integer type, calls integer_sort,
-  // otherwise uses sample_sort.
-  using value_type = typename range_value_type_t<R>;
-  return internal::sort_inplace_dispatch(in, std::is_integral<value_type>{});
+  using value_type = range_value_type_t<R>;
+  return internal::sample_sort_inplace(make_slice(in) , std::less<value_type>{}, false);
 }
 
 template<PARLAY_RANGE_TYPE R, typename Compare>
 auto sort_inplace(R& in, Compare&& comp) {
-  return sample_sort_inplace(make_slice(in), std::forward<Compare>(comp));
+  return internal::sample_sort_inplace(make_slice(in), std::forward<Compare>(comp), false);
 }
 
 template<PARLAY_RANGE_TYPE R>
 auto stable_sort_inplace(R& in) {
-  using value_type = typename range_value_type_t<R>;
-  return sample_sort_inplace(make_slice(in), std::less<value_type>{}, true);
+  using value_type = range_value_type_t<R>;
+  return internal::sample_sort_inplace(make_slice(in), std::less<value_type>{}, true);
 }
 
 template<PARLAY_RANGE_TYPE R, typename Compare>
 auto stable_sort_inplace(R& in, Compare&& comp) {
-  return sample_sort_inplace(make_slice(in), std::forward<Compare>(comp), true);
+  return internal::sample_sort_inplace(make_slice(in), std::forward<Compare>(comp), true);
 }
 
 /* -------------------- Integer Sorting -------------------- */
@@ -212,33 +281,11 @@ auto integer_sort_inplace(const R& in, Key&& key) {
   return integer_sort_inplace(make_slice(in), std::forward<Key>(key));
 }
 
-namespace internal {
-  
-// Sort an integer_sequence
-template<PARLAY_RANGE_TYPE R>
-auto sort_dispatch(const R& in, /* is_integral */ std::true_type) {
-  return integer_sort(in);
-}
+/* -------------------- Boolean searching -------------------- */
 
-// Sort a non-integer sequence
-template<PARLAY_RANGE_TYPE R>
-auto sort_dispatch(const R& in, /* is_integral */ std::false_type) {
-  using value_type = typename range_value_type_t<R>;
-  return sample_sort(make_slice(in), std::less<value_type>{});
-}
+// TODO: All of, any of, none of
 
-// Sort an integer sequence in place
-template<PARLAY_RANGE_TYPE R>
-auto sort_inplace_dispatch(R& in, /* is_integral */ std::true_type) {
-  return integer_sort_inplace(in);
-}
 
-// Sort a non-integer sequence in place
-template<PARLAY_RANGE_TYPE R>
-auto sort_inplace_dispatch(R& in, /* is_integral */ std::false_type) {
-  using value_type = typename range_value_type_t<R>;
-  return sample_sort_inplace(make_slice(in), std::less<value_type>{});
-}
 
 }  // namespace parlay
 

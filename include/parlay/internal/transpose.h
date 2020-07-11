@@ -2,9 +2,10 @@
 #ifndef PARLAY_TRANSPOSE_H_
 #define PARLAY_TRANSPOSE_H_
 
-#include "utilities.h"
+#include "../utilities.h"
 
 namespace parlay {
+namespace internal {
 
 #ifdef PAR_GRANULARITY
 constexpr const size_t TRANS_THRESHHOLD = PAR_GRANULARITY / 4;
@@ -73,7 +74,7 @@ struct blockTrans {
           size_t sa = OA[i * rLength + j];
           size_t sb = OB[j * cLength + i];
           size_t l = OA[i * rLength + j + 1] - sa;
-          for (size_t k = 0; k < l; k++) copy_memory(B[k + sb], A[k + sa]);
+          for (size_t k = 0; k < l; k++) B[k + sb] = A[k + sa];
         }
 
       });
@@ -149,7 +150,7 @@ sequence<size_t> transpose_buckets(Iterator From, Iterator To,
         size_t d_offset = dest_offsets[i + num_blocks * j];
         size_t len = counts[i * num_buckets + j];
         for (size_t k = 0; k < len; k++)
-          copy_memory(To[d_offset++], From[s_offset++]);
+          To[d_offset++] = From[s_offset++];
       }
     };
     parallel_for(0, num_blocks, f, 1);
@@ -175,6 +176,8 @@ sequence<size_t> transpose_buckets(Iterator From, Iterator To,
     return (i == num_buckets) ? n : dest_offsets[i * num_blocks];
   });
 }
+
+}  // namespace internal
 }  // namespace parlay
 
 #endif  // PARLAY_TRANSPOSE_H_

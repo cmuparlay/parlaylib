@@ -16,9 +16,11 @@
 #include "quicksort.h"
 #include "sequence_ops.h"
 #include "transpose.h"
-#include "utilities.h"
+
+#include "../utilities.h"
 
 namespace parlay {
+namespace internal {
 
 // the following parameters can be tuned
 constexpr const size_t QUICKSORT_THRESHOLD = 16384;
@@ -84,24 +86,26 @@ void seq_sort_(slice<InIterator, InIterator> In,
                const Compare& less,
                /* inplace */ std::true_type,
                bool stable = false) {
-  seq_sort_inplace(In, less, stable);
+  size_t l = In.size();
+  for (size_t j = 0; j < l; j++) assign_uninitialized(Out[j], std::move(In[j]));
+  seq_sort_inplace(Out, less, stable);
 }
 
 template <class InIterator, class OutIterator, typename Compare>
-void small_sort_(slice<InIterator, InIterator> In,
-                 slice<OutIterator, OutIterator> Out,
-                 const Compare& less,
-                 /* inplace */ std::false_type,
-                 bool stable = false) {
+void small_sort_dispatch(slice<InIterator, InIterator> In,
+                         slice<OutIterator, OutIterator> Out,
+                         const Compare& less,
+                         /* inplace */ std::false_type,
+                         bool stable = false) {
   seq_sort_(In, Out, less, std::false_type{}, stable);
 }
 
 template <class InIterator, class OutIterator, typename Compare>
-void small_sort_(slice<InIterator, InIterator> In,
-                 slice<OutIterator, OutIterator> Out,
-                 const Compare& less,
-                 /* inplace */ std::true_type,
-                 bool stable = false) {
+void small_sort_dispatch(slice<InIterator, InIterator> In,
+                         slice<OutIterator, OutIterator>,
+                         const Compare& less,
+                         /* inplace */ std::true_type,
+                         bool stable = false) {
   seq_sort_inplace(In, less, stable);
 }
 
@@ -119,7 +123,7 @@ void sample_sort_(slice<InIterator, InIterator> In,
   size_t n = In.size();
 
   if (n < QUICKSORT_THRESHOLD) {
-    small_sort_(In, Out, less, inplace{}, stable);
+    small_sort_dispatch(In, Out, less, inplace{}, stable);
   } else {
     // The larger these are, the more comparisons are done but less
     // overhead for the transpose.
@@ -170,19 +174,15 @@ void sample_sort_(slice<InIterator, InIterator> In,
     Tmp.clear();
 
     // sort within each bucket
-    parallel_for(0, num_buckets,
-                 [&](size_t i) {
-                   size_t start = bucket_offsets[i];
-                   size_t end = bucket_offsets[i + 1];
+    parallel_for(0, num_buckets, [&](size_t i) {
+      size_t start = bucket_offsets[i];
+      size_t end = bucket_offsets[i + 1];
 
-                   // buckets need not be sorted if two consecutive pivots are
-                   // equal
-                   if (i == 0 || i == num_buckets - 1 ||
-                       less(pivots[i - 1], pivots[i])) {
-                     seq_sort_inplace(Out.cut(start, end), less, stable);
-                   }
-                 },
-                 1);
+       // buckets need not be sorted if two consecutive pivots are equal
+       if (i == 0 || i == num_buckets - 1 || less(pivots[i - 1], pivots[i])) {
+         seq_sort_inplace(Out.cut(start, end), less, stable);
+       }
+     }, 1);
   }
 }
 
@@ -192,10 +192,10 @@ auto sample_sort(slice<Iterator, Iterator> A,
                  bool stable = false) {
   using value_type = typename slice<Iterator, Iterator>::value_type;
   sequence<value_type> R = sequence<value_type>::uninitialized(A.size());
-  if (A.size() < ((size_t)1) << 32)
+  if (A.size() < std::numeric_limits<unsigned int>::max())
     sample_sort_<unsigned int, std::false_type>(A, make_slice(R), less, stable);
   else
-    sample_sort_<size_t, std::false_type>(A, make_slice(R), less, stable);
+    sample_sort_<unsigned long long, std::false_type>(A, make_slice(R), less, stable);
   return R;
 }
 
@@ -203,13 +203,13 @@ template <class Iterator, typename Compare>
 void sample_sort_inplace(slice<Iterator, Iterator> A,
                          const Compare& less,
                          bool stable = false) {
-  if (A.size() < ((size_t)1) << 32)
+  if (A.size() < std::numeric_limits<unsigned int>::max())
     sample_sort_<unsigned int, std::true_type>(A, A, less, stable);
   else
-    sample_sort_<size_t, std::true_type>(A, A, less, stable);
+    sample_sort_<unsigned long long, std::true_type>(A, A, less, stable);
 }
 
-
+}  // namespace internal
 }  // namespace parlay
 
 #endif  // PARLAY_SAMPLE_SORT_H_

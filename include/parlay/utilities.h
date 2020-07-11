@@ -72,40 +72,19 @@ const flags fl_inplace = 16;
 
 template <typename T>
 inline void assign_uninitialized(T& a, const T& b) {
-  new (static_cast<void*>(std::addressof(a))) T(b);
+  new (static_cast<T*>(std::addressof(a))) T(b);
 }
 
 template <typename T>
 inline void assign_uninitialized(T& a, T&& b) {
-  new (static_cast<void*>(std::addressof(a))) T(std::move(b));
+  new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
 
 template <typename T>
-inline void move_uninitialized(T& a, const T b) {
-  new (static_cast<void*>(std::addressof(a))) T(std::move(b));
+inline void move_uninitialized(T& a, T& b) {
+  new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
 
-template <typename T>
-inline void copy_memory(T& a, const T& b) {
-  std::memcpy(&a, &b, sizeof(T));
-}
-
-enum _copy_type { _assign, _move, _copy };
-
-template <_copy_type copy_type, typename T>
-inline void copy_val(T& a, const T& b) {
-  switch (copy_type) {
-    case _assign:
-      assign_uninitialized(a, b);
-      break;
-    case _move:
-      move_uninitialized(a, b);
-      break;
-    case _copy:
-      copy_memory(a, b);
-      break;
-  }
-}
 
 // a 32-bit hash function
 inline uint32_t hash32(uint32_t a) {
@@ -254,6 +233,7 @@ inline bool write_max(std::atomic<ET>* a, ET b, F less) {
 // versions)
 template <class T>
 size_t log2_up(T i) {
+  assert(i > 0);
   size_t a = 0;
   T b = i - 1;
   while (b > 0) {
@@ -266,6 +246,41 @@ size_t log2_up(T i) {
 inline size_t granularity(size_t n) {
   return (n > 100) ? ceil(pow(n, 0.5)) : 100;
 }
+
+/* For inplace sorting / merging, we need to move values around
+   rather than making copies. We use tag dispatch to choose between
+   moving and copying, so that the move algorithm can be written
+   agnostic to which one it uses */
+
+struct move_tag {};
+struct uninitialized_move_tag {};
+struct copy_tag {};
+struct uninitialized_copy_tag {};
+
+// Move dispatch -- move val into dest
+template<typename T>
+void assign_dispatch(T& val, T& dest, move_tag) {
+  dest = std::move(val);
+}
+
+// Copy dispatch -- copy val into dest
+template<typename T>
+void assign_dispatch(const T& val, T& dest, copy_tag) {
+  dest = val;
+}
+
+// Uninitialized move dispatch -- move construct dest with val
+template<typename T>
+void assign_dispatch(T& val, T& dest, uninitialized_move_tag) {
+  assign_uninitialized(dest, std::move(val));
+}
+
+// Uninitialized copy dispatch -- copy initialize dest with val
+template<typename T>
+void assign_dispatch(const T& val, T& dest, uninitialized_copy_tag) {
+  assign_uninitialized(dest, val);
+}
+
 
 }  // namespace parlay
 

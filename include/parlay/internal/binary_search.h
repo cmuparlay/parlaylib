@@ -5,6 +5,8 @@
 #include <cstddef>
 
 namespace parlay {
+namespace internal {
+  
 // the following parameter can be tuned
 constexpr const size_t _binary_search_base = 16;
 
@@ -54,6 +56,7 @@ size_t binary_search(Seq const &I, const F &less) {
   return start + linear_search(make_slice(I).cut(start, end), less);
 }
 
+}  // namespace internal
 }  // namespace parlay
 
 #endif  // PARLAY_BINARY_SEARCH_H_
