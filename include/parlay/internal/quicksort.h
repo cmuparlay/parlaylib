@@ -13,7 +13,6 @@ namespace internal {
 
 template <class Iterator>
 bool base_case(Iterator x, size_t n) {
-  return n < 5;
   using value_type = typename std::iterator_traits<Iterator>::value_type;
   bool large = std::is_pointer<value_type>::value || (sizeof(x) > 8);
   return large ? (n < 16) : (n < 24);
