@@ -1,13 +1,15 @@
 #include "gtest/gtest.h"
 
 #include <algorithm>
+#include <deque>
 #include <numeric>
 
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
+#include <parlay/slice.h>
 
-#include <parlay/internal/merge_sort.h>
+#include <parlay/internal/quicksort.h>
 
 #include "sorting_utils.h"
 
@@ -51,7 +53,6 @@ TEST(TestQuicksort, TestQuicksortUncopyable) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
-
 TEST(TestQuicksort, TestQuicksortSelfReferential) {
   auto s = parlay::tabulate(100000, [](int i) -> SelfReferentialThing {
     return SelfReferentialThing(i);
@@ -65,3 +66,17 @@ TEST(TestQuicksort, TestQuicksortSelfReferential) {
   ASSERT_EQ(s, s2);
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
+
+TEST(TestQuicksort, TestSortNonContiguous) {
+  auto ss = parlay::tabulate(100000, [](long long i) -> long long {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  auto s = std::deque<long long>(ss.begin(), ss.end());
+  auto s2 = s;
+  ASSERT_EQ(s, s2);
+  parlay::internal::quicksort(parlay::make_slice(s), std::less<long long>());
+  std::sort(std::begin(s2), std::end(s2));
+  ASSERT_EQ(s, s2); 
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
+}
+
