@@ -81,7 +81,7 @@ struct slice {
   reference operator[](size_t i) const { return s[i]; }
   
   // Return the size of the sequence
-  auto size() const { return e - s; }
+  size_t size() const { return e - s; }
   
   // Return a slice corresponding to the subrange from
   // positions ss to ee.

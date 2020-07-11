@@ -3,19 +3,21 @@
 #ifndef PARLAY_STLALGS_H_
 #define PARLAY_STLALGS_H_
 
-#include "binary_search.h"
 #include "delayed_sequence.h"
-#include "sample_sort.h"
 #include "sequence.h"
-#include "sequence_ops.h"
+#include "slice.h"
+
+#include "internal/binary_search.h"
+#include "internal/sample_sort.h"
+#include "internal/sequence_ops.h"
 
 namespace parlay {
 
 template <class IntegerPred>
 size_t count_if_index(size_t n, IntegerPred p) {
   auto BS =
-      parlay::delayed_seq<size_t>(n, [&](size_t i) -> size_t { return p(i); });
-  size_t r = parlay::reduce(BS, parlay::addm<size_t>());
+      delayed_seq<size_t>(n, [&](size_t i) -> size_t { return p(i); });
+  size_t r = internal::reduce(make_slice(BS), addm<size_t>());
   return r;
 }
 
@@ -141,7 +143,7 @@ template <class Seq1, class Seq2>
 size_t search(Seq1 const &S1, Seq2 const &S2) {
   using T = typename Seq1::value_type;
   auto eq = [](T a, T b) { return a == b; };
-  return parlay::search(S1, S2, eq);
+  return search(S1, S2, eq);
 }
 
 template <class Seq, class BinaryPred>
@@ -193,7 +195,7 @@ template <class Seq, class Compare>
 size_t min_element(Seq const &S, Compare comp) {
   auto SS = delayed_seq<size_t>(S.size(), [&](size_t i) { return i; });
   auto f = [&](size_t l, size_t r) { return (!comp(S[r], S[l]) ? l : r); };
-  return parlay::reduce(SS, make_monoid(f, (size_t)S.size()));
+  return internal::reduce(make_slice(SS), make_monoid(f, (size_t)S.size()));
 }
 
 template <class Seq, class Compare>
@@ -211,7 +213,7 @@ std::pair<size_t, size_t> minmax_element(Seq const &S, Compare comp) {
     return (P(!comp(S[r.first], S[l.first]) ? l.first : r.first,
               !comp(S[l.second], S[r.second]) ? l.second : r.second));
   };
-  return parlay::reduce(SS, make_monoid(f, P(n, n)));
+  return internal::reduce(make_slice(SS), make_monoid(f, P(n, n)));
 }
 
 /* Operates in-place */
@@ -236,7 +238,7 @@ template <class Seq, class Compare>
 bool is_sorted(Seq const &S, Compare comp) {
   auto B = delayed_seq<bool>(
       S.size() - 1, [&](size_t i) -> size_t { return comp(S[i + 1], S[i]); });
-  return (reduce(B, addm<size_t>()) != 0);
+  return (internal::reduce(make_slice(B), addm<size_t>()) != 0);
 }
 
 template <class Seq, class Compare>
@@ -250,33 +252,33 @@ template <class Seq, class UnaryPred>
 size_t is_partitioned(Seq const &S, UnaryPred f) {
   auto B = delayed_seq<bool>(
       S.size() - 1, [&](size_t i) -> size_t { return !f(S[i + 1]) && S[i]; });
-  return (reduce(B, addm<size_t>()) != 0);
+  return (internal::reduce(make_slice(B), addm<size_t>()) != 0);
 }
 
 template <class Seq, class UnaryPred>
 auto remove_if(Seq const &S, UnaryPred f) {
   auto flags = delayed_seq<bool>(S.size(), [&](auto i) { return f(S[i]); });
-  return pack(S, flags);
+  return internal::pack(S, flags);
 }
 
 template <class Seq, class Compare>
 sequence<typename Seq::value_type> sort(Seq const &S, Compare less) {
-  return sample_sort(make_slice(S), less, false);
+  return internal::sample_sort(make_slice(S), less, false);
 }
 
 template <class T, class Compare>
 sequence<T> sort(sequence<T> &&S, Compare less) {
-  return sample_sort(std::forward<sequence<T>>(S), less, false);
+  return internal::sample_sort(std::forward<sequence<T>>(S), less, false);
 }
 
 template <class Iterator, class Compare>
 void sort_inplace(slice<Iterator, Iterator> A, const Compare &f) {
-  sample_sort_inplace(A, f);
+  internal::sample_sort_inplace(A, f);
 };
 
 template <class Seq, class Compare>
 sequence<typename Seq::value_type> stable_sort(Seq const &S, Compare less) {
-  return sample_sort(make_slice(S), less, true);
+  return internal::sample_sort(make_slice(S), less, true);
 }
 
 template <class Seq, class Compare>
@@ -311,7 +313,7 @@ template <class Seq>
 auto flatten(Seq const &s) -> sequence<typename Seq::value_type::value_type> {
   using T = typename Seq::value_type::value_type;
   sequence<size_t> offsets(s.size(), [&](size_t i) { return s[i].size(); });
-  size_t len = scan_inplace(make_slice(offsets), addm<size_t>());
+  size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
   auto r = sequence<T>::no_init(len);
   parallel_for(0, s.size(), [&](size_t i) {
     parallel_for(
@@ -327,7 +329,7 @@ auto transform_reduce(Seq const &s, Monoid m, UnaryOp unary_op) {
   using T = typename Seq::value_type;
   auto transformed_seq =
       delayed_seq<T>(s.size(), [&](size_t i) { return unary_op(s[i]); });
-  return reduce(transformed_seq, m);
+  return internal::reduce(transformed_seq, m);
 }
 
 template <typename Seq, typename Monoid, typename UnaryOp>
@@ -335,7 +337,7 @@ auto transform_exclusive_scan(Seq const &s, Monoid m, UnaryOp unary_op) {
   using T = typename Seq::value_type;
   auto transformed_seq =
       delayed_seq<T>(s.size(), [&](size_t i) { return unary_op(s[i]); });
-  return scan(transformed_seq, m);
+  return internal::scan(transformed_seq, m);
 }
 
 }  // namespace parlay

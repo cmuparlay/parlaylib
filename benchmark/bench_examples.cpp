@@ -6,7 +6,7 @@
 
 #include <parlay/delayed_sequence.h>
 #include <parlay/monoid.h>
-#include <parlay/sequence_ops.h>
+#include <parlay/primitives.h>
 
 // ------------------------- Word Count -----------------------------
 
@@ -25,7 +25,7 @@ std::tuple<size_t,size_t,size_t> wc(Seq const &s) {
   // This is faster than summing them separately since that would
   // require going over the input sequence twice.
   auto m = parlay::pair_monoid(parlay::addm<size_t>{}, parlay::addm<size_t>{});
-  auto r = reduce(f, m);
+  auto r = parlay::reduce(f, m);
 
   return std::make_tuple(r.first, r.second, s.size());
 }
@@ -96,7 +96,7 @@ typename Seq::value_type mcss(Seq const &A) {
 
 static void bench_mcss(benchmark::State& state) {
   size_t n = state.range(0);
-  std::vector<int> a(n);
+  std::vector<long long> a(n);
   parlay::parallel_for(0, n, [&](auto i) {
     a[i] = (i % 2 == 0 ? -1 : 1) * i;
   });

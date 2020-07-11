@@ -14,13 +14,15 @@
 
 #include <benchmark/benchmark.h>
 
-#include <parlay/parallel.h>
 #include <parlay/alloc.h>
-#include <parlay/merge.h>
+#include <parlay/parallel.h>
 #include <parlay/monoid.h>
 #include <parlay/random.h>
-#include <parlay/sequence_ops.h>
 #include <parlay/stlalgs.h>
+
+#include <parlay/internal/merge.h>
+#include <parlay/internal/sequence_ops.h>
+
 
 #include "util.h"
 
@@ -82,7 +84,7 @@ static void bench_exclusive_scan(benchmark::State& state) {
   auto v = random_vector(n);
   auto r = parlay::make_slice(std::begin(v), std::end(v));
   for (auto _ : state) {
-    parlay::scan(r, parlay::addm<long long>{});
+    parlay::internal::scan(r, parlay::addm<long long>{});
   }
 }
 
@@ -245,7 +247,7 @@ static void bench_reduce(benchmark::State& state) {
   auto v = random_vector(n);
   auto r = parlay::make_slice(std::begin(v), std::end(v));
   for (auto _ : state) {
-    parlay::reduce(r, parlay::addm<long long>{});
+    parlay::internal::reduce(r, parlay::addm<long long>{});
   }
 }
 
