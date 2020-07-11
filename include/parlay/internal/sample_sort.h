@@ -117,7 +117,7 @@ void small_sort_dispatch(slice<InIterator, InIterator> In,
 // if inplace, then In and Out must be the same, i.e. it copies back to itsefl
 // if inplace the copy constructor or assignment is never called on the elements
 // if not inplace, then the copy constructor is called once per element
-template <typename s_size_t = size_t, typename inplace,
+template <typename s_size_t = size_t, typename inplace_tag,
           typename InIterator, typename OutIterator,
           typename Compare>
 void sample_sort_(slice<InIterator, InIterator> In,
@@ -128,7 +128,7 @@ void sample_sort_(slice<InIterator, InIterator> In,
   size_t n = In.size();
 
   if (n < QUICKSORT_THRESHOLD) {
-    small_sort_dispatch(In, Out, less, inplace{}, stable);
+    small_sort_dispatch(In, Out, less, inplace_tag{}, stable);
   } else {
     // The larger these are, the more comparisons are done but less
     // overhead for the transpose.
@@ -165,7 +165,7 @@ void sample_sort_(slice<InIterator, InIterator> In,
     sequence<s_size_t> counts(m + 1);
     counts[m] = 0;
     sliced_for(n, block_size, [&](size_t i, size_t start, size_t end) {
-      seq_sort_(In.cut(start, end), make_slice(Tmp).cut(start, end), less, inplace{},
+      seq_sort_(In.cut(start, end), make_slice(Tmp).cut(start, end), less, inplace_tag{},
                 stable);
       merge_seq(Tmp.begin() + start, pivots.begin(),
                 counts.begin() + i * num_buckets, end - start, num_buckets - 1,
