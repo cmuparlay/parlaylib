@@ -1,11 +1,13 @@
 #include "gtest/gtest.h"
 
 #include <algorithm>
+#include <deque>
 #include <numeric>
 
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
+#include <parlay/slice.h>
 
 #include <parlay/internal/merge_sort.h>
 
@@ -141,5 +143,18 @@ TEST(TestMergeSort, TestMergeSortSelfReferential) {
   parlay::internal::merge_sort_inplace(make_slice(s), std::less<SelfReferentialThing>());
   std::stable_sort(std::begin(s2), std::end(s2));
   ASSERT_EQ(s, s2);
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
+}
+
+TEST(TestMergeSort, TestSortNonContiguous) {
+  auto ss = parlay::tabulate(100000, [](long long i) -> long long {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  auto s = std::deque<long long>(ss.begin(), ss.end());
+  auto s2 = s;
+  ASSERT_EQ(s, s2);
+  parlay::internal::merge_sort_inplace(parlay::make_slice(s), std::less<long long>());
+  std::sort(std::begin(s2), std::end(s2));
+  ASSERT_EQ(s, s2); 
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
