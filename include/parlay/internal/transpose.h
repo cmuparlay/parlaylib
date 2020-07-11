@@ -58,12 +58,14 @@ struct transpose {
   }
 };
 
-template <class Iterator, class int_t>
+template <typename InIterator, typename OutIterator, typename CountIterator, typename DestIterator>
 struct blockTrans {
-  Iterator A, B;
-  int_t *OA, *OB;
+  InIterator A;
+  OutIterator B;
+  CountIterator OA;
+  DestIterator OB;
 
-  blockTrans(Iterator AA, Iterator BB, int_t *OOA, int_t *OOB)
+  blockTrans(InIterator AA, OutIterator BB, CountIterator OOA, DestIterator OOB)
       : A(AA), B(BB), OA(OOA), OB(OOB) {}
 
   void transR(size_t rStart, size_t rCount, size_t rLength, size_t cStart,
@@ -116,8 +118,8 @@ struct blockTrans {
 // From and To are of lenght n
 // counts is of length num_blocks * num_buckets
 // Data is memcpy'd into To avoiding initializers and overloaded =
-template <typename Iterator, typename s_size_t>
-sequence<size_t> transpose_buckets(Iterator From, Iterator To,
+template <typename InIterator, typename OutIterator, typename s_size_t>
+sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
                                    sequence<s_size_t>& counts, size_t n,
                                    size_t block_size, size_t num_blocks,
                                    size_t num_buckets) {
@@ -167,7 +169,10 @@ sequence<size_t> transpose_buckets(Iterator From, Iterator To,
       throw std::logic_error("in transpose, internal bad count");
     counts[m] = n;
 
-    blockTrans<Iterator, s_size_t>(From, To, counts.begin(), dest_offsets.begin())
+    blockTrans<InIterator, OutIterator,
+               typename sequence<s_size_t>::iterator,
+               typename sequence<s_size_t>::iterator>(
+      From, To, counts.begin(), dest_offsets.begin())
         .trans(num_blocks, num_buckets);
   }
 

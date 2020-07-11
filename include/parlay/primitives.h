@@ -127,13 +127,13 @@ auto scan_inclusive(const R& r) {
 }
 
 template<PARLAY_RANGE_TYPE R>
-auto scan_inplace(R& r) {
+auto scan_inplace(R&& r) {
   using value_type = range_value_type_t<R>;
   return internal::scan_inplace(make_slice(r), addm<value_type>());
 }
 
 template<PARLAY_RANGE_TYPE R>
-auto scan_inclusive_inplace(R& r) {
+auto scan_inclusive_inplace(R&& r) {
   using value_type = range_value_type_t<R>;
   return internal::scan_inplace(make_slice(r), addm<value_type>(),
     internal::fl_scan_inclusive);
@@ -151,7 +151,7 @@ auto scan_inclusive(const R& r, Monoid&& m) {
 }
 
 template<PARLAY_RANGE_TYPE R, typename Monoid>
-auto scan_inplace(R& r, Monoid&& m) {
+auto scan_inplace(R&& r, Monoid&& m) {
   return internal::scan_inplace(make_slice(r), std::forward<Monoid>(m));
 }
 
@@ -209,6 +209,22 @@ auto filter_into(const R_in& in, R_out& out, UnaryPred&& f) {
 
 /* -------------------- General Sorting -------------------- */
 
+namespace internal {
+  
+// We are happy to copy objects that are trivially copyable
+// and at most 16 bytes large. This is used to choose between
+// using sample sort, which makes copies, or quicksort and
+// merge sort, which do not.
+template<typename T>
+struct okay_to_copy : public std::integral_constant<bool,
+    std::is_trivially_copy_constructible_v<T> &&
+    std::is_trivially_copy_assignable_v<T>    &&
+    std::is_trivially_destructible_v<T>       &&
+    sizeof(T) <= 16
+> {};
+
+}
+
 // Sort the given sequence and return the sorted sequence
 template<PARLAY_RANGE_TYPE R>
 auto sort(const R& in) {
@@ -235,27 +251,45 @@ auto stable_sort(const R& in, Compare&& comp) {
   return internal::sample_sort(make_slice(in), std::forward<Compare>(comp), true);
 }
 
-template<PARLAY_RANGE_TYPE R>
-auto sort_inplace(R& in) {
+template<PARLAY_RANGE_TYPE R, typename Compare>
+void sort_inplace(R&& in, Compare&& comp) {
   using value_type = range_value_type_t<R>;
-  return internal::sample_sort_inplace(make_slice(in) , std::less<value_type>{}, false);
+  // Could use tag dispatch instead of constexpr 
+  // if to make it compatible with C++14
+  if constexpr (internal::okay_to_copy<value_type>::value) {
+    internal::sample_sort_inplace(make_slice(in), std::forward<Compare>(comp), false);
+  }
+  else {
+    internal::quicksort(make_slice(in), std::forward<Compare>(comp));
+  }
+}
+
+template<PARLAY_RANGE_TYPE R>
+void sort_inplace(R&& in) {
+  using value_type = range_value_type_t<R>;
+  sort_inplace(std::forward<R>(in), std::less<value_type>{});
 }
 
 template<PARLAY_RANGE_TYPE R, typename Compare>
-auto sort_inplace(R& in, Compare&& comp) {
-  return internal::sample_sort_inplace(make_slice(in), std::forward<Compare>(comp), false);
+void stable_sort_inplace(R&& in, Compare&& comp) {
+  using value_type = range_value_type_t<R>;
+  // Could use tag dispatch instead of constexpr 
+  // if to make it compatible with C++14
+  if constexpr (internal::okay_to_copy<value_type>::value) {
+    internal::sample_sort_inplace(make_slice(in), std::forward<Compare>(comp), true);
+  }
+  else {
+    internal::merge_sort_inplace(make_slice(in), std::forward<Compare>(comp));
+  }
 }
 
 template<PARLAY_RANGE_TYPE R>
-auto stable_sort_inplace(R& in) {
+void stable_sort_inplace(R&& in) {
   using value_type = range_value_type_t<R>;
-  return internal::sample_sort_inplace(make_slice(in), std::less<value_type>{}, true);
+  stable_sort_inplace(std::forward<R>(in), std::less<value_type>{});
 }
 
-template<PARLAY_RANGE_TYPE R, typename Compare>
-auto stable_sort_inplace(R& in, Compare&& comp) {
-  return internal::sample_sort_inplace(make_slice(in), std::forward<Compare>(comp), true);
-}
+
 
 /* -------------------- Integer Sorting -------------------- */
 
@@ -266,19 +300,19 @@ auto integer_sort(const R& in) {
   return integer_sort(make_slice(in), [](auto x) { return x; });
 }
 
-template<PARLAY_RANGE_TYPE R>
-auto integer_sort_inplace(const R& in) {
-  return integer_sort_inplace(make_slice(in), [](auto x) { return x; });
-}
-
 template<PARLAY_RANGE_TYPE R, typename Key>
 auto integer_sort(const R& in, Key&& key) {
   return integer_sort(make_slice(in), std::forward<Key>(key));
 }
 
+template<PARLAY_RANGE_TYPE R>
+void integer_sort_inplace(R&& in) {
+  integer_sort_inplace(make_slice(in), [](auto x) { return x; });
+}
+
 template<PARLAY_RANGE_TYPE R, typename Key>
-auto integer_sort_inplace(const R& in, Key&& key) {
-  return integer_sort_inplace(make_slice(in), std::forward<Key>(key));
+void integer_sort_inplace(R&& in, Key&& key) {
+  integer_sort_inplace(make_slice(in), std::forward<Key>(key));
 }
 
 /* -------------------- Boolean searching -------------------- */

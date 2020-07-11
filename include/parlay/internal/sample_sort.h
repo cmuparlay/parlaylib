@@ -29,11 +29,16 @@ constexpr const size_t OVER_SAMPLE = 8;
 // generates counts in Sc for the number of keys in Sa between consecutive
 // values of Sb
 // Sa and Sb must be sorted
-template <typename E, typename Compare, typename s_size_t>
-void merge_seq(E* sA, E* sB, s_size_t* sC, size_t lA, size_t lB, Compare f) {
+template <typename Iterator, typename PivotIterator, typename CountIterator, typename Compare>
+void merge_seq(Iterator sA,
+               PivotIterator sB,
+               CountIterator sC,
+               size_t lA,
+               size_t lB,
+               Compare f) {
   if (lA == 0 || lB == 0) return;
-  E* eA = sA + lA;
-  E* eB = sB + lB;
+  auto eA = sA + lA;
+  auto eB = sB + lB;
   for (size_t i = 0; i <= lB; i++) sC[i] = 0;
   while (1) {
     while (f(*sA, *sB)) {

@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 
 #include <algorithm>
+#include <deque>
 #include <numeric>
 
 #include <parlay/monoid.h>
@@ -309,7 +310,6 @@ TEST(TestPrimitives, TestSortInplace) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
-
 TEST(TestPrimitives, TestSortInplaceCustomCompare) {
   auto s = parlay::tabulate(100000, [](long long i) -> long long {
     return (50021 * i + 61) % (1 << 20);
@@ -350,4 +350,58 @@ TEST(TestPrimitives, TestStableSortInplaceCustomCompare) {
   std::stable_sort(std::rbegin(s2), std::rend(s2));
   ASSERT_EQ(s, s2);
   ASSERT_TRUE(std::is_sorted(std::rbegin(s), std::rend(s)));
+}
+
+TEST(TestPrimitives, TestSortInplaceUncopyable) {
+  auto s = parlay::tabulate(100000, [](int i) -> UncopyableThing {
+    return UncopyableThing(i);
+  });
+  auto s2 = parlay::tabulate(100000, [](int i) -> UncopyableThing {
+    return UncopyableThing(i);
+  });
+  ASSERT_EQ(s, s2);
+  parlay::sort_inplace(s, std::less<UncopyableThing>());
+  std::stable_sort(std::begin(s2), std::end(s2));
+  ASSERT_EQ(s, s2);
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s))); 
+}
+
+TEST(TestPrimitives, TestStableSortInplaceUncopyable) {
+  auto s = parlay::tabulate(100000, [](int i) -> UncopyableThing {
+    return UncopyableThing(i);
+  });
+  auto s2 = parlay::tabulate(100000, [](int i) -> UncopyableThing {
+    return UncopyableThing(i);
+  });
+  ASSERT_EQ(s, s2);
+  parlay::stable_sort_inplace(s, std::less<UncopyableThing>());
+  std::stable_sort(std::begin(s2), std::end(s2));
+  ASSERT_EQ(s, s2);
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s))); 
+}
+
+TEST(TestPrimitives, TestSortInplaceNonContiguous) {
+  auto ss = parlay::tabulate(100000, [](long long i) -> long long {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  auto s = std::deque<long long>(ss.begin(), ss.end());
+  auto s2 = s;
+  ASSERT_EQ(s, s2);
+  parlay::sort_inplace(s, std::less<long long>());
+  std::sort(std::begin(s2), std::end(s2));
+  ASSERT_EQ(s, s2); 
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
+}
+
+TEST(TestPrimitives, TestStableSortInplaceNonContiguous) {
+  auto ss = parlay::tabulate(100000, [](long long i) -> long long {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  auto s = std::deque<long long>(ss.begin(), ss.end());
+  auto s2 = s;
+  ASSERT_EQ(s, s2);
+  parlay::stable_sort_inplace(s, std::less<long long>());
+  std::sort(std::begin(s2), std::end(s2));
+  ASSERT_EQ(s, s2); 
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }

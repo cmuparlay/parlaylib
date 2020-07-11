@@ -34,6 +34,7 @@ struct UncopyableThing {
   
   UncopyableThing(const UncopyableThing&) = delete;
   UncopyableThing& operator=(const UncopyableThing&) = delete;
+  
   bool operator<(const UncopyableThing& other) const {
     return x < other.x;
   }

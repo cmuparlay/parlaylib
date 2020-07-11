@@ -45,14 +45,8 @@ auto make_slice(It it, S s) {
 }
 
 // Create a slice from a range.
-//
-// The range must be passed by lvalue reference, since making
-// a slice out of a temporary object would lead to the iterators
-// dangling, leading to undefined behaviour.
 template<PARLAY_RANGE_TYPE R>
 auto make_slice(R&& r) {
-  static_assert(std::is_lvalue_reference<R>::value,
-    "Don't use make_slice on temporary objects. The iterators will dangle.");
   return make_slice(std::begin(r), std::end(r));
 }
 
