@@ -61,7 +61,7 @@ auto tabulate(size_t n, UnaryOp&& f) {
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto map(R&& r, UnaryOp&& f) {
-  return tabulate(size(r), [&](size_t i) { return f(std::begin(r)[i]); });
+  return tabulate(parlay::size(r), [&](size_t i) { return f(std::begin(r)[i]); });
 }
 
 // Return a delayed sequence consisting of the elements
@@ -73,7 +73,7 @@ auto map(R&& r, UnaryOp&& f) {
 // r must remain alive as long as the delayed sequence.
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto dmap(R&& r, UnaryOp&& f) {
-  size_t n = size(r);
+  size_t n = parlay::size(r);
   return delayed_sequence<typename std::remove_reference<
                           typename std::remove_cv<
                           decltype(f(std::declval<range_value_type_t<R>&>()))
@@ -88,8 +88,8 @@ auto dmap(R&& r, UnaryOp&& f) {
 // The range out must be at least as large as in.
 template<PARLAY_RANGE_TYPE R_in, PARLAY_RANGE_TYPE R_out>
 void copy(const R_in& in, R_out& out) {
-  assert(size(out) >= size(in));
-  parallel_for(0, size(in), [&](size_t i) {
+  assert(parlay::size(out) >= parlay::size(in));
+  parallel_for(0, parlay::size(in), [&](size_t i) {
     std::begin(out)[i] = std::begin(in)[i];
   });
 }

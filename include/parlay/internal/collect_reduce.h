@@ -255,7 +255,7 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
                      return get_value(B[i]);
                    };
                    auto vals = delayed_seq<val_type>(n, x);
-                   sums[get_key(B[i])] = reduce(vals, monoid);
+                   sums[get_key(B[i])] = internal::reduce(vals, monoid);
                  }
                },
                1);

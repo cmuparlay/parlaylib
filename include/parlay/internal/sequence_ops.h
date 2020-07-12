@@ -87,7 +87,7 @@ auto reduce(Seq const &A, Monoid m, flags fl = no_flag) ->
   sliced_for(n, block_size, [&](size_t i, size_t s, size_t e) {
     Sums[i] = reduce_serial(make_slice(A).cut(s, e), m);
   });
-  T r = reduce(Sums, m);
+  T r = internal::reduce(Sums, m);
   return r;
 }
 
