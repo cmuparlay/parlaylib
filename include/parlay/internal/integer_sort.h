@@ -20,9 +20,15 @@ namespace internal {
 constexpr size_t radix = 8;
 constexpr size_t max_buckets = 1 << radix;
 
+// TODO: This code makes very liberal use of move_uninitialized. It
+// might be using even when assigning to memory that is initialized.
+
 // a bottom up radix sort
-template <class Slice, class GetKey>
-void seq_radix_sort_(Slice In, Slice Out, GetKey const &g, size_t bits,
+template <typename InIterator, typename OutIterator, class GetKey>
+void seq_radix_sort_(slice<InIterator, InIterator> In,
+                     slice<OutIterator, OutIterator> Out,
+                     GetKey const &g,
+                     size_t bits,
                      bool inplace = true) {
   size_t n = In.size();
   if (n == 0) return;
@@ -33,18 +39,37 @@ void seq_radix_sort_(Slice In, Slice Out, GetKey const &g, size_t bits,
     size_t round_bits = std::min(radix, bits);
     size_t num_buckets = (1 << round_bits);
     size_t mask = num_buckets - 1;
-    auto get_key = [&](size_t i) -> size_t {
-      return (g(In[i]) >> bit_offset) & mask;
-    };
-    seq_count_sort_(In, Out, delayed_seq<size_t>(n, get_key), counts,
-                    num_buckets);
-    std::swap(In, Out);
+    
+    if (swapped) {
+      auto get_key = [&](size_t i) -> size_t {
+        return (g(Out[i]) >> bit_offset) & mask;
+      };
+      seq_count_sort_(Out, In, delayed_seq<size_t>(n, get_key), counts,
+                      num_buckets);
+    }
+    
+    else {    
+      auto get_key = [&](size_t i) -> size_t {
+        return (g(In[i]) >> bit_offset) & mask;
+      };
+      seq_count_sort_(In, Out, delayed_seq<size_t>(n, get_key), counts,
+                      num_buckets);
+    }
+                    
     bits = bits - round_bits;
     bit_offset = bit_offset + round_bits;
     swapped = !swapped;
   }
-  if ((inplace && swapped) || (!inplace && !swapped)) {
-    for (size_t i = 0; i < n; i++) move_uninitialized(Out[i], In[i]);
+  
+  if (swapped && inplace) {
+    for (size_t i = 0; i < n; i++) {
+      move_uninitialized(In[i], Out[i]);
+    }
+  }
+  else if (!swapped && !inplace) {
+    for (size_t i = 0; i < n; i++) {
+      move_uninitialized(Out[i], In[i]);
+    }
   }
 }
 
@@ -87,7 +112,8 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
   
   size_t n = In.size();
   size_t cache_per_thread = 1000000;
-  size_t base_bits = log2_up(2 * (size_t)sizeof(T) * n / cache_per_thread);
+  auto sz = 2 * (size_t)sizeof(T) * n / cache_per_thread;
+  size_t base_bits = sz > 0 ? log2_up(sz) : 0;
   // keep between 8 and 13
   base_bits = std::max<size_t>(8, std::min<size_t>(13, base_bits));
   sequence<size_t> offsets;
@@ -95,7 +121,7 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
   bool return_offsets = (num_buckets > 0);
 
   if (key_bits == 0) {
-    if (!inplace) parallel_for(0, In.size(), [&](size_t i) { Out[i] = In[i]; });
+    if (!inplace) parallel_for(0, In.size(), [&](size_t i) { Out[i] = std::move(In[i]); });
     return sequence<size_t>();
 
     // for small inputs or little parallelism use sequential radix sort
@@ -201,6 +227,10 @@ void integer_sort_inplace(slice<Iterator, Iterator> In,
   integer_sort_<std::true_type>(In, make_slice(Tmp), In, g, bits, 0);
 }
 
+// CURRENTLY BROKEN.
+// Has const correctness issues. The internal functions used by
+// integer_sort_ seem to want to modify the input.
+// TODO: Fix this.
 template <typename Iterator, typename Get_Key>
 auto integer_sort(slice<Iterator, Iterator> In,
                   Get_Key const &g,

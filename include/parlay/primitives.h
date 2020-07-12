@@ -213,7 +213,12 @@ auto filter_into(const R_in& in, R_out& out, UnaryPred&& f) {
 // Compute a histogram of the values of A, with m buckets.
 template<PARLAY_RANGE_TYPE R, typename Integer_>
 auto histogram(const R& A, Integer_ m) {
-  return internal::histogram(make_slice(A), m);
+  // We currently have to make a copy of the sequence since
+  // histogram internally calls integer sort, which has a
+  // const correctness bug and tries to modify the input.
+  // TODO: Fix this.
+  auto s = parlay::to_sequence(A);
+  return internal::histogram(make_slice(s), m);
 }
 
 /* -------------------- General Sorting -------------------- */
@@ -304,14 +309,23 @@ void stable_sort_inplace(R&& in) {
 
 // Note: There is currently no stable integer sort.
 
+// For now, integer_sort makes a copy and then calls
+// integer_sort_inplace. Calling internal::integer_sort
+// directly currently has const correctness bugs.
+// TODO: Fix these bugs
+
 template<PARLAY_RANGE_TYPE R>
-auto integer_sort(R& in) {
-  return internal::integer_sort(make_slice(in), [](auto x) { return x; });
+auto integer_sort(const R& in) {
+  auto s = parlay::to_sequence(in);
+  internal::integer_sort_inplace(make_slice(s), [](auto x) { return x; });
+  return s;
 }
 
 template<PARLAY_RANGE_TYPE R, typename Key>
-auto integer_sort(R& in, Key&& key) {
-  return internal::integer_sort(make_slice(in), std::forward<Key>(key));
+auto integer_sort(const R& in, Key&& key) {
+  auto s = parlay::to_sequence(in);
+  internal::integer_sort_inplace(make_slice(s), std::forward<Key>(key));
+  return s;
 }
 
 template<PARLAY_RANGE_TYPE R>

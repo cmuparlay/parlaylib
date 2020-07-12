@@ -25,8 +25,8 @@ constexpr const size_t BUCKET_FACTOR = 32;
 constexpr const size_t LOW_BUCKET_FACTOR = 16;
 
 // count number in each bucket
-template <typename s_size_t, typename InSeq, typename KeySeq>
-void seq_count_(InSeq In, KeySeq Keys, s_size_t* counts, size_t num_buckets) {
+template <typename InSeq, typename CountIterator, typename KeySeq>
+void seq_count_(InSeq In, KeySeq Keys, CountIterator counts, size_t num_buckets) {
   size_t n = In.size();
   // use local counts to avoid false sharing
   size_t local_counts[num_buckets];
@@ -41,9 +41,9 @@ void seq_count_(InSeq In, KeySeq Keys, s_size_t* counts, size_t num_buckets) {
 }
 
 // write to destination, where offsets give start of each bucket
-template <typename s_size_t, typename InSeq, typename KeySeq>
-void seq_write_(InSeq In, typename InSeq::value_type* Out, KeySeq Keys,
-                s_size_t* offsets, size_t num_buckets) {
+template <typename InSeq, typename OutIterator, typename CountIterator, typename KeySeq>
+void seq_write_(InSeq In, OutIterator Out, KeySeq Keys,
+                CountIterator offsets, size_t num_buckets) {
   // copy to local offsets to avoid false sharing
   size_t local_offsets[num_buckets];
   for (size_t i = 0; i < num_buckets; i++) local_offsets[i] = offsets[i];
@@ -54,9 +54,9 @@ void seq_write_(InSeq In, typename InSeq::value_type* Out, KeySeq Keys,
 }
 
 // write to destination, where offsets give end of each bucket
-template <typename s_size_t, typename InSeq, typename KeySeq>
-void seq_write_down_(InSeq In, typename InSeq::value_type* Out, KeySeq Keys,
-                     s_size_t* offsets, size_t) {  // num_buckets) {
+template <typename InSeq, typename OutIterator, typename OffsetIterator, typename KeySeq>
+void seq_write_down_(InSeq In, OutIterator Out, KeySeq Keys,
+                     OffsetIterator offsets, size_t) {  // num_buckets) {
   for (long j = In.size() - 1; j >= 0; j--) {
     long k = --offsets[Keys[j]];
     move_uninitialized(Out[k], In[j]);
@@ -64,8 +64,8 @@ void seq_write_down_(InSeq In, typename InSeq::value_type* Out, KeySeq Keys,
 }
 
 // Sequential counting sort internal
-template <typename s_size_t, typename InS, typename OutS, typename KeyS>
-void seq_count_sort_(InS In, OutS Out, KeyS Keys, s_size_t* counts,
+template <typename InS, typename OutS, typename CountIterator, typename KeyS>
+void seq_count_sort_(InS In, OutS Out, KeyS Keys, CountIterator counts,
                      size_t num_buckets) {
   // count size of each bucket
   seq_count_(In, Keys, counts, num_buckets);

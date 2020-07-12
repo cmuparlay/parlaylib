@@ -474,3 +474,30 @@ TEST(TestPrimitives, TestIntegerSortInplaceCustomKey) {
   ASSERT_EQ(s, s2);
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
+
+TEST(TestPrimitives, TestIntegerSortInplaceUncopyable) {
+  auto s = parlay::tabulate(100000, [](int i) -> UncopyableThing {
+    return UncopyableThing(100000-i);
+  });
+  auto s2 = parlay::tabulate(100000, [](int i) -> UncopyableThing {
+    return UncopyableThing(100000-i);
+  });
+  ASSERT_EQ(s, s2);
+  parlay::integer_sort_inplace(s, [](const auto& a) { return a.x; });
+  std::sort(std::begin(s2), std::end(s2));
+  ASSERT_EQ(s, s2);
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s))); 
+}
+
+TEST(TestPrimitives, TestIntegerSortInplaceNonContiguous) {
+  auto ss = parlay::tabulate(100000, [](long long i) -> long long {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  auto s = std::deque<long long>(ss.begin(), ss.end());
+  auto s2 = s;
+  ASSERT_EQ(s, s2);
+  parlay::integer_sort_inplace(s);
+  std::sort(std::begin(s2), std::end(s2));
+  ASSERT_EQ(s, s2); 
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
+}
