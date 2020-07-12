@@ -16,6 +16,7 @@ add_dtests(NAME test_bucket_sort FILES test_bucket_sort.cpp LIBS parlay)
 # -------------------------------- Primitives ---------------------------------
 
 add_dtests(NAME test_primitives FILES test_primitives.cpp LIBS parlay)
+add_dtests(NAME test_random FILES test_random.cpp LIBS parlay)
 
 # ----------------------------- Parlay Scheduling ------------------------------
 

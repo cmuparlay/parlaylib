@@ -4,6 +4,8 @@
 
 #include "utilities.h"
 
+#include "internal/counting_sort.h"
+
 namespace parlay {
 
 // A cheap version of an inteface that should be improved
@@ -21,6 +23,92 @@ struct random {
  private:
   uint64_t state = 0;
 };
+
+namespace internal {
+
+// inplace sequential version
+template <typename Iterator>
+void seq_random_shuffle_(slice<Iterator, Iterator> A, random r = random()) {
+  // the Knuth shuffle
+  size_t n = A.size();
+  if (n < 2) return;
+  for (size_t i=n-1; i > 0; i--)
+    std::swap(A[i],A[r.ith_rand(i)%(i+1)]);
+}
+
+template <typename InIterator, typename OutIterator>
+void random_shuffle_(slice<InIterator, InIterator> In,
+                     slice<OutIterator, OutIterator> Out,
+                     random r = random()) {
+                       
+  size_t n = In.size();
+  if (n < SEQ_THRESHOLD) {
+    parallel_for(0,n,[&] (size_t i) {
+      assign_uninitialized(Out[i], In[i]);
+    });
+    seq_random_shuffle_(Out, r);
+    return;
+  }
+
+  size_t bits = 10;
+  if (n < (1 << 27)) {
+    bits = (log2_up(n) - 7)/2;
+  }
+  else {
+    bits = (log2_up(n) - 17);
+  }
+  
+  size_t num_buckets = (1<<bits);
+  size_t mask = num_buckets - 1;
+  auto rand_pos = [&] (size_t i) -> size_t {
+    return r.ith_rand(i) & mask;
+  };
+
+  auto get_pos = delayed_seq<size_t>(n, rand_pos);
+
+  // first randomly sorts based on random values [0,num_buckets)
+  sequence<size_t> bucket_offsets;
+  bool single;
+  std::tie(bucket_offsets, single)
+    = count_sort(make_slice(In), make_slice(Out), make_slice(get_pos), num_buckets);
+
+  // now sequentially randomly shuffle within each bucket
+  auto bucket_f = [&] (size_t i) {
+    size_t start = bucket_offsets[i];
+    size_t end = bucket_offsets[i+1];
+    seq_random_shuffle_(make_slice(Out).cut(start,end), r.fork(i));
+  };
+  parallel_for(0, num_buckets, bucket_f, 1);
+}
+
+}  // namespace internal
+
+// Generate a random permutation of the given range
+// Note that unless a seeded RNG is provided, the
+// same permutation will be generated every time by
+// the default seed
+template <PARLAY_RANGE_TYPE R>
+auto random_shuffle(const R& In, random r = random()) {
+  using T = range_value_type_t<R>;
+  // We have to make a redundant copy here due to a const
+  // correctness bug inside counting sort.
+  // TODO: Fix this
+  auto InCopy = to_sequence(In);
+  auto Out = sequence<T>::uninitialized(In.size());
+  internal::random_shuffle_(make_slice(InCopy), make_slice(Out), r);
+  return Out;
+}
+
+// Generate a random permutation of the integers from 0 to n - 1
+// Note that unless a seeded RNG is provided, the
+// same permutation will be generated every time by
+// the default seed
+template <typename _Integer>
+sequence<_Integer> random_permutation(size_t n, random r = random()) {
+  auto id = sequence<_Integer>::from_function(n,
+    [&] (size_t i) -> _Integer { return i; });
+  return random_shuffle(id, r);
+}
 
 }  // namespace parlay
 
