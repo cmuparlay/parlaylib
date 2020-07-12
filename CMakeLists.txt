@@ -10,6 +10,8 @@ project(PARLAY VERSION 1.0
         DESCRIPTION "A collection of parallel algorithms and other support for parallelism in C++"
         LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
 # Set a default build type
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (Debug Release RelWithDebInfo MinSizeRel)" FORCE)
@@ -33,8 +35,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 #                       Library definition
              
 add_library(parlay INTERFACE)
-set(PARLAY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
-target_include_directories(parlay INTERFACE ${PARLAY_INCLUDE_DIR})
+set(PARLAY_INCLUDE_DIR "${PARLAY_SOURCE_DIR}/include")
+target_include_directories(parlay INTERFACE
+  $<BUILD_INTERFACE:${PARLAY_INCLUDE_DIR}>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_compile_features(parlay INTERFACE cxx_std_17)
 
 # Link against system threads
@@ -44,6 +48,37 @@ target_link_libraries(parlay INTERFACE Threads::Threads)
 # Enable 16 byte CAS
 target_compile_definitions(parlay INTERFACE -DMCX16)
 target_compile_options(parlay INTERFACE -mcx16)
+
+# -------------------------------------------------------------------
+#                         Installation
+
+install(TARGETS parlay
+        EXPORT parlay_Targets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+        
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file("ParlayConfigVersion.cmake"
+                                 VERSION ${PROJECT_VERSION}
+                                 COMPATIBILITY SameMajorVersion)
+                                 
+configure_package_config_file(
+  "${PROJECT_SOURCE_DIR}/cmake/ParlayConfig.cmake.in"
+  "${PROJECT_BINARY_DIR}/ParlayConfig.cmake"
+  INSTALL_DESTINATION
+  ${CMAKE_INSTALL_DATAROOTDIR}/parlay/cmake)
+
+install(EXPORT parlay_Targets
+        FILE ParlayTargets.cmake
+        NAMESPACE Parlay::
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/parlay/cmake)
+        
+install(FILES "${PROJECT_BINARY_DIR}/ParlayConfig.cmake"
+              "${PROJECT_BINARY_DIR}/ParlayConfigVersion.cmake"
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/parlay/cmake)
+        
+install(DIRECTORY ${PARLAY_INCLUDE_DIR}/parlay DESTINATION include)
 
 # -------------------------------------------------------------------
 #                       Static analysis
