@@ -10,12 +10,14 @@
 
 #include "sequence_ops.h"
 #include "transpose.h"
-#include "utilities.h"
+
+#include "../utilities.h"
 
 // TODO
 // Make sure works for inplace or not with regards to move_uninitialized
 
 namespace parlay {
+namespace internal {
 
 // the following parameters can be tuned
 constexpr const size_t SEQ_THRESHOLD = 8192;
@@ -221,6 +223,7 @@ auto count_sort(slice<InIterator, InIterator> In, KeyS const& Keys, size_t num_b
   return std::make_pair(std::move(Out), std::move(a.first));
 }
 
+}  // namespace internal
 }  // namespace parlay
 
 #endif  // PARLAY_COUNTING_SORT_H_

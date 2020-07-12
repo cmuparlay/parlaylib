@@ -7,12 +7,15 @@
 #include <cstdio>
 
 #include "counting_sort.h"
-#include "delayed_sequence.h"
-#include "range.h"
+#include "sequence_ops.h"
 #include "quicksort.h"
-#include "utilities.h"
+
+#include "../delayed_sequence.h"
+#include "../slice.h"
+#include "../utilities.h"
 
 namespace parlay {
+namespace internal {
 
 constexpr size_t radix = 8;
 constexpr size_t max_buckets = 1 << radix;
@@ -55,7 +58,7 @@ void seq_radix_sort(slice<InIterator, InIterator> In,
                     size_t key_bits, bool inplace = true) {
   bool odd = ((key_bits - 1) / radix) & 1;
   size_t n = In.size();
-  if (In == Tmp) {  // inplace
+  if (inplace) {  // inplace
     seq_radix_sort_(Tmp, Out, g, key_bits, inplace);
   } else {
     if (odd) {
@@ -73,7 +76,7 @@ void seq_radix_sort(slice<InIterator, InIterator> In,
 // key_bits specifies how many bits there are left
 // if inplace is true, then result will be in Tmp, otherwise in Out
 // In and Out cannot be the same, but In and Tmp should be same if inplace
-template <typename InIterator, typename OutIterator, typename TmpIterator, typename Get_Key>
+template <typename inplace_tag, typename InIterator, typename OutIterator, typename TmpIterator, typename Get_Key>
 sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
                                 slice<OutIterator, OutIterator> Out,
                                 slice<TmpIterator, TmpIterator> Tmp,
@@ -133,7 +136,7 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
 
     // if all but one bucket are empty, try again on lower bits
     if (one_bucket) {
-      return integer_sort_r(In, Out, Tmp, g, shift_bits, 0, inplace,
+      return integer_sort_r<inplace_tag>(In, Out, Tmp, g, shift_bits, 0, inplace,
                             parallelism);
     }
 
@@ -149,7 +152,7 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
           auto a = Out.cut(start, end);
           auto b = Tmp.cut(start, end);
           sequence<size_t> r =
-              integer_sort_r(a, b, a, g, shift_bits, num_inner_buckets,
+              integer_sort_r<inplace_tag>(a, b, a, g, shift_bits, num_inner_buckets,
                              !inplace, (parallelism * (end - start)) / (n + 1));
           if (return_offsets) {
             size_t bstart = std::min(i * num_inner_buckets, num_buckets);
@@ -175,25 +178,19 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
 // If num_buckets is non-zero then the output sequence will contain
 // the offsets of each bucket (num_bucket of them)
 // num_bucket must be less than or equal to 2^bits
-template <typename SeqIn, typename OutIterator, typename Get_Key>
-sequence<size_t> integer_sort_(SeqIn const &In,
+template <typename inplace_tag, typename InIterator, typename OutIterator, typename TmpIterator, typename Get_Key>
+sequence<size_t> integer_sort_(slice<InIterator, InIterator> In,
                                slice<OutIterator, OutIterator> Out,
-                               slice<OutIterator, OutIterator> Tmp,
+                               slice<TmpIterator, TmpIterator> Tmp,
                                Get_Key const &g,
                                size_t bits,
-                               size_t num_buckets,
-                               bool inplace) {
-  if (In == Out)
-    throw std::invalid_argument(
-        "in integer_sort : input and output must be different locations");
+                               size_t num_buckets) {
   if (bits == 0) {
     auto get_key = [&](size_t i) { return g(In[i]); };
     auto keys = delayed_seq<size_t>(In.size(), get_key);
-    // num_buckets = reduce(keys, maxm<size_t>()) + 1;
-    // bits = log2_up(num_buckets);
-    bits = log2_up(reduce(keys, maxm<size_t>()) + 1);
+    bits = log2_up(reduce(make_slice(keys), maxm<size_t>()) + 1);
   }
-  return integer_sort_r(In, Out, Tmp, g, bits, num_buckets, inplace);
+  return integer_sort_r<inplace_tag>(In, Out, Tmp, g, bits, num_buckets, inplace_tag::value);
 }
 
 template <typename Iterator, typename Get_Key>
@@ -201,17 +198,17 @@ void integer_sort_inplace(slice<Iterator, Iterator> In,
                           Get_Key const &g, size_t bits = 0) {
   using value_type = typename slice<Iterator, Iterator>::value_type;
   auto Tmp = sequence<value_type>::uninitialized(In.size());
-  integer_sort_(In, Tmp.slice(), In, g, bits, 0, true);
+  integer_sort_<std::true_type>(In, make_slice(Tmp), In, g, bits, 0);
 }
 
-template <typename Seq, typename Get_Key>
-auto integer_sort(Seq const &In,
+template <typename Iterator, typename Get_Key>
+auto integer_sort(slice<Iterator, Iterator> In,
                   Get_Key const &g,
                   size_t bits = 0) {
-  using value_type = range_value_type_t<Seq>;
+  using value_type = typename slice<Iterator, Iterator>::value_type;
   auto Out = sequence<value_type>::uninitialized(In.size());
   auto Tmp = sequence<value_type>::uninitialized(In.size());
-  integer_sort_(make_slice(In), make_slice(Out), make_slice(Tmp), g, bits, 0, false);
+  integer_sort_<std::false_type>(In, make_slice(Out), make_slice(Tmp), g, bits, 0);
   return Out;
 }
 
@@ -245,6 +242,7 @@ integer_sort_with_counts(Seq const &In, Get_Key const &g, size_t num_buckets) {
   return std::make_pair(std::move(R), get_counts<Tint>(R, g, num_buckets));
 }
 
+}
 }  // namespace parlay
 
 #endif  // PARLAY_INTEGER_SORT_H_

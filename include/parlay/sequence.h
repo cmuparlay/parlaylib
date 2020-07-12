@@ -445,6 +445,11 @@ struct _sequence_base {
 // it is a parallel version of std::vector.
 template <typename T, typename Allocator = std::allocator<T>>
 class sequence : protected _sequence_base<T, Allocator> {
+  
+  // Ensure that T is not const or volatile
+  static_assert(std::is_same<typename std::remove_cv<T>::type, T>::value,
+    "parlay::sequence must have a non-const, non-volatile value_type");
+  
  public:
 
   // --------------- Container requirements ---------------

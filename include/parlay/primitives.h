@@ -2,6 +2,7 @@
 #ifndef PARLAY_PRIMITIVES_H_
 #define PARLAY_PRIMITIVES_H_
 
+#include "internal/collect_reduce.h"
 #include "internal/sequence_ops.h"
 #include "internal/sample_sort.h"
 
@@ -207,6 +208,14 @@ auto filter_into(const R_in& in, R_out& out, UnaryPred&& f) {
 
 // TODO: Partition
 
+/* ----------------------- Histograms --------------------- */
+
+// Compute a histogram of the values of A, with m buckets.
+template<PARLAY_RANGE_TYPE R, typename Integer_>
+auto histogram(const R& A, Integer_ m) {
+  return internal::histogram(make_slice(A), m);
+}
+
 /* -------------------- General Sorting -------------------- */
 
 namespace internal {
@@ -296,23 +305,23 @@ void stable_sort_inplace(R&& in) {
 // Note: There is currently no stable integer sort.
 
 template<PARLAY_RANGE_TYPE R>
-auto integer_sort(const R& in) {
-  return integer_sort(make_slice(in), [](auto x) { return x; });
+auto integer_sort(R& in) {
+  return internal::integer_sort(make_slice(in), [](auto x) { return x; });
 }
 
 template<PARLAY_RANGE_TYPE R, typename Key>
-auto integer_sort(const R& in, Key&& key) {
-  return integer_sort(make_slice(in), std::forward<Key>(key));
+auto integer_sort(R& in, Key&& key) {
+  return internal::integer_sort(make_slice(in), std::forward<Key>(key));
 }
 
 template<PARLAY_RANGE_TYPE R>
 void integer_sort_inplace(R&& in) {
-  integer_sort_inplace(make_slice(in), [](auto x) { return x; });
+  internal::integer_sort_inplace(make_slice(in), [](auto x) { return x; });
 }
 
 template<PARLAY_RANGE_TYPE R, typename Key>
 void integer_sort_inplace(R&& in, Key&& key) {
-  integer_sort_inplace(make_slice(in), std::forward<Key>(key));
+  internal::integer_sort_inplace(make_slice(in), std::forward<Key>(key));
 }
 
 /* -------------------- Boolean searching -------------------- */

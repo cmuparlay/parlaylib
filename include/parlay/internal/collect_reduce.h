@@ -26,9 +26,11 @@
 #include "integer_sort.h"
 #include "sequence_ops.h"
 #include "transpose.h"
-#include "utilities.h"
+
+#include "../utilities.h"
 
 namespace parlay {
+namespace internal {
 
 // the following parameters can be tuned
 constexpr const size_t CR_SEQ_THRESHOLD = 8192;
@@ -89,8 +91,8 @@ auto collect_reduce_few(Seq const &A, Key const &get_key,
   sequence<val_type> OutM(m);
 
   sliced_for(n, block_size, [&](size_t i, size_t start, size_t end) {
-    seq_collect_reduce_few(A.slice(start, end),
-                           OutM.slice(i * num_buckets, (i + 1) * num_buckets),
+    seq_collect_reduce_few(make_slice(A).cut(start, end),
+                           make_slice(OutM).cut(i * num_buckets, (i + 1) * num_buckets),
                            get_key, get_value, monoid, num_buckets);
   });
 
@@ -222,13 +224,13 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
 
   using hasheq = hasheq_mask_low<T, Key>;
   get_bucket<T, hasheq> gb(A, hasheq(get_key), bits);
-  sequence<T> B = sequence<T>::no_init(n);
-  sequence<T> Tmp = sequence<T>::no_init(n);
+  sequence<T> B = sequence<T>::uninitialized(n);
+  sequence<T> Tmp = sequence<T>::uninitialized(n);
 
   // first partition into blocks based on hash using a counting sort
   sequence<size_t> block_offsets;
   block_offsets =
-      integer_sort_(A, B.slice(), Tmp.slice(), gb, bits, num_blocks, false);
+      integer_sort_<std::false_type>(make_slice(A), make_slice(B), make_slice(Tmp) , gb, bits, num_blocks);
 
   // note that this is cache line alligned
   sequence<val_type> sums(num_buckets, monoid.identity);
@@ -263,12 +265,11 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
 // histogram based on collect_reduce.
 // m is the number of buckets
 // the output type of each bucket will have the same integer type as m
-template <typename int_t, typename Seq>
-sequence<int_t> histogram(Seq const &A, int_t m) {
-  using T = typename Seq::value_type;
-  auto get_key = [&](T a) { return a; };
-  auto get_val = [&](T) { return (int_t)1; };
-  return collect_reduce(A, get_key, get_val, parlay::addm<int_t>(), m);
+template <typename Iterator, typename Integer_>
+auto histogram(slice<Iterator, Iterator> A, Integer_ m) {
+  auto get_key = [&](const auto& a) { return a; };
+  auto get_val = [&](const auto&) { return (Integer_)1; };
+  return collect_reduce(A, get_key, get_val, parlay::addm<Integer_>(), m);
 }
 
 // this one is for more buckets than the length of A (i.e. sparse)
@@ -310,13 +311,13 @@ sequence<typename Seq::value_type> collect_reduce_sparse(Seq const &A,
   // others share a bucket.
   // Keys that share low 4 bits get same bucket unless big.
   // This is to avoid false sharing.
-  sequence<T> B = sequence<T>::no_init(n);
-  sequence<T> Tmp = sequence<T>::no_init(n);
+  sequence<T> B = sequence<T>::uninitialized(n);
+  sequence<T> Tmp = sequence<T>::uninitialized(n);
 
   // first buckets based on hash using a counting sort
   get_bucket<T, HashEq> gb(A, hasheq, bits);
   sequence<size_t> bucket_offsets = integer_sort_(
-      A.slice(), B.slice(), Tmp.slice(), gb, bits, num_buckets, false);
+      make_slice(A), make_slice(B), make_slice(Tmp), gb, bits, num_buckets, false);
 
   // note that this is cache line alligned
   size_t num_tables = gb.heavy_hitters ? num_buckets / 2 : num_buckets;
@@ -325,7 +326,7 @@ sequence<typename Seq::value_type> collect_reduce_sparse(Seq const &A,
   if (bucket_size < 128000) factor += (17 - log2_up(bucket_size)) * .15;
   size_t table_size = (factor * bucket_size);
   size_t total_table_size = table_size * num_tables;
-  sequence<T> table = sequence<T>::no_init(total_table_size);
+  sequence<T> table = sequence<T>::uninitialized(total_table_size);
   sequence<size_t> sizes(num_tables + 1);
 
   // now in parallel process each bucket sequentially
@@ -387,7 +388,7 @@ sequence<typename Seq::value_type> collect_reduce_sparse(Seq const &A,
   size_t total = scan_inplace(make_slice(sizes), addm<size_t>());
 
   // copy packed tables into contiguous result
-  sequence<T> result = sequence<T>::no_init(total);
+  sequence<T> result = sequence<T>::uninitialized(total);
   auto copy_f = [&](size_t i) {
     size_t d_offset = sizes[i];
     size_t s_offset = i * table_size;
@@ -410,6 +411,8 @@ sequence<typename Seq::value_type> collect_reduce_sparse(Seq const &A,
   };
   return collect_reduce_sparse(A, hasheq(), monoid);
 }
+
+}  // namespace internal
 }  // namespace parlay
 
 #endif  // PARLAY_COLLECT_REDUCE_H_

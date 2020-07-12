@@ -104,10 +104,12 @@ auto size(const R& r) {
 // Deduce the underlying value type of a range
 template<typename T>
 struct range_value_type {
-  using type = typename std::remove_reference<
-               typename std::remove_cv<decltype(
-                 *std::begin(std::declval<T&>())
-               )>::type>::type;
+  using type = typename std::remove_cv<
+               typename std::remove_reference<
+                 decltype(
+                   *std::begin(std::declval<T&>())
+                 )
+               >::type>::type;
 };
 
 template<typename T>
