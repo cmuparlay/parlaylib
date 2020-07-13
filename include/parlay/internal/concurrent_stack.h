@@ -16,7 +16,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
-#include "utilities.h"
+
+#include "../utilities.h"
 
 namespace parlay {
 

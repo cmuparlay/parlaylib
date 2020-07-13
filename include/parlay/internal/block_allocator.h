@@ -1,25 +1,3 @@
-// This code is part of the Problem Based Benchmark Suite (PBBS)
-// Copyright (c) 2016 Guy Blelloch, Daniel Ferizovic, and the PBBS team
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights (to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to
-// permit persons to whom the Software is furnished to do so, subject to
-// the following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 // A concurrent allocator for any fixed type T
 // Keeps a local pool per processor
 // Grabs list_size elements from a global pool if empty, and
@@ -27,15 +5,21 @@
 // Keeps track of number of allocated elements.
 // Probably more efficient than a general purpose allocator
 
-#pragma once
+#ifndef PARLAY_BLOCK_ALLOCATOR_H_
+#define PARLAY_BLOCK_ALLOCATOR_H_
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
+
 #include <atomic>
+
 #include "concurrent_stack.h"
-#include "utilities.h"
 #include "memory_size.h"
+
+#include "../utilities.h"
+
+namespace parlay {
 
 struct block_allocator {
 private:
@@ -112,12 +96,12 @@ public:
   auto allocate_blocks(size_t num_blocks) -> char* {
     char* start = (char*) aligned_alloc(pad_size,
 					num_blocks * block_size_+ pad_size);
-    //char* start = (char*) pbbs::my_alloc(num_blocks * block_size_);
+    //char* start = (char*) parlay::my_alloc(num_blocks * block_size_);
     if (start == NULL) {
       fprintf(stderr, "Cannot allocate space in block_allocator");
       exit(1); }
 
-    pbbs::fetch_and_add(&blocks_allocated, num_blocks); // atomic
+    parlay::fetch_and_add(&blocks_allocated, num_blocks); // atomic
 
     if (blocks_allocated > max_blocks) {
       fprintf(stderr, "Too many blocks in block_allocator, change max_blocks");
@@ -177,8 +161,8 @@ public:
 
   void clear() {
     if (num_used_blocks() > 0) 
-      cout << "Warning: not clearing memory pool, block_size=" << block_size()
-	   << " : allocated blocks remain" << endl;
+      std::cout << "Warning: not clearing memory pool, block_size=" << block_size()
+	   << " : allocated blocks remain" << std::endl;
     else {
       // clear lists
       for (int i = 0; i < thread_count; ++i) 
@@ -231,5 +215,6 @@ public:
 
 };
 
+}  // namespace parlay
 
-
+#endif  // PARLAY_BLOCK_ALLOCATOR_H_
