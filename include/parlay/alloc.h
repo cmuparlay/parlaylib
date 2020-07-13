@@ -1,6 +1,8 @@
 #ifndef PARLAY_ALLOC_H
 #define PARLAY_ALLOC_H
 
+#include <cstdlib>
+
 #include <atomic>
 #include <iostream>
 #include <vector>
@@ -99,7 +101,7 @@ public:
     large_buckets = new concurrent_stack<void*>[num_buckets-num_small];
 
     small_allocators = (struct block_allocator*)
-    malloc(num_buckets * sizeof(struct block_allocator));
+      std::aligned_alloc(alignof(block_allocator), num_buckets * sizeof(struct block_allocator));
     size_t prev_bucket_size = 0;
   
     for (size_t i = 0; i < num_small; i++) {
