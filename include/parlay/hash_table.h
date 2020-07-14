@@ -1,30 +1,13 @@
-// This code is part of the Problem Based Benchmark Suite (PBBS)
-// Copyright (c) 2010 Guy Blelloch and the PBBS team
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights (to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to
-// permit persons to whom the Software is furnished to do so, subject to
-// the following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#pragma once
+
+#ifndef PARLAY_HASH_TABLE_H_
+#define PARLAY_HASH_TABLE_H_
 
 #include <iostream>
 
-#include "sequence_ops.h"
+#include "sequence.h"
 #include "utilities.h"
+
+#include "internal/sequence_ops.h"
 
 namespace parlay {
 
@@ -237,12 +220,12 @@ class hashtable {
   // returns the number of entries
   size_t count() {
     auto is_full = [&](size_t i) -> size_t { return (TA[i] == empty) ? 0 : 1; };
-    return reduce(delayed_seq<size_t>(m, is_full), addm<size_t>());
+    return internal::reduce(delayed_seq<size_t>(m, is_full), addm<size_t>());
   }
 
   // returns all the current entries compacted into a sequence
   sequence<eType> entries() {
-    return filter(range<eType*>(TA, TA + m),
+    return filter(make_slice(TA, TA + m),
                   [&](eType v) { return v != empty; });
   }
 
@@ -270,8 +253,8 @@ class hashtable {
       else
         return 0;
     };
-    sequence<index> x(m, is_full);
-    scan_inplace(x.slice(), addm<index>());
+    auto x = sequence<index>::from_function(m, is_full);
+    internal::scan_inplace(make_slice(x), addm<index>());
     return x;
   }
 
@@ -300,4 +283,7 @@ struct hash_numeric {
     return atomic_compare_and_swap(p, o, n);
   }
 };
-}
+
+}  // namespace parlay
+
+#endif  // PARLAY_HASH_TABLE_H

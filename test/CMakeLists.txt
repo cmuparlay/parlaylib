@@ -4,8 +4,12 @@ include(dtest)
 
 add_dtests(NAME test_range FILES test_range.cpp LIBS parlay)
 add_dtests(NAME test_slice FILES test_slice.cpp LIBS parlay)
+
+# ------------------------------ Data Structures -------------------------------
+
 add_dtests(NAME test_delayed_sequence FILES test_delayed_sequence.cpp LIBS parlay)
 add_dtests(NAME test_sequence FILES test_sequence.cpp LIBS parlay)
+add_dtests(NAME test_hash_table FILES test_hash_table.cpp LIBS parlay)
 
 # ----------------------------- Sorting Algorithms ------------------------------
 
