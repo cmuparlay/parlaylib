@@ -52,6 +52,8 @@ Parlay includes a number of pieces that can be used together or individually. At
 
 Many of Parlays primitive are designed around the *range* concept. Essentially, a range in Parlay is any type that supports `std::begin(r)` and `std::end(r)`, such that `std::begin(r)` returns a random access iterator. In other words, it is any type that can be used as a random access sequence. This is satisfied by `std::vector`, and by Parlays own `parlay::sequence`, and many other types.
 
+If compiled with a recent compiler that supports C++ concepts, Parlay will check that ranges used in its primitives satisfy these requirements at compile time.
+
 ## Parallel scheduler
 
 Parlay offers an interface for fork-join parallelism in the form of a fork operation, and a parallel for loop. The primitive `par_do` takes two function objects and evaluates them in parallel. For exampe, we can write a recursive sum function like so, where the left and right halves are evaluated in parallel.
@@ -118,106 +120,219 @@ table.deleteVal(5);
 
 ## Parallel algorithms
 
-**tabulate** takes an integer n and and a function f of integers, and produces a sequence consisting of f(0), f(1), ..., f(n-1)
+### Tabulate
 
 ```c++
-// Create a sequence consisting of the first 100 square numbers
-auto seq = parlay::tabulate(100, [](int i) { return i*i; });
+template<typename UnaryOp>
+auto tabulate(size_t n, UnaryOp&& f)
+```
+
+**tabulate** takes an integer n and and a function f of integers, and produces a sequence consisting of f(0), f(1), ..., f(n-1)
+
+### Map
+
+```c++
+template<parlay::Range R, typename UnaryOp>
+auto map(R&& r, UnaryOp&& f)
 ```
 
 **map** takes a range r and a function f from the value type of that range, and produces the sequence consisting of f(r[0]), f(r[1]), ...
 
+### DMap
+
 ```c++
-auto seq = parlay::map(parlay::tabulate(100, [](int i) { return i*i; });,
-  [](int x) { return 2 * x; }));
+template<parlay::Range R, typename UnaryOp>
+auto dmap(R&& r, UnaryOp&& f)
 ```
 
-**dmap** (Delayed map) is the same as map, but the resulting sequence is a delayed sequence
+**dmap** (Delayed map) is the same as map, but the resulting sequence is a delayed sequence.
+
+### Copy
 
 ```c++
-auto seq = parlay::dmap(parlay::tabulate(100, [](int i) { return i*i; });,
-  [](int x) { return 2 * x; }));
+template<parlay::Range R_in, parlay::Range R_out>
+void copy(const R_in& in, R_out& out)
 ```
 
 **copy** takes a given range and copies its elements into another range
+
+### Reduce
+
 ```c++
-// Copy the contents of seq1 into seq2
-auto seq1 = parlay::tabulate(100, [](int i) { return i*i; });
-auto seq2 = parlay::sequence<int>(100);
-parlay::copy(seq1, seq2);
+template<parlay::Range R>
+auto reduce(const R& r)
+```
+
+```c++
+template<parlay::Range R, typename Monoid>
+auto reduce(const R& r, Monoid&& m)
 ```
 
 **reduce** takes a range and returns the reduction with respect some associative binary operation (addition by default). The associative operation is specified by a monoid object which is an object that has a `.identity` field, and a binary operator `f`.
 
+### Scan
+
 ```c++
-// Default operation is sum
-auto seq = parlay::tabulate(100, [](int i) { return i*i; });
-auto sum = parlay::reduce(seq1);
+template<parlay::Range R>
+auto scan(const R& r)
+```
 
-// With a custom monoid
-struct {
-  int identity = 0;
-  int f(int x, int y) { return std::max(x, y ); }
-} monoid;
+```c++
+template<parlay::Range R>
+auto scan_inclusive(const R& r)
+```
 
-auto max_val = parlay::reduce(seq, monoid);
+```c++
+template<parlay::Range R>
+auto scan_inplace(R&& r)
+```
+
+```c++
+template<parlay::Range R>
+auto scan_inclusive_inplace(R&& r)
+```
+
+```c++
+template<parlay::Range R, typename Monoid>
+auto scan(const R& r, Monoid&& m)
+```
+
+```c++
+template<parlay::Range R, typename Monoid>
+auto scan_inclusive(const R& r, Monoid&& m)
+```
+
+```c++
+template<parlay::Range R, typename Monoid>
+auto scan_inplace(R&& r, Monoid&& m)
+```
+
+```c++
+template<parlay::Range R, typename Monoid>
+auto scan_inclusive_inplace(R& r, Monoid&& m)
 ```
 
 **scan** computes a scan (aka prefix sum) with respect to an associative binary operation (addition by default).  The associative operation is specified by a monoid object which is an object that has a `.identity` field, and a binary operator `f`. Scan returns a pair, consisting of the partial sums, and the total.
 
+By default, scan considers prefix sums excluding the final element. There is also **scan_inclusive**, which is inclusive of the final element of each prefix. There are also inplace versions of each of these (**scan_inplace**, **scan_inclusive_inplace**), which write the sums into the input and return the total.
+
+### Pack
+
 ```c++
-// Default operation is sum
-auto seq = parlay::tabulate(100, [](int i) { return i*i; });
-auto [prefix_sums, total] = parlay::scan(seq);
+template<parlay::Range R, parlay::Range BoolSeq>
+auto pack(const R& r, const BoolSeq& b)
 ```
 
-By default, scan considers prefix sums excluding the final element. There is also **scan_inclusive**, which is inclusive of the final element of each prefix. There are also inplace versions of each of these (**scan_inplace**, **scan_inclusive_inplace**), which write the sums into the input.
+```c++
+template<parlay::Range R_in, parlay::Range BoolSeq, parlay::Range R_out>
+auto pack_into(const R_in& in, const BoolSeq& b, R_out& out)
+```
 
 ```c++
-auto seq = parlay::tabulate(100, [](int i) { return i*i; });
-parlay::scan_inplace(seq);
+template<parlay::Range BoolSeq>
+auto pack_index(const BoolSeq& b) 
+```
+
+```c++
+template<typename IndexType, parlay::Range BoolSeq>
+auto pack_index(const BoolSeq& b) 
 ```
 
 **pack** takes an input a range a boolean indicator sequence, and returns a new sequence consisting of the elements of the range such that the element in the corresponding position in the indicator sequence is true.
 
-```c++
-auto seq = parlay::tabulate(100, [](int i) { return i*i; });
-auto indicator = parlay::delayed_sequence<bool>(100, 
-  [](size_t i) { return i % 2 == 0; };
-
-// Keep every second element
-auto alternates = parlay::pack(seq, indicator));
-```
-
 Similarly, **pack_into** does the same thing but writes the answer into an existing range. **pack_index** takes a range of elements that are convertible to bool, and returns a sequence of indices such that the elements at those positions convert to true.
 
-**filter** takes a range an a unary operator, and returns a sequence consisting of the elements of the range for which the unary operator returns true.
+### Filter
 
 ```c++
-// Filter for the even numbers
-auto seq = parlay::tabulate(100, [](int i) { return i*i; });
-auto evens = parlay::filter(seq, [](int x) { return x % 2 == 0; });
+template<parlay::Range R, typename UnaryPred>
+auto filter(const R& r, UnaryPred&& f) 
 ```
 
-Alternatively, **filter_into** does the same thing but writes the output into the given range and returns the number of elements that were kept.
+```c++
+template<parlay::Range R_in, parlay::Range R_out, typename UnaryPred>
+auto filter_into(const R_in& in, R_out& out, UnaryPred&& f)
+```
 
-**histogram** takes an integer valued range and a maximum value and returns a histogram, i.e. an array recording the number of occurrences of each element in the input range.
+**filter** takes a range and a unary operator, and returns a sequence consisting of the elements of the range for which the unary operator returns true. Alternatively, **filter_into** does the same thing but writes the output into the given range and returns the number of elements that were kept.
+
+### Histogram
+
+```c++
+template<parlay::Range R, typename Integer_>
+auto histogram(const R& A, Integer_ m)
+```
+
+**histogram** takes an integer valued range and a maximum value and returns a histogram, i.e. an array recording the number of occurrences of each element in the input range, up to the given maximum.
+
+### Sort
+
+```c++
+template<parlay::Range R>
+auto sort(const R& in)
+```
+
+```c++
+template<parlay::Range R, typename Compare>
+auto sort(const R& in, Compare&& comp)
+```
+
+```c++
+template<parlay::Range R>
+auto stable_sort(const R& in)
+```
+
+```c++
+template<parlay::Range R, typename Compare>
+auto stable_sort(const R& in, Compare&& comp)
+```
+
+```c++
+template<parlay::Range R>
+void sort_inplace(R&& in)
+```
+
+```c++
+template<parlay::Range R, typename Compare>
+void sort_inplace(R&& in, Compare&& comp)
+```
+
+```c++
+template<parlay::Range R>
+void stable_sort_inplace(R&& in)
+```
+
+```c++
+template<parlay::Range R, typename Compare>
+void stable_sort_inplace(R&& in, Compare&& comp)
+```
+
 
 **sort** takes a given range and outputs a sorted copy (unlike the standard library, sort is not inplace by default). **sort_inplace** can be used to sort a given range in place. **stable_sort** and **stable_sort_inplace** are the same but guarantee that equal elements maintain their original relative order. All of these functions can optionally take a custom comparator object, which is a binary operator that evaluates to true if the first of the given elements should compare less than the second.
 
+### Integer Sort
+
 ```c++
-auto seq = parlay::tabulate(100, [](int i) { return (i*i) % 10; });
-auto sorted = parlay::sort(seq);
+template<parlay::Range R>
+auto integer_sort(const R& in)
 ```
 
-**integer_sort** works just like sort, except that it is specialized to sort integer keys, and is significantly faster than ordinary sort. It can be used to sort sequences of integers, or sequences of arbitrary types provided that an integer key can be provided for each object.
+```c++
+template<parlay::Range R, typename Key>
+auto integer_sort(const R& in, Key&& key)
+```
 
+```c++
+template<parlay::Range R>
+void integer_sort_inplace(R&& in)
 ```
-// Sort a sequence of strings by their length using integer_sort
-void sort_by_length(parlay::sequence<std::string>& s) {
-  parlay::integer_sort(s, [](const auto& s) { return s.length(); });
-}
+
+```c++
+template<parlay::Range R, typename Key>
+void integer_sort_inplace(R&& in, Key&& key)
 ```
+
+**integer_sort** works just like sort, except that it is specialized to sort integer keys, and is significantly faster than ordinary sort. It can be used to sort sequences of integers, or sequences of arbitrary types provided that a unary operator is provided that can produce an integer key for any given element,
 
 ## Memory Allocator
 
