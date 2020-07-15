@@ -50,7 +50,7 @@ Parlay includes a number of pieces that can be used together or individually. At
 
 ## Ranges
 
-Many of Parlays primitive are designed around the *range* concept. Essentially, a range in Parlay is any type that supports `std::begin(r)` and `std::end(r)`, such that `std::begin(r)` returns a random access iterator. In other words, it is any type that can be used as a random access sequence. This is satisfied by `std::vector`, and by Parlays own `parlay::sequence`, and many other types.
+Many of Parlays primitive are designed around the *range* concept. Essentially, a range in Parlay is any type that supports `std::begin(r)` and `std::end(r)`, such that `std::begin(r)` returns a random access iterator, and ``std::end(r) - std::begin(r)`` denotes the size of the range. In other words, it is any type that can be used as a finite-length random access sequence. This is satisfied by `std::vector`, and by Parlays own `parlay::sequence`, and many other types.
 
 If compiled with a recent compiler that supports C++ concepts, Parlay will check that ranges used in its primitives satisfy these requirements at compile time.
 
@@ -136,16 +136,14 @@ template<parlay::Range R, typename UnaryOp>
 auto map(R&& r, UnaryOp&& f)
 ```
 
-**map** takes a range r and a function f from the value type of that range, and produces the sequence consisting of f(r[0]), f(r[1]), ...
-
-### DMap
-
 ```c++
 template<parlay::Range R, typename UnaryOp>
 auto dmap(R&& r, UnaryOp&& f)
 ```
 
-**dmap** (Delayed map) is the same as map, but the resulting sequence is a delayed sequence.
+**map** takes a range `r` and a function `f` from the value type of that range, and produces the sequence consisting of `f(r[0]), f(r[1]), f(r[2]), ...`.
+
+**dmap** (Delayed map) is the same as map, but the resulting sequence is a delayed sequence. Note that **dmap** forwards the range argument to the closure owned by the delayed sequence, so if `r` is an rvalue reference, it will be moved into and owned by the delayed sequence. If it is an lvalue reference, the delayed sequence will only keep a reference to `r`, so `r` must remain alive as long as the delayed sequence does.
 
 ### Copy
 
@@ -332,7 +330,290 @@ template<parlay::Range R, typename Key>
 void integer_sort_inplace(R&& in, Key&& key)
 ```
 
-**integer_sort** works just like sort, except that it is specialized to sort integer keys, and is significantly faster than ordinary sort. It can be used to sort sequences of integers, or sequences of arbitrary types provided that a unary operator is provided that can produce an integer key for any given element,
+**integer_sort** works just like sort, except that it is specialized to sort integer keys, and is significantly faster than ordinary sort. It can be used to sort ranges of integers, or ranges of arbitrary types if a unary operator is provided that can produce an integer key for any given element,
+
+### For each
+
+```c++
+template <parlay::Range R, typename UnaryFunction>
+void for_each(R&& r , UnaryFunction f)
+```
+
+**for_each** applies the given unary function to every element of the given range. The range may be constant, in which case the unary function should not attempt to modify it, or it may be mutable, in which case the function is allowed to modify it.
+
+### Count
+
+```c++
+template <parlay::Range R, class T>
+size_t count(const R& r, T const &value)
+```
+
+```c++
+template <parlay::Range R, typename UnaryPredicate>
+size_t count_if(const R& r, UnaryPredicate p)
+```
+
+**count** returns the number of elements in the given range that compare equal to the given value. **count_if** returns the number of elements that satisfy the predicate p.
+
+### All of, any of, none of
+
+```c++
+template <parlay::Range R, typename UnaryPredicate>
+bool all_of(const R& r, UnaryPredicate p)
+```
+
+```c++
+template <parlay::Range R, typename UnaryPredicate>
+bool any_of(const R& r, UnaryPredicate p)
+```
+
+```c++
+template <parlay::Range R, typename UnaryPredicate>
+bool none_of(const R& r, UnaryPredicate p)
+```
+
+**all_of**, **any_of**, and **none_of** return true if the given predicate is true for all, any, or none of the elements in the given range respectively.
+
+### Find
+
+```c++
+template <parlay::Range R, typename T>
+auto find(R&& r, T const &value)
+```
+
+```c++
+template <parlay::Range R, typename UnaryPredicate>
+auto find_if(R&& r, UnaryPredicate p)
+```
+
+```c++
+template <parlay::Range R, typename UnaryPredicate>
+auto find_if_not(R&& r, UnaryPredicate p)
+```
+
+```c++
+template <parlay::Range R1, parlay::Range R2, typename BinaryPredicate>
+auto find_first_of(R1&& r1, const R2& r2, BinaryPredicate p)
+```
+
+**find** returns an iterator to the first element in the given range that compares equal to the given value, or the end iterator if no such element exists. **find_if** returns the first element in the given range that satisfies the given predicate, or the end iterator if no such element exists. **find_if_not** similarly returns the first element that does not satisfy the given predicate, or the end iterator.
+
+**find_first_of** returns an iterator to the first element in the range `r1` that compares equal to any of the elements in `r2`, or the end iterator of `r1` if no such element exists.
+
+### Adjacent find
+
+```c++
+template <parlay::Range R>
+auto adjacent_find(R&& r)
+```
+
+```c++
+template <parlay::Range R, typename BinaryPred>
+auto adjacent_find(R&& r, BinaryPred p)
+```
+
+**adjacent_find** returns an iterator to the first element in the given range that compares equal to the next element on its right, Optionally, a binary predicate can be supplied to dictate how two elements should compare equal.
+
+### Mismatch
+
+```c++
+template <parlay::Range R1, parlay::Range R2>
+size_t mismatch(R1&& r1, R2&& r2)
+```
+
+```c++
+template <parlay::Range R1, parlay::Range R2, typename BinaryPred>
+auto mismatch(R1&& r1, R2&& r2, BinaryPred p)
+```
+
+**mismatch** returns a pair of iterators corresponding to the first occurrence in which an element of `r1` is not equal to the element of `r2` in the same position. If no such occurrence exists, returns a pair containing the end iterator of `r1` and an iterator pointing to the corresponding position in `r2`. Optionally, a binary predicate can be supplied to dictate how two elements should compare equal.
+
+### Search
+
+```c++
+template <parlay::Range R1, parlay::Range R2>
+size_t search(R1&& r1, const R2& r2)
+```
+
+```c++
+template <parlay::Range R1, parlay::Range R2, typename BinaryPred>
+auto search(R1&& r1, const R2& r2, BinaryPred pred)
+```
+
+**search** returns an iterator to the beginning of the first occurrence of the range `r2` in `r1`, or the end iterator of `r1` if no such occurrence exists. Optionally, a binary predicate can be given to specify how two elements should compare equal.
+
+### Find end
+
+```c++
+template <parlay::Range R1, parlay::Range R2>
+auto find_end(R1&& r1, const R2& r2)
+```
+
+```c++
+template <parlay::Range R1, parlay::Range R2, typename BinaryPred>
+auto find_end(R1&& r1, const R2& r2, BinaryPred p)
+```
+
+**find_end** returns an iterator to the beginning of the last occurrence of the range `r2` in `r1`, or the end iterator of `r1` if no such occurrence exists. Optionally, a binary predicate can be given to specify how two elements should compare equal.
+
+### Equal
+
+```c++
+template <parlay::Range R1, parlay::Range R2>
+bool equal(const R1& r1, const R2& r2)
+```
+
+```c++
+template <parlay::Range R1, parlay::Range R2, class BinaryPred>
+bool equal(const R1& r1, const R2& r2, BinaryPred p)
+```
+
+**equal** returns true if the given ranges are equal, that is, they have the same size and all elements at corresponding positions compare equal. Optionally, a binary predicate can be given to specify how two elements should compare equal.
+
+### Lexicographical compare
+
+```c++
+template <parlay::Range R1, parlay::Range R2, class Compare>
+bool lexicographical_compare(const R1& r1, const R2& r2, Compare less)
+```
+
+**lexicographical_compare** returns true if the first range compares lexicographically less than the second range. A range is considered lexicographically less than another if it is a prefix of the other or the first mismatched element compares less than the corresponding element in the other range.
+
+### Unique
+
+```c++
+template<parlay::Range R>
+auto unique(const R& r)
+```
+
+```c++
+template <parlay::Range R, typename BinaryPredicate>
+auto unique(const R& r, BinaryPredicate eq)
+```
+
+**unique** returns a sequence consisting of the elements of the given range that do not compare equal to the element preceding them. All elements in the output sequence maintain their original relative order. An optional binary predicate can be given to specify how two elements should compare equal.
+
+### Min and max element
+
+```c++
+template <parlay::Range R>
+auto min_element(R&& r)
+```
+
+```c++
+template <parlay::Range R, typename Compare>
+auto min_element(R&& r, Compare comp)
+```
+
+```c++
+template <parlay::Range R>
+auto max_element(R&& r)
+```
+
+```c++
+template <parlay::Range R, typename Compare>
+auto max_element(R&& r, Compare comp)
+```
+
+```c++
+template <parlay::Range R>
+auto minmax_element(R&& r)
+```
+
+```c++
+template <parlay::Range R, typename Compare>
+auto minmax_element(R&& r, Compare comp)
+```
+
+**min_element** and **max_element** return a pointer to the minimum or maximum element in the given range respectively. In the case of duplicates, the leftmost element is always selected. **minmax_element** returns a pair consisting of iterators to both the minimum and maximum element. An optional binary predicate can be supplied to dictate how two elements should compare.
+
+### Reverse
+
+```c++
+template <parlay::Range R>
+auto reverse(const R& r)
+```
+
+```c++
+template <parlay::Range R>
+auto reverse_inplace(R&& r)
+```
+
+**reverse** returns a new sequence consisting of the elements of the given range in reverse order. **reverse_inplace** reverses the elements of the given range.
+
+### Rotate
+
+```c++
+template <parlay::Range R>
+auto rotate(const R& r, size_t t)
+```
+
+**rotate** returns a new sequence consisting of the elements of the given range cyclically shifted left by `t` positions.
+
+### Is sorted
+
+```c++
+template <parlay::Range R>
+bool is_sorted(const R& r)
+```
+
+```c++
+template <parlay::Range R, typename Compare>
+bool is_sorted(const R& r, Compare comp)
+```
+
+```c++
+template <parlay::Range R>
+auto is_sorted_until(const R& r)
+```
+
+```c++
+template <parlay::Range R, typename Compare>
+auto is_sorted_until(const R& r, Compare comp)
+```
+
+**is_sorted** returns true if the given range is sorted. **is_sorted_until** returns an iterator to the first element of the range that is out of order, or the end iterator if the range is sorted. An optional binary predicate can be supplied to dictate how two elements should compare.
+
+### Is partitioned
+
+```c++
+template <parlay::Range R, typename UnaryPred>
+bool is_partitioned(const R& r, UnaryPred f)
+```
+
+**is_partitioned** returns true if the given range is partitioned with respect to the given unary predicate. A range is partitioned with respect to the given predicate if all elements for which the predicate returns true precede all of those for which it returns false.
+
+### Remove
+
+```c++
+template<parlay::Range R, typename T>
+auto remove(const R& r, const T& v)
+```
+
+```c++
+template <parlay::Range R, typename UnaryPred>
+auto remove_if(const R& r, UnaryPred pred)
+```
+
+**remove** returns a sequence consisting of the elements of the range `r` with any occurrences of `v` omitted. **remove_if** returns a sequence consisting of the elements of the range `r` with any elements such that the given predicate returns true omitted.
+
+### Iota
+
+```c++
+template <typename Index>
+auto iota(Index n)
+```
+
+**iota** returns a sequence of the given template type consisting of the integers from `0` to `n-1`.
+
+### Flatten
+
+```c++
+template <parlay::Range R>
+auto flatten(const R& r)
+```
+
+**flatten** takes a range of ranges and returns a single sequence consisting of the concatenation of each of the underlying ranges.
 
 ## Memory Allocator
 
