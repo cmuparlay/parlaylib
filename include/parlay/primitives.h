@@ -11,38 +11,6 @@
 #include "slice.h"
 
 namespace parlay {
-  
-// Internal dispatch functions
-  
-namespace internal {
-  
-// Sort an integer_sequence
-template<PARLAY_RANGE_TYPE R>
-auto sort_dispatch(const R& in, /* is_integral */ std::true_type) {
-  return integer_sort(in);
-}
-
-// Sort a non-integer sequence
-template<PARLAY_RANGE_TYPE R>
-auto sort_dispatch(const R& in, /* is_integral */ std::false_type) {
-  using value_type = range_value_type_t<R>;
-  return sample_sort(make_slice(in), std::less<value_type>{});
-}
-
-// Sort an integer sequence in place
-template<PARLAY_RANGE_TYPE R>
-auto sort_inplace_dispatch(R& in, /* is_integral */ std::true_type) {
-  return integer_sort_inplace(in);
-}
-
-// Sort a non-integer sequence in place
-template<PARLAY_RANGE_TYPE R>
-auto sort_inplace_dispatch(R& in, /* is_integral */ std::false_type) {
-  using value_type = range_value_type_t<R>;
-  return sample_sort_inplace(make_slice(in), std::less<value_type>{});
-}
-
-}  // namespace internal
 
 /* -------------------- Map and Tabulate -------------------- */
 
@@ -208,6 +176,12 @@ auto filter_into(const R_in& in, R_out& out, UnaryPred&& f) {
 
 // TODO: Partition
 
+// TODO: nth element
+
+/* ----------------------- Merging --------------------- */
+
+// TODO: merge
+
 /* ----------------------- Histograms --------------------- */
 
 // Compute a histogram of the values of A, with m buckets.
@@ -233,8 +207,7 @@ template<typename T>
 struct okay_to_copy : public std::integral_constant<bool,
     std::is_trivially_copy_constructible_v<T> &&
     std::is_trivially_copy_assignable_v<T>    &&
-    std::is_trivially_destructible_v<T>       &&
-    sizeof(T) <= 16
+    std::is_trivially_destructible_v<T>
 > {};
 
 }
@@ -338,10 +311,338 @@ void integer_sort_inplace(R&& in, Key&& key) {
   internal::integer_sort_inplace(make_slice(in), std::forward<Key>(key));
 }
 
+/* -------------------- Internal count and find -------------------- */
+
+namespace internal {
+
+template <typename IntegerPred>
+size_t count_if_index(size_t n, IntegerPred p) {
+  auto BS =
+      delayed_seq<size_t>(n, [&](size_t i) -> size_t { return p(i); });
+  size_t r = internal::reduce(make_slice(BS), addm<size_t>());
+  return r;
+}
+
+template <typename IntegerPred>
+size_t find_if_index(size_t n, IntegerPred p, size_t granularity = 1000) {
+  size_t i;
+  for (i = 0; i < std::min(granularity, n); i++)
+    if (p(i)) return i;
+  if (i == n) return n;
+  size_t start = granularity;
+  size_t block_size = 2 * granularity;
+  i = n;
+  while (start < n) {
+    size_t end = std::min(n, start + block_size);
+    parallel_for(start, end,
+                 [&](size_t j) {
+                   if (p(j)) write_min(&i, j, std::less<size_t>());
+                 },
+                 granularity);
+    if (i < n) return i;
+    start += block_size;
+    block_size *= 2;
+  }
+  return n;
+}
+
+}  // namespace internal
+
+/* -------------------- For each -------------------- */
+
+template <PARLAY_RANGE_TYPE R, typename UnaryFunction>
+void for_each(R&& r , UnaryFunction f) {
+  parallel_for(0, parlay::size(r),
+    [&f, it = std::begin(r)](size_t i) { f(it[i]); });
+}
+
+/* -------------------- Counting -------------------- */
+
+template <PARLAY_RANGE_TYPE R, typename UnaryPredicate>
+size_t count_if(const R& r, UnaryPredicate p) {
+  return count_if_index(parlay::size(r),
+    [&p, it = std::begin(r)](size_t i) { return p(it[i]); });
+}
+
+template <PARLAY_RANGE_TYPE R, class T>
+size_t count(const R& r, T const &value) {
+  return count_if_index(parlay::size(r),
+    [&value, it = std::begin(r)](size_t i)
+      { return it[i] == value; });
+}
+
 /* -------------------- Boolean searching -------------------- */
 
-// TODO: All of, any of, none of
+template <PARLAY_RANGE_TYPE R, typename UnaryPredicate>
+bool all_of(const R& r, UnaryPredicate p) {
+  return count_if(r, p) == parlay::size(r);
+}
 
+template <PARLAY_RANGE_TYPE R, typename UnaryPredicate>
+bool any_of(const R& r, UnaryPredicate p) {
+  return count_if(r, p) > 1;
+}
+
+template <PARLAY_RANGE_TYPE R, typename UnaryPredicate>
+bool none_of(const R& r, UnaryPredicate p) {
+  return count_if(r, p) == 0;
+}
+
+/* -------------------- Finding -------------------- */
+
+template <PARLAY_RANGE_TYPE R, typename UnaryPredicate>
+size_t find_if(const R& r, UnaryPredicate p) {
+  return find_if_index(parlay::size(r),
+    [&p, it = std::begin(r)](size_t i) { return p(it[i]); });
+}
+
+template <PARLAY_RANGE_TYPE R, class T>
+size_t find(const R& r, T const &value) {
+  return find_if(r, [&](const auto& x) { return x == value; });
+}
+
+template <PARLAY_RANGE_TYPE R, class UnaryPredicate>
+size_t find_if_not(const R& r, UnaryPredicate p) {
+  return find_if_index(parlay::size(r),
+    [&p, it = std::begin(r)](size_t i) { return !p(it[i]); });
+}
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, typename BinaryPredicate>
+size_t find_first_of(const R1& r1, const R2& r2, BinaryPredicate p) {
+  return find_if_index(parlay::size(r1), [&] (size_t i) {
+    size_t j;
+    for (j = 0; j < parlay::size(r2); j++)
+      if (p(std::begin(r1)[i], std::begin(r2)[j])) break;
+    return (j < parlay::size(r2));
+   });
+}
+
+/* ----------------------- Find end ----------------------- */
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, class BinaryPred>
+size_t find_end(const R1& r1, const R2& r2, BinaryPred p) {
+  size_t n1 = parlay::size(r1);
+  size_t n2 = parlay::size(r2);
+  size_t idx = find_if_index(parlay::size(r1) - parlay::size(r2) + 1, [&](size_t i) {
+    size_t j;
+    for (j = 0; j < n2; j++)
+      if (!p(r1[(n1 - i - n2) + j], r2[j])) break;
+    return (j == parlay::size(r2));
+  });
+  return n1 - idx - n2;
+}
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
+size_t find_end(const R1& r1, const R2& r2) {
+  return find_end(r1, r2,
+    [](const auto& a, const auto& b) { return a == b; });
+}
+
+/* -------------------- Adjacent Finding -------------------- */
+
+template <PARLAY_RANGE_TYPE R, class BinaryPred>
+size_t adjacent_find(const R& r, BinaryPred p) {
+  return find_if_index(parlay::size(r) - 1,
+    [&p, it = std::begin(r)](size_t i) {
+      return p(it[i], it[i + 1]); });
+}
+
+template <PARLAY_RANGE_TYPE R>
+size_t adjacent_find(const R& r) {
+  return find_if_index(parlay::size(r) - 1,
+    [it = std::begin(r)](size_t i) {
+      return it[i] == it[i + 1]; });
+}
+
+/* ----------------------- Mismatch ----------------------- */
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
+size_t mismatch(const R1& r1, const R2& r2) {
+  return find_if_index(std::min(parlay::size(r1), parlay::size(r2)),
+    [it1 = std::begin(r1), it2 = std::begin(r2)](size_t i) {
+      return it1[i] != it2[i]; });
+}
+
+template <PARLAY_RANGE_TYPE R, class BinaryPred>
+size_t mismatch(const R& r1, const R& r2, BinaryPred p) {
+  return find_if_index(std::min(parlay::size(r1), parlay::size(r2)),
+    [&p, it1 = std::begin(r1), it2 = std::begin(r2)](size_t i) {
+      return !p(it1[i], it2[i]); });
+}
+
+/* ----------------------- Pattern search ----------------------- */
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, class BinaryPred>
+size_t search(const R1& r1, const R2& r2, BinaryPred pred) {
+  return find_if_index(parlay::size(r1), [&](size_t i) {
+    if (i + parlay::size(r2) > parlay::size(r1)) return false;
+    size_t j;
+    for (j = 0; j < parlay::size(r2); j++)
+      if (!pred(r1[i + j], r2[j])) break;
+    return (j == parlay::size(r2));
+  });
+}
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
+size_t search(const R1& r1, const R2& r2) {
+  auto eq = [](const auto& a, const auto& b) { return a == b; };
+  return search(r1, r2, eq);
+}
+
+/* ------------------------- Equal ------------------------- */
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, class BinaryPred>
+bool equal(const R1& r1, const R2& r2, BinaryPred p) {
+  return count_if_index(parlay::size(r1),
+    [&p, it1 = std::begin(r1), it2 = std::begin(r2)](size_t i)
+      { return p(it1[i], it2[i]); });
+}
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
+bool equal(const R1& r1, const R2& r2) {
+  return count_if_index(parlay::size(r1),
+    [it1 = std::begin(r1), it2 = std::begin(r2)](size_t i)
+      { return it1[i] == it2[i]; });
+}
+
+/* ---------------------- Lex compare ---------------------- */
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, class Compare>
+bool lexicographical_compare(const R1& r1, const R2& r2, Compare less) {
+  size_t m = std::min(parlay::size(r1), parlay::size(r2));
+  size_t i = find_if_index(m,
+    [&less, it1 = std::begin(r1), it2 = std::begin(r2)](size_t i)
+      { return less(it1[i], it2[i]) || less(it2[i], it1[i]); });
+  return (i < m) ? (less(std::begin(r1)[i], std::begin(r2)[i]))
+    : (parlay::size(r1) < parlay::size(r2));
+}
+
+/* -------------------- Remove duplicates -------------------- */
+
+template <PARLAY_RANGE_TYPE R, class Eql>
+auto unique(const R& r, Eql eq) {
+  auto b = delayed_seq<bool>(
+    parlay::size(r), [&eq, it = std::begin(r)](size_t i)
+      { return (i == 0) || !eq(it[i], it[i - 1]); });
+  return pack(r, b);
+}
+
+/* -------------------- Min and max -------------------- */
+
+// needs to return location, and take comparison
+template <PARLAY_RANGE_TYPE R, class Compare>
+size_t min_element(const R& r, Compare comp) {
+  auto SS = delayed_seq<size_t>(parlay::size(r), [&](size_t i) { return i; });
+  auto f = [&comp, it = std::begin(r)](size_t l, size_t r)
+    { return (!comp(it[r], it[l]) ? l : r); };
+  return internal::reduce(make_slice(SS), make_monoid(f, (size_t)parlay::size(r)));
+}
+
+template <PARLAY_RANGE_TYPE R, class Compare>
+size_t max_element(const R& r, Compare comp) {
+  return min_element(r, [&](const auto& a, const auto& b)
+    { return comp(b, a); });
+}
+
+template <PARLAY_RANGE_TYPE R, class Compare>
+auto minmax_element(const R& r, Compare comp) {
+  size_t n = parlay::size(r);
+  auto SS = delayed_seq<std::pair<size_t, size_t>>(parlay::size(r),
+    [&](size_t i) { return std::make_pair(i, i); });
+  auto f = [&comp, it = std::begin(r)](const auto& l, const auto& r) {
+    return (std::make_pair(!comp(it[r.first], it[l.first]) ? l.first : r.first,
+              !comp(it[l.second], it[r.second]) ? l.second : r.second));
+  };
+  return internal::reduce(make_slice(SS), make_monoid(f, std::make_pair(n, n)));
+}
+
+/* -------------------- Permutations -------------------- */
+
+template <PARLAY_RANGE_TYPE R>
+auto reverse(const R& r) {
+  auto n = parlay::size(r);
+  return sequence<range_value_type_t<R>>::from_function(
+    [n, it = std::begin(r)](size_t i) {
+      return it[n - i - 1];
+    });
+}
+
+template <PARLAY_RANGE_TYPE R>
+auto reverse_inplace(R& r) {
+  auto n = parlay::size(r);
+  parallel_for(0, n/2, [it = std::begin(r)] (size_t i) {
+    std::swap(it[i], it[n - i - 1]);
+  });
+}
+
+template <PARLAY_RANGE_TYPE R>
+auto rotate(const R& r, size_t t) {
+  size_t n = parlay::size(r);
+  return sequence<range_value_type_t<R>>::from_function(parlay::size(r),
+    [n, t, it = std::begin(r)](size_t i) {
+      size_t j = (i < t) ? n - t + i : i - t;
+      return it[j];
+    });
+}
+
+/* -------------------- Is sorted? -------------------- */
+
+template <PARLAY_RANGE_TYPE R, class Compare>
+bool is_sorted(const R& r, Compare comp) {
+  auto B = delayed_seq<bool>(
+    parlay::size(r) - 1, [&comp, it = std::begin(r)](size_t i)
+      { return comp(it[i + 1], it[i]); });
+  return (internal::reduce(make_slice(B), addm<size_t>()) != 0);
+}
+
+template <PARLAY_RANGE_TYPE R, class Compare>
+auto is_sorted_until(const R& r, Compare comp) {
+  return std::begin(r) + find_if_index(parlay::size(r) - 1,
+    [&comp, it = std::begin(r)](size_t i) { return comp(it[i + 1], it[i]); }) + 1;
+}
+
+/* -------------------- Is partitioned? -------------------- */
+
+template <PARLAY_RANGE_TYPE R, class UnaryPred>
+bool is_partitioned(const R& r, UnaryPred f) {
+  auto B = delayed_seq<bool>(
+    parlay::size(r) - 1, [&f, it = std::begin(r)](size_t i)
+      { return !f(it[i + 1]) && it[i]; });
+  return (internal::reduce(make_slice(B), addm<size_t>()) != 0);
+}
+
+/* -------------------- Remove -------------------- */
+
+template <PARLAY_RANGE_TYPE R, class UnaryPred>
+auto remove_if(const R& r, UnaryPred f) {
+  auto flags = delayed_seq<bool>(parlay::size(r),
+    [&f, it = std::begin(r)](auto i) { return f(it[i]); });
+  return internal::pack(r, flags);
+}
+
+/* -------------------- Iota -------------------- */
+
+template <typename Index>
+auto iota(Index n) {
+  return delayed_seq<Index>(n, [&](size_t i) -> Index { return i; });
+}
+
+/* -------------------- Flatten -------------------- */
+
+template <PARLAY_RANGE_TYPE R>
+auto flatten(const R& r) {
+  auto offsets = sequence<size_t>::from_function(parlay::size(r),
+    [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
+  size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
+  auto res = sequence<range_value_type_t<R>>::uninitialized(len);
+  auto buffer = res.data();
+  parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
+    parallel_for(0, parlay::size(it[i]),
+      [&](size_t j) { assign_uninitialized(buffer[offsets[i] + j], it[i][j]); }
+     );
+  });
+  return r;
+}
 
 
 }  // namespace parlay
