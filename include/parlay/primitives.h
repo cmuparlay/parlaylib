@@ -181,7 +181,20 @@ auto filter_into(const R_in& in, R_out& out, UnaryPred&& f) {
 
 /* ----------------------- Merging --------------------- */
 
-// TODO: merge
+template<PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, typename BinaryPred>
+auto merge(const R1& r1, const R2& r2, BinaryPred pred) {
+  static_assert(std::is_same_v<range_value_type_t<R1>, range_value_type_t<R2>>,
+    "The two ranges must have the same underlying type");
+  return internal::merge(make_slice(r1), make_slice(r2), pred);
+}
+
+template<PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
+auto merge(const R1& r1, const R2& r2) {
+  auto comp = [](const auto& x, const auto& y) {
+    return x < y;
+  };
+  return merge(r1, r2, comp);
+}
 
 /* ----------------------- Histograms --------------------- */
 
