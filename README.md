@@ -254,6 +254,21 @@ auto filter_into(const R_in& in, R_out& out, UnaryPred&& f)
 
 **filter** takes a range and a unary operator, and returns a sequence consisting of the elements of the range for which the unary operator returns true. Alternatively, **filter_into** does the same thing but writes the output into the given range and returns the number of elements that were kept.
 
+## Merge
+
+```c++
+template<parlay::Range R1, parlay::Range R2>
+auto merge(const R1& r1, const R2& r2)
+```
+
+```c++
+template<parlay::Range R1, parlay::Range R2, typename BinaryPred>
+auto merge(const R1& r1, const R2& r2, BinaryPred pred)
+```
+
+**merge** returns a sequence consisting of the elements of `r1` and `r2` in sorted order, assuming
+that `r1` and `r2` are already sorted. An optional binary predicate can be used to specify the comparison operation.
+
 ### Histogram
 
 ```c++
