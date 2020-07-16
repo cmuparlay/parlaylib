@@ -614,7 +614,7 @@ auto reverse(const R& r) {
 template <PARLAY_RANGE_TYPE R>
 auto reverse_inplace(R&& r) {
   auto n = parlay::size(r);
-  parallel_for(0, n/2, [it = std::begin(r)] (size_t i) {
+  parallel_for(0, n/2, [n, it = std::begin(r)] (size_t i) {
     std::swap(it[i], it[n - i - 1]);
   });
 }
