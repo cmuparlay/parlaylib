@@ -786,7 +786,12 @@ class sequence : protected _sequence_base<T, Allocator> {
   auto tail(size_t len) {
     return make_slice(end() - len, end());
   }
-  
+
+  // guy : added, perhaps subseq instead?
+  auto slice(size_t s, size_t e) {
+    return make_slice(begin()+s, begin()+e);
+  }
+
   // Const versions of slices
   
   auto head(iterator p) const {
@@ -803,6 +808,10 @@ class sequence : protected _sequence_base<T, Allocator> {
   
   auto tail(size_t len) const {
     return make_slice(end() - len, end());
+  }
+
+  auto slice(size_t s, size_t e) const {
+    return make_slice(begin()+s, begin()+e);
   }
 
   // Remove all elements of the subsequence beginning at the element

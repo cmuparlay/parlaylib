@@ -695,14 +695,14 @@ auto iota(Index n) {
 
 template <PARLAY_RANGE_TYPE R>
 auto flatten(const R& r) {
+  using T = range_value_type_t<range_value_type_t<R>>;
   auto offsets = sequence<size_t>::from_function(parlay::size(r),
     [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
   size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
-  auto res = sequence<range_value_type_t<R>>::uninitialized(len);
-  auto buffer = res.data();
+  auto res = sequence<T>::uninitialized(len);
   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
     parallel_for(0, parlay::size(it[i]),
-      [&](size_t j) { assign_uninitialized(buffer[offsets[i] + j], it[i][j]); }
+      [&](size_t j) { assign_uninitialized(res[offsets[i] + j], it[i][j]); }
      );
   });
   return r;
