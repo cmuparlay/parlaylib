@@ -95,7 +95,7 @@ TEST(TestSlice, TestMutableView) {
 }
 
 TEST(TestSlice, TestDelayedSequence) {
-  parlay::delayed_sequence<int> ds(1000, [](int x) { return x; });
+  auto ds = parlay::delayed_seq<int>(1000, [](int x) { return x; });
   auto s = parlay::make_slice(ds);
   for (size_t i = 0; i < 1000; i++) {
     ASSERT_EQ(s[i], ds[i]);

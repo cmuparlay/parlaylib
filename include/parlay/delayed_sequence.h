@@ -26,9 +26,16 @@
 
 namespace parlay {
 
+template<typename T, typename F>
+class delayed_sequence;
+
+// Factory function that can infer the type of the function
+template <typename T, typename F>
+delayed_sequence<T, F> delayed_seq (size_t, F);
+
 // A delayed sequence is an iterator range that generates its
 // elements on demand.
-template<typename T>
+template<typename T, typename F>
 class delayed_sequence {
  public:
   
@@ -62,7 +69,7 @@ class delayed_sequence {
     using pointer = const T*;
     using reference = T;
 
-    friend class delayed_sequence<T>;
+    friend class delayed_sequence<T, F>;
 
     // ----- Requirements for vanilla iterator ----
 
@@ -91,11 +98,11 @@ class delayed_sequence {
     }
 
     bool operator==(const iterator& other) const {
-      return parent == other.parent && index == other.index;
+      return index == other.index;
     }
 
     bool operator!=(const iterator& other) const {
-      return parent != other.parent || index != other.index;
+      return index != other.index;
     }
 
     // ---- Requirements for bidirectional iterator ----
@@ -114,22 +121,18 @@ class delayed_sequence {
     // ---- Requirements for random access iterator ----
 
     bool operator<(const iterator& other) const {
-      assert(parent == other.parent);
       return index < other.index;
     }
 
     bool operator>(const iterator& other) const {
-      assert(parent == other.parent);
       return index > other.index;
     }
 
     bool operator<=(const iterator& other) const {
-      assert(parent == other.parent);
       return index <= other.index;
     }
 
     bool operator>=(const iterator& other) const {
-      assert(parent == other.parent);
       return index >= other.index;
     }
 
@@ -156,7 +159,6 @@ class delayed_sequence {
     }
 
     std::ptrdiff_t operator-(const iterator& other) const {
-      assert(parent == other.parent);
       return static_cast<std::ptrdiff_t>(index)
         - static_cast<std::ptrdiff_t>(other.index);
     }
@@ -168,44 +170,42 @@ class delayed_sequence {
     iterator(const delayed_sequence* _parent, size_t _index)
       : parent(_parent), index(_index) { }
    
-    const delayed_sequence<T>* parent;
+    const delayed_sequence<T, F>* parent;
     size_t index;
   };
   
   // ----------- Constructors and Factories ---------------
 
-  static delayed_sequence<T> constant(size_t n, T value) {
-    return delayed_sequence<T>(n,
+  static auto constant(size_t n, T value) {
+    return delayed_seq<T>(n,
       [val = std::move(value)](size_t) { return val; });
   }
 
-  template<typename F>
   delayed_sequence(size_t n, F _f)
     : first(0), last(n), f(std::move(_f)) { }
 
-  template<typename F>
   delayed_sequence(size_t _first, size_t _last, F _f)
     : first(_first), last(_last), f(std::move(_f)) { }
     
   // Default copy & move, constructor and assignment
-  delayed_sequence(const delayed_sequence<T>&) = default;
-  delayed_sequence(delayed_sequence<T>&&) noexcept = default;
-  delayed_sequence<T>& operator=(const delayed_sequence<T>&) = default;
-  delayed_sequence<T>& operator=(delayed_sequence<T>&&) noexcept = default;
+  delayed_sequence(const delayed_sequence<T, F>&) = default;
+  delayed_sequence(delayed_sequence<T, F>&&) noexcept = default;
+  delayed_sequence<T, F>& operator=(const delayed_sequence<T, F>&) = default;
+  delayed_sequence<T, F>& operator=(delayed_sequence<T, F>&&) noexcept = default;
 
   // ---------------- Iterator Pairs --------------------
 
   iterator begin() const { return iterator(this, first); }
   iterator end() const { return iterator(this, last); }
 
-  iterator cbegin() const { return begin(); }
-  iterator cend() const { return end(); }
+  const_iterator cbegin() const { return begin(); }
+  const_iterator cend() const { return end(); }
   
   reverse_iterator rbegin() const { return std::make_reverse_iterator(end()); }
   reverse_iterator rend() const { return std::make_reverse_iterator(begin()); }
   
-  reverse_iterator crbegin() const { return rbegin(); }
-  reverse_iterator crend() const { return rend(); }
+  const_reverse_iterator crbegin() const { return rbegin(); }
+  const_reverse_iterator crend() const { return rend(); }
   
   // ---------------- Other operations --------------------
   
@@ -248,19 +248,20 @@ class delayed_sequence {
   }
   
   // Swap this with another delayed sequence
-  void swap(delayed_sequence<T>& other) {
+  void swap(delayed_sequence<T, F>& other) {
     std::swap(*this, other);
   }
   
  private:
   size_t first, last;
-  std::function<T(size_t)> f;
+  F f;
 };
 
-// Shorter alias for delayed_sequence for
-// backwards compatibility
-template<typename T>
-using delayed_seq = delayed_sequence<T>;
+// Factory function that can infer the type of the function
+template <typename T, typename F>
+delayed_sequence<T, F> delayed_seq (size_t n, F f) {
+  return delayed_sequence<T, F>(n, std::move(f));
+}
 
 }  // namespace parlay
 

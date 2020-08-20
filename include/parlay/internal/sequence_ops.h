@@ -28,7 +28,7 @@ auto map(Seq const &A, UnaryFunc f) -> sequence<decltype(f(A[0]))> {
 template <typename Seq, typename UnaryFunc>
 auto dmap(Seq&& A, UnaryFunc&& f) {
   size_t n = A.size();
-  return delayed_sequence<decltype(A[0])>(n,
+  return delayed_seq<decltype(A[0])>(n,
     [ f = std::forward<UnaryFunc>(f), A = std::forward<Seq>(A) ]
       (size_t i) { return f(A[i]); });
 }
@@ -284,7 +284,7 @@ size_t filter_out(In_Seq const &In, Out_Seq Out, F f, flags) {
 template <typename Idx_Type, typename Bool_Seq>
 auto pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
   auto identity = [](size_t i) { return (Idx_Type)i; };
-  return pack(delayed_sequence<size_t>(Fl.size(), identity), Fl, fl);
+  return pack(delayed_seq<size_t>(Fl.size(), identity), Fl, fl);
 }
 
 template <typename InIterator, typename OutIterator, typename Char_Seq>

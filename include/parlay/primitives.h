@@ -43,10 +43,10 @@ auto map(R&& r, UnaryOp&& f) {
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto dmap(R&& r, UnaryOp&& f) {
   size_t n = parlay::size(r);
-  return delayed_sequence<typename std::remove_reference<
-                          typename std::remove_cv<
-                          decltype(f(std::declval<range_value_type_t<R>&>()))
-                          >::type>::type>
+  return delayed_seq<typename std::remove_reference<
+                     typename std::remove_cv<
+                     decltype(f(std::declval<range_value_type_t<R>&>()))
+                    >::type>::type>
     (n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
       (size_t i) { return f(std::begin(r)[i]); });
 }
