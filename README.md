@@ -19,7 +19,7 @@ This documentation is a work in progress and is not yet fully complete.
     + [Delayed Sequence](#delayed-sequence)
       - [Template parameters](#template-parameters)
       - [Constructors](#constructors)
-    + [Member types](#member-types)
+      - [Member types](#member-types)
       - [Member functions](#member-functions)
     + [Phase-concurrent Hashtable](#phase-concurrent-hashtable)
   * [Parallel algorithms](#parallel-algorithms)
@@ -206,7 +206,7 @@ delayed_sequence<T, F>& operator=(delayed_sequence<T, F>&&) noexcept
 ```
 The copy constructor and move constructor are viable provided that the underlying function object is copyable and movable respectively.
 
-### Member types
+#### Member types
 
 Type | Definition
 ---|---
