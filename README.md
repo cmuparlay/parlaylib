@@ -2,7 +2,63 @@
 
 ParlayLib is a C++ library for developing efficient parallel algorithms and software on shared-memory multicore machines. It provides additional tools and primitives that go beyond what is available in the C++ standard library, and simplifies the task of programming provably efficient and scalable parallel algorithms. It consists of a sequence data type (analogous to std::vector), many parallel routines and algorithms, a work-stealing scheduler to support nested parallelism, and a scalable memory allocator. It has been developed over a period of seven years and used in a variety of software including the [PBBS benchmark suite](http://www.cs.cmu.edu/~pbbs/benchmarks.html), the [Ligra](http://jshun.github.io/ligra/), [Julienne](https://dl.acm.org/doi/pdf/10.1145/3087556.3087580), and [Aspen](https://github.com/ldhulipala/aspen) graph processing frameworks, the [Graph Based Benchmark Suite](https://github.com/ParAlg/gbbs), and the [PAM](https://cmuparlay.github.io/PAMWeb/) library for parallel balanced binary search trees, and an implementation of the TPC-H benchmark suite.
 
-## Getting started
+This documentation is a work in progress and is not yet fully complete.
+
+**Contents**
+
+- [Getting started](#getting-started)
+    + [Installing and including via CMake](#installing-and-including-via-cmake)
+    + [Installing and including manually](#installing-and-including-manually)
+    + [The old fashioned way](#the-old-fashioned-way)
+- [Using Parlay with Cilk, OpenMP, or TBB](#using-parlay-with-cilk--openmp--or-tbb)
+- [Features](#features)
+  * [Ranges](#ranges)
+  * [Parallel scheduler](#parallel-scheduler)
+  * [Data structures](#data-structures)
+    + [Sequence](#sequence)
+    + [Delayed Sequence](#delayed-sequence)
+      - [Template parameters](#template-parameters)
+      - [Constructors](#constructors)
+    + [Member types](#member-types)
+      - [Member functions](#member-functions)
+    + [Phase-concurrent Hashtable](#phase-concurrent-hashtable)
+  * [Parallel algorithms](#parallel-algorithms)
+    + [Tabulate](#tabulate)
+    + [Map](#map)
+    + [Copy](#copy)
+    + [Reduce](#reduce)
+    + [Scan](#scan)
+    + [Pack](#pack)
+    + [Filter](#filter)
+    + [Merge](#merge)
+    + [Histogram](#histogram)
+    + [Sort](#sort)
+    + [Integer Sort](#integer-sort)
+    + [For each](#for-each)
+    + [Count](#count)
+    + [All of, any of, none of](#all-of--any-of--none-of)
+    + [Find](#find)
+    + [Adjacent find](#adjacent-find)
+    + [Mismatch](#mismatch)
+    + [Search](#search)
+    + [Find end](#find-end)
+    + [Equal](#equal)
+    + [Lexicographical compare](#lexicographical-compare)
+    + [Unique](#unique)
+    + [Min and max element](#min-and-max-element)
+    + [Reverse](#reverse)
+    + [Rotate](#rotate)
+    + [Is sorted](#is-sorted)
+    + [Is partitioned](#is-partitioned)
+    + [Remove](#remove)
+    + [Iota](#iota)
+    + [Flatten](#flatten)
+  * [Memory Allocator](#memory-allocator)
+
+
+
+
+# Getting started
 
 ParlayLib is a lightweight header-only library, so it is easy to integrate into your new or existing projects. There are many ways to acomplish this.
 
@@ -38,6 +94,18 @@ To ensure that Parlay functions correctly once included, make sure that you are 
 ### The old fashioned way
 
 If fancy build systems are not your thing, the tried and true way to include Parlay in your project is to simply copy the source code of Parlay directly into your own project. Since the library is header only, this should work out of the box, assuming you add any required flags (see above). One possible way to do this while still enabling updates to ParlayLib is to include it as a [Git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules) of your project's Git repository.
+
+# Using Parlay with Cilk, OpenMP, or TBB
+
+If you're already using Cilk, OpenMP, or Thread Building Blocks, and just want to use Parlay's algorithms without its parallel scheduler, that is easy to do. When building your program, simply add the appropriate compile definition as below.
+
+```
+-DPARLAY_CILK
+-DPARLAY_OPENMP
+-DPARLAY_TBB
+```
+
+Parlay will then use the specified framework's parallel operations to support its algorithms instead of its own scheduler.
 
 # Features
 
@@ -98,14 +166,95 @@ auto seq = parlay::sequence<int>(1000, 5);
 
 ### Delayed Sequence
 
-A delayed sequence is a lazy functional sequence that generates its elements on demand, rather than storing them in memory. A delayed sequence satisfies the range concept.
+```c++
+template<
+  typename T,
+  typename F
+> class delayed_sequence;
+```
+
+A delayed sequence is a lazy functional sequence that generates its elements on demand, rather than storing them in memory. A delayed sequence satisfies the range concept. The easiest way to construct a delayed sequence is to use the `delayed_seq` factory function.
+
+**Example**
 
 ```c++
-// A sequence consisting of 1000 copies of 5
-auto seq = parlay::delayed_sequence<int>(1000, [](size_t i) {
+// A sequence consisting of the first 1000 odd integers
+auto seq = parlay::delayed_seq<int>(1000, [](size_t i) {
   return 2*i + 1;
 });
 ```
+
+#### Template parameters
+
+* **T** is the type of the elements generated by the sequence
+* **F** is the type of the function object that generates the elements of the sequence. It should be a function of type `T(size_t)`, i.e. a function that maps indices of type `size_t` to elements of type `T`.
+
+#### Constructors
+
+```c++
+delayed_sequence(size_t n, F _f)
+delayed_sequence(size_t _first, size_t _last, F _f)
+```
+
+Constructs a delayed sequence that generates elements from the given function `_f`. Given `n`, the sequence consists of the elements `f(0), ..., f(n-1)`. Otherwise, given `_first` and `_last`, the sequence consists of the elements `f(_first), ... f(_last-1)`.
+
+```c++
+delayed_sequence(const delayed_sequence<T, F>&)
+delayed_sequence(delayed_sequence<T, F>&&) noexcept
+delayed_sequence<T, F>& operator=(const delayed_sequence<T, F>&)
+delayed_sequence<T, F>& operator=(delayed_sequence<T, F>&&) noexcept
+```
+The copy constructor and move constructor are viable provided that the underlying function object is copyable and movable respectively.
+
+### Member types
+
+Type | Definition
+---|---
+`value_type` | Same as `T`
+`reference` | Same as `T`
+`const_reference` | Same as `T`
+`iterator` | A constant random access iterator
+`const_iterator` | Same as `iterator`
+`reverse_iterator` | `std::reverse_iterator<iterator>`
+`const_reverse_iterator` | Same as `reverse_iterator`
+`difference_type` | `std::ptrdiff_t`
+`size_type` | `size_t`
+
+#### Member functions
+
+**Iterators**
+
+Function | Description
+---|---
+` iterator begin() ` | Iterator to the beginning of the sequence
+` iterator end() ` |  Iterator to the end of the sequence
+` const_iterator cbegin() ` |  Constant iterator to the beginning of the sequence
+` const_iterator cend() ` |  Constant iterator to the end of the sequence
+` reverse_iterator rbegin() ` |  Reverse iterator to the end of the sequence
+` reverse_iterator rend() ` |  Reverse iterator to the beginning of the sequence
+` const_reverse_iterator crbegin() ` | Constant reverse iterator to the end of the sequence
+` const_reverse_iterator crend() ` |  Constant reverse iterator to the beginning of the sequence
+
+**Element access**
+
+Function | Description
+---|---
+`T operator[](size_t i)` | Generate the i'th element of the sequence
+`T front()` | Generate the first element of the sequence
+`T back()` | Generate the last element of the sequence
+
+**Size**
+
+Function | Description
+---|---
+`size_t size()` | Return the length of the sequence
+`bool empty()` | Return true if the sequence is empty
+
+**Miscelaneous**
+
+Function | Description
+---|---
+`void swap(delayed_sequence<T, F>& other)` | Swap this delayed sequence with another of the same type
 
 ### Phase-concurrent Hashtable
 
@@ -254,7 +403,7 @@ auto filter_into(const R_in& in, R_out& out, UnaryPred&& f)
 
 **filter** takes a range and a unary operator, and returns a sequence consisting of the elements of the range for which the unary operator returns true. Alternatively, **filter_into** does the same thing but writes the output into the given range and returns the number of elements that were kept.
 
-## Merge
+### Merge
 
 ```c++
 template<parlay::Range R1, parlay::Range R2>
@@ -647,15 +796,3 @@ long* x = long_allocator::alloc();
 *x = 5;
 long_allocator::free(x);
 ```
-
-# Using Parlay with Cilk, OpenMP, or TBB
-
-If you're already using Cilk, OpenMP, or Thread Building Blocks, and just want to use Parlay's algorithms without its parallel scheduler, that is easy to do. When building your program, simply add the appropriate compile definition as below.
-
-```
--DPARLAY_CILK
--DPARLAY_OPENMP
--DPARLAY_TBB
-```
-
-Parlay will then use the specified framework's parallel operations to support its algorithms instead of its own scheduler.
