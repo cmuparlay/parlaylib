@@ -9,7 +9,7 @@
 // A delayed sequence is defined by a range of indices
 // and a function object. Example:
 //
-// auto s = parlay::delayed_sequence<int>(0, 1000,
+// auto s = parlay::delayed_seq<int>(0, 1000,
 //            [](size_t i) { return i*i; });
 //
 
