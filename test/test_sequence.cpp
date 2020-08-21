@@ -547,6 +547,26 @@ TEST(TestSequence, TestHead) {
   }
 }
 
+TEST(TestSequence, TestSubseq) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{4,5,6,7};
+  auto ss = s.subseq(3,7);
+  ASSERT_EQ(ss.size(), 4);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
+  for (auto& x : ss) { x++; }
+  for (int i = 0; i < 4; i++) {
+    ASSERT_EQ(s[i+3], s2[i]+1);
+  }
+}
+
+TEST(TestSequence, TestSubseqConst) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{4,5,6,7};
+  auto ss = s.subseq(3,7);
+  ASSERT_EQ(ss.size(), 4);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
+}
+
 TEST(TestSequence, TestHeadConst) {
   auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
   auto s2 = parlay::sequence<int>{1,2,3,4,5};
@@ -631,4 +651,48 @@ TEST(TestSequence, TestPopTail2) {
   ASSERT_EQ(s.size(), 4);
   ASSERT_EQ(t.size(), 5);
   ASSERT_EQ(s2, t);
+}
+
+TEST(TestSequence, TestEqual) {
+  auto s1 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+    return 2*i + 1;
+  });
+  auto s2 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+    return 2*i + 1;
+  });
+  ASSERT_EQ(s1, s2);
+}
+
+TEST(TestSequence, TestNotEqual) {
+  // All different
+  auto s1 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+    return 2*i + 1;
+  });
+  auto s2 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+    return 2*i + 2;
+  });
+  ASSERT_NE(s1, s2);
+}
+
+TEST(TestSequence, TestNotEqual2) {
+  // Equal up until the last element
+  auto s1 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+    return 2*i + 1;
+  });
+  auto s2 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+    return 2*i + 1;
+  });
+  s2.back() = 0;
+  ASSERT_NE(s1, s2);
+}
+
+TEST(TestSequence, TestNotEqual3) {
+  // Different lengths
+  auto s1 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+    return 2*i + 1;
+  });
+  auto s2 = parlay::sequence<int>::from_function(999999, [](size_t i) {
+    return 2*i + 1;
+  });
+  ASSERT_NE(s1, s2);
 }

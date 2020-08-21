@@ -467,6 +467,8 @@ class sequence : protected _sequence_base<T, Allocator> {
   using reverse_iterator = std::reverse_iterator<iterator>;
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
   
+  using view_type = slice<iterator, iterator>;
+  using const_view_type = slice<const_iterator, const_iterator>;
   
   using _sequence_base<T, Allocator>::impl;
   using _sequence_base<T, Allocator>::_max_size;
@@ -510,8 +512,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin()); }
 
   bool operator==(const sequence<T, Allocator>& other) const {
-    return size() == other.size() &&
-      std::equal(begin(), end(), other.begin(), other.end());  // TODO: In parallel
+    return size() == other.size() && compare_equal(other.begin());
   }
 
   bool operator!=(const sequence<T, Allocator>& b) const {
@@ -788,7 +789,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   }
 
   // guy : added, perhaps subseq instead?
-  auto slice(size_t s, size_t e) {
+  auto subseq(size_t s, size_t e) {
     return make_slice(begin()+s, begin()+e);
   }
 
@@ -810,7 +811,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     return make_slice(end() - len, end());
   }
 
-  auto slice(size_t s, size_t e) const {
+  auto subseq(size_t s, size_t e) const {
     return make_slice(begin()+s, begin()+e);
   }
 
@@ -1034,14 +1035,37 @@ class sequence : protected _sequence_base<T, Allocator> {
       std::make_move_iterator(std::end(r)));
   }
   
+  // Return true if this sequence compares equal to the sequence
+  // beginning at other. The sequence beginning at other must be
+  // of at least the same length as this sequence.
+  template<typename _Iterator>
+  bool compare_equal(_Iterator other, size_t granularity = 1000) const {
+    auto n = size();
+    auto self = begin();
+    size_t i;
+    for (i = 0; i < std::min(granularity, n); i++)
+      if (!(self[i] == other[i])) return false;
+    if (i == n) return true;
+    size_t start = granularity;
+    size_t block_size = 2 * granularity;
+    bool matches = true;
+    while (start < n) {
+      size_t end = std::min(n, start + block_size);
+      parallel_for(start, end, [&](size_t j) {
+        if (!(self[j] == other[j])) matches = false;
+      }, granularity);
+      if (!matches) return false;
+      start += block_size;
+      block_size *= 2;
+    }
+    return matches;
+  }
+  
 };
 
 // Convert an arbitrary range into a sequence
 template<typename R>
-inline auto to_sequence(R&& r) -> sequence<typename std::remove_const<
-                            typename std::remove_reference<
-                            decltype(*std::begin(std::declval<R&>()))
-                            >::type>::type> {
+inline auto to_sequence(R&& r) -> sequence<range_value_type_t<R>> {
   if constexpr (std::is_lvalue_reference<R>::value) {
     return {std::begin(r), std::end(r)};
   }
