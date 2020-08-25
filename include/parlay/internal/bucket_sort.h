@@ -122,7 +122,7 @@ void bucket_sort_r(slice<InIterator, InIterator> in,
     base_sort(in, out, f, stable, inplace);
   } else {
     size_t counts[num_buckets];
-    sequence<uchar> bucketsm(n);
+    auto bucketsm = sequence<uchar>::uninitialized(n);
     uchar* buckets = bucketsm.begin();
     if (get_buckets(in, buckets, f, bits)) {
       base_sort(in, out, f, stable, inplace);
@@ -131,7 +131,7 @@ void bucket_sort_r(slice<InIterator, InIterator> in,
       auto loop = [&] (size_t j) {
         size_t start = counts[j];
         size_t end = (j == num_buckets - 1) ? n : counts[j + 1];
-        bucket_sort_r(make_slice(out).cut(start, end), make_slice(in).cut(start, end), f, stable, !inplace);
+        bucket_sort_r(out.cut(start, end), in.cut(start, end), f, stable, !inplace);
       };
       parallel_for(0, num_buckets, loop, 4);
     }
