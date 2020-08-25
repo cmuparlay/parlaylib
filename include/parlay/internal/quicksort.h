@@ -149,7 +149,7 @@ std::tuple<size_t, size_t, bool> p_split3(SeqA const& A,
   if (!f(A[3], A[4]))
     p2 = p1;  // if few elements greater than p2, then set to p1
   auto flag = [&](size_t i) { return f(A[i], p1) ? 0 : f(p2, A[i]) ? 2 : 1; };
-  auto r = split_three(A, B.slice(), delayed_seq<unsigned char>(n, flag),
+  auto r = split_three(A, make_slice(B), delayed_seq<unsigned char>(n, flag),
                        fl_conservative);
   return std::make_tuple(r.first, r.first + r.second, !f(p1, p2));
   // sequence<size_t> r = count_sort(A, B.slice(),
@@ -184,18 +184,18 @@ void p_quicksort_(slice<InIterator, InIterator> In,
     std::tie(l, m, mid_eq) = p_split3(In, Out, f);
     par_do3(
         [&]() {
-          p_quicksort_(Out.slice(0, l), In.slice(0, l), f, !inplace, cut_size);
+          p_quicksort_(Out.cut(0, l), In.cut(0, l), f, !inplace, cut_size);
         },
         [&]() {
           auto copy_in = [&](size_t i) { In[i] = Out[i]; };
           if (!mid_eq)
-            p_quicksort_(Out.slice(l, m), In.slice(l, m), f, !inplace,
+            p_quicksort_(Out.cut(l, m), In.cut(l, m), f, !inplace,
                          cut_size);
           else if (inplace)
             parallel_for(l, m, copy_in, 2000);
         },
         [&]() {
-          p_quicksort_(Out.slice(m, n), In.slice(m, n), f, !inplace, cut_size);
+          p_quicksort_(Out.cut(m, n), In.cut(m, n), f, !inplace, cut_size);
         });
   }
 }
@@ -204,7 +204,7 @@ template <class SeqA, class F>
 sequence<typename SeqA::value_type> p_quicksort(SeqA const& In, const F& f) {
   using T = typename SeqA::value_type;
   sequence<T> Out(In.size());
-  p_quicksort_(In.slice(), Out.slice(), f);
+  p_quicksort_(make_slice(In), make_slice(Out), f);
   return Out;
 }
 
@@ -212,7 +212,7 @@ template <typename Iterator, class F>
 void p_quicksort_inplace(slice<Iterator, Iterator> In, const F& f) {
   using value_type = typename slice<Iterator, Iterator>::value_type;
   auto Tmp = sequence<value_type>::uninitialized(In.size());
-  p_quicksort_(In, Tmp.slice(), f, true);
+  p_quicksort_(In, make_slice(Tmp), f, true);
 }
 
 }  // namespace internal
