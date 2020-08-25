@@ -162,7 +162,7 @@ void sample_sort_(slice<InIterator, InIterator> In,
     sequence<value_type> Tmp = sequence<value_type>::uninitialized(n);
 
     // sort each block and merge with samples to get counts for each bucket
-    sequence<s_size_t> counts(m + 1);
+    auto counts = sequence<s_size_t>::uninitialized(m + 1);
     counts[m] = 0;
     sliced_for(n, block_size, [&](size_t i, size_t start, size_t end) {
       seq_sort_(In.cut(start, end), make_slice(Tmp).cut(start, end), less, inplace_tag{},
