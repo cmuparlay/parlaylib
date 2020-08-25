@@ -12,9 +12,13 @@
 namespace parlay {
 namespace internal {
 
-template <typename UnaryFunc>
-auto tabulate(size_t n, UnaryFunc f) -> sequence<decltype(f(0))> {
-  return sequence<decltype(f(0))>(n, [&](size_t i) { return f(i); });
+template<typename UnaryOp>
+auto tabulate(size_t n, UnaryOp&& f) {
+  return sequence<typename std::remove_reference<
+                  typename std::remove_cv<
+                  decltype(f(0))
+                  >::type>::type>::
+                  from_function(n, f);
 }
 
 template <typename Seq, typename UnaryFunc>
@@ -22,15 +26,21 @@ auto map(Seq const &A, UnaryFunc f) -> sequence<decltype(f(A[0]))> {
   return tabulate(A.size(), [&](size_t i) { return f(A[i]); });
 }
 
+template <class F>
+auto dseq (size_t n, F f) -> delayed_sequence<decltype(f(0)),F> {
+  using T = decltype(f(0));
+  return delayed_sequence<T,F>(n,f);
+}
+
 // delayed version of map
 // requires C++14 or greater, both since return type is not defined (a lambda)
 //   and for support of initialization of the closure lambda capture
 template <typename Seq, typename UnaryFunc>
-auto dmap(Seq&& A, UnaryFunc&& f) {
+auto dmap(Seq &&A, UnaryFunc&& f) {
   size_t n = A.size();
-  return delayed_seq<decltype(A[0])>(n,
-    [ f = std::forward<UnaryFunc>(f), A = std::forward<Seq>(A) ]
-      (size_t i) { return f(A[i]); });
+  return dseq(n, [f=std::forward<UnaryFunc>(f),
+		  A=std::forward<Seq>(A)] (size_t i) {
+		return f(A[i]);});
 }
 
 template <typename T>
@@ -95,7 +105,7 @@ const flags fl_scan_inclusive = (1 << 4);
 
 template <typename In_Seq, typename Out_Seq, class Monoid>
 auto scan_serial(In_Seq const &In, Out_Seq Out, Monoid const &m,
-                 typename In_Seq::value_type offset, flags fl = no_flag) ->
+                 typename In_Seq::value_type offset, flags fl, bool out_uninitialized = false) ->
     typename In_Seq::value_type {
   using T = typename In_Seq::value_type;
   T r = offset;
@@ -104,38 +114,43 @@ auto scan_serial(In_Seq const &In, Out_Seq Out, Monoid const &m,
   if (inclusive) {
     for (size_t i = 0; i < n; i++) {
       r = m.f(r, In[i]);
-      Out[i] = r;
+      if (out_uninitialized)
+	assign_uninitialized(Out[i], r);
+      else Out[i] = r;
     }
   } else {
     for (size_t i = 0; i < n; i++) {
       T t = In[i];
-      Out[i] = r;
+      if (out_uninitialized)
+	assign_uninitialized(Out[i], r);
+      else Out[i] = r;
       r = m.f(r, t);
     }
   }
   return r;
 }
 
+  
 template <typename In_Seq, typename Out_Range, class Monoid>
-auto scan_(In_Seq const &In, Out_Range Out, Monoid const &m, flags fl = no_flag)
+auto scan_(In_Seq const &In, Out_Range Out, Monoid const &m, flags fl,
+	   bool out_uninitialized=false)
     -> typename In_Seq::value_type {
   using T = typename In_Seq::value_type;
   size_t n = In.size();
   size_t l = num_blocks(n, _block_size);
   if (l <= 2 || fl & fl_sequential)
-    return scan_serial(In, Out, m, m.identity, fl);
+    return scan_serial(In, Out, m, m.identity, fl, out_uninitialized);
   sequence<T> Sums(l);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     Sums[i] = reduce_serial(make_slice(In).cut(s, e), m);
   });
-  T total = scan_serial(Sums, make_slice(Sums), m, m.identity, 0);
+  T total = scan_serial(Sums, make_slice(Sums), m, m.identity, 0, false);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     auto O = make_slice(Out).cut(s, e);
-    scan_serial(make_slice(In).cut(s, e), O, m, Sums[i], fl);
+    scan_serial(make_slice(In).cut(s, e), O, m, Sums[i], fl, out_uninitialized);
   });
   return total;
 }
-
 
 template <typename Iterator, typename Monoid>
 auto scan_inplace(slice<Iterator, Iterator> In, Monoid m, flags fl = no_flag) {
@@ -147,8 +162,8 @@ auto scan(In_Seq const &In, Monoid m, flags fl = no_flag)
     -> std::pair<sequence<typename In_Seq::value_type>,
                  typename In_Seq::value_type> {
   using T = typename In_Seq::value_type;
-  sequence<T> Out(In.size());
-  return std::make_pair(std::move(Out), scan_(In, make_slice(Out), m, fl));
+  auto Out = sequence<T>::uninitialized(In.size());
+  return std::make_pair(std::move(Out), scan_(In, make_slice(Out), m, fl, true));
 }
 
 // do in place if rvalue reference to a sequence<T>
@@ -230,11 +245,14 @@ size_t pack_out(In_Seq const &In, Bool_Seq const &Fl, Out_Seq Out,
   return m;
 }
 
-template <typename In_Seq, typename F>
-auto filter(In_Seq const &In, F f) -> sequence<typename In_Seq::value_type> {
-  using T = typename In_Seq::value_type;
+// like filter but applies g before returning result
+template <typename In_Seq, typename F, typename G>
+auto filter_map(In_Seq const &In, F f, G g) {
+  using outT = decltype(g(In[0]));
   size_t n = In.size();
   size_t l = num_blocks(n, _block_size);
+  auto in_mapped = delayed_seq<outT>(n, [&] (size_t i) {return g(In[i]);});
+
   sequence<size_t> Sums(l);
   sequence<bool> Fl(n);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
@@ -243,12 +261,20 @@ auto filter(In_Seq const &In, F f) -> sequence<typename In_Seq::value_type> {
     Sums[i] = r;
   });
   size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
-  sequence<T> Out = sequence<T>::uninitialized(m);
+  sequence<outT> Out = sequence<outT>::uninitialized(m);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-    pack_serial_at(make_slice(In).cut(s, e), make_slice(Fl).cut(s, e),
+    pack_serial_at(make_slice(in_mapped).cut(s, e),
+		   make_slice(Fl).cut(s, e),
                    make_slice(Out).cut(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
   });
   return Out;
+}
+
+template <typename In_Seq, typename F>
+auto filter(In_Seq const &In, F f) -> sequence<typename In_Seq::value_type> {
+  using T = typename In_Seq::value_type;
+  auto identity = [&] (T x) -> T {return x;}; // no longer needed in c++20
+  return filter_map(In, f, identity);
 }
 
 template <typename In_Seq, typename F>
@@ -283,8 +309,8 @@ size_t filter_out(In_Seq const &In, Out_Seq Out, F f, flags) {
 
 template <typename Idx_Type, typename Bool_Seq>
 auto pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
-  auto identity = [](size_t i) { return (Idx_Type)i; };
-  return pack(delayed_seq<size_t>(Fl.size(), identity), Fl, fl);
+  auto identity = [](size_t i) -> Idx_Type { return i; };
+  return pack(delayed_seq<Idx_Type>(Fl.size(), identity), Fl, fl);
 }
 
 template <typename InIterator, typename OutIterator, typename Char_Seq>
@@ -292,7 +318,7 @@ std::pair<size_t, size_t> split_three(slice<InIterator, InIterator> In,
                                       slice<OutIterator, OutIterator> Out,
                                       Char_Seq const &Fl, flags fl = no_flag) {
   size_t n = In.size();
-  if (slice_eq(make_slice(In), Out))
+  if (In == Out)
     throw std::invalid_argument("In and Out cannot be the same in split_three");
   size_t l = num_blocks(n, _block_size);
   sequence<size_t> Sums0(l);
