@@ -87,7 +87,7 @@ sequence<size_t> seq_count_sort(slice<InIterator, InIterator> In,
                                 slice<OutIterator, OutIterator> Out,
                                 slice<KeyIterator, KeyIterator> Keys,
                                 size_t num_buckets) {
-  sequence<size_t> counts(num_buckets + 1);
+  auto counts = sequence<size_t>::uninitialized(num_buckets + 1);
   seq_count_sort_(In, Out, Keys, counts.begin(), num_buckets);
   counts[num_buckets] = In.size();
   return counts;
@@ -125,7 +125,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
   size_t block_size = ((n - 1) / num_blocks) + 1;
   size_t m = num_blocks * num_buckets;
 
-  sequence<s_size_t> counts(m);
+  auto counts = sequence<s_size_t>::uninitialized(m);
 
   // sort each block
   parallel_for(0, num_blocks,
@@ -171,7 +171,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                },
                1 + 1024 / num_blocks);
 
-  sequence<s_size_t> counts2(m);
+  auto counts2 = sequence<s_size_t>::uninitialized(m);
 
   parallel_for(0, num_blocks,
                [&](size_t i) {
