@@ -248,8 +248,8 @@ auto integer_sort(slice<Iterator, Iterator> In,
 // will be the same as the next (i.e. offset[i+1]-offset[i] specifies
 // how many i there are.
 // The last element contains the size of the input.
-template <typename Tint = size_t, typename Seq, typename Get_Key>
-sequence<Tint> get_counts(Seq const &In, Get_Key const &g, size_t num_buckets) {
+template <typename Tint = size_t, typename Iterator, typename Get_Key>
+sequence<Tint> get_counts(slice<Iterator, Iterator> In, Get_Key const &g, size_t num_buckets) {
   size_t n = In.size();
   sequence<Tint> starts(num_buckets, (Tint)0);
   sequence<Tint> ends(num_buckets, (Tint)0);
@@ -260,16 +260,15 @@ sequence<Tint> get_counts(Seq const &In, Get_Key const &g, size_t num_buckets) {
     };
   });
   ends[g(In[n - 1])] = n;
-  return sequence<Tint>(num_buckets,
+  return sequence<Tint>::from_function(num_buckets,
                         [&](size_t i) { return ends[i] - starts[i]; });
 }
 
-template <typename Tint = size_t, typename Seq, typename Get_Key>
-std::pair<sequence<typename Seq::value_type>, sequence<Tint>>
-integer_sort_with_counts(Seq const &In, Get_Key const &g, size_t num_buckets) {
+template <typename Tint = size_t, typename Iterator, typename Get_Key>
+auto integer_sort_with_counts(slice<Iterator, Iterator> In, Get_Key const &g, size_t num_buckets) {
   size_t bits = log2_up(num_buckets);
   auto R = integer_sort(In, g, bits);
-  return std::make_pair(std::move(R), get_counts<Tint>(R, g, num_buckets));
+  return std::make_pair(std::move(R), get_counts<Tint>(make_slice(R), g, num_buckets));
 }
 
 }
