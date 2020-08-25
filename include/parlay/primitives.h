@@ -17,15 +17,8 @@ namespace parlay {
 
 // Return a sequence consisting of the elements
 //   f(0), f(1), ... f(n)
-template<typename UnaryOp>
-auto tabulate(size_t n, UnaryOp&& f) {
-  return sequence<typename std::remove_reference<
-                  typename std::remove_cv<
-                  decltype(f(0))
-                  >::type>::type>::
-                  from_function(n, f);
-}
-
+using internal::tabulate;
+  
 // Return a sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
@@ -44,11 +37,11 @@ template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto dmap(R&& r, UnaryOp&& f) {
   size_t n = parlay::size(r);
   return delayed_seq<typename std::remove_reference<
-                     typename std::remove_cv<
-                     decltype(f(std::declval<range_value_type_t<R>&>()))
-                    >::type>::type>
-    (n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
-      (size_t i) { return f(std::begin(r)[i]); });
+                          typename std::remove_cv<
+                           decltype(f(std::declval<range_value_type_t<R>&>()))
+                           >::type>::type>
+     (n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
+       (size_t i) { return f(std::begin(r)[i]); });
 }
 
 /* -------------------- Copying -------------------- */
@@ -304,15 +297,13 @@ void stable_sort_inplace(R&& in) {
 template<PARLAY_RANGE_TYPE R>
 auto integer_sort(const R& in) {
   auto s = parlay::to_sequence(in);
-  internal::integer_sort_inplace(make_slice(s), [](auto x) { return x; });
-  return s;
+  return internal::integer_sort(make_slice(s), [](auto x) { return x; }); 
 }
 
 template<PARLAY_RANGE_TYPE R, typename Key>
 auto integer_sort(const R& in, Key&& key) {
   auto s = parlay::to_sequence(in);
-  internal::integer_sort_inplace(make_slice(s), std::forward<Key>(key));
-  return s;
+  return internal::integer_sort(make_slice(s), std::forward<Key>(key));
 }
 
 template<PARLAY_RANGE_TYPE R>
@@ -708,6 +699,23 @@ auto flatten(const R& r) {
   return r;
 }
 
+/* -------------------- Other Utilities -------------------- */
+
+template <PARLAY_RANGE_TYPE R, class Compare>
+auto remove_duplicates_ordered (const R& s, Compare less) {
+  using T = range_value_type_t<R>;
+  return unique(stable_sort(s, less), [&] (T a, T b) {
+      return !less(a,b) && !less(b,a);});
+}
+
+// returns sequence with elementof same type as the first argument
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
+auto append (const R1& s1, const R2& s2) {
+  using T = range_value_type_t<R1>;
+  size_t n1 = s1.size();
+  return tabulate(n1 + s2.size(), [&] (size_t i) -> T {
+      return (i < n1) ? s1[i] : s2[i-n1];});
+}
 
 }  // namespace parlay
 
