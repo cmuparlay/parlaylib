@@ -59,6 +59,12 @@ private:
       alloc_size = sizes[bucket];
     } else alloc_size = n;
 
+    // Alloc size must be a multiple of the alignment
+    // Round up to the next multiple.
+    if (alloc_size % large_align != 0) {
+      alloc_size += (large_align - (alloc_size % large_align));
+    }
+
     void* a = (void*) aligned_alloc(large_align, alloc_size);
     if (a == NULL) throw std::bad_alloc();
     
