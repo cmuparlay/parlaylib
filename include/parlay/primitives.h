@@ -50,7 +50,7 @@ auto dmap(R&& r, UnaryOp&& f) {
 // Copy the elements from the range in into the range out
 // The range out must be at least as large as in.
 template<PARLAY_RANGE_TYPE R_in, PARLAY_RANGE_TYPE R_out>
-void copy(const R_in& in, R_out& out) {
+void copy(const R_in& in, R_out&& out) {
   assert(parlay::size(out) >= parlay::size(in));
   parallel_for(0, parlay::size(in), [&](size_t i) {
     std::begin(out)[i] = std::begin(in)[i];
@@ -120,7 +120,7 @@ auto scan_inplace(R&& r, Monoid&& m) {
 }
 
 template<PARLAY_RANGE_TYPE R, typename Monoid>
-auto scan_inclusive_inplace(R& r, Monoid&& m) {
+auto scan_inclusive_inplace(R&& r, Monoid&& m) {
   return internal::scan_inplace(make_slice(r), std::forward<Monoid>(m),
     internal::fl_scan_inclusive);
 }
