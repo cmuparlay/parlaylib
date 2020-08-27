@@ -112,7 +112,7 @@ struct _sequence_base {
     _sequence_impl() : allocator_type(), _data() { }
 
     // Copy constructor
-    _sequence_impl(const _sequence_impl& other) {
+    _sequence_impl(const _sequence_impl& other) : allocator_type(other) {
       auto n = other.size();
       ensure_capacity(n);
       auto buffer = data();
