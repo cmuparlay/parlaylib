@@ -203,7 +203,7 @@ function(add_dtest TESTNAME SOURCENAMES SANITIZER_FLAGS ABBRV TESTLIB ADDITIONAL
   if (USE_LIBCXX)
     use_libcxx(${TESTNAME}-${ABBRV})
   endif()
-  gtest_discover_tests(${TESTNAME}-${ABBRV} TEST_SUFFIX "-${ABBRV}")
+  gtest_discover_tests(${TESTNAME}-${ABBRV} TEST_SUFFIX "-${ABBRV}" DISCOVERY_MODE PRE_TEST)
 endfunction()
 
 # Adds tests based on the given source file with sanitizer instrumentation
