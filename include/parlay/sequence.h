@@ -237,7 +237,11 @@ struct _sequence_base {
       }
 
       void* buffer;
-    };
+    }
+#if defined(__GNUC__)
+    __attribute__((packed))
+#endif
+    ;
 
     // A not-short-size-optimized sequence. Elements are
     // stored in a heap-allocated buffer. We use a 48-bit
