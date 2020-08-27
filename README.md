@@ -161,7 +161,7 @@ parlay::parallel_for(0, 100000, [&](size_t i) {
 ```c++
 template <
     typename T,
-    typename Allocator = std::allocator<T>
+    typename Allocator = parlay::allocator<T>
 > class sequence
 ```
 
@@ -170,7 +170,7 @@ A **sequence** is a parallel version of `std::vector`. It supports the same oper
 #### Template parameters
 
 * **T** is the type of the elements of the sequence
-* **Allocator** is the allocator used to allocate/deallocate memory for the sequence. The `value_type` of the allocator must be `T`. 
+* **Allocator** is the allocator used to allocate/deallocate memory for the sequence. The `value_type` of the allocator must be `T`. By default, `parlay::allocator<T>` is used. To switch the default to `std::allocator<T>`, add the compile definition `PARLAY_USE_STD_ALLOC`
 
 #### Constructors
 

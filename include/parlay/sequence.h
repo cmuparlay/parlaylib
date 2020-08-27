@@ -32,11 +32,20 @@
 #include <memory>
 #include <type_traits>
 
+#include "alloc.h"
 #include "parallel.h"
 #include "range.h"
 #include "slice.h"
 
 namespace parlay {
+
+#ifndef PARLAY_USE_STD_ALLOC
+template<typename T>
+using _sequence_default_allocator = parlay::allocator<T>;
+#else
+template<typename T>
+using _sequence_default_allocator = std::allocator<T>;
+#endif
 
 // This base class handles memory allocation for sequences.
 //
@@ -443,7 +452,7 @@ struct _sequence_base {
 // in parallel. It supports parallel construction, resizing,
 // destruction, bulk insertion, bulk erasure, etc. Essentially,
 // it is a parallel version of std::vector.
-template <typename T, typename Allocator = std::allocator<T>>
+template <typename T, typename Allocator = _sequence_default_allocator<T>>
 class sequence : protected _sequence_base<T, Allocator> {
   
   // Ensure that T is not const or volatile
