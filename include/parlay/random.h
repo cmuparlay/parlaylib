@@ -70,7 +70,7 @@ void random_shuffle_(slice<InIterator, InIterator> In,
   sequence<size_t> bucket_offsets;
   bool single;
   std::tie(bucket_offsets, single)
-    = count_sort(make_slice(In), make_slice(Out), make_slice(get_pos), num_buckets);
+    = count_sort<std::true_type>(make_slice(In), make_slice(Out), make_slice(get_pos), num_buckets);
 
   // now sequentially randomly shuffle within each bucket
   auto bucket_f = [&] (size_t i) {

@@ -3,6 +3,7 @@
 #define PARLAY_PRIMITIVES_H_
 
 #include "internal/collect_reduce.h"
+#include "internal/integer_sort.h"
 #include "internal/sequence_ops.h"
 #include "internal/sample_sort.h"
 
@@ -195,12 +196,7 @@ auto merge(const R1& r1, const R2& r2) {
 // Compute a histogram of the values of A, with m buckets.
 template<PARLAY_RANGE_TYPE R, typename Integer_>
 auto histogram(const R& A, Integer_ m) {
-  // We currently have to make a copy of the sequence since
-  // histogram internally calls integer sort, which has a
-  // const correctness bug and tries to modify the input.
-  // TODO: Fix this.
-  auto s = parlay::to_sequence(A);
-  return internal::histogram(make_slice(s), m);
+  return internal::histogram(make_slice(A), m);
 }
 
 /* -------------------- General Sorting -------------------- */
@@ -297,14 +293,12 @@ void stable_sort_inplace(R&& in) {
 
 template<PARLAY_RANGE_TYPE R>
 auto integer_sort(const R& in) {
-  auto s = parlay::to_sequence(in);
-  return internal::integer_sort(make_slice(s), [](auto x) { return x; }); 
+  return internal::integer_sort(make_slice(in), [](auto x) { return x; }); 
 }
 
 template<PARLAY_RANGE_TYPE R, typename Key>
 auto integer_sort(const R& in, Key&& key) {
-  auto s = parlay::to_sequence(in);
-  return internal::integer_sort(make_slice(s), std::forward<Key>(key));
+  return internal::integer_sort(make_slice(in), std::forward<Key>(key));
 }
 
 template<PARLAY_RANGE_TYPE R>

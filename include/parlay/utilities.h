@@ -281,6 +281,32 @@ void assign_dispatch(const T& val, T& dest, uninitialized_copy_tag) {
   assign_uninitialized(dest, val);
 }
 
+/* Tag-dispatch-based assignment that selects between
+   initialized/uninitialized copies/moves.
+   
+   param 3 = std::true_type if a copy should be made, otherwise moves
+   param 4 = std::true_type if the destination is uninitialized
+*/
+
+template<typename T>
+void assign_dispatch(T& dest, T& val, std::false_type, std::false_type) {
+  dest = std::move(val);
+}
+
+template<typename T>
+void assign_dispatch(T& dest, T& val, std::false_type, std::true_type) {
+  uninitialized_move(dest, val);
+}
+
+template<typename T>
+void assign_dispatch(T& dest, const T& val, std::true_type, std::false_type) {
+  dest = val;
+}
+
+template<typename T>
+void assign_dispatch(T& dest, const T& val, std::true_type, std::true_type) {
+  uninitialized_copy(dest, val);
+}
 
 }  // namespace parlay
 
