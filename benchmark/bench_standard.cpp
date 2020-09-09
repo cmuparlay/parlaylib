@@ -150,7 +150,7 @@ static void bench_count_sort(benchmark::State& state) {
   auto keys = parlay::delayed_seq<unsigned char>(n, f);
   
   for (auto _ : state) {
-    parlay::internal::count_sort<std::true_type>(
+    parlay::internal::count_sort<std::true_type, std::false_type>(
       parlay::make_slice(in),
       parlay::make_slice(out),
       parlay::make_slice(keys.begin(),keys.end()),
