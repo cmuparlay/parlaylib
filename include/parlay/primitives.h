@@ -19,7 +19,7 @@ namespace parlay {
 // Return a sequence consisting of the elements
 //   f(0), f(1), ... f(n)
 using internal::tabulate;
-  
+
 // Return a sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>

@@ -229,8 +229,8 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
 
   // first partition into blocks based on hash using a counting sort
   sequence<size_t> block_offsets;
-  block_offsets =
-      integer_sort_<std::false_type, std::true_type>(make_slice(A), make_slice(B), make_slice(Tmp) , gb, bits, num_blocks);
+  block_offsets = integer_sort_<std::false_type, std::true_type, std::true_type, std::true_type>(
+    make_slice(A), make_slice(B), make_slice(Tmp) , gb, bits, num_blocks);
 
   // note that this is cache line alligned
   sequence<val_type> sums(num_buckets, monoid.identity);

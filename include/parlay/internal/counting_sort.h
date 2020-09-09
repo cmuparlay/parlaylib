@@ -41,7 +41,8 @@ void seq_count_(InSeq In, KeySeq Keys, CountIterator counts, size_t num_buckets)
 }
 
 // write to destination, where offsets give start of each bucket
-template <typename copy_tag, typename InSeq, typename OutIterator, typename CountIterator, typename KeySeq>
+template <typename copy_tag, typename out_uninitialized_tag,
+          typename InSeq, typename OutIterator, typename CountIterator, typename KeySeq>
 void seq_write_(InSeq In, OutIterator Out, KeySeq Keys,
                 CountIterator offsets, size_t num_buckets) {
   // copy to local offsets to avoid false sharing
@@ -49,22 +50,24 @@ void seq_write_(InSeq In, OutIterator Out, KeySeq Keys,
   for (size_t i = 0; i < num_buckets; i++) local_offsets[i] = offsets[i];
   for (size_t j = 0; j < In.size(); j++) {
     size_t k = local_offsets[Keys[j]]++;
-    assign_dispatch(Out[k], In[j], copy_tag(), std::false_type());  // TODO: When should this be an uninitialized assign?
+    assign_dispatch(Out[k], In[j], copy_tag(), out_uninitialized_tag());
   }
 }
 
 // write to destination, where offsets give end of each bucket
-template <typename copy_tag, typename InSeq, typename OutIterator, typename OffsetIterator, typename KeySeq>
+template <typename copy_tag, typename out_uninitialized_tag,
+          typename InSeq, typename OutIterator, typename OffsetIterator, typename KeySeq>
 void seq_write_down_(InSeq In, OutIterator Out, KeySeq Keys,
                      OffsetIterator offsets, size_t) {  // num_buckets) {
   for (long j = In.size() - 1; j >= 0; j--) {
     long k = --offsets[Keys[j]];
-    assign_dispatch(Out[k], In[j], copy_tag(), std::false_type());  // TODO: When should this be an uninitialized assign?
+    assign_dispatch(Out[k], In[j], copy_tag(), out_uninitialized_tag());
   }
 }
 
 // Sequential counting sort internal
-template <typename copy_tag, typename InS, typename OutS, typename CountIterator, typename KeyS>
+template <typename copy_tag, typename out_uninitialized_tag,
+          typename InS, typename OutS, typename CountIterator, typename KeyS>
 void seq_count_sort_(InS In, OutS Out, KeyS Keys, CountIterator counts,
                      size_t num_buckets) {
   // count size of each bucket
@@ -78,17 +81,18 @@ void seq_count_sort_(InS In, OutS Out, KeyS Keys, CountIterator counts,
   }
 
   // send to destination
-  seq_write_down_<copy_tag>(In, Out.begin(), Keys, counts, num_buckets);
+  seq_write_down_<copy_tag, out_uninitialized_tag>(In, Out.begin(), Keys, counts, num_buckets);
 }
 
 // Sequential counting sort
-template <typename copy_tag, typename InIterator, typename OutIterator, typename KeyIterator>
+template <typename copy_tag, typename out_uninitialized_tag,
+          typename InIterator, typename OutIterator, typename KeyIterator>
 sequence<size_t> seq_count_sort(slice<InIterator, InIterator> In,
                                 slice<OutIterator, OutIterator> Out,
                                 slice<KeyIterator, KeyIterator> Keys,
                                 size_t num_buckets) {
   auto counts = sequence<size_t>::uninitialized(num_buckets + 1);
-  seq_count_sort_<copy_tag>(In, Out, Keys, counts.begin(), num_buckets);
+  seq_count_sort_<copy_tag, out_uninitialized_tag>(In, Out, Keys, counts.begin(), num_buckets);
   counts[num_buckets] = In.size();
   return counts;
 }
@@ -97,7 +101,8 @@ sequence<size_t> seq_count_sort(slice<InIterator, InIterator> In,
 // returns counts, and a flag
 // If skip_if_in_one and returned flag is true, then the Input was alread
 // sorted, and it has not been moved to the output.
-template <typename copy_tag, typename s_size_t, typename InIterator, typename OutIterator, typename KeyIterator>
+template <typename copy_tag, typename out_uninitialized_tag,
+          typename s_size_t, typename InIterator, typename OutIterator, typename KeyIterator>
 std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                                               slice<OutIterator, OutIterator> Out,
                                               slice<KeyIterator, KeyIterator> Keys,
@@ -119,7 +124,9 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
 
   // if insufficient parallelism, sort sequentially
   if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {
-    return std::make_pair(seq_count_sort<copy_tag>(In, Out, Keys, num_buckets), false);
+    return std::make_pair(
+      seq_count_sort<copy_tag, out_uninitialized_tag>(In, Out, Keys, num_buckets),
+      false);
   }
 
   size_t block_size = ((n - 1) / num_blocks) + 1;
@@ -185,7 +192,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                [&](size_t i) {
                  s_size_t start = std::min(i * block_size, n);
                  s_size_t end = std::min(start + block_size, n);
-                 seq_write_<copy_tag>(In.cut(start, end), Out.begin(),
+                 seq_write_<copy_tag, out_uninitialized_tag>(In.cut(start, end), Out.begin(),
                             make_slice(Keys).cut(start, end),
                             counts2.begin() + i * num_buckets, num_buckets);
                },
@@ -196,7 +203,8 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
 
 // If skip_if_in_one and returned flag is true, then the Input was alread
 // sorted, and it has not been moved to the output.
-template <typename copy_tag, typename InIterator, typename OutIterator, typename KeyIterator>
+template <typename copy_tag, typename out_uninitialized_tag,
+          typename InIterator, typename OutIterator, typename KeyIterator>
 auto count_sort(slice<InIterator, InIterator> In,
                 slice<OutIterator, OutIterator> Out,
                 slice<KeyIterator, KeyIterator> Keys,
@@ -209,9 +217,9 @@ auto count_sort(slice<InIterator, InIterator> In,
   size_t max32 = ((size_t)1) << 32;
   if (n < max32 && num_buckets < max32)
     // use 4-byte counters when larger ones not needed
-    return count_sort_<copy_tag, uint32_t>(In, Out, Keys, num_buckets, parallelism,
+    return count_sort_<copy_tag, out_uninitialized_tag, uint32_t>(In, Out, Keys, num_buckets, parallelism,
                                  skip_if_in_one);
-  return count_sort_<copy_tag, size_t>(In, Out, Keys, num_buckets, parallelism,
+  return count_sort_<copy_tag, out_uninitialized_tag, size_t>(In, Out, Keys, num_buckets, parallelism,
                              skip_if_in_one);
 }
 
@@ -219,7 +227,7 @@ template <typename InIterator, typename KeyS>
 auto count_sort(slice<InIterator, InIterator> In, KeyS const& Keys, size_t num_buckets) {
   using value_type = typename slice<InIterator, InIterator>::value_type;
   sequence<value_type> Out(In.size());
-  auto a = count_sort<std::true_type>(In, Out.slice(), Keys, num_buckets);
+  auto a = count_sort<std::true_type, std::false_type>(In, Out.slice(), Keys, num_buckets);
   return std::make_pair(std::move(Out), std::move(a.first));
 }
 

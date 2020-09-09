@@ -14,6 +14,10 @@
 
 #include "parallel.h"
 
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+#include "internal/debug_uninitialized.h"
+#endif  // PARLAY_DEBUG_UNINITIALIZED
+
 namespace parlay {
 
 template <typename Lf, typename Rf>
@@ -72,16 +76,34 @@ const flags fl_inplace = 16;
 
 template <typename T>
 inline void assign_uninitialized(T& a, const T& b) {
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+  if constexpr (std::is_same_v<T, debug_uninitialized>) {
+    // Ensure that a is uninitialized
+    assert(a.x == -1 && "Assigning to initialized memory with assign_uninitialized");
+  }
+#endif  // PARLAY_DEBUG_UNINITIALIZED
   new (static_cast<T*>(std::addressof(a))) T(b);
 }
 
 template <typename T>
 inline void assign_uninitialized(T& a, T&& b) {
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+  if constexpr (std::is_same_v<T, debug_uninitialized>) {
+    // Ensure that a is uninitialized
+    assert(a.x == -1 && "Assigning to initialized memory with assign_uninitialized");
+  }
+#endif  // PARLAY_DEBUG_UNINITIALIZED
   new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
 
 template <typename T>
 inline void move_uninitialized(T& a, T& b) {
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+  if constexpr (std::is_same_v<T, debug_uninitialized>) {
+    // Ensure that a is uninitialized
+    assert(a.x == -1 && "Assigning to initialized memory with move_uninitialized");
+  }
+#endif  // PARLAY_DEBUG_UNINITIALIZED
   new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
 
@@ -289,23 +311,23 @@ void assign_dispatch(const T& val, T& dest, uninitialized_copy_tag) {
 */
 
 template<typename T>
-void assign_dispatch(T& dest, T& val, std::false_type, std::false_type) {
+void assign_dispatch(T& dest, T& val, /* move */ std::false_type, /* initialized */ std::false_type) {
   dest = std::move(val);
 }
 
 template<typename T>
-void assign_dispatch(T& dest, T& val, std::false_type, std::true_type) {
-  uninitialized_move(dest, val);
+void assign_dispatch(T& dest, T& val, /* move */ std::false_type, /* uninitialized */ std::true_type) {
+  assign_uninitialized(dest, std::move(val));
 }
 
 template<typename T>
-void assign_dispatch(T& dest, const T& val, std::true_type, std::false_type) {
+void assign_dispatch(T& dest, const T& val, /* copy */ std::true_type, /* initialized */ std::false_type) {
   dest = val;
 }
 
 template<typename T>
-void assign_dispatch(T& dest, const T& val, std::true_type, std::true_type) {
-  uninitialized_copy(dest, val);
+void assign_dispatch(T& dest, const T& val, /* copy */ std::true_type, /* uninitialized */ std::true_type) {
+  assign_uninitialized(dest, val);
 }
 
 }  // namespace parlay

@@ -37,6 +37,10 @@
 #include "range.h"
 #include "slice.h"
 
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+#include "internal/debug_uninitialized.h"
+#endif  // PARLAY_DEBUG_UNINITIALIZED
+
 namespace parlay {
 
 #ifndef PARLAY_USE_STD_ALLOC
@@ -887,6 +891,14 @@ class sequence : protected _sequence_base<T, Allocator> {
   sequence(size_t n, _uninitialized_tag) : _sequence_base<T, Allocator>() {
     impl.ensure_capacity(n);
     impl.set_size(n);
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+    if constexpr (std::is_same_v<value_type, debug_uninitialized>) {
+      auto buffer = impl.data();
+      parallel_for(0, n, [&](size_t i) {
+        buffer[i].x = -1;
+      });
+    }
+#endif
   }
 
   void initialize_default(size_t n) {
