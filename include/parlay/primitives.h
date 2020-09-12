@@ -691,7 +691,7 @@ auto flatten(const R& r) {
       [&](size_t j) { assign_uninitialized(res[offsets[i] + j], it[i][j]); }
      );
   });
-  return r;
+  return res;
 }
 
 /* -------------------- Other Utilities -------------------- */

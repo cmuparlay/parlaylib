@@ -501,3 +501,17 @@ TEST(TestPrimitives, TestIntegerSortInplaceNonContiguous) {
   ASSERT_EQ(s, s2); 
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
+
+TEST(TestPrimitives, TestFlatten) {
+  auto seqs = parlay::tabulate(100, [](size_t i) {
+    return parlay::tabulate(1000, [i](size_t j) {
+      return 1000 * i + j;
+    });
+  });
+  auto seq = parlay::flatten(seqs);
+  auto answer = parlay::tabulate(100000, [](size_t i) {
+    return i;
+  });
+  ASSERT_EQ(seq.size(), 100000);
+  ASSERT_EQ(seq, answer);
+}
