@@ -29,7 +29,6 @@
 #include <cstddef>
 
 #include <iterator>
-#include <type_traits>
 
 #include "range.h"
 
@@ -94,9 +93,18 @@ struct slice {
 
 // Two slices are equal if they refer to the same underlying
 // range via the same pair of iterators, i.e., the iterators
-// compare equal
+// compare equal.
+//
+// Note that comparing iterators from different underlying
+// ranges is undefined behaviour.
 template<typename Iterator, typename Sentinal>
 bool operator==(slice<Iterator, Sentinal> s1, slice<Iterator, Sentinal> s2) {
+  // Since iterators from different ranges / containers can not be
+  // compared, cppcheck detects this as a problem. Slices should only
+  // be compared with == if they refer to a subrange of the same range.
+  // Other uses are undefined behaviour.
+  
+  // cppcheck-suppress mismatchingContainerExpression
   return s1.begin() == s2.begin() && s1.end() == s2.end();
 }
 

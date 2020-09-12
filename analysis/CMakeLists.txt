@@ -1,6 +1,6 @@
-# List all files that should be considered for static analysis
 include(danalysis)
 
+# List all files that should be considered for static analysis
 configure_danalysis(
   INCLUDES
     ${PARLAY_INCLUDE_DIR}
@@ -10,7 +10,29 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/delayed_sequence.h
     ${PARLAY_INCLUDE_DIR}/parlay/parallel.h
     ${PARLAY_INCLUDE_DIR}/parlay/range.h
-    ${PARLAY_INCLUDE_DIR}/parlay/dynamic_sequence.h
+    ${PARLAY_INCLUDE_DIR}/parlay/sequence.h
     ${PARLAY_INCLUDE_DIR}/parlay/scheduler.h
     ${PARLAY_INCLUDE_DIR}/parlay/slice.h
+  IGNORE_DEFINITIONS
+    PARLAY_CILK
+    BSD
+    __APPLE__
+    __MACH__
+    __unix__
+    __unix
+    unix
+    _WIN32
+    __CYGWIN__
+    __CYGWIN32__
+    HW_MEMSIZE
+    HW_PHYSMEM64
+    HW_MEMSIZE
+    HW_REALMEM
+    HW_PHYSMEM
+    HW_PYSMEM
+    CTL_HW
+    _SC_AIX_REALMEM
+    _SC_PHYS_PAGES
+    _SC_PAGESIZE
+    _SC_PAGE_SIZE
 )

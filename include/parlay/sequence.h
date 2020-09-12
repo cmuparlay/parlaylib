@@ -24,13 +24,19 @@
 #ifndef PARLAY_SEQUENCE_H_
 #define PARLAY_SEQUENCE_H_
 
+#include <cassert>
+#include <cstdint>
 #include <cstring>
 
 #include <initializer_list>
 #include <iterator>
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <type_traits>
+#include <utility>
 
 #include "alloc.h"
 #include "parallel.h"
@@ -136,6 +142,7 @@ struct _sequence_base {
     _sequence_impl& operator=(_sequence_impl&& other) noexcept {
       clear();
       move_from(std::move(other));
+      return *this;
     }
 
     // Swap a sequence backend with another. Since small sequences
@@ -144,9 +151,9 @@ struct _sequence_base {
     void swap(_sequence_impl& other) {
       // Swap raw bytes
       byte_type tmp[sizeof(*this)];
-      std::memcpy(&tmp, this, sizeof(*this));
-      std::memcpy(this, &other, sizeof(*this));
-      std::memcpy(&other, &tmp, sizeof(*this));
+      std::memcpy(&tmp, this, sizeof(*this));           // NOLINT
+      std::memcpy(this, &other, sizeof(*this));         // NOLINT
+      std::memcpy(&other, &tmp, sizeof(*this));         // NOLINT
     }
 
     // Destroy a sequence backend
@@ -164,7 +171,7 @@ struct _sequence_base {
       // and zeroing out the old sequence. For large
       // sequences, this will copy their buffer pointer
       // and size.
-      std::memcpy(this, &other, sizeof(*this));
+      std::memcpy(this, &other, sizeof(*this));         // NOLINT
       
       other._data.flag = 0;
       other._data.small_n = 0;
@@ -219,25 +226,26 @@ struct _sequence_base {
 
       void free_buffer(allocator_type& a) {
         assert(buffer != nullptr);
-        auto size = get_capacity() + offset;
-        a.deallocate((value_type*)buffer, size);
+        auto sz = get_capacity() + offset;
+        a.deallocate(static_cast<value_type*>(buffer), sz);
         buffer = nullptr;
       }
 
       void set_capacity(size_t capacity) {
-        *((size_t*)buffer) = capacity;
+        *reinterpret_cast<size_t*>(buffer) = capacity;
+        assert(get_capacity() == capacity);
       }
 
       size_t get_capacity() const {
-        return *((size_t*)buffer);
+        return *reinterpret_cast<size_t*>(buffer);
       }
 
       value_type* data() {
-        return (value_type*)buffer + offset;
+        return static_cast<value_type*>(buffer) + offset;
       }
 
       const value_type* data() const {
-        return (value_type*)buffer + offset;
+        return static_cast<value_type*>(buffer) + offset;
       }
 
       void* buffer;
@@ -445,6 +453,8 @@ struct _sequence_base {
         _data.large.buffer = new_buffer;
         _data.large.set_size(n);
       }
+      
+      assert(capacity() >= desired);
     }
   };
 
@@ -604,9 +614,11 @@ class sequence : protected _sequence_base<T, Allocator> {
     initialize_dispatch(i, j, std::is_integral<_Iterator>());
   }
 
-  // Constructs a sequence from the elements of the
-  // given initializer list
-  sequence(std::initializer_list<value_type> l) : _sequence_base<T, Allocator>() {
+  // Constructs a sequence from the elements of the given initializer list
+  //
+  // Note: cppcheck flags all implicit constructors. This one is okay since
+  // we want to convert initializer lists into sequences.
+  sequence(std::initializer_list<value_type> l) : _sequence_base<T, Allocator>() {      // cppcheck-suppress noExplicitConstructor
     initialize_range(std::begin(l), std::end(l),
       typename std::iterator_traits<decltype(std::begin(l))>::iterator_category());
   }
@@ -738,16 +750,17 @@ class sequence : protected _sequence_base<T, Allocator> {
 
   void clear() { impl.clear(); }
   
-  void resize(size_t new_size, const value_type& v = value_type{}) {
+  void resize(size_t new_size, const value_type& v = value_type()) {
     auto current = size();
-    auto buffer = impl.data();
     if (new_size < current) {
+      auto buffer = impl.data();
       parallel_for(new_size, current, [&](size_t i) {
         impl.destroy(&buffer[i]);
       });
     }
     else {
       impl.ensure_capacity(new_size);
+      assert(impl.capacity() >= new_size);
       auto buffer = impl.data();
       parallel_for(current, new_size, [&](size_t i) {
         impl.initialize_explicit(&buffer[i], v);
@@ -924,7 +937,6 @@ class sequence : protected _sequence_base<T, Allocator> {
   template<typename _ForwardIterator>
   void initialize_range(_ForwardIterator first, _ForwardIterator last, std::forward_iterator_tag) {
     auto n = std::distance(first, last);
-    assert(n >= 0);
     impl.ensure_capacity(n);
     auto buffer = impl.data();
     for (size_t i = 0; first != last; i++, first++) {
@@ -936,7 +948,6 @@ class sequence : protected _sequence_base<T, Allocator> {
   template<typename _RandomAccessIterator>
   void initialize_range(_RandomAccessIterator first, _RandomAccessIterator last, std::random_access_iterator_tag) {
     auto n = std::distance(first, last);
-    assert(n >= 0);
     impl.ensure_capacity(n);
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {
@@ -1075,8 +1086,8 @@ class sequence : protected _sequence_base<T, Allocator> {
     size_t block_size = 2 * granularity;
     bool matches = true;
     while (start < n) {
-      size_t end = std::min(n, start + block_size);
-      parallel_for(start, end, [&](size_t j) {
+      size_t last = std::min(n, start + block_size);
+      parallel_for(start, last, [&](size_t j) {
         if (!(self[j] == other[j])) matches = false;
       }, granularity);
       if (!matches) return false;

@@ -3,8 +3,8 @@
 
 namespace parlay {
 
-inline int num_workers() { return 1;}
-inline int worker_id() { return 0;}
+inline unsigned int num_workers() { return 1;}
+inline unsigned int worker_id() { return 0;}
 inline void set_num_workers(int) { ; }
 
 template <class F>

@@ -5,8 +5,8 @@
 
 namespace parlay {
 
-inline int num_workers() { return omp_get_max_threads(); }
-inline int worker_id() { return omp_get_thread_num(); }
+inline unsigned int num_workers() { return omp_get_max_threads(); }
+inline unsigned int worker_id() { return omp_get_thread_num(); }
 
 template <class F>
 inline void parallel_for(long start, long end, F f, long, bool) {

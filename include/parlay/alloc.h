@@ -3,11 +3,15 @@
 
 #include <cstdlib>
 
+#include <algorithm>
 #include <atomic>
 #include <iostream>
-#include <vector>
 #include <new>
+#include <stdexcept>
+#include <utility>
+#include <vector>
 
+#include "parallel.h"
 #include "utilities.h"
 
 #include "internal/concurrent_stack.h"
@@ -84,6 +88,11 @@ private:
   }
 
   const size_t small_alloc_block_size = (1 << 20);
+  
+  pool_allocator(const pool_allocator&) = delete;
+  pool_allocator(pool_allocator&&) = delete;
+  pool_allocator& operator=(const pool_allocator&) = delete;
+  pool_allocator& operator=(pool_allocator&&) = delete;
 
 public:
   ~pool_allocator() {
@@ -96,11 +105,11 @@ public:
 
   pool_allocator() {}
 
-  pool_allocator(std::vector<size_t> const &sizes) : sizes(sizes) {
+  explicit pool_allocator(std::vector<size_t> const &sizes) : sizes(sizes) {
     num_buckets = sizes.size();
     max_size = sizes[num_buckets-1];
     num_small = 0;
-    while (sizes[num_small] < large_threshold && num_small < num_buckets)
+    while (num_small < num_buckets && sizes[num_small] < large_threshold)
       num_small++;
     max_small = (num_small > 0) ? sizes[num_small - 1] : 0;
 
@@ -206,7 +215,7 @@ extern inline pool_allocator& get_default_allocator() {
   return default_allocator;
 }
 
-}
+}  // namespace internal
 
 
 // ****************************************

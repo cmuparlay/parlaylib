@@ -20,7 +20,6 @@
 #include <cstddef>
 
 #include <iterator>
-#include <functional>
 #include <stdexcept>
 #include <string>
 

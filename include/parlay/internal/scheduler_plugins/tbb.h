@@ -8,8 +8,8 @@
 
 namespace parlay {
 
-inline int num_workers() { return tbb::this_task_arena::max_concurrency(); }
-inline int worker_id() { return tbb::task_arena::current_thread_index(); }
+inline unsigned int num_workers() { return tbb::this_task_arena::max_concurrency(); }
+inline unsigned int worker_id() { return tbb::task_arena::current_thread_index(); }
 
 template <class F>
 inline void parallel_for(long start, long end, F f, long granularity, bool) {

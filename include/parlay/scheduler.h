@@ -295,16 +295,16 @@ class fork_join_scheduler {
   template <typename F>
   int get_granularity(size_t start, size_t end, F f) {
     size_t done = 0;
-    size_t size = 1;
+    size_t sz = 1;
     int ticks = 0;
     do {
-      size = std::min(size, end - (start + done));
+      sz = std::min(sz, end - (start + done));
       auto tstart = std::chrono::high_resolution_clock::now();
-      for (size_t i = 0; i < size; i++) f(start + done + i);
+      for (size_t i = 0; i < sz; i++) f(start + done + i);
       auto tstop = std::chrono::high_resolution_clock::now();
       ticks = (tstop - tstart).count();
-      done += size;
-      size *= 2;
+      done += sz;
+      sz *= 2;
     } while (ticks < 1000 && done < (end - start));
     return done;
   }

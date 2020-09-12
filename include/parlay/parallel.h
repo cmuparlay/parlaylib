@@ -11,10 +11,10 @@
 namespace parlay {
 
 // number of threads available from OS
-inline int num_workers();
+inline unsigned int num_workers();
 
 // id of running thread, should be numbered from [0...num-workers)
-inline int worker_id();
+inline unsigned int worker_id();
 
 // parallel loop from start (inclusive) to end (exclusive) running
 // function f.
@@ -38,16 +38,70 @@ inline void par_do(Lf left, Rf right, bool conservative = false);
 //                Scheduler selection
 //****************************************************
 
+// Cilk Scheduler
 #if defined(PARLAY_CILK)
-#include "internal/scheduler_plugins/cilk.h"  // IWYU pragma: keep
+#include "internal/scheduler_plugins/cilk.h"        // IWYU pragma: keep
+
+// OpenMP Scheduler
 #elif defined(PARLAY_OPENMP)
-#include "internal/scheduler_plugins/omp.h"  // IWYU pragma: keep
+#include "internal/scheduler_plugins/omp.h"         // IWYU pragma: keep
+
+// Intel's Thread Building Blocks Scheduler
 #elif defined(PARLAY_TBB)
-#include "internal/scheduler_plugins/tbb.h"  // IWYU pragma: keep
+#include "internal/scheduler_plugins/tbb.h"         // IWYU pragma: keep
+
+// No Parallelism
 #elif defined(PARLAY_SEQUENTIAL)
 #include "internal/scheduler_plugins/sequential.h"  // IWYU pragma: keep
+
+// Parlay's Homegrown Scheduler
 #else
-#include "internal/scheduler_plugins/parlay.h"  // IWYU pragma: keep
+
+#include "scheduler.h"
+
+namespace parlay {
+  
+namespace internal {
+
+// Use a "Meyer singleton" to provide thread-safe 
+// initialisation and destruction of the scheduler
+//
+// The declaration of get_default_scheduler must be 
+// extern inline to ensure that there is only ever one 
+// copy of the scheduler. This is guaranteed by the C++
+// standard: 7.1.2/4 A static local variable in an
+// extern inline function always refers to the same
+// object.
+extern inline fork_join_scheduler& get_default_scheduler() {
+  static fork_join_scheduler fj;
+  return fj;
+}
+
+}  // namespace internal
+
+inline unsigned int num_workers() {
+  return internal::get_default_scheduler().num_workers();
+}
+
+inline unsigned int worker_id() {
+  return internal::get_default_scheduler().worker_id();
+}
+
+template <class F>
+inline void parallel_for(long start, long end, F f,
+			 long granularity,
+			 bool conservative) {
+  if (end > start)
+    internal::get_default_scheduler().parfor(start, end, f, granularity, conservative);
+}
+
+template <typename Lf, typename Rf>
+inline void par_do(Lf left, Rf right, bool conservative) {
+  return internal::get_default_scheduler().pardo(left, right, conservative);
+}
+
+}  // namespace parlay
+
 #endif
 
 #endif  // PARLAY_PARALELL_H_

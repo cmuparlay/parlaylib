@@ -14,11 +14,14 @@ option(IWYU "Enable include-what-you-use analysis" OFF)
 macro(CONFIGURE_DANALYSIS)
   set(options OPTIONAL "")
   set(oneValueArgs "")
-  set(multiValueArgs INCLUDES FILES)
+  set(multiValueArgs INCLUDES FILES IGNORE_DEFINITIONS)
   cmake_parse_arguments(CONFIGURE_DANALYSIS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   # Deal with multiple include paths
   list(TRANSFORM CONFIGURE_DANALYSIS_INCLUDES PREPEND "-I")
+  
+  # Deal with ignored definitions
+  list(TRANSFORM CONFIGURE_DANALYSIS_IGNORE_DEFINITIONS PREPEND "-U")
 
   set(STATIC_ANALYSIS_TARGETS "")
 
@@ -46,7 +49,7 @@ macro(CONFIGURE_DANALYSIS)
         "--inline-suppr"
         "--suppressions-list=${CMAKE_SOURCE_DIR}/.cppcheck-suppress"
         "--language=c++"
-        "-UPARLAY_CILK"
+        "${CONFIGURE_DANALYSIS_IGNORE_DEFINITIONS}"
       )
 
       # Create a target for each library header that runs cppcheck on that file

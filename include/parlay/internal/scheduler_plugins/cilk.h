@@ -3,13 +3,14 @@
 
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
+
 #include <iostream>
 #include <sstream>
 
 namespace parlay {
 
-inline int num_workers() { return __cilkrts_get_nworkers(); }
-inline int worker_id() { return __cilkrts_get_worker_number(); }
+inline unsigned int num_workers() { return __cilkrts_get_nworkers(); }
+inline unsigned int worker_id() { return __cilkrts_get_worker_number(); }
 
 template <typename Lf, typename Rf>
 inline void par_do(Lf left, Rf right, bool) {
