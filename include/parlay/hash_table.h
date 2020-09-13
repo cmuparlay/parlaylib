@@ -44,7 +44,7 @@ class hashtable {
     int operator()(eType a) { return e != a; }
   };
 
-  index hashToRange(index h) { return (int)h % (uint)m; }
+  index hashToRange(index h) { return static_cast<index>(static_cast<size_t>(h) % m); }
   index firstIndex(kType v) { return hashToRange(hashStruct.hash(v)); }
   index incrementIndex(index h) { return (h + 1 == (long)m) ? 0 : h + 1; }
   index decrementIndex(index h) { return (h == 0) ? m - 1 : h - 1; }
@@ -275,7 +275,7 @@ struct hash_numeric {
   using kType = T;
   eType empty() { return -1; }
   kType getKey(eType v) { return v; }
-  T hash(kType v) { return hash64(v); }
+  T hash(kType v) { return static_cast<T>(hash64(v)); }
   int cmp(kType v, kType b) { return (v > b) ? 1 : ((v == b) ? 0 : -1); }
   bool replaceQ(eType, eType) { return 0; }
   eType update(eType v, eType) { return v; }
