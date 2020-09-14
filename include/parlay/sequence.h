@@ -769,6 +769,15 @@ class sequence : protected _sequence_base<T, Allocator> {
     impl.set_size(new_size);
   }
 
+  void reserve(size_t amount) {
+    impl.ensure_capacity(amount);
+    assert(impl.capacity() >= amount);
+  }
+  
+  size_t capacity() const {
+    return impl.capacity();
+  }
+
   template<typename _Iterator>
   void assign(_Iterator i, _Iterator j) {
     impl.clear();

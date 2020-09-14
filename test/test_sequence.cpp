@@ -696,3 +696,23 @@ TEST(TestSequence, TestNotEqual3) {
   });
   ASSERT_NE(s1, s2);
 }
+
+TEST(TestSequence, TestCapacity) {
+  auto s = parlay::sequence<int>(2000);
+  ASSERT_GE(s.capacity(), 2000);
+  auto s2 = parlay::sequence<int>();
+  s2.reserve(2000);
+  ASSERT_GE(s2.capacity(), 2000);
+}
+
+TEST(TestSequence, TestReserve) {  
+  auto s = parlay::sequence<int>();
+  s.reserve(1000);
+  auto cap = s.capacity();
+  ASSERT_GE(cap, 1000);
+  for (size_t i = 0; i < 1000; i++) {
+    s.push_back(i);
+  }
+  ASSERT_EQ(s.size(), 1000);
+  ASSERT_EQ(s.capacity(), cap);
+}

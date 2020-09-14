@@ -239,6 +239,8 @@ Function | Description
 `size_type size()` | Returns the length of the sequence
 `size_type max_size()` | Returns the maximum possible length of a sequence
 `bool empty()` | Returns true if the sequence is empty
+`void reserve(size_t n)` | Request that the capacity of the sequence be at least `n`
+`size_type capacity()` | Returns the current capacity of the sequence
 
 **Element access**
 
