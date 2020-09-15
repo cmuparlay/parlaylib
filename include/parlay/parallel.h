@@ -40,19 +40,19 @@ inline void par_do(Lf left, Rf right, bool conservative = false);
 
 // Cilk Scheduler
 #if defined(PARLAY_CILK)
-#include "internal/scheduler_plugins/cilk.h"        // IWYU pragma: keep
+#include "internal/scheduler_plugins/cilk.h"        // IWYU pragma: keep, export
 
 // OpenMP Scheduler
 #elif defined(PARLAY_OPENMP)
-#include "internal/scheduler_plugins/omp.h"         // IWYU pragma: keep
+#include "internal/scheduler_plugins/omp.h"         // IWYU pragma: keep, export
 
 // Intel's Thread Building Blocks Scheduler
 #elif defined(PARLAY_TBB)
-#include "internal/scheduler_plugins/tbb.h"         // IWYU pragma: keep
+#include "internal/scheduler_plugins/tbb.h"         // IWYU pragma: keep, export
 
 // No Parallelism
 #elif defined(PARLAY_SEQUENTIAL)
-#include "internal/scheduler_plugins/sequential.h"  // IWYU pragma: keep
+#include "internal/scheduler_plugins/sequential.h"  // IWYU pragma: keep, export
 
 // Parlay's Homegrown Scheduler
 #else

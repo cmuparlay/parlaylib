@@ -34,6 +34,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <type_traits>    // IWYU pragma: keep
 #include <vector>
 
 #include "internal/work_stealing_job.h"

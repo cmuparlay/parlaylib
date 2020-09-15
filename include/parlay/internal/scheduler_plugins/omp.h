@@ -5,6 +5,8 @@
 
 namespace parlay {
 
+// IWYU pragma: private, include "../../parallel.h"
+
 inline unsigned int num_workers() { return omp_get_max_threads(); }
 inline unsigned int worker_id() { return omp_get_thread_num(); }
 

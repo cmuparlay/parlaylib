@@ -3,6 +3,8 @@
 
 namespace parlay {
 
+// IWYU pragma: private, include "../../parallel.h"
+
 inline unsigned int num_workers() { return 1;}
 inline unsigned int worker_id() { return 0;}
 inline void set_num_workers(int) { ; }

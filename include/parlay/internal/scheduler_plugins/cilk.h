@@ -9,6 +9,8 @@
 
 namespace parlay {
 
+// IWYU pragma: private, include "../../parallel.h"
+
 inline unsigned int num_workers() { return __cilkrts_get_nworkers(); }
 inline unsigned int worker_id() { return __cilkrts_get_worker_number(); }
 

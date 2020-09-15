@@ -1,0 +1,187 @@
+os: linux
+dist: bionic
+language: cpp
+env: PARLAY_NUM_THREADS=8
+
+stages:
+  - test
+  - analysis
+  - sanitize
+
+addons:
+  apt:
+    update: true
+    sources:
+    - sourceline: 'ppa:ubuntu-toolchain-r/test'
+    - sourceline: 'deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-10 main'
+      key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
+    packages:
+    - g++-7
+    - g++-9
+    - clang-10
+    - libomp-10-dev
+    - libtbb-dev
+    - libc++1-10
+    - libc++abi1-10
+    - libc++-10-dev
+    - libc++abi-10-dev
+
+
+before_script:
+  # Install the latest CMake
+  - sudo apt remove cmake
+  - wget --quiet https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2-Linux-x86_64.tar.gz
+  - tar -xf cmake-3.18.2-Linux-x86_64.tar.gz
+  - export CMAKE=$PWD/cmake-3.18.2-Linux-x86_64/bin/cmake
+  
+jobs:
+  include:
+  
+    # -------------------------------------------------------------------------
+    #                                TEST STAGE
+    # -------------------------------------------------------------------------
+  
+    # Test that the project builds and tests successfully with GCC
+    - stage: test
+      name: check-gcc
+      script:
+      - mkdir build
+      - cd build
+      - CC=gcc-9 CXX=g++-9 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_TEST_OMP=On -DPARLAY_TEST_TBB=On -DPARLAY_BENCHMARK=On ..
+      - make
+      - make check
+      
+    # Test that the project builds and tests successfully with Clang
+    - stage: test
+      name: check-clang
+      script:
+      - mkdir build
+      - cd build
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_TEST_OMP=On -DPARLAY_TEST_TBB=On -DPARLAY_BENCHMARK=On ..
+      - make
+      - make check
+      
+    # Test that the project builds and tests successfully with Clang using libc++
+    - stage: test
+      name: check-clang-libcxx
+      script:
+      - mkdir build
+      - cd build
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DUSE_LIBCXX=On -DPARLAY_TEST_OMP=On -DPARLAY_TEST_TBB=On -DPARLAY_BENCHMARK=On ..
+      - make
+      - make check
+      
+    # Test that the project builds and tests successfully with GCC 7 (with Cilk support)
+    - stage: test
+      name: check-gcc-cilk
+      script:
+      - mkdir build
+      - cd build
+      - CC=gcc-7 CXX=g++-7 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_TEST_CILK=On ..
+      - make
+      - make check
+
+    # -------------------------------------------------------------------------
+    #                            ANALYSIS STAGE
+    # -------------------------------------------------------------------------
+    
+    # Run CppCheck on the codebase
+    - stage: analysis
+      name: cppcheck
+      script:
+      # Download, build, and install cppcheck
+      - wget --quiet https://github.com/danmar/cppcheck/archive/2.1.tar.gz
+      - tar -xf 2.1.tar.gz
+      - mkdir cppcheck-2.1/build && pushd cppcheck-2.1/build
+      - CC=clang-10 CXX=clang++-10 $CMAKE .. -DCMAKE_BUILD_TYPE=Release
+      - make && sudo make install
+      - popd
+
+      # Run the analysis
+      - mkdir build
+      - cd build
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DCPPCHECK=On ..
+      - make cppcheck-all
+      
+    # Run clang-tidy on the codebase
+    - stage: analysis
+      name: clang-tidy
+      script:
+      # Install clang-tidy
+      - sudo apt-get -qq install clang-tidy-10
+      - sudo ln -s /usr/bin/clang-tidy-10 /usr/bin/clang-tidy
+
+      # Run the analysis
+      - mkdir build
+      - cd build
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DCLANG_TIDY=On ..
+      - make clang-tidy-all
+
+    # Run include-what-you-use on the codebase
+    - stage: analysis
+      name: include-what-you-use
+      script:
+      # Install clang and llvm development files
+      - sudo apt-get -qq install clang-10 libc++1-10 libc++-10-dev libc++abi1-10 libc++abi-10-dev llvm-10-dev libclang-10-dev
+
+      # Download, build, and install IWYU
+      - git clone https://github.com/include-what-you-use/include-what-you-use.git
+      - mkdir include-what-you-use/build && pushd include-what-you-use/build
+      - git checkout clang_10
+      - $CMAKE -DCMAKE_PREFIX_PATH=/usr/lib/llvm-10 ..
+      - make && sudo make install
+      - popd
+
+      # Run the analysis
+      - mkdir build
+      - cd build
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DIWYU=On ..
+      - make iwyu-all
+
+    # -------------------------------------------------------------------------
+    #                              SANITIZE STAGE
+    # -------------------------------------------------------------------------
+
+    # Run the tests with AddressSanitizer instrumentation
+    - stage: sanitize
+      name: check-asan
+      script:
+      - mkdir build
+      - cd build
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN=On -DUSE_LIBCXX=On ..
+      - make
+      - make check-asan
+      
+    # Run the tests with UndefinedBehaviorSanitizer instrumentation  
+    - stage: sanitize
+      name: check-ubsan
+      script:
+      - mkdir build
+      - cd build
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_UBSAN=On -DUSE_LIBCXX=On ..
+      - make
+      - make check-ubsan
+      
+    # Run the tests with MemorySanitizer instrumentation
+    - stage: sanitize
+      name: check-msan
+      script:
+      # Build libc++ with MSAN instrumentation
+      - mkdir llvm && pushd llvm
+      - wget --quiet https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.1/llvm-10.0.1.src.tar.xz
+      - wget --quiet https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.1/libcxx-10.0.1.src.tar.xz
+      - wget --quiet https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.1/libcxxabi-10.0.1.src.tar.xz
+      - tar -xf llvm-10.0.1.src.tar.xz
+      - tar -xf libcxx-10.0.1.src.tar.xz
+      - tar -xf libcxxabi-10.0.1.src.tar.xz
+      - mkdir libcxx-10.0.1.src/build && pushd libcxx-10.0.1.src/build
+      - $CMAKE -DLLVM_PATH=../../llvm-10.0.1.src -DLIBCXX_CXX_ABI=libcxxabi -DLIBCXX_CXX_ABI_INCLUDE_PATHS=../../libcxxabi-10.0.1.src/include -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_USE_SANITIZER=MemoryWithOrigins -DCMAKE_C_COMPILER=clang-10 -DCMAKE_CXX_COMPILER=clang++-10 ..
+      - make
+      - popd && popd
+
+      # Run the build
+      - mkdir build
+      - cd build
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_MSAN=On -DLIBCXX_MSAN_PATH=../llvm/libcxx-10.0.1.src/build/lib ..
+      - make
+      - make check-msan

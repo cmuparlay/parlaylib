@@ -92,9 +92,9 @@ add_subdirectory(analysis)
 message(STATUS "-------------------------- Unit Tests ------------------------")
 
 # User option to build unit tests
-option(PARLAY_TESTS  "Build unit tests"       OFF)
+option(PARLAY_TEST  "Build unit tests"       OFF)
 
-if (PARLAY_TESTS)
+if (PARLAY_TEST)
   # Set CMake options for GoogleTest
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
   set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
@@ -123,7 +123,7 @@ if (PARLAY_TESTS)
   add_subdirectory(test)
 
 else()
-  message(STATUS "testing: Disabled (enable with -DPARLAY_TESTS=On)")
+  message(STATUS "testing: Disabled (enable with -DPARLAY_TEST=On)")
 endif()
 
 # -------------------------------------------------------------------
