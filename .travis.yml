@@ -7,6 +7,7 @@ stages:
   - test
   - analysis
   - sanitize
+  - report
 
 addons:
   apt:
@@ -29,10 +30,12 @@ addons:
 
 before_script:
   # Install the latest CMake
-  - sudo apt remove cmake
-  - wget --quiet https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2-Linux-x86_64.tar.gz
-  - tar -xf cmake-3.18.2-Linux-x86_64.tar.gz
-  - export CMAKE=$PWD/cmake-3.18.2-Linux-x86_64/bin/cmake
+  - |
+    if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+      wget --quiet https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2-Linux-x86_64.tar.gz
+      tar -xf cmake-3.18.2-Linux-x86_64.tar.gz
+      export CMAKE=$PWD/cmake-3.18.2-Linux-x86_64/bin/cmake
+    fi
   
 jobs:
   include:
@@ -78,6 +81,18 @@ jobs:
       - mkdir build
       - cd build
       - CC=gcc-7 CXX=g++-7 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_TEST_CILK=On ..
+      - make
+      - make check
+      
+    # Test that the project builds and tests successfully on OSX with Apple Clang
+    - stage: test
+      name: check-apple-clang
+      os: osx
+      osx_image: xcode12u
+      script:
+      - mkdir build
+      - cd build
+      - cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On ..
       - make
       - make check
 
@@ -185,3 +200,22 @@ jobs:
       - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_MSAN=On -DLIBCXX_MSAN_PATH=../llvm/libcxx-10.0.1.src/build/lib ..
       - make
       - make check-msan
+
+    # -------------------------------------------------------------------------
+    #                              REPORT STAGE
+    # -------------------------------------------------------------------------
+
+    # Report code coverage results to codecov.io
+    - stage: report
+      name: code-coverage
+      script:
+      - sudo apt install lcov
+      - mkdir build
+      - cd build
+      - CC=gcc CXX=g++ $CMAKE -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG=" --coverage " -DPARLAY_TEST=On ..
+      - make
+      - make check
+      - lcov --directory . --capture --output-file coverage.info
+      - lcov --remove coverage.info '/usr/*' '*/googletest/*' '*/test/*' --output-file coverage.info
+      - lcov --list coverage.info
+      - bash <(curl -s https://codecov.io/bash) -f coverage.info
