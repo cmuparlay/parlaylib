@@ -225,8 +225,8 @@ class hashtable {
 
   // returns all the current entries compacted into a sequence
   sequence<eType> entries() {
-    return filter(make_slice(TA, TA + m),
-                  [&](eType v) { return v != empty; });
+    return filter(make_slice(TA),
+                  [&] (eType v) { return v != empty; });
   }
 
   index findIndex(kType v) {

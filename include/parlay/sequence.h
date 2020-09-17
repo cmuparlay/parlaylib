@@ -828,7 +828,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   }
 
   // guy : added, perhaps subseq instead?
-  auto subseq(size_t s, size_t e) {
+  auto cut(size_t s, size_t e) {
     return make_slice(begin()+s, begin()+e);
   }
 
