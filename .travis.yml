@@ -30,10 +30,12 @@ addons:
 
 before_script:
   # Install the latest CMake
-  - sudo apt remove cmake
-  - wget --quiet https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2-Linux-x86_64.tar.gz
-  - tar -xf cmake-3.18.2-Linux-x86_64.tar.gz
-  - export CMAKE=$PWD/cmake-3.18.2-Linux-x86_64/bin/cmake
+  - |
+    if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+      wget --quiet https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2-Linux-x86_64.tar.gz
+      tar -xf cmake-3.18.2-Linux-x86_64.tar.gz
+      export CMAKE=$PWD/cmake-3.18.2-Linux-x86_64/bin/cmake
+    fi
   
 jobs:
   include:
@@ -79,6 +81,18 @@ jobs:
       - mkdir build
       - cd build
       - CC=gcc-7 CXX=g++-7 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_TEST_CILK=On ..
+      - make
+      - make check
+      
+    # Test that the project builds and tests successfully on OSX with Apple Clang
+    - stage: test
+      name: check-apple-clang
+      os: osx
+      osx_image: xcode12u
+      script:
+      - mkdir build
+      - cd build
+      - cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On ..
       - make
       - make check
 

@@ -21,7 +21,7 @@
 namespace parlay {
 
 #if defined(__APPLE__) // a little behind the times
-  void* aligned_alloc(size_t, size_t n) {return malloc(n);}
+  void* aligned_alloc(size_t, size_t n) { return malloc(n); }
 #endif
 
 
@@ -116,7 +116,7 @@ public:
     large_buckets = new concurrent_stack<void*>[num_buckets-num_small];
 
     small_allocators = (struct block_allocator*)
-      std::aligned_alloc(alignof(block_allocator), num_buckets * sizeof(struct block_allocator));
+      aligned_alloc(alignof(block_allocator), num_buckets * sizeof(struct block_allocator));
     size_t prev_bucket_size = 0;
   
     for (size_t i = 0; i < num_small; i++) {
