@@ -263,11 +263,11 @@ Function | Description
 ---|---
 `view_type head(iterator p)` | Returns a slice corresponding to all elements of the sequence before `p`
 `view_type head(size_type len)` | Returns a slice corresponding to the first `len` elements of the sequence
-`view_type tail(iterator p)` | Returns a slice corresponding to all elements from the element pointed to by `p` onwards
+`view_type tail(iterator p)` | Returns a slice corresponding to all elements from `p` onwards
 `view_type tail(size_type len)` | Returns a slice corresponding to the final `len` elements of the sequence
-`view_type subseq(size_type begin, size_type end)` | Returns a slice corresponding to the elements at between indices `begin` and `end`
+`view_type cut(size_type begin, size_type end)` | Returns a slice corresponding to the elements at between indices `begin` and `end`
 
-Each of these also has a corresponding const overload.
+If the sequence is mutable, the resulting slice is also mutable. Each of these also has a corresponding const overload.
 
 **Insertion**
 

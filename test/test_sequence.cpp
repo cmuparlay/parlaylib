@@ -547,10 +547,10 @@ TEST(TestSequence, TestHead) {
   }
 }
 
-TEST(TestSequence, TestSubseq) {
+TEST(TestSequence, TestCut) {
   auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
   auto s2 = parlay::sequence<int>{4,5,6,7};
-  auto ss = s.subseq(3,7);
+  auto ss = s.cut(3,7);
   ASSERT_EQ(ss.size(), 4);
   ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
   for (auto& x : ss) { x++; }
@@ -559,10 +559,10 @@ TEST(TestSequence, TestSubseq) {
   }
 }
 
-TEST(TestSequence, TestSubseqConst) {
+TEST(TestSequence, TestCutConst) {
   auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
   auto s2 = parlay::sequence<int>{4,5,6,7};
-  auto ss = s.subseq(3,7);
+  auto ss = s.cut(3,7);
   ASSERT_EQ(ss.size(), 4);
   ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
 }
