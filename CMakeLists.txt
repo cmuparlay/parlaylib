@@ -10,6 +10,7 @@ project(PARLAY VERSION 1.0
         DESCRIPTION "A collection of parallel algorithms and other support for parallelism in C++"
         LANGUAGES CXX)
 
+include(CheckCXXCompilerFlag)
 include(GNUInstallDirs)
 
 # Set a default build type
@@ -45,9 +46,12 @@ target_compile_features(parlay INTERFACE cxx_std_17)
 find_package(Threads REQUIRED)
 target_link_libraries(parlay INTERFACE Threads::Threads)
 
-# Enable 16 byte CAS
-target_compile_definitions(parlay INTERFACE -DMCX16)
-target_compile_options(parlay INTERFACE -mcx16)
+# Enable 16 byte CAS if available
+check_cxx_compiler_flag("-mcx16" MCX16_SUPPORTED)
+if (MCX16_SUPPORTED)
+  target_compile_definitions(parlay INTERFACE -DMCX16)
+  target_compile_options(parlay INTERFACE -mcx16)
+endif()
 
 # -------------------------------------------------------------------
 #                         Installation

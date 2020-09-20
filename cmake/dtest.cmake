@@ -13,12 +13,16 @@ include(CTest)
 include(CheckCXXCompilerFlag)
 include(GoogleTest)
 
+# --------------------------------------------------------------------
+#                           USER-FACING OPTIONS
+# --------------------------------------------------------------------
+
 # Option to enable the sanitizer-instrumented tests
-option(BUILD_ASAN "Build tests instrumented with ASAN" OFF)
-option(BUILD_UBSAN "Build tests instrumented with UBSAN" OFF)
-option(BUILD_TSAN "Build tests instrumented with TSAN" OFF)
-option(BUILD_MSAN "Build tests instrumented with MSAN" OFF)
-option(ENABLE_MEMCHECK "Enable memcheck target for tests" OFF)
+option(BUILD_ASAN_TESTS       "Build tests instrumented with ASAN"  OFF)
+option(BUILD_UBSAN_TESTS      "Build tests instrumented with UBSAN" OFF)
+option(BUILD_TSAN_TESTS       "Build tests instrumented with TSAN"  OFF)
+option(BUILD_MSAN_TESTS       "Build tests instrumented with MSAN"  OFF)
+option(ENABLE_MEMCHECK_TESTS  "Enable memcheck target for tests"    OFF)
 
 # Option to use libc++
 option(USE_LIBCXX "Use the libc++ standard library implementation" OFF)
@@ -26,29 +30,34 @@ option(USE_LIBCXX "Use the libc++ standard library implementation" OFF)
 # If MSAN is enabled, we need a path to an MSAN-instrumented libc++ binary
 set(LIBCXX_MSAN_PATH "" CACHE STRING "Path to MSAN-instrumented libc++ library")
 
-# Sanitizer blacklist file
-set(SANITIZER_BLACKLIST "-fsanitize-blacklist=${CMAKE_SOURCE_DIR}/.sanitizer-blacklist")
+# --------------------------------------------------------------------
+#                           INTERNAL SETTINGS
+# --------------------------------------------------------------------
 
 # Sanitizer commands
-set(ASAN_FLAGS
+set(DTEST_ASAN_FLAGS
   -fsanitize=address
   -fsanitize-address-use-after-scope
   -fno-sanitize-recover=address
 )
-set(UBSAN_FLAGS
+set(DTEST_UBSAN_FLAGS
   -fsanitize=undefined,implicit-conversion,float-divide-by-zero
   -fno-sanitize-recover=undefined,implicit-conversion,float-divide-by-zero
 )
-set(MSAN_FLAGS
+set(DTEST_MSAN_FLAGS
   -fsanitize=memory
   -fsanitize-memory-track-origins
   -fsanitize-memory-use-after-dtor
   -fno-sanitize-recover=memory
 )
-set(TSAN_FLAGS
+set(DTEST_TSAN_FLAGS
   -fsanitize=thread
   -fno-sanitize-recover=thread
 )
+
+# Sanitizer blacklist file
+set(DTEST_SANITIZER_BLACKLIST_FILE "${CMAKE_SOURCE_DIR}/.sanitizer-blacklist")
+set(DTEST_SANITIZER_BLACKLIST_COMMAND "-fsanitize-blacklist=${DTEST_SANITIZER_BLACKLIST_FILE}")
 
 # Check whether a given set of flags is supported
 function(flags_supported FLAGS VAR)
@@ -58,31 +67,31 @@ function(flags_supported FLAGS VAR)
 endfunction(flags_supported)
 
 # Check that sanitizers are supported by the compiler
-flags_supported("${SANITIZER_BLACKLIST}" BLACKLIST_SUPPORT)
-if (BUILD_ASAN OR BUILD_UBSAN OR BUILD_TSAN OR BUILD_MSAN)
+flags_supported("${DTEST_SANITIZER_BLACKLIST_COMMAND}" BLACKLIST_SUPPORT)
+if (BUILD_ASAN_TESTS OR BUILD_UBSAN_TESTS OR BUILD_TSAN_TESTS OR BUILD_MSAN_TESTS)
   if(NOT BLACKLIST_SUPPORT)
     message(STATUS "Warning: Sanitizer blacklists are not supported by the compiler. False positives may be encountered.")
-    set(SANITIZER_BLACKLIST "")
+    set(DTEST_SANITIZER_BLACKLIST_COMMAND "")
   endif()
 else()
-  set(SANITIZER_BLACKLIST "")
+  set(DTEST_SANITIZER_BLACKLIST_COMMAND "")
 endif()
 
 # Check for ASAN support
-if(BUILD_ASAN)
-  flags_supported("${ASAN_FLAGS}" ASAN_SUPPORT)
+if(BUILD_ASAN_TESTS)
+  flags_supported("${DTEST_ASAN_FLAGS}" ASAN_SUPPORT)
   if(ASAN_SUPPORT)
     message(STATUS "AddressSanitizer:             Enabled")
   else()
     message(FATAL_ERROR "AddressSanitizer is not supported by the compiler")
   endif()
 else()
-  message(STATUS "AddressSanitizer:             Disabled (Enable with -DBUILD_ASAN=On)")
+  message(STATUS "AddressSanitizer:             Disabled (Enable with -DBUILD_ASAN_TESTS=On)")
 endif()
 
 # Check for UBSAN support
-if(BUILD_UBSAN)
-  flags_supported("${UBSAN_FLAGS}" UBSAN_SUPPORT)
+if(BUILD_UBSAN_TESTS)
+  flags_supported("${DTEST_UBSAN_FLAGS}" UBSAN_SUPPORT)
   if(UBSAN_SUPPORT)
     message(STATUS "UndefinedBehaviourSanitizer:  Enabled")
   else()
@@ -90,48 +99,48 @@ if(BUILD_UBSAN)
     set(BUILD_UBSAN Off)
   endif()
 else()
-  message(STATUS "UndefinedBehaviourSanitizer:  Disabled (Enable with -DBUILD_UBSAN=On)")
+  message(STATUS "UndefinedBehaviourSanitizer:  Disabled (Enable with -DBUILD_UBSAN_TESTS=On)")
 endif()
 
 # Check for TSAN support
-if(BUILD_TSAN)
-  flags_supported("${TSAN_FLAGS}" TSAN_SUPPORT)
+if(BUILD_TSAN_TESTS)
+  flags_supported("${DTEST_TSAN_FLAGS}" TSAN_SUPPORT)
   if(TSAN_SUPPORT)
     message(STATUS "ThreadSanitizer:              Enabled")
   else()
     message(FATAL_ERROR "ThreadSanitizer is not supported by the compiler")
   endif()
 else()
-  message(STATUS "ThreadSanitizer:              Disabled (Enable with -DBUILD_TSAN=On)")
+  message(STATUS "ThreadSanitizer:              Disabled (Enable with -DBUILD_TSAN_TESTS=On)")
 endif()
 
 # Check for MSAN support
-if(BUILD_MSAN)
+if(BUILD_MSAN_TESTS)
   if(NOT LIBCXX_MSAN_PATH)
     message(FATAL_ERROR "You must provide an MSAN-instrumented binary of libc++ in order to use MemorySanitizer. Set the flag -DLIBCXX_MSAN_PATH=<path/to/instrumented/libcxx/lib>")
   elseif(NOT EXISTS "${LIBCXX_MSAN_PATH}/libc++.a")
     message(FATAL_ERROR "Could not find libc++.a in directory pointed to by LIBCXX_MSAN_PATH (${LIBCXX_MSAN_PATH})")
   endif()
-  flags_supported("${MSAN_FLAGS}" MSAN_SUPPORT)
+  flags_supported("${DTEST_MSAN_FLAGS}" MSAN_SUPPORT)
   if(MSAN_SUPPORT)
     message(STATUS "MemorySanitizer:              Enabled")
   else()
     message(FATAL_ERROR "MemorySanitizer is not supported by the compiler")
   endif()
 else()
-  message(STATUS "MemorySanitizer:              Disabled (Enable with -DBUILD_MSAN=On)")
+  message(STATUS "MemorySanitizer:              Disabled (Enable with -DBUILD_MSAN_TESTS=On)")
 endif()
 
 # Check for memcheck installation
-if(ENABLE_MEMCHECK)
+if(ENABLE_MEMCHECK_TESTS)
   find_program(CTEST_MEMORYCHECK_COMMAND NAMES "valgrind")
   if(CTEST_MEMORYCHECK_COMMAND)
-    message(STATUS "memcheck:                     Found (${CTEST_MEMORYCHECK_COMMAND})")
+    message(STATUS "memcheck:                     Enabled (${CTEST_MEMORYCHECK_COMMAND})")
   else()
     message(FATAL_ERROR "Could not find valgrind executable for memcheck target")
   endif()
 else()
-  message(STATUS "memcheck:                     Disabled (Enable with -DENABLE_MEMCHECK)")
+  message(STATUS "memcheck:                     Disabled (Enable with -DENABLE_MEMCHECK_TESTS)")
 endif()
 
 # Link the given target (and its dependents) against libc++
@@ -144,13 +153,13 @@ endfunction()
 # Add MemorySanitizer instrumentation to the target
 function(add_msan_instrumentation TARGET)
   target_compile_options(${TARGET} PRIVATE
-    ${MSAN_FLAGS}
-    ${SANITIZER_BLACKLIST}
+    ${DTEST_MSAN_FLAGS}
+    ${DTEST_SANITIZER_BLACKLIST_COMMAND}
     -stdlib=libc++
   )
   target_link_options(${TARGET} PRIVATE
-    ${MSAN_FLAGS}
-    ${SANITIZER_BLACKLIST}
+    ${DTEST_MSAN_FLAGS}
+    ${DTEST_SANITIZER_BLACKLIST_COMMAND}
     "-stdlib=libc++"
     "-L${LIBCXX_MSAN_PATH}"
     "-Wl,-rpath,${LIBCXX_MSAN_PATH}"
@@ -159,7 +168,7 @@ function(add_msan_instrumentation TARGET)
 endfunction()
 
 # Add clone targets of GoogleTest libraries with MSAN instrumentation
-if(BUILD_MSAN)
+if(BUILD_MSAN_TESTS)
   # Add clone targets
   set(googletest_INCLUDE_DIR
     "${googletest_SOURCE_DIR}/googletest/include"
@@ -192,12 +201,12 @@ function(add_dtest TESTNAME SOURCENAMES SANITIZER_FLAGS ABBRV TESTLIB ADDITIONAL
   target_compile_options(${TESTNAME}-${ABBRV} PRIVATE
     -Wall -Wextra -Wfatal-errors
     -g -Og -fno-omit-frame-pointer
-    ${SANITIZER_FLAGS} ${SANITIZER_BLACKLIST}
+    ${SANITIZER_FLAGS} ${DTEST_SANITIZER_BLACKLIST_COMMAND}
     ${ADDITIONAL_FLAGS}
   )
   target_link_options(${TESTNAME}-${ABBRV} PRIVATE
     -fno-omit-frame-pointer
-    ${SANITIZER_FLAGS} ${SANITIZER_BLACKLIST}
+    ${SANITIZER_FLAGS} ${DTEST_SANITIZER_BLACKLIST_COMMAND}
     ${ADDITIONAL_FLAGS}
   )
   target_compile_definitions(${TESTNAME}-${ABBRV} PRIVATE DEBUG)
@@ -226,17 +235,17 @@ function(add_dtests)
 
   # Test with ASAN (AddressSanitizer)
   if(BUILD_ASAN)
-    add_dtest("${TESTNAME}" "${TESTFILES}" "${ASAN_FLAGS}" "asan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
+    add_dtest("${TESTNAME}" "${TESTFILES}" "${DTEST_ASAN_FLAGS}" "asan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
   endif()
 
   # Test with UBSAN (UndefinedBehaviourSanitizer)
   if(BUILD_UBSAN)
-    add_dtest("${TESTNAME}" "${TESTFILES}" "${UBSAN_FLAGS}" "ubsan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
+    add_dtest("${TESTNAME}" "${TESTFILES}" "${DTEST_UBSAN_FLAGS}" "ubsan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
   endif()
 
   # Test with TSAN (ThreadSanitizer)
   if(BUILD_TSAN)
-    add_dtest("${TESTNAME}" "${TESTFILES}" "${TSAN_FLAGS}" "tsan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
+    add_dtest("${TESTNAME}" "${TESTFILES}" "${DTEST_TSAN_FLAGS}" "tsan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
   endif()
 
   # Test with MSAN (MemorySanitizer)
@@ -255,7 +264,7 @@ add_custom_target(check
 )
 add_dependencies(check-all check)
 
-if(BUILD_ASAN)
+if(BUILD_ASAN_TESTS)
   add_custom_target(check-asan
     COMMAND ${CMAKE_CTEST_COMMAND} -R -asan
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -263,7 +272,7 @@ if(BUILD_ASAN)
   add_dependencies(check-all check-asan)
 endif()
 
-if(BUILD_UBSAN)
+if(BUILD_UBSAN_TESTS)
   add_custom_target(check-ubsan
     COMMAND ${CMAKE_CTEST_COMMAND} -R -ubsan
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -271,7 +280,7 @@ if(BUILD_UBSAN)
   add_dependencies(check-all check-ubsan)
 endif()
 
-if(BUILD_TSAN)
+if(BUILD_TSAN_TESTS)
   add_custom_target(check-tsan
     COMMAND ${CMAKE_CTEST_COMMAND} -R -tsan
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -279,7 +288,7 @@ if(BUILD_TSAN)
   add_dependencies(check-all check-tsan)
 endif()
 
-if(BUILD_MSAN)
+if(BUILD_MSAN_TESTS)
   add_custom_target(check-msan
     COMMAND ${CMAKE_CTEST_COMMAND} -R -msan
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -287,7 +296,7 @@ if(BUILD_MSAN)
   add_dependencies(check-all check-msan)
 endif()
 
-if(ENABLE_MEMCHECK)
+if(ENABLE_MEMCHECK_TESTS)
   add_custom_target(check-memcheck
     COMMAND ${CMAKE_CTEST_COMMAND} -R nosan -T memcheck
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}

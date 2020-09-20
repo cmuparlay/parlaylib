@@ -115,7 +115,7 @@ jobs:
       # Run the analysis
       - mkdir build
       - cd build
-      - CC=clang-10 CXX=clang++-10 $CMAKE -DCPPCHECK=On ..
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DENABLE_CPPCHECK=On ..
       - make cppcheck-all
       
     # Run clang-tidy on the codebase
@@ -129,7 +129,7 @@ jobs:
       # Run the analysis
       - mkdir build
       - cd build
-      - CC=clang-10 CXX=clang++-10 $CMAKE -DCLANG_TIDY=On ..
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DENABLE_CLANG_TIDY=On ..
       - make clang-tidy-all
 
     # Run include-what-you-use on the codebase
@@ -150,7 +150,7 @@ jobs:
       # Run the analysis
       - mkdir build
       - cd build
-      - CC=clang-10 CXX=clang++-10 $CMAKE -DIWYU=On ..
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DENABLE_IWYU=On ..
       - make iwyu-all
 
     # -------------------------------------------------------------------------
@@ -163,7 +163,7 @@ jobs:
       script:
       - mkdir build
       - cd build
-      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN=On -DUSE_LIBCXX=On ..
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN_TESTS=On -DUSE_LIBCXX=On ..
       - make
       - make check-asan
       
@@ -173,7 +173,7 @@ jobs:
       script:
       - mkdir build
       - cd build
-      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_UBSAN=On -DUSE_LIBCXX=On ..
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_UBSAN_TESTS=On -DUSE_LIBCXX=On ..
       - make
       - make check-ubsan
       
@@ -197,7 +197,7 @@ jobs:
       # Run the build
       - mkdir build
       - cd build
-      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_MSAN=On -DLIBCXX_MSAN_PATH=../llvm/libcxx-10.0.1.src/build/lib ..
+      - CC=clang-10 CXX=clang++-10 $CMAKE -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_MSAN_TESTS=On -DLIBCXX_MSAN_PATH=../llvm/libcxx-10.0.1.src/build/lib ..
       - make
       - make check-msan
 

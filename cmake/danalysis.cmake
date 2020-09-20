@@ -7,13 +7,13 @@
 # -------------------------------------------------------------------
 
 # User options to enable static analysis tools
-option(CPPCHECK "Enable cppcheck static analysis" OFF)
-option(CLANG_TIDY "Enable clang-tidy static analysis" OFF)
-option(IWYU "Enable include-what-you-use analysis" OFF)
+option(ENABLE_CPPCHECK     "Enable cppcheck static analysis"      OFF)
+option(ENABLE_CLANG_TIDY   "Enable clang-tidy static analysis"    OFF)
+option(ENABLE_IWYU         "Enable include-what-you-use analysis" OFF)
 
-macro(CONFIGURE_DANALYSIS)
+function(CONFIGURE_DANALYSIS)
   set(options OPTIONAL "")
-  set(oneValueArgs "")
+  set(oneValueArgs PROJECT_PREFIX)
   set(multiValueArgs INCLUDES FILES IGNORE_DEFINITIONS)
   cmake_parse_arguments(CONFIGURE_DANALYSIS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
@@ -27,7 +27,7 @@ macro(CONFIGURE_DANALYSIS)
 
   # ---------------------------- cppcheck -----------------------------
 
-  if(CPPCHECK)
+  if(ENABLE_CPPCHECK)
     # Find cppcheck installation
     find_program(
       CPPCHECK_EXE
@@ -80,12 +80,12 @@ macro(CONFIGURE_DANALYSIS)
 
     endif()
   else()
-    message(STATUS "cppcheck:                     Disabled (enable with -DCPPCHECK=On)")
+    message(STATUS "cppcheck:                     Disabled (enable with -DENABLE_CPPCHECK=On)")
   endif()
 
   # --------------------------- clang-tidy ----------------------------
 
-  if(CLANG_TIDY)
+  if(ENABLE_CLANG_TIDY)
     # Find clang-tidy installation
     find_program(
       CLANG_TIDY_EXE
@@ -140,12 +140,12 @@ macro(CONFIGURE_DANALYSIS)
 
     endif()
   else()
-    message(STATUS "clang-tidy:                   Disabled (enable with -DCLANG_TIDY=On)")
+    message(STATUS "clang-tidy:                   Disabled (enable with -DENABLE_CLANG_TIDY=On)")
   endif()
 
   # ----------------------- include-what-you-use --------------------------
 
-  if(IWYU)
+  if(ENABLE_IWYU)
     # Find include-what-you-use executable
     find_program(
       IWYU_EXE
@@ -194,14 +194,14 @@ macro(CONFIGURE_DANALYSIS)
 
     endif()
   else()
-    message(STATUS "include-what-you-use:         Disabled (enable with -DIWYU=On)")
+    message(STATUS "include-what-you-use:         Disabled (enable with -DENABLE_IWYU=On)")
   endif()
 
   # ---------------------------- all linters ------------------------------
 
   # Target to run all enabled linters
-  if(CPPCHECK OR CLANG_TIDY OR INFER OR IWYU)
+  if(ENABLE_CPPCHECK OR ENABLE_CLANG_TIDY OR ENABLE_IWYU)
     add_custom_target(analysis-all)
     add_dependencies(analysis-all ${STATIC_ANALYSIS_TARGETS})
   endif()
-endmacro()
+endfunction()

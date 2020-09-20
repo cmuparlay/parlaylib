@@ -13,6 +13,7 @@ This documentation is a work in progress and is not yet fully complete.
     + [Installing and including via CMake](#installing-and-including-via-cmake)
     + [Installing and including manually](#installing-and-including-manually)
     + [The old fashioned way](#the-old-fashioned-way)
+- [Developer documentation](#developer-documentation)
 - [Using Parlay with Cilk, OpenMP, or TBB](#using-parlay-with-cilk--openmp--or-tbb)
 - [Features](#features)
   * [Ranges](#ranges)
@@ -92,6 +93,14 @@ To ensure that Parlay functions correctly once included, make sure that you are 
 ### The old fashioned way
 
 If fancy build systems are not your thing, the tried and true way to include Parlay in your project is to simply copy the source code of Parlay directly into your own project. Since the library is header only, this should work out of the box, assuming you add any required flags (see above). One possible way to do this while still enabling updates to ParlayLib is to include it as a [Git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules) of your project's Git repository.
+
+# Developer documentation
+
+If you are interested in contributing to Parlay, the following pages describe useful information about our testing and benchmarking setups. If you just want to use Parlay in your own projects, these links are not relevant to you.
+
+* [Static analysis](./analysis/README.md)
+* [Unit tests](./test/README.md)
+* [Benchmarks](./benchmark/README.md)
 
 # Using Parlay with Cilk, OpenMP, or TBB
 
