@@ -81,8 +81,7 @@ public:
   }
 
   auto allocate_blocks(size_t num_blocks) -> char* {
-    char* start = (char*) aligned_alloc(pad_size,
-					num_blocks * block_size_+ pad_size);
+    char* start = (char*) ::operator new(num_blocks * block_size_+ pad_size, std::align_val_t{pad_size});
     //char* start = (char*) parlay::my_alloc(num_blocks * block_size_);
     if (start == NULL) {
       fprintf(stderr, "Cannot allocate space in block_allocator");
@@ -157,7 +156,7 @@ public:
   
       // throw away all allocated memory
       maybe<char*> x;
-      while ((x = pool_roots.pop())) std::free(*x);
+      while ((x = pool_roots.pop())) ::operator delete(*x, std::align_val_t{pad_size});
       pool_roots.clear();
       global_stack.clear();
       blocks_allocated = 0;

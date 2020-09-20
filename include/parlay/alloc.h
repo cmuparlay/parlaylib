@@ -20,10 +20,6 @@
 
 namespace parlay {
 
-#if defined(__APPLE__) // a little behind the times
-  void* aligned_alloc(size_t, size_t n) { return malloc(n); }
-#endif
-
 
 // ****************************************
 //    pool_allocator
@@ -69,8 +65,8 @@ private:
       alloc_size += (large_align - (alloc_size % large_align));
     }
 
-    void* a = (void*) aligned_alloc(large_align, alloc_size);
-    if (a == NULL) throw std::bad_alloc();
+    void* a = (void*) ::operator new(alloc_size, std::align_val_t{large_align});
+    if (a == nullptr) throw std::bad_alloc();
     
     large_allocated += n;
     return a;
@@ -78,7 +74,7 @@ private:
 
   void deallocate_large(void* ptr, size_t n) {
     if (n > max_size) { 
-      free(ptr);
+      ::operator delete(ptr, std::align_val_t{large_align});
       large_allocated -= n;
     } else {
       size_t bucket = num_small;
@@ -98,7 +94,7 @@ public:
   ~pool_allocator() {
     for (size_t i=0; i < num_small; i++)
       small_allocators[i].~block_allocator();
-    free(small_allocators);
+    ::operator delete(small_allocators, std::align_val_t{alignof(block_allocator)});
     clear();
     delete[] large_buckets;
   }
@@ -116,7 +112,7 @@ public:
     large_buckets = new concurrent_stack<void*>[num_buckets-num_small];
 
     small_allocators = (struct block_allocator*)
-      aligned_alloc(alignof(block_allocator), num_buckets * sizeof(struct block_allocator));
+      ::operator new(num_buckets * sizeof(struct block_allocator), std::align_val_t{alignof(block_allocator)} );
     size_t prev_bucket_size = 0;
   
     for (size_t i = 0; i < num_small; i++) {
@@ -184,7 +180,7 @@ public:
       maybe<void*> r = large_buckets[i-num_small].pop();
       while (r) {
         large_allocated -= sizes[i];
-        free(*r);
+        ::operator delete(*r, std::align_val_t{large_align});
         r = large_buckets[i-num_small].pop();
       }
     }
