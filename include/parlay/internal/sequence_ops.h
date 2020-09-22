@@ -68,7 +68,7 @@ void sliced_for(size_t n, size_t block_size, const F &f, flags fl = no_flag) {
   size_t l = num_blocks(n, block_size);
   auto body = [&](size_t i) {
     size_t s = i * block_size;
-    size_t e = std::min(s + block_size, n);
+    size_t e = (std::min)(s + block_size, n);
     f(i, s, e);
   };
   parallel_for(0, l, body, 1, 0 != (fl & fl_conservative));
@@ -87,7 +87,7 @@ auto reduce(Seq const &A, Monoid m, flags fl = no_flag) ->
     typename Seq::value_type {
   using T = typename Seq::value_type;
   size_t n = A.size();
-  size_t block_size = std::max(_block_size, 4 * (size_t)ceil(sqrt(n)));
+  size_t block_size = (std::max)(_block_size, 4 * (size_t)ceil(sqrt(n)));
   size_t l = num_blocks(n, block_size);
   if (l == 0) return m.identity;
   if (l == 1 || (fl & fl_sequential)) {

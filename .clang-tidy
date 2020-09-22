@@ -15,5 +15,8 @@ Checks:            'bugprone-*,
                     clang-analyzer-*,
                     performance-*,
                     portability-*'
-WarningsAsErrors:  ''
+WarningsAsErrors:  'bugprone-*,
+                    clang-analyzer-*,
+                    performance-*,
+                    portability-*'
 FormatStyle:       none

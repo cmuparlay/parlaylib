@@ -42,7 +42,7 @@ void seq_radix_sort_(slice<InIterator, InIterator> In,
   bool swapped = false;
   int bit_offset = 0;
   while (bits > 0) {
-    size_t round_bits = std::min(radix, bits);
+    size_t round_bits = (std::min)(radix, bits);
     size_t num_buckets = (1 << round_bits);
     size_t mask = num_buckets - 1;
     
@@ -241,8 +241,8 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
           }
 
           if (return_offsets) {
-            size_t bstart = std::min(i * num_inner_buckets, num_buckets);
-            size_t bend = std::min((i + 1) * num_inner_buckets, num_buckets);
+            size_t bstart = (std::min)(i * num_inner_buckets, num_buckets);
+            size_t bend = (std::min)((i + 1) * num_inner_buckets, num_buckets);
             size_t m = (bend - bstart);
             for (size_t j = 0; j < m; j++)
               inner_offsets[bstart + j] = offsets[i] + r[j];

@@ -71,11 +71,11 @@ auto collect_reduce_few(Seq const &A, Key const &get_key,
   size_t n = A.size();
 
   // pad to 16 buckets to avoid false sharing (does not affect results)
-  num_buckets = std::max(num_buckets, (size_t)16);
+  num_buckets = (std::max)(num_buckets, (size_t)16);
 
   // size_t num_blocks = ceil(pow(n/num_buckets,0.5));
   size_t num_threads = num_workers();
-  size_t num_blocks = std::min(4 * num_threads, n / num_buckets / 64);
+  size_t num_blocks = (std::min)(4 * num_threads, n / num_buckets / 64);
 
   num_blocks = 1 << log2_up(num_blocks);
 
@@ -347,7 +347,7 @@ sequence<typename Seq::value_type> collect_reduce_sparse(Seq const &A,
           throw std::runtime_error("hash table overflow in collect_reduce");
         for (size_t j = start; j < end; j++) {
           size_t idx = B[j].first;
-          size_t k = ((uint)hasheq.hash(B[j])) % table_size;
+          size_t k = ((size_t)hasheq.hash(B[j])) % table_size;
           while (flags[k] && my_table[k].first != idx)
             k = (k + 1 == table_size) ? 0 : k + 1;
           if (flags[k])

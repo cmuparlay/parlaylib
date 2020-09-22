@@ -15,7 +15,11 @@
 
 #include <cstdint>
 #include <cstdio>
+
+#include <atomic>
 #include <iostream>
+#include <mutex>
+#include <optional>
 
 #include "../utilities.h"
 
@@ -29,87 +33,68 @@ class concurrent_stack {
     size_t length;
   };
 
-  class alignas(64) prim_concurrent_stack {
-    struct nodeAndCounter {
-      Node* node;
-      uint64_t counter;
-    };
+  class alignas(64) locking_concurrent_stack {
 
-    union CAS_t {
-      __uint128_t x;
-      nodeAndCounter NC;
-    };
-    CAS_t head;
+    Node* head;
+    std::mutex stack_mutex;
 
     size_t length(Node* n) {
-      if (n == NULL)
+      if (n == nullptr) {
         return 0;
-      else
+      }
+      else {
         return n->length;
+      }
     }
 
    public:
-    prim_concurrent_stack() {
-      head.NC.node = NULL;
-      head.NC.counter = 0;
-      std::atomic_thread_fence(std::memory_order_seq_cst);
+    locking_concurrent_stack() : head(nullptr) {
+
     }
 
-    size_t size() { return length(head.NC.node); }
+    size_t size() { return length(head); }
 
     void push(Node* newNode) {
-      CAS_t oldHead, newHead;
-      do {
-        oldHead = head;
-        newNode->next = oldHead.NC.node;
-        newNode->length = length(oldHead.NC.node) + 1;
-        // std::atomic_thread_fence(std::memory_order_release);
-        std::atomic_thread_fence(std::memory_order_seq_cst);
-        newHead.NC.node = newNode;
-        newHead.NC.counter = oldHead.NC.counter + 1;
-      } while (!__sync_bool_compare_and_swap_16(&head.x, oldHead.x, newHead.x));
+      std::lock_guard<std::mutex> lock(stack_mutex);
+      newNode->next = head;
+      newNode->length  = length(head) + 1;
+      head = newNode;
     }
+    
     Node* pop() {
-      Node* result;
-      CAS_t oldHead, newHead;
-      do {
-        oldHead = head;
-        result = oldHead.NC.node;
-        if (result == NULL) return result;
-        newHead.NC.node = result->next;
-        newHead.NC.counter = oldHead.NC.counter + 1;
-      } while (!__sync_bool_compare_and_swap_16(&head.x, oldHead.x, newHead.x));
-
+      std::lock_guard<std::mutex> lock(stack_mutex);
+      Node* result = head;
+      if (head != nullptr) head = head->next;
       return result;
     }
-  };  // __attribute__((aligned(16)));
+  };
 
-  prim_concurrent_stack a;
-  prim_concurrent_stack b;
+  locking_concurrent_stack a;
+  locking_concurrent_stack b;
 
  public:
   size_t size() { return a.size(); }
 
   void push(T v) {
     Node* x = b.pop();
-    if (!x) x = (Node*)malloc(sizeof(Node));
+    if (!x) x = (Node*) ::operator new(sizeof(Node));
     x->value = v;
     a.push(x);
   }
 
-  maybe<T> pop() {
+  std::optional<T> pop() {
     Node* x = a.pop();
-    if (!x) return maybe<T>();
+    if (!x) return {};
     T r = x->value;
     b.push(x);
-    return maybe<T>(r);
+    return {r};
   }
 
   // assumes no push or pop in progress
   void clear() {
     Node* x;
-    while ((x = a.pop())) free(x);
-    while ((x = b.pop())) free(x);
+    while ((x = a.pop())) ::operator delete(x);
+    while ((x = b.pop())) ::operator delete(x);
   }
 
   concurrent_stack() {}

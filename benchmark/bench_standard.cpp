@@ -105,7 +105,12 @@ template<typename T>
 static void bench_write_add(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
-  parlay::sequence<T> out(n, (T) 0);
+  
+  std::atomic<T>* out = (std::atomic<T>*)::operator new(n * sizeof(std::atomic<T>));
+  parlay::parallel_for(0, n, [&](size_t i) {
+    new (std::addressof(out[i])) std::atomic<T>(0);
+  });
+  
   auto idx = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
   auto f = [&] (size_t i) {
     // putting write prefetch in slows it down
@@ -119,13 +124,19 @@ static void bench_write_add(benchmark::State& state) {
       parlay::parallel_for(0, n-4, f);
     }
   }
+  
+  ::operator delete(out);
 }
 
 template<typename T>
 static void bench_write_min(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
-  parlay::sequence<T> out(n, n);
+  std::atomic<T>* out = (std::atomic<T>*)::operator new(n * sizeof(std::atomic<T>));
+  parlay::parallel_for(0, n, [&](size_t i) {
+    new (std::addressof(out[i])) std::atomic<T>(n);
+  });
+  
   auto idx = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
   auto f = [&] (size_t i) {
     // putting write prefetch in slows it down
@@ -138,6 +149,8 @@ static void bench_write_min(benchmark::State& state) {
       parlay::parallel_for(0, n-4, f);
     }
   }
+  
+  ::operator delete(out);
 }
 
 template<typename T>

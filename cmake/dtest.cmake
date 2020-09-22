@@ -198,12 +198,17 @@ function(add_dtest TESTNAME SOURCENAMES SANITIZER_FLAGS ABBRV TESTLIB ADDITIONAL
   add_executable(${TESTNAME}-${ABBRV} ${SOURCENAMES})
   target_link_libraries(${TESTNAME}-${ABBRV} PRIVATE ${TESTLIB})
   target_link_libraries(${TESTNAME}-${ABBRV} PRIVATE ${ADDITIONAL_LIBS})
-  target_compile_options(${TESTNAME}-${ABBRV} PRIVATE
-    -Wall -Wextra -Wfatal-errors
-    -g -Og -fno-omit-frame-pointer
-    ${SANITIZER_FLAGS} ${DTEST_SANITIZER_BLACKLIST_COMMAND}
-    ${ADDITIONAL_FLAGS}
-  )
+
+  if (NOT MSVC)
+    target_compile_options(${TESTNAME}-${ABBRV} PRIVATE
+      -Wall -Wextra -Wfatal-errors
+      -g -Og -fno-omit-frame-pointer
+      ${SANITIZER_FLAGS} ${DTEST_SANITIZER_BLACKLIST_COMMAND}
+    )
+  endif()
+  
+  target_compile_options(${TESTNAME}-${ABBRV} PRIVATE ${ADDITIONAL_FLAGS})
+
   target_link_options(${TESTNAME}-${ABBRV} PRIVATE
     -fno-omit-frame-pointer
     ${SANITIZER_FLAGS} ${DTEST_SANITIZER_BLACKLIST_COMMAND}

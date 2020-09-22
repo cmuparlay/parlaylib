@@ -29,8 +29,7 @@ template <typename InSeq, typename CountIterator, typename KeySeq>
 void seq_count_(InSeq In, KeySeq Keys, CountIterator counts, size_t num_buckets) {
   size_t n = In.size();
   // use local counts to avoid false sharing
-  size_t local_counts[num_buckets];
-  for (size_t i = 0; i < num_buckets; i++) local_counts[i] = 0;
+  auto local_counts = sequence<size_t>(num_buckets);
   for (size_t j = 0; j < n; j++) {
     size_t k = Keys[j];
     if (k >= num_buckets)
@@ -46,7 +45,7 @@ template <typename copy_tag, typename out_uninitialized_tag,
 void seq_write_(InSeq In, OutIterator Out, KeySeq Keys,
                 CountIterator offsets, size_t num_buckets) {
   // copy to local offsets to avoid false sharing
-  size_t local_offsets[num_buckets];
+  auto local_offsets = sequence<size_t>::uninitialized(num_buckets);
   for (size_t i = 0; i < num_buckets; i++) local_offsets[i] = offsets[i];
   for (size_t j = 0; j < In.size(); j++) {
     size_t k = local_offsets[Keys[j]]++;
@@ -120,7 +119,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
   size_t size_lower = 1;  // + n * sizeof(T) / 2000000;
   size_t bucket_upper =
       1 + n * sizeof(T) / (4 * num_buckets * sizeof(s_size_t));
-  size_t num_blocks = std::min(bucket_upper, std::max(par_lower, size_lower));
+  size_t num_blocks = (std::min)(bucket_upper, (std::max)(par_lower, size_lower));
 
   // if insufficient parallelism, sort sequentially
   if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {
@@ -137,8 +136,8 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
   // sort each block
   parallel_for(0, num_blocks,
                [&](size_t i) {
-                 s_size_t start = std::min(i * block_size, n);
-                 s_size_t end = std::min(start + block_size, n);
+                 s_size_t start = (std::min)(i * block_size, n);
+                 s_size_t end = (std::min)(start + block_size, n);
                  seq_count_(In.cut(start, end), make_slice(Keys).cut(start, end),
                             counts.begin() + i * num_buckets, num_buckets);
                },
@@ -190,8 +189,8 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
 
   parallel_for(0, num_blocks,
                [&](size_t i) {
-                 s_size_t start = std::min(i * block_size, n);
-                 s_size_t end = std::min(start + block_size, n);
+                 s_size_t start = (std::min)(i * block_size, n);
+                 s_size_t end = (std::min)(start + block_size, n);
                  seq_write_<copy_tag, out_uninitialized_tag>(In.cut(start, end), Out.begin(),
                             make_slice(Keys).cut(start, end),
                             counts2.begin() + i * num_buckets, num_buckets);

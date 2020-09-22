@@ -7,6 +7,7 @@
 #include <atomic>
 #include <iostream>
 #include <new>
+#include <optional>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -19,7 +20,6 @@
 #include "internal/block_allocator.h"
 
 namespace parlay {
-
 
 // ****************************************
 //    pool_allocator
@@ -54,7 +54,7 @@ private:
 
     if (n <= max_size) {
       while (n > sizes[bucket]) bucket++;
-      maybe<void*> r = large_buckets[bucket-num_small].pop();
+      std::optional<void*> r = large_buckets[bucket-num_small].pop();
       if (r) return *r;
       alloc_size = sizes[bucket];
     } else alloc_size = n;
@@ -113,6 +113,7 @@ public:
 
     small_allocators = (struct block_allocator*)
       ::operator new(num_buckets * sizeof(struct block_allocator), std::align_val_t{alignof(block_allocator)} );
+
     size_t prev_bucket_size = 0;
   
     for (size_t i = 0; i < num_small; i++) {
@@ -177,7 +178,7 @@ public:
 
   void clear() {
     for (size_t i = num_small; i < num_buckets; i++) {
-      maybe<void*> r = large_buckets[i-num_small].pop();
+      std::optional<void*> r = large_buckets[i-num_small].pop();
       while (r) {
         large_allocated -= sizes[i];
         ::operator delete(*r, std::align_val_t{large_align});

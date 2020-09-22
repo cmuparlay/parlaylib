@@ -13,6 +13,7 @@
 #include <cmath>
 
 #include <atomic>
+#include <optional>
 
 #include "concurrent_stack.h"
 #include "memory_size.h"
@@ -38,7 +39,7 @@ private:
     block_p head;
     block_p mid;
     char cache_line[pad_size];
-    thread_list() : sz(0), head(NULL) {};
+    thread_list() : sz(0), head(nullptr) {};
   };
 
   bool initialized{false};
@@ -49,7 +50,7 @@ private:
   size_t list_length;
   size_t max_blocks;
   size_t block_size_;
-  size_t blocks_allocated;
+  std::atomic<size_t> blocks_allocated;
   
   block_allocator(const block_allocator&) = delete;
   block_allocator(block_allocator&&) = delete;
@@ -59,7 +60,7 @@ private:
 public:
   const int thread_count;
   size_t block_size () {return block_size_;}
-  size_t num_allocated_blocks() {return blocks_allocated;}
+  size_t num_allocated_blocks() {return blocks_allocated.load();}
 
   // Allocate a new list of list_length elements
 
@@ -69,7 +70,7 @@ public:
 					p->next = reinterpret_cast<block_p>(reinterpret_cast<char*>(p) + block_size_);
     }, 1000, true);
     block_p last =  reinterpret_cast<block_p>(reinterpret_cast<char*>(start) + (list_length-1) * block_size_);
-    last->next = NULL;
+    last->next = nullptr;
     return start;
   }
 
@@ -77,21 +78,15 @@ public:
     size_t free_blocks = global_stack.size()*list_length;
     for (int i = 0; i < thread_count; ++i) 
       free_blocks += local_lists[i].sz;
-    return blocks_allocated - free_blocks;
+    return blocks_allocated.load() - free_blocks;
   }
 
   auto allocate_blocks(size_t num_blocks) -> char* {
     char* start = (char*) ::operator new(num_blocks * block_size_+ pad_size, std::align_val_t{pad_size});
-    //char* start = (char*) parlay::my_alloc(num_blocks * block_size_);
-    if (start == NULL) {
-      fprintf(stderr, "Cannot allocate space in block_allocator");
-      exit(1); }
+    assert(start != nullptr);
 
-    parlay::fetch_and_add(&blocks_allocated, num_blocks); // atomic
-
-    if (blocks_allocated > max_blocks) {
-      fprintf(stderr, "Too many blocks in block_allocator, change max_blocks");
-      exit(1);  }
+    blocks_allocated.fetch_add(num_blocks);
+    assert(blocks_allocated.load() <= max_blocks);
 
     pool_roots.push(start); // keep track so can free later
     return start;
@@ -100,7 +95,7 @@ public:
   // Either grab a list from the global pool, or if there is none
   // then allocate a new list
   auto get_list() -> block_p {
-    maybe<block_p> rem = global_stack.pop();
+    std::optional<block_p> rem = global_stack.pop();
     if (rem) return *rem;
     block_p start = reinterpret_cast<block_p>(allocate_blocks(list_length));
     return initialize_list(start);
@@ -129,7 +124,7 @@ public:
 		  size_t reserved_blocks = 0, 
 		  size_t list_length_ = 0, 
 		  size_t max_blocks_ = 0) : thread_count(num_workers()) {
-    blocks_allocated = 0;
+    blocks_allocated.store(0);
     block_size_ = block_size;
     if (list_length_ == 0)
       list_length = default_list_bytes / block_size;
@@ -155,11 +150,11 @@ public:
         local_lists[i].sz = 0;
   
       // throw away all allocated memory
-      maybe<char*> x;
+      std::optional<char*> x;
       while ((x = pool_roots.pop())) ::operator delete(*x, std::align_val_t{pad_size});
       pool_roots.clear();
       global_stack.clear();
-      blocks_allocated = 0;
+      blocks_allocated.store(0);
     }
   }
 
@@ -176,7 +171,7 @@ public:
       local_lists[id].mid = local_lists[id].head;
     } else if (local_lists[id].sz == 2*list_length) {
       global_stack.push(local_lists[id].mid->next);
-      local_lists[id].mid->next = NULL;
+      local_lists[id].mid->next = nullptr;
       local_lists[id].sz = list_length;
     }
     new_node->next = local_lists[id].head;

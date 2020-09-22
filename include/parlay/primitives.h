@@ -331,15 +331,15 @@ size_t find_if_index(size_t n, IntegerPred p, size_t granularity = 1000) {
   if (i == n) return n;
   size_t start = granularity;
   size_t block_size = 2 * granularity;
-  i = n;
+  std::atomic<size_t> result(n);
   while (start < n) {
     size_t end = std::min(n, start + block_size);
     parallel_for(start, end,
                  [&](size_t j) {
-                   if (p(j)) write_min(&i, j, std::less<size_t>());
+                   if (p(j)) write_min(&result, j, std::less<size_t>());
                  },
                  granularity);
-    if (i < n) return i;
+    if (auto res = result.load(); res < n) return res;
     start += block_size;
     block_size *= 2;
   }

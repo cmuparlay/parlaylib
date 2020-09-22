@@ -197,7 +197,7 @@ auto sample_sort(slice<Iterator, Iterator> A,
                  bool stable = false) {
   using value_type = typename slice<Iterator, Iterator>::value_type;
   sequence<value_type> R = sequence<value_type>::uninitialized(A.size());
-  if (A.size() < std::numeric_limits<unsigned int>::max())
+  if (A.size() < (std::numeric_limits<unsigned int>::max)())
     sample_sort_<unsigned int, std::false_type>(A, make_slice(R), less, stable);
   else
     sample_sort_<unsigned long long, std::false_type>(A, make_slice(R), less, stable);
@@ -208,10 +208,12 @@ template <class Iterator, typename Compare>
 void sample_sort_inplace(slice<Iterator, Iterator> A,
                          const Compare& less,
                          bool stable = false) {
-  if (A.size() < std::numeric_limits<unsigned int>::max())
+  if (A.size() < (std::numeric_limits<unsigned int>::max)()) {
     sample_sort_<unsigned int, std::true_type>(A, A, less, stable);
-  else
+  }
+  else {
     sample_sort_<unsigned long long, std::true_type>(A, A, less, stable);
+  }
 }
 
 }  // namespace internal

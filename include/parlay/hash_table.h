@@ -2,6 +2,7 @@
 #ifndef PARLAY_HASH_TABLE_H_
 #define PARLAY_HASH_TABLE_H_
 
+#include <atomic>
 #include <iostream>
 
 #include "sequence.h"
@@ -280,7 +281,8 @@ struct hash_numeric {
   bool replaceQ(eType, eType) { return 0; }
   eType update(eType v, eType) { return v; }
   bool cas(eType* p, eType o, eType n) {
-    return atomic_compare_and_swap(p, o, n);
+    return std::atomic_compare_exchange_strong_explicit(
+      reinterpret_cast<std::atomic<eType>*>(p), &o, n, std::memory_order_relaxed, std::memory_order_relaxed);
   }
 };
 

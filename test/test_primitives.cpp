@@ -115,7 +115,7 @@ TEST(TestPrimitives, TestScanInclusiveInplace) {
 
 template<typename T>
 struct TakeMax {
-  T operator()(const T& a, const T& b) { return std::max(a, b); }
+  T operator()(const T& a, const T& b) { return (std::max)(a, b); }
 };
 
 TEST(TestPrimitives, TestScanMax) {
