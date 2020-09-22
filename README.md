@@ -1,9 +1,13 @@
 # ParlayLib - A Toolkit for Programming Parallel Algorithms on Shared-Memory Multicore Machines
 
 [![Build Status](https://travis-ci.org/cmuparlay/parlaylib.svg?branch=master)](https://travis-ci.org/cmuparlay/parlaylib)
+[![Build status](https://ci.appveyor.com/api/projects/status/2458wr1nbcusxhqb/branch/master?svg=true)](https://ci.appveyor.com/project/DanielLiamAnderson/parlaylib/branch/master)
 [![codecov](https://codecov.io/gh/cmuparlay/parlaylib/branch/master/graph/badge.svg)](https://codecov.io/gh/cmuparlay/parlaylib)
 
+
 ParlayLib is a C++ library for developing efficient parallel algorithms and software on shared-memory multicore machines. It provides additional tools and primitives that go beyond what is available in the C++ standard library, and simplifies the task of programming provably efficient and scalable parallel algorithms. It consists of a sequence data type (analogous to std::vector), many parallel routines and algorithms, a work-stealing scheduler to support nested parallelism, and a scalable memory allocator. It has been developed over a period of seven years and used in a variety of software including the [PBBS benchmark suite](http://www.cs.cmu.edu/~pbbs/benchmarks.html), the [Ligra](http://jshun.github.io/ligra/), [Julienne](https://dl.acm.org/doi/pdf/10.1145/3087556.3087580), and [Aspen](https://github.com/ldhulipala/aspen) graph processing frameworks, the [Graph Based Benchmark Suite](https://github.com/ParAlg/gbbs), and the [PAM](https://cmuparlay.github.io/PAMWeb/) library for parallel balanced binary search trees, and an implementation of the TPC-H benchmark suite.
+
+Parlay is designed to be reasonably portable by being built upon mostly standards-compliant modern C++. It builds on [GCC](https://gcc.gnu.org/) and [Clang](https://clang.llvm.org/) on Linux, GCC and Apple Clang on OSX, and Microsoft Visual C++ ([MSVC](https://visualstudio.microsoft.com/vs/)) and [MinGW](http://www.mingw.org/) on Windows. It is also tested on GCC and Clang via Windows Subsystem for Linux ([WSL](https://docs.microsoft.com/en-us/windows/wsl/about)) and [Cygwin](https://www.cygwin.com/). Support beyond x86-64 has not yet been explored. We would warmly welcome contributions that seek to achieve this.
 
 This documentation is a work in progress and is not yet fully complete.
 
@@ -88,7 +92,7 @@ If you use a different build system, you have the option of installing Parlay vi
 -I/path/to/parlay/include/location
 ```
 
-To ensure that Parlay functions correctly once included, make sure that you are compiling with C++17 enabled (add `-std=c++17` or later to your compile command, or the equivalent in your favourite build system). Some features of Parlay require a 16-byte CAS. This can be enabled by adding the definition `-DMCX16` to your compile command, and passing the flag `-mcx16` to supporting compilers. Lastly, you'll need threading support, which is usually achieved via one of the flags `-pthread`, `-pthreads`, or your operation system's equivalent.
+To ensure that Parlay builds correctly, make sure that you are compiling with C++17 enabled by adding `-std=c++17` or equivalent (e.g. `/std:c++17` on Microsoft) to your compiler options. You'll also need threading support, which is usually achieved via one of the flags `-pthread`, `-pthreads`, or your operating system's equivalent.
 
 ### The old fashioned way
 
@@ -139,7 +143,7 @@ The primitive `par_do` takes two function objects and evaluates them in parallel
 
 ```c++
 template<typename Iterator>
-int sum(Iterator first, Iterator last) {
+auto sum(Iterator first, Iterator last) {
   if (first == last - 1) {
     return *first;
   }
