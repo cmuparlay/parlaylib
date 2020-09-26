@@ -11,9 +11,6 @@
 namespace parlay {
 namespace internal {
 
-using uchar = unsigned char;
-using uint = unsigned int;
-
 template <typename InIterator, typename OutIterator, typename KT>
 void radix_step_(slice<InIterator, InIterator> A,
                  slice<OutIterator, OutIterator> B,
@@ -56,7 +53,7 @@ void to_heap_order(InIterator In,
 // returns true if all equal
 template <typename Iterator, typename BinaryOp>
 bool get_buckets(slice<Iterator, Iterator> A,
-                 uchar* buckets,
+                 unsigned char* buckets,
                  BinaryOp f,
                  size_t rounds) {
   size_t n = A.size();
@@ -122,8 +119,8 @@ void bucket_sort_r(slice<InIterator, InIterator> in,
     base_sort(in, out, f, stable, inplace);
   } else {
     auto counts = sequence<size_t>::uninitialized(num_buckets);
-    auto bucketsm = sequence<uchar>::uninitialized(n);
-    uchar* buckets = bucketsm.begin();
+    auto bucketsm = sequence<unsigned char>::uninitialized(n);
+    unsigned char* buckets = bucketsm.begin();
     if (get_buckets(in, buckets, f, bits)) {
       base_sort(in, out, f, stable, inplace);
     } else {
