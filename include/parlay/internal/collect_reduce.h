@@ -28,7 +28,6 @@
 #include "transpose.h"
 
 #include "../utilities.h"
-#include "../../../../common/get_time.h"
 
 namespace parlay {
 namespace internal {
@@ -327,12 +326,10 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
   sequence<T> B = sequence<T>::uninitialized(n);
   sequence<T> Tmp = sequence<T>::uninitialized(n);
 
-  std::cout << "head" << std::endl;
   // first buckets based on hash using a counting sort
   get_bucket<T, key_type, HashEq, GetK> gb(A, hasheq, get_key, bits);
   sequence<size_t> bucket_offsets = integer_sort_r<std::false_type, std::true_type, std::true_type, std::true_type>(
       make_slice(A), make_slice(B), make_slice(Tmp), gb, bits, num_buckets, false);
-  std::cout << "next" << std::endl;
     
   size_t num_tables = gb.heavy_hitters ? num_buckets / 2 : num_buckets;
   size_t bucket_size = (n - 1) / num_tables + 1;
@@ -394,7 +391,6 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
 
       },
       0);
-  std::cout << "hash blocks" << std::endl;
   
   sizes[num_tables] = 0;
   size_t total = scan_inplace(make_slice(sizes),addm<size_t>());
