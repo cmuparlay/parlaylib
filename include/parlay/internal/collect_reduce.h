@@ -327,13 +327,14 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
   sequence<T> B = sequence<T>::uninitialized(n);
   sequence<T> Tmp = sequence<T>::uninitialized(n);
 
-  std::cout << "head" << std::endl;
   // first buckets based on hash using a counting sort
   get_bucket<T, key_type, HashEq, GetK> gb(A, hasheq, get_key, bits);
   sequence<size_t> bucket_offsets = integer_sort_r<std::false_type, std::true_type, std::true_type, std::true_type>(
       make_slice(A), make_slice(B), make_slice(Tmp), gb, bits, num_buckets, false);
-  std::cout << "next" << std::endl;
-    
+  std::cout << "I'm about to fail, if applied to strings" << std::endl;
+  Tmp.clear(); // breaks here (something not cleared).
+  std::cout << "the rain in spain" << std::endl;
+
   size_t num_tables = gb.heavy_hitters ? num_buckets / 2 : num_buckets;
   size_t bucket_size = (n - 1) / num_tables + 1;
   float factor = 1.2;
@@ -341,7 +342,8 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
   size_t table_size = (factor * bucket_size);
   size_t total_table_size = table_size * num_tables;
   // this should be cache line alligned (no easy way to do this with the library)
-  sequence<result_type> table = sequence<result_type>::uninitialized(total_table_size);
+  //sequence<result_type> table = sequence<result_type>::uninitialized(total_table_size);
+  sequence<result_type> table(total_table_size, result_type(key_type(),monoid.identity));
   sequence<size_t> sizes(num_tables + 1);
 
   // now in parallel process each bucket sequentially
@@ -357,7 +359,7 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
         if ((end - start) > table_size)
           throw std::runtime_error("hash table overflow in collect_reduce");
         for (size_t j = start; j < end; j++) {
-          key_type key = get_key(B[j]);
+          key_type const &key = get_key(B[j]);
           size_t k = ((uint) hasheq.hash(key)) % table_size;
           while (flags[k] && !hasheq.eql(my_table[k].first, key))
             k = (k + 1 == table_size) ? 0 : k + 1;
@@ -365,7 +367,7 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
             my_table[k].second = monoid.f(my_table[k].second, get_val(B[j]));
           else {
             flags[k] = true;
-            assign_uninitialized(my_table[k], result_type(key, get_val(B[j])));
+            my_table[k] = result_type(key, get_val(B[j]));
           }
         }
 
@@ -382,7 +384,8 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
             val_type x = internal::reduce(s, monoid);
             size_t j = 0;
             while (flags[j]) j = (j + 1 == table_size) ? 0 : j + 1;
-            assign_uninitialized(my_table[j], result_type(get_key(B[start_l]), x));
+            // assign_uninitialized(my_table[j], result_type(get_key(B[start_l]), x));
+	    my_table[j] = result_type(get_key(B[start_l]), x);
           }
         }
 
@@ -394,7 +397,6 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
 
       },
       0);
-  std::cout << "hash blocks" << std::endl;
   
   sizes[num_tables] = 0;
   size_t total = scan_inplace(make_slice(sizes),addm<size_t>());
@@ -409,6 +411,7 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
       move_uninitialized(result[d_offset + j], table[s_offset + j]);
   };
   parallel_for(0, num_tables, copy_f, 1);
+  table.clear();
   return result;
 }
 
