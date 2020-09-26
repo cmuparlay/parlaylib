@@ -28,7 +28,6 @@
 #include "transpose.h"
 
 #include "../utilities.h"
-#include "../../../../common/get_time.h"
 
 namespace parlay {
 namespace internal {
@@ -331,6 +330,7 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
   get_bucket<T, key_type, HashEq, GetK> gb(A, hasheq, get_key, bits);
   sequence<size_t> bucket_offsets = integer_sort_r<std::false_type, std::true_type, std::true_type, std::true_type>(
       make_slice(A), make_slice(B), make_slice(Tmp), gb, bits, num_buckets, false);
+
   std::cout << "I'm about to fail, if applied to strings" << std::endl;
   Tmp.clear(); // breaks here (something not cleared).
   std::cout << "the rain in spain" << std::endl;
