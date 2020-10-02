@@ -258,11 +258,11 @@ template <
 > class sequence
 ```
 
-A **sequence** is a parallel version of `std::vector`. It supports the same operations, but performs all initialization, updates, and destruction in parallel. Sequences satisfiy the range concept.
+A **sequence** is a parallel version of `std::vector`. It supports the same operations, but performs all initialization, updates, and destruction in parallel. Sequences satisfiy the range concept. Like `std::vector`, it stores all elements contiguously, and hence it is well defined to operate on pointers to ranges of elements of the sequence.
 
 #### Template parameters
 
-* **T** is the type of the elements of the sequence
+* **T** is the type of the elements of the sequence. In general, elements of a sequence should be move constructible, but immobile types (e.g. `std::atomic`) can be used provided that no operations that could trigger a reallocation (e.g. push_back, resize, etc) are used. T must be *Erasable*, i.e. destructible.
 * **Allocator** is the allocator used to allocate/deallocate memory for the sequence. The `value_type` of the allocator must be `T`. By default, `parlay::allocator<T>` is used. To switch the default to `std::allocator<T>`, add the compile definition `PARLAY_USE_STD_ALLOC`
 
 #### Constructors
@@ -280,7 +280,7 @@ sequence(size_t n)
 sequence(size_t n, const value_type& t) 
 ```
 
-Constructs a sequence consisting of `n` default constructed elements of type `T`, or of `n` copies of the value `t`.
+Constructs a sequence consisting of `n` value initialized elements of type `T`, or of `n` copies of the value `t`.
 
 ```c++
 template<typename _Iterator> sequence(_Iterator i, _Iterator j)

@@ -124,7 +124,7 @@ struct _sequence_base {
     // Copy constructor
     _sequence_impl(const _sequence_impl& other) : allocator_type(other) {
       auto n = other.size();
-      ensure_capacity(n);
+      initialize_capacity(n);
       auto buffer = data();
       auto other_buffer = other.data();
       parallel_for(0, n, [&](size_t i) {
@@ -419,6 +419,23 @@ struct _sequence_base {
       return data()[i];
     }
 
+    // Should only be called during intitialization. Same as
+    // ensure_capacity, except does not need to copy elements
+    // from the existing buffer.
+    void initialize_capacity(size_t desired) {
+      assert(size() == 0);
+      assert(is_small());
+      
+      auto current = capacity();
+      if (current < desired) {
+        _data.flag = 1;  // large sequence
+        _data.long_mode.buffer = capacitated_buffer(desired, *this);
+        _data.long_mode.set_size(0);
+      }
+      
+      assert(capacity() >= desired);
+    }
+
     // Ensure that the capacity is at least new_capacity. The
     // actual capacity may be increased to a larger amount.
     void ensure_capacity(size_t desired) {
@@ -553,8 +570,8 @@ class sequence : protected _sequence_base<T, Allocator> {
   size_type size() const { return impl.size(); }
 
   size_type max_size() const {
-    if (std::numeric_limits<size_type>::max() < _max_size) {
-      return std::numeric_limits<size_type>::max();
+    if ((std::numeric_limits<size_type>::max)() < _max_size) {
+      return (std::numeric_limits<size_type>::max)();
     }
     else {
       return _max_size;
@@ -676,12 +693,21 @@ class sequence : protected _sequence_base<T, Allocator> {
   
   template<typename R>
   iterator append(R&& r) {
-    if constexpr (std::is_lvalue_reference<R>::value) {
       return append(std::begin(r), std::end(r));
+  }
+  
+  // Append the given sequence r. Since r is an rvalue, we can
+  // move its elements instead of copying them. Furthermore, if
+  // the current sequence is empty and doesn't own a large buffer,
+  // we can simply move assign the entire sequence r
+  iterator append(sequence<value_type>&& r) {
+    if (empty() && capacity() <= r.size()) {
+      *this = std::move(r);
+      return begin();
     }
     else {
       return append(std::make_move_iterator(std::begin(r)),
-                      std::make_move_iterator(std::end(r)));
+                    std::make_move_iterator(std::end(r)));
     }
   }
   
@@ -708,13 +734,12 @@ class sequence : protected _sequence_base<T, Allocator> {
 
   template<typename R>
   iterator insert(iterator p, R&& r) {
-    if constexpr (std::is_lvalue_reference<R>::value) {
-      return insert(p, std::begin(r), std::end(r));
-    }
-    else {
-      return insert(p, std::make_move_iterator(std::begin(r)),
-                      std::make_move_iterator(std::end(r)));
-    }
+    return insert(p, std::begin(r), std::end(r));
+  }
+  
+  iterator insert(iterator p, sequence<value_type>&& r) {
+    return insert(p, std::make_move_iterator(std::begin(r)),
+                     std::make_move_iterator(std::end(r)));
   }
 
   iterator insert(iterator p, std::initializer_list<value_type> l) {
@@ -795,14 +820,11 @@ class sequence : protected _sequence_base<T, Allocator> {
   
   template<typename R>
   void assign(R&& r) {
-    if constexpr (std::is_lvalue_reference<R>::value) {
-      return assign(std::begin(r), std::end(r));
-    }
-    else {
-      return assign(std::make_move_iterator(std::begin(r)),
-              std::make_move_iterator(std::end(r)));
-    }
     assign(std::begin(r), std::end(r));
+  }
+  
+  void assign(sequence<value_type>&& r) {
+    *this = std::move(r);
   }
 
   value_type& front() { return *begin(); }
@@ -910,7 +932,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   struct _uninitialized_tag { };
 
   sequence(size_t n, _uninitialized_tag) : _sequence_base<T, Allocator>() {
-    impl.ensure_capacity(n);
+    impl.initialize_capacity(n);
     impl.set_size(n);
 #ifdef PARLAY_DEBUG_UNINITIALIZED
     if constexpr (std::is_same_v<value_type, debug_uninitialized>) {
@@ -922,12 +944,21 @@ class sequence : protected _sequence_base<T, Allocator> {
 #endif
   }
 
+  // Implement initialize_default manually rather than
+  // calling initialize_fill(n, value_type()) because
+  // this allows us to store a sequence of uncopyable
+  // types provided that no reallocation ever happens.
   void initialize_default(size_t n) {
-    initialize_fill(n, value_type{});
+    impl.initialize_capacity(n);
+    auto buffer = impl.data();
+    parallel_for(0, n, [&](size_t i) {   // Calling initialize with
+      impl.initialize(buffer + i);       // no arguments performs
+    });                                  // value initialization
+    impl.set_size(n);
   }
 
   void initialize_fill(size_t n, const value_type& v) {
-    impl.ensure_capacity(n);
+    impl.initialize_capacity(n);
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {
       impl.initialize_explicit(buffer + i, v);
@@ -945,7 +976,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   template<typename _ForwardIterator>
   void initialize_range(_ForwardIterator first, _ForwardIterator last, std::forward_iterator_tag) {
     auto n = std::distance(first, last);
-    impl.ensure_capacity(n);
+    impl.initialize_capacity(n);
     auto buffer = impl.data();
     for (size_t i = 0; first != last; i++, first++) {
       impl.initialize_explicit(buffer + i, *first);
@@ -956,7 +987,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   template<typename _RandomAccessIterator>
   void initialize_range(_RandomAccessIterator first, _RandomAccessIterator last, std::random_access_iterator_tag) {
     auto n = std::distance(first, last);
-    impl.ensure_capacity(n);
+    impl.initialize_capacity(n);
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {
       impl.initialize_explicit(buffer + i, first[i]);

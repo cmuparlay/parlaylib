@@ -1,3 +1,4 @@
+#include <atomic>
 #include <list>
 #include <memory>
 #include <vector>
@@ -329,6 +330,32 @@ TEST(TestSequence, TestAppendMove) {
   ASSERT_EQ(s1.size(), 8);
   for (int i = 0; i < 8; i++) {
     ASSERT_EQ(s1[i], i+1);
+  }
+}
+
+TEST(TestSequence, TestMoveAppendToEmpty) {
+  parlay::sequence<int> s1{};
+  auto s2 = parlay::sequence<int>{5,6,7,8};
+  ASSERT_TRUE(s1.empty());
+  ASSERT_FALSE(s2.empty());
+  s1.append(std::move(s2));
+  ASSERT_EQ(s1.size(), 4);
+  for (int i = 0; i < 4; i++) {
+    ASSERT_EQ(s1[i], 5+i);
+  }
+}
+
+TEST(TestSequence, TestMoveAppendToEmptyAfterReserve) {
+  parlay::sequence<int> s1{};
+  s1.reserve(100);
+  auto s2 = parlay::sequence<int>{5,6,7,8};
+  ASSERT_TRUE(s1.empty());
+  ASSERT_FALSE(s2.empty());
+  s1.append(std::move(s2));
+  ASSERT_EQ(s1.size(), 4);
+  ASSERT_GE(s1.capacity(), 100);
+  for (int i = 0; i < 4; i++) {
+    ASSERT_EQ(s1[i], 5+i);
   }
 }
 
@@ -715,4 +742,11 @@ TEST(TestSequence, TestReserve) {
   }
   ASSERT_EQ(s.size(), 1000);
   ASSERT_EQ(s.capacity(), cap);
+}
+
+TEST(TestSequence, TestSequenceOfAtomic) {
+  parlay::sequence<std::atomic<int>> s(10000);
+  for (size_t i = 0; i < 10000; i++) {
+    s[i].store(i);
+  }
 }
