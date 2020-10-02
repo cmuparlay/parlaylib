@@ -1,3 +1,4 @@
+
 # ParlayLib - A Toolkit for Programming Parallel Algorithms on Shared-Memory Multicore Machines
 
 [![Build Status](https://travis-ci.org/cmuparlay/parlaylib.svg?branch=master)](https://travis-ci.org/cmuparlay/parlaylib)
@@ -63,6 +64,7 @@ This documentation is a work in progress and is not yet fully complete.
   * [I/O, Parsing, and Formatting](#io-parsing-and-formatting)
     + [Reading and writing files](#reading-and-writing-files)
     + [Writing character sequences to streams](#writing-character-sequences-to-streams)
+    + [Memory-mapped files](#memory-mapped-files)
     + [Parsing](#parsing)
   * [Memory Allocator](#memory-allocator)
    
@@ -1113,7 +1115,8 @@ Parlay includes some convenient tools for file input and output in terms of `par
 ```c++
 inline parlay::sequence<char> chars_from_file(const std::string& filename,
     bool null_terminate, size_t start=0, size_t end=0)
-
+```
+```c++
 inline void chars_to_file(const parlay::sequence<char>& S,
     const std::string& filename)
 ```
@@ -1126,11 +1129,63 @@ inline void chars_to_file(const parlay::sequence<char>& S,
 
 ```c++
 inline void chars_to_stream(const sequence<char>& S, std::ostream& os)
-
+```
+```c++
 inline std::ostream& operator<<(std::ostream& os, const sequence<char>& s)
 ```
 
 Character sequences can also be written to standard streams, i.e. types deriving from `std::ostream`. They support the standard `operator<<`, as well as a method **chars_to_stream**, which takes a character sequence and a stream, and writes the given characters to the stream.
+
+### Memory-mapped files
+
+```c++
+class file_map
+```
+
+To support reading large files quickly and in parallel, possibly even files that do not fit in main memory, Parlay provides a wrapper type **file_map** for memory mapping. Memory mapping takes a given file on disk, and maps its contents to a range of addresses in virtual memory. Memory mapped files are much more efficient than sequential file reading because their contents can be read in parallel. The `file_map` type satisfies the range concept, and hence can be used in conjunction with all of Parlay's parallel algorithms.
+
+#### Constructors
+
+```c++
+explicit file_map(const std::string& filename)
+```
+
+Memory maps the file with the given filename.
+
+```c++
+file_map(file_map&& other)
+```
+
+Objects of type `file_map` can be moved but not copied.
+
+
+#### Member types
+
+Type | Definition
+---|---
+`value_type` | The value type of the underlying file contents. Usually `char`
+`reference` | Equal to `value_type&`
+`const_reference` | Equal to `const value_type&`
+`iterator` | An iterator to a range of elements of type `value_type`
+`const_iterator` | Equal to `const iterator`
+`pointer` | Equal to `value_type*`
+`const_pointer` | Equal to `const value_type*`
+`difference_type` | A type that can express the difference between two elements of type `iterator`. Usually `std::ptrdiff_t`
+`size_type` | A type that can express the size of the range. Usually `size_t`
+
+
+#### Member functions
+
+Function | Description
+---|---
+`size_t size()` | Return the size of the mapped file
+`iterator begin()` | Return an iterator to the beginning of the file
+`iterator end()` | Return an iterator past the end of the file
+`value_type operator[] (size_t i)` | Return the i'th character of the file
+`bool empty()` | Returns true if the file is empty or no file is mapped
+`void swap(file_map& other)` | Swap the file map with another
+`file_map& operator=(file_map&& other)` | Move-assign another file map in place of this one
+
 
 ### Parsing
 
@@ -1138,13 +1193,29 @@ Parlay has some rudimentary support for converting to/from character sequences a
 
 ```c++
 inline int chars_to_int(const parlay::sequence<char>& s)
+```
+```c++
 inline long chars_to_long(const parlay::sequence<char>& s)
+```
+```c++
 inline long long chars_to_long_long(const parlay::sequence<char>& s)
+```
+```c++
 inline unsigned int chars_to_uint(const parlay::sequence<char>& s)
+```
+```c++
 inline unsigned long chars_to_ulong(const parlay::sequence<char>& s)
+```
+```c++
 inline unsigned long long chars_to_ulong_long(const parlay::sequence<char>& s)
+```
+```c++
 inline float chars_to_float(const parlay::sequence<char>& s)
+```
+```c++
 inline double chars_to_double(const parlay::sequence<char>& s)
+```
+```c++
 inline long double chars_to_long_double(const parlay::sequence<char>& s)
 ```
 
