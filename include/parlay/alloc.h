@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <atomic>
 #include <iostream>
+#include <memory>
 #include <new>
 #include <optional>
 #include <stdexcept>
@@ -43,7 +44,7 @@ private:
   size_t max_size;
   std::atomic<long> large_allocated{0};
 
-  concurrent_stack<void*>* large_buckets;
+  std::unique_ptr<concurrent_stack<void*>[]> large_buckets;
   struct block_allocator *small_allocators;
   std::vector<size_t> sizes;
 
@@ -96,7 +97,6 @@ public:
       small_allocators[i].~block_allocator();
     ::operator delete(small_allocators, std::align_val_t{alignof(block_allocator)});
     clear();
-    delete[] large_buckets;
   }
 
   pool_allocator() {}
@@ -109,7 +109,7 @@ public:
       num_small++;
     max_small = (num_small > 0) ? sizes[num_small - 1] : 0;
 
-    large_buckets = new concurrent_stack<void*>[num_buckets-num_small];
+    large_buckets = std::make_unique<concurrent_stack<void*>[]>(num_buckets-num_small);
 
     small_allocators = (struct block_allocator*)
       ::operator new(num_buckets * sizeof(struct block_allocator), std::align_val_t{alignof(block_allocator)} );

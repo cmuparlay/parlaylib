@@ -6,13 +6,21 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}
     ${PARLAY_INCLUDE_DIR}/parlay
   FILES
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/file_map.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/work_stealing_job.h
+    ${PARLAY_INCLUDE_DIR}/parlay/alloc.h
     ${PARLAY_INCLUDE_DIR}/parlay/delayed_sequence.h
+    ${PARLAY_INCLUDE_DIR}/parlay/hash_table.h
+    ${PARLAY_INCLUDE_DIR}/parlay/io.h
+    ${PARLAY_INCLUDE_DIR}/parlay/monoid.h
     ${PARLAY_INCLUDE_DIR}/parlay/parallel.h
+    ${PARLAY_INCLUDE_DIR}/parlay/primitives.h
+    ${PARLAY_INCLUDE_DIR}/parlay/random.h
     ${PARLAY_INCLUDE_DIR}/parlay/range.h
     ${PARLAY_INCLUDE_DIR}/parlay/sequence.h
     ${PARLAY_INCLUDE_DIR}/parlay/scheduler.h
     ${PARLAY_INCLUDE_DIR}/parlay/slice.h
+    ${PARLAY_INCLUDE_DIR}/parlay/utilities.h
   IGNORE_DEFINITIONS
     PARLAY_CILK
     BSD
@@ -22,6 +30,8 @@ configure_danalysis(
     __unix
     unix
     _WIN32
+    __WIN32__
+    WIN32
     __CYGWIN__
     __CYGWIN32__
     HW_MEMSIZE

@@ -56,7 +56,7 @@ jobs:
       - cd build
       - CC=gcc-9 CXX=g++-9 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_TEST_OMP=On -DPARLAY_TEST_TBB=On -DPARLAY_BENCHMARK=On ..
       - make
-      - ctest --no-tests=error
+      - ctest --no-tests=error --output-on-failure
       
     # Test that the project builds and tests successfully with Clang
     - stage: test
@@ -66,7 +66,7 @@ jobs:
       - cd build
       - CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_TEST_OMP=On -DPARLAY_TEST_TBB=On -DPARLAY_BENCHMARK=On ..
       - make
-      - ctest --no-tests=error
+      - ctest --no-tests=error --output-on-failure
       
     # Test that the project builds and tests successfully with Clang using libc++
     - stage: test
@@ -76,7 +76,7 @@ jobs:
       - cd build
       - CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DUSE_LIBCXX=On -DPARLAY_TEST_OMP=On -DPARLAY_TEST_TBB=On -DPARLAY_BENCHMARK=On ..
       - make
-      - ctest --no-tests=error
+      - ctest --no-tests=error --output-on-failure
       
     # Test that the project builds and tests successfully with GCC 7 (with Cilk support)
     - stage: test
@@ -86,7 +86,7 @@ jobs:
       - cd build
       - CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_TEST_CILK=On ..
       - make
-      - ctest --no-tests=error
+      - ctest --no-tests=error --output-on-failure
       
     # Test that the project builds and tests successfully on OSX with GCC
     - stage: test
@@ -98,7 +98,7 @@ jobs:
       - cd build
       - CXX=g++-9 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On ..
       - make
-      - ctest --no-tests=error
+      - ctest --no-tests=error --output-on-failure
       
     # Test that the project builds and tests successfully on OSX with Apple Clang
     - stage: test
@@ -110,7 +110,7 @@ jobs:
       - cd build
       - cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On ..
       - make
-      - ctest --no-tests=error
+      - ctest --no-tests=error --output-on-failure
 
     # -------------------------------------------------------------------------
     #                            ANALYSIS STAGE
@@ -181,7 +181,7 @@ jobs:
       - cd build
       - CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN_TESTS=On -DUSE_LIBCXX=On ..
       - make
-      - ctest --no-tests=error -R -asan
+      - ctest --no-tests=error --output-on-failure -R -asan 
       
     # Run the tests with UndefinedBehaviorSanitizer instrumentation  
     - stage: sanitize
@@ -191,7 +191,7 @@ jobs:
       - cd build
       - CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_UBSAN_TESTS=On -DUSE_LIBCXX=On ..
       - make
-      - ctest --no-tests=error -R -ubsan
+      - ctest --no-tests=error --output-on-failure -R -ubsan
 
 
     # -------------------------------------------------------------------------

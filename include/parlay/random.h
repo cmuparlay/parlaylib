@@ -2,6 +2,17 @@
 #ifndef PARLAY_RANDOM_H_
 #define PARLAY_RANDOM_H_
 
+#include <cstddef>
+#include <cstdint>
+
+#include <tuple>
+#include <type_traits>
+
+#include "delayed_sequence.h"
+#include "parallel.h"
+#include "range.h"
+#include "sequence.h"
+#include "slice.h"
 #include "utilities.h"
 
 #include "internal/counting_sort.h"

@@ -2,15 +2,15 @@
 #ifndef PARLAY_UTILITIES_H_
 #define PARLAY_UTILITIES_H_
 
-#include <cctype>
+#include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
-#include <cstring>
 
 #include <atomic>
-#include <iostream>
-#include <memory>
+#include <new>
 #include <type_traits>
+#include <utility>
 
 #include "parallel.h"
 
@@ -72,14 +72,14 @@ inline void assign_uninitialized(T& a, const T& b) {
 }
 
 template <typename T>
-inline void assign_uninitialized(T& a, T&& b) {
+inline auto assign_uninitialized(T& a, T&& b) -> typename std::enable_if_t<std::is_rvalue_reference_v<T&&>> {
 #ifdef PARLAY_DEBUG_UNINITIALIZED
   if constexpr (std::is_same_v<T, debug_uninitialized>) {
     // Ensure that a is uninitialized
     assert(a.x == -1 && "Assigning to initialized memory with assign_uninitialized");
   }
 #endif  // PARLAY_DEBUG_UNINITIALIZED
-  new (static_cast<T*>(std::addressof(a))) T(std::move(b));
+  new (static_cast<T*>(std::addressof(a))) T(std::move(b));  // NOLINT: b is guaranteed to be an rvalue reference
 }
 
 template <typename T>
@@ -118,7 +118,7 @@ inline uint32_t hash32_3(uint32_t a) {
   z *= 0x85ebca6b;
   z ^= z >> 13;
   z *= 0xc2b2ae3d;  // 0xc2b2ae35 for murmur3
-  return z ^= z >> 16;
+  return z ^ (z >> 16);
 }
 
 // from numerical recipes
@@ -188,7 +188,7 @@ size_t log2_up(T i) {
 }
 
 inline size_t granularity(size_t n) {
-  return (n > 100) ? ceil(pow(n, 0.5)) : 100;
+  return (n > 100) ? static_cast<size_t>(ceil(pow(n, 0.5))) : 100;
 }
 
 /* For inplace sorting / merging, we need to move values around

@@ -2,10 +2,16 @@
 #ifndef PARLAY_HASH_TABLE_H_
 #define PARLAY_HASH_TABLE_H_
 
+#include <cstddef>
+
 #include <atomic>
 #include <iostream>
 
+#include "delayed_sequence.h"
+#include "monoid.h"
+#include "parallel.h"
 #include "sequence.h"
+#include "slice.h"
 #include "utilities.h"
 
 #include "internal/sequence_ops.h"
@@ -58,7 +64,7 @@ class hashtable {
   // Size is the maximum number of values the hash table will hold.
   // Overfilling the table could put it into an infinite loop.
   hashtable(size_t size, HASH hashF, float load = 1.5)
-    : m(((size_t)100.0 + load * size)),
+    : m(100 + static_cast<size_t>(load * size)),
       empty(hashF.empty()),
       hashStruct(hashF),
       TA(sequence<eType>(m, empty)) {

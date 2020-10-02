@@ -515,3 +515,98 @@ TEST(TestPrimitives, TestFlatten) {
   ASSERT_EQ(seq.size(), 100000);
   ASSERT_EQ(seq, answer);
 }
+
+TEST(TestPrimitives, TestTokens) {
+  auto chars = parlay::to_sequence(std::string(" The quick\tbrown fox jumped over  the lazy\ndog "));
+  auto words = parlay::sequence<parlay::sequence<char>> {
+    parlay::to_sequence(std::string("The")),
+    parlay::to_sequence(std::string("quick")),
+    parlay::to_sequence(std::string("brown")),
+    parlay::to_sequence(std::string("fox")),
+    parlay::to_sequence(std::string("jumped")),
+    parlay::to_sequence(std::string("over")),
+    parlay::to_sequence(std::string("the")),
+    parlay::to_sequence(std::string("lazy")),
+    parlay::to_sequence(std::string("dog"))
+  };
+  auto tokens = parlay::tokens(chars);
+  ASSERT_EQ(words, tokens);
+}
+
+TEST(TestPrimitives, TestMapTokens) {
+  auto chars = parlay::to_sequence(std::string(" The quick\tbrown fox jumped over  the lazy\ndog "));
+  auto words = parlay::sequence<parlay::sequence<char>> {
+    parlay::to_sequence(std::string("The")),
+    parlay::to_sequence(std::string("quick")),
+    parlay::to_sequence(std::string("brown")),
+    parlay::to_sequence(std::string("fox")),
+    parlay::to_sequence(std::string("jumped")),
+    parlay::to_sequence(std::string("over")),
+    parlay::to_sequence(std::string("the")),
+    parlay::to_sequence(std::string("lazy")),
+    parlay::to_sequence(std::string("dog"))
+  };
+  auto lengths = parlay::map_tokens(chars, [](auto token) { return token.size(); });
+  auto real_lengths = parlay::map(words, [](auto word) { return word.size(); });
+  
+  ASSERT_EQ(lengths, real_lengths);
+}
+
+TEST(TestPrimitives, TestMapTokensVoid) {
+  auto chars = parlay::to_sequence(std::string(" The quick\tbrown fox jumped over  the lazy\ndog "));
+  auto words = parlay::sequence<parlay::sequence<char>> {
+    parlay::to_sequence(std::string("The")),
+    parlay::to_sequence(std::string("quick")),
+    parlay::to_sequence(std::string("brown")),
+    parlay::to_sequence(std::string("fox")),
+    parlay::to_sequence(std::string("jumped")),
+    parlay::to_sequence(std::string("over")),
+    parlay::to_sequence(std::string("the")),
+    parlay::to_sequence(std::string("lazy")),
+    parlay::to_sequence(std::string("dog"))
+  };
+  
+  std::array<std::atomic<size_t>, 10> lengths;
+  for (size_t l = 0; l < 10; l++) {
+    lengths[l].store(0);
+  }
+  
+  parlay::map_tokens(chars, [&lengths](auto token) -> void {
+    lengths[token.size()].fetch_add(1);
+  });
+  
+  auto real_lengths = parlay::map(words, [](auto word) { return word.size(); });
+  
+  for (size_t l = 0; l < 10; l++) {
+    ASSERT_EQ(lengths[l], parlay::count(real_lengths, l));
+  }
+}
+
+TEST(TestPrimitives, TestSplitAt) {
+  auto seq = parlay::tabulate(999999, [](int i) { return i; });
+  auto seqs = parlay::split_at(seq, parlay::delayed_seq<bool>(999999, [&](int i) -> int {
+    return i % 1000 == 0;
+  }));
+  
+  auto ans = parlay::tabulate(1000, [](int i) -> parlay::sequence<int> {
+    if (i == 0) return {};
+    else return parlay::tabulate(999, [=](int j) -> int { return 1000 * (i - 1) + j + 1; });
+  });
+  
+  ASSERT_EQ(seqs, ans);
+}
+
+TEST(TestPrimitives, TestMapSplitAt) {
+  auto seq = parlay::tabulate(999999, [](int i) { return i; });
+  auto map_reduces = parlay::map_split_at(seq,
+    parlay::delayed_seq<bool>(999999, [&](int i) -> int { return i % 1000 == 0; }),
+    [](const auto& s) { return parlay::reduce(s); });
+  
+  auto splits = parlay::tabulate(1000, [](int i) -> parlay::sequence<int> {
+    if (i == 0) return {};
+    else return parlay::tabulate(999, [=](int j) -> int { return 1000 * (i - 1) + j + 1; });
+  });
+  auto answer = parlay::map(splits, [](const auto& s) { return parlay::reduce(s); });
+  
+  ASSERT_EQ(map_reduces, answer);
+}

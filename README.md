@@ -18,11 +18,12 @@ This documentation is a work in progress and is not yet fully complete.
     + [Installing and including manually](#installing-and-including-manually)
     + [The old fashioned way](#the-old-fashioned-way)
 - [Developer documentation](#developer-documentation)
-- [Using Parlay with Cilk, OpenMP, or TBB](#using-parlay-with-cilk--openmp--or-tbb)
+- [Using Parlay with Cilk, OpenMP, or TBB](#using-parlay-with-cilk-openmp-or-tbb)
 - [Features](#features)
-  * [Ranges](#ranges)
-  * [Parallel scheduler](#parallel-scheduler)
+  * [Parallel scheduling](#parallel-scheduling)
   * [Data structures](#data-structures)
+    + [The Range concept](#the-range-concept)
+    + [Slice](#slice)
     + [Sequence](#sequence)
     + [Delayed Sequence](#delayed-sequence)
     + [Phase-concurrent Hashtable](#phase-concurrent-hashtable)
@@ -40,7 +41,7 @@ This documentation is a work in progress and is not yet fully complete.
     + [Integer Sort](#integer-sort)
     + [For each](#for-each)
     + [Count](#count)
-    + [All of, any of, none of](#all-of--any-of--none-of)
+    + [All of, any of, none of](#all-of-any-of-none-of)
     + [Find](#find)
     + [Adjacent find](#adjacent-find)
     + [Mismatch](#mismatch)
@@ -57,7 +58,14 @@ This documentation is a work in progress and is not yet fully complete.
     + [Remove](#remove)
     + [Iota](#iota)
     + [Flatten](#flatten)
+    + [Tokens](#tokens)
+    + [Split](#split)
+  * [I/O, Parsing, and Formatting](#io-parsing-and-formatting)
+    + [Reading and writing files](#reading-and-writing-files)
+    + [Writing character sequences to streams](#writing-character-sequences-to-streams)
+    + [Parsing](#parsing)
   * [Memory Allocator](#memory-allocator)
+   
 
 
 
@@ -127,13 +135,10 @@ Parlay includes a number of pieces that can be used together or individually. At
 * A parallel scheduler
 * A scalable memory allocator
 
-## Ranges
 
-Many of Parlays primitive are designed around the *range* concept. Essentially, a range in Parlay is any type that supports `std::begin(r)` and `std::end(r)`, such that `std::begin(r)` returns a random access iterator, and ``std::end(r) - std::begin(r)`` denotes the size of the range. In other words, it is any type that can be used as a finite-length random access sequence. This is satisfied by `std::vector`, and by Parlays own `parlay::sequence`, and many other types.
+## Parallel scheduling
 
-If compiled with a recent compiler that supports C++ concepts, Parlay will check that ranges used in its primitives satisfy these requirements at compile time.
-
-## Parallel scheduler
+<small>**Usage: `#include <parlay/parallel.h>`**</small>
 
 Parlay offers an interface for fork-join parallelism in the form of a fork operation, and a parallel for loop.
 
@@ -172,7 +177,77 @@ parlay::parallel_for(0, 100000, [&](size_t i) {
 
 ## Data structures
 
+### The Range concept
+
+<small>**Usage: `#include <parlay/range.h>`**</small>
+
+Many of Parlays primitive are designed around the *range* concept. Essentially, a range in Parlay is any type that supports `std::begin(r)` and `std::end(r)`, such that `std::begin(r)` returns a random access iterator, and ``std::end(r) - std::begin(r)`` denotes the size of the range. In other words, it is any type that can be used as a finite-length random access sequence. It is meant to be a close approximation to the C++20 standarized concepts `std::ranges::random_access_range && std::ranges::sized_range` The concept is satisfied by `std::vector`, and by Parlays own `parlay::sequence`, and many other types.
+
+If compiled with a recent compiler that supports C++ concepts, Parlay will check that ranges used in its primitives satisfy these requirements at compile time.
+
+### Slice
+
+<small>**Usage: `#include <parlay/slice.h>`**</small>
+
+```c++
+template <
+    typename It,
+    typename S
+> struct slice
+```
+
+A **slice** is a non-owning view of a iterator range. It represents a pair of iterators, and allows for conveniently traversing and accessing the elements of the corresponding iterator range.
+
+#### Template parameters
+
+* **It** is the type of the iterator representing the iterator range
+* **S** is the type of the sentinel that represents the end of the iterator range. This is almost always the same as **It**, but need not necessarily be,
+
+#### Constructors
+
+```c++
+slice(iterator s, sentinel e)
+```
+
+Construct a slice corresponding to the iterator range `[s, e)`.
+
+```c++
+slice(const slice<It,S>&)
+slice<It,S>& operator=(const slice<It,S>&)
+```
+
+The copy and move constructors simply copy or move the underlying iterators respectively.
+
+#### Member types
+
+Type | Definition
+---|---
+`iterator` | Equal to `It`
+`sentinel` | Equal to `S`
+`value_type` | Equal to `std::iterator_traits<iterator>::value_type`
+`reference` | Equal to `std::iterator_traits<iterator>::reference`
+
+#### Member functions
+
+Function | Description
+---|---
+`reference operator[](size_t i)` | Return a reference to the i'th element of the range
+`size_t size()` | Return the number of elements in the range
+`slice<It, It> cut(size_t ss, size_t ee)` | Return a slice corresponding to the elements from positions `ss` to `ee` in the range
+`iterator begin()` | Return the iterator to the beginning of the range
+`sentinel end()` | Return the sentinel iterator that denotes the end of the range
+
+#### Non-member functions
+
+Function | Description
+---|---
+`bool operator==(slice<It, S> s1, slice<It, S> s2)` | Returns true if the given slices refer to the same iterator range
+
+Note that `operator==` is only well defined when the two slices refer to iterator ranges that are subranges of a common range. Comparing iterators from different containers is undefined behavior.
+
 ### Sequence
+
+<small>**Usage: `#include <parlay/sequence.h>`**</small>
 
 ```c++
 template <
@@ -371,6 +446,8 @@ Return a sequence consisting of copies of the elements of the iterable range `r`
 
 ### Delayed Sequence
 
+<small>**Usage: `#include <parlay/delayed_sequence.h>`**</small>
+
 ```c++
 template<
   typename T,
@@ -463,6 +540,8 @@ Function | Description
 
 ### Phase-concurrent Hashtable
 
+<small>**Usage: `#include <parlay/hash_table.h>`**</small>
+
 A phase-concurrent hashtable allows for concurrent insertions, concurrent searches, and concurrent deletions, but does not permit mixing insertions, searching, and deletion concurrently.
 
 ```c++
@@ -473,6 +552,8 @@ table.deleteVal(5);
 ```
 
 ## Parallel algorithms
+
+<small>**Usage: `#include <parlay/primitives.h>`**</small>
 
 ### Tabulate
 
@@ -984,7 +1065,96 @@ auto flatten(const R& r)
 
 **flatten** takes a range of ranges and returns a single sequence consisting of the concatenation of each of the underlying ranges.
 
+### Tokens
+
+```c++
+template <parlay::Range R, typename UnaryPred = decltype(parlay::is_whitespace)>
+sequence<sequence<char>> tokens(const R& r, UnaryPred is_space = parlay::is_whitespace)
+
+template <parlay::Range R, typename UnaryOp,
+          typename UnaryPred =  decltype(parlay::is_whitespace)>
+auto map_tokens(const R& r, UnaryOp f, UnaryPred is_space = parlay::is_whitespace)
+```
+
+**tokens** splits the given character sequence into "words", which are the maximal contiguous subsequences that do not contain any whitespace characters. Optionally, a custom criteria for determining the delimiters (whitespace by default) can be given. For example, to split a sequence at occurrences of commas, one could provide a value of `[](char c) { return c == ','; }` for `is_space`.
+
+**map_tokens** splits the given character sequence into words in the same manner, but instead of returning a sequence of all the words, it applies the given unary function `f` to every token. More specifically, `f` must be a function object that can take a `slice` of `value_type` equal to `char`. If `f` is a void function, i.e. returns nothing, then `map_tokens` returns nothing. Otherwise, if `f` returns values of type `T`, the result of `map_tokens` is a sequence of type `T` consisting of the results of evaluating `f` on each token. For example, to compute a sequence that contains the lengths of all of the words in a given input sequence, one could write
+
+```c++
+auto word_sizes = parlay::map_tokens(my_char_sequence, [](auto token) { return token.size(); });
+```
+
+In essence, `map_tokens` is just equivalent to `parlay::map(parlay::tokens(r), f)`, but is more efficient, because it avoids copying the tokens into new memory, and instead, applies the function `f` directly to the tokens in the original sequence.
+
+### Split
+
+```c++
+template <parlay::Range R, parlay::Range BoolRange>
+auto split_at(const R& r, const BoolRange& flags)
+
+template <parlay::Range R, parlay::Range BoolRange, typename UnaryOp>
+auto map_split_at(const R& r, const BoolRange& flags, UnaryOp f)
+```
+
+**split_at** splits the given sequence into contiguous subsequences. Specifically, the subsequences are the maximal contiguous subsequences between positions such that the corresponding element in `flags` is true. This means that the number of subsequences is always one greater than the number of true flags. Also note that if there are adjacent true flags, the result can contain empty subsequences. The elements at positions corresponding to true flags are not themselves included in any subsequence.
+
+**map_split_at** similarly splits the given sequence into contiguous subsequences, but instead of returning these subsequences, it applies the given unary function `f` to each one. Specifically, `f` must be a function object that can take a slice of the input sequence. If `f` is a void function (i.e. returns nothing), then `map_split_at` returns nothing. Otherwise, `map_split_at` returns a sequence consisting of the results of applying `f` to each of the contiguous subsequences of `r`.
+
+`map_split_at` is essentially equivalent to `parlay::map(parlay::split_at(r, flags), f)`, but is more efficient because the subsequences do not have to be copied into new memory, but are instead acted upon by `f` in place.
+
+## I/O, Parsing, and Formatting
+
+<small>**Usage: `#include <parlay/io.h>`**</small>
+
+Parlay includes some convenient tools for file input and output in terms of `parlay::sequence<char>`, as well as tools for converting to and from `parlay::sequence<char>` and primitive types.
+
+### Reading and writing files
+
+```c++
+inline parlay::sequence<char> chars_from_file(const std::string& filename,
+    bool null_terminate, size_t start=0, size_t end=0)
+
+inline void chars_to_file(const parlay::sequence<char>& S,
+    const std::string& filename)
+```
+
+**chars_from_file** reads the contents of a local file into a character sequence. If `null_terminate` is true, the sequence will be ended by a null terminator (`\0`) character. This is only required for compatability with C APIs and otherwise isn't necessary. To read a particular portion of a file rather than its entirety, the parameters `start` and `end` can specify the positions of the first and last character to read. If `start` or `end` is zero, the file is read from to beginning and/or to the end respectively.
+
+**chars_to_file** writes the given character sequence to the local file with the given name. If a file with the given name already exists, it will be overwritten.
+
+### Writing character sequences to streams
+
+```c++
+inline void chars_to_stream(const sequence<char>& S, std::ostream& os)
+
+inline std::ostream& operator<<(std::ostream& os, const sequence<char>& s)
+```
+
+Character sequences can also be written to standard streams, i.e. types deriving from `std::ostream`. They support the standard `operator<<`, as well as a method **chars_to_stream**, which takes a character sequence and a stream, and writes the given characters to the stream.
+
+### Parsing
+
+Parlay has some rudimentary support for converting to/from character sequences and primitive types. Currently, none of these methods perform any error handling, so their behavior is unspecified if attempting to convert between inappropriate types.
+
+```c++
+inline int chars_to_int(const parlay::sequence<char>& s)
+inline long chars_to_long(const parlay::sequence<char>& s)
+inline long long chars_to_long_long(const parlay::sequence<char>& s)
+inline unsigned int chars_to_uint(const parlay::sequence<char>& s)
+inline unsigned long chars_to_ulong(const parlay::sequence<char>& s)
+inline unsigned long long chars_to_ulong_long(const parlay::sequence<char>& s)
+inline float chars_to_float(const parlay::sequence<char>& s)
+inline double chars_to_double(const parlay::sequence<char>& s)
+inline long double chars_to_long_double(const parlay::sequence<char>& s)
+```
+
+**chars_to_int** attempts to interpret a signed integer value from the given character sequence. Similarly, **chars_to_uint** attempts to interpret an unsigned integer value, and **chars_to_double** attempts to interpret a `double`. The other listed methods do what you would expect given their name.
+
+
+
 ## Memory Allocator
+
+<small>**Usage: `#include <parlay/alloc.h>`**</small>
 
 Parlay's memory allocator can be used a C++ allocator for a container, for example, for `std::vector`, and for parlays own `parlay::sequence`.
 

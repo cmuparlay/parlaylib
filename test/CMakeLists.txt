@@ -23,6 +23,18 @@ add_dtests(NAME test_integer_sort FILES test_integer_sort.cpp LIBS parlay)
 add_dtests(NAME test_primitives FILES test_primitives.cpp LIBS parlay)
 add_dtests(NAME test_random FILES test_random.cpp LIBS parlay)
 
+# -------------------------------- IO ---------------------------------
+
+add_dtests(NAME test_io FILES test_io.cpp LIBS parlay)
+add_dtests(NAME test_file_map FILES test_file_map.cpp LIBS parlay)
+add_dtests(NAME test_file_map_fallback FILES test_file_map.cpp LIBS parlay FLAGS "-DPARLAY_USE_FALLBACK_FILE_MAP")
+
+# -------------------------------- Parsing ---------------------------------
+
+if(NOT WSL)
+  add_dtests(NAME test_parsing FILES test_parsing.cpp LIBS parlay)
+endif()
+
 # ----------------------------- Parlay Scheduling ------------------------------
 
 add_dtests(NAME test_scheduler FILES test_scheduler.cpp LIBS parlay)

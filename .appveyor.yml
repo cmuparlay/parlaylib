@@ -44,7 +44,7 @@ for:
         cd build
         cmake -G $env:generator -A x64 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG=" /bigobj " -DPARLAY_TEST=On ..
         cmake --build .
-        ctest -C Debug --no-tests=error
+        ctest -C Debug --no-tests=error --output-on-failure
   
   -
     matrix:
@@ -58,7 +58,7 @@ for:
         $env:path += ";$env:cxx_path"
         cmake -G $env:generator -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On ..
         cmake --build .
-        ctest -C Debug --no-tests=error
+        ctest -C Debug --no-tests=error --output-on-failure
 
   -
     matrix:
@@ -71,7 +71,7 @@ for:
     - '%CYG_BASH% -lc "cd $APPVEYOR_BUILD_FOLDER; mkdir build"'
     - '%CYG_BASH% -lc "cd $APPVEYOR_BUILD_FOLDER/build; CXX=g++ cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On .."'
     - '%CYG_BASH% -lc "cd $APPVEYOR_BUILD_FOLDER/build; make"'
-    - '%CYG_BASH% -lc "cd $APPVEYOR_BUILD_FOLDER/build; ctest -C Debug --no-tests=error"'
+    - '%CYG_BASH% -lc "cd $APPVEYOR_BUILD_FOLDER/build; ctest -C Debug --no-tests=error --output-on-failure"'
 
   -
     matrix:
@@ -84,7 +84,7 @@ for:
     - '%CYG_BASH% -lc "cd $APPVEYOR_BUILD_FOLDER; mkdir build"'
     - '%CYG_BASH% -lc "cd $APPVEYOR_BUILD_FOLDER/build; CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On .."'
     - '%CYG_BASH% -lc "cd $APPVEYOR_BUILD_FOLDER/build; make"'
-    - '%CYG_BASH% -lc "cd $APPVEYOR_BUILD_FOLDER/build; ctest -C Debug --no-tests=error"'
+    - '%CYG_BASH% -lc "cd $APPVEYOR_BUILD_FOLDER/build; ctest -C Debug --no-tests=error --output-on-failure"'
     
   -
     matrix:
@@ -101,9 +101,9 @@ for:
     - ps: |
         md build
         cd build
-        wsl CC=gcc-9 CXX=g++-9 ../cmake-3.18.2-Linux-x86_64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On ..
+        wsl CC=gcc-9 CXX=g++-9 ../cmake-3.18.2-Linux-x86_64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DWSL=True ..
         wsl make
-        wsl ../cmake-3.18.2-Linux-x86_64/bin/ctest -C Debug --no-tests=error
+        wsl ../cmake-3.18.2-Linux-x86_64/bin/ctest -C Debug --no-tests=error --output-on-failure
         
   -
     matrix:
@@ -120,6 +120,6 @@ for:
     - ps: |
         md build
         cd build
-        wsl CC=clang-10 CXX=clang++-10 ../cmake-3.18.2-Linux-x86_64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On ..
+        wsl CC=clang-10 CXX=clang++-10 ../cmake-3.18.2-Linux-x86_64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DWSL=True ..
         wsl make
-        wsl ../cmake-3.18.2-Linux-x86_64/bin/ctest -C Debug --no-tests=error
+        wsl ../cmake-3.18.2-Linux-x86_64/bin/ctest -C Debug --no-tests=error --output-on-failure

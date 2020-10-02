@@ -2,9 +2,13 @@
 #ifndef PARLAY_MONOID_H_
 #define PARLAY_MONOID_H_
 
+#include <cstddef>
+
+#include <algorithm>    // IWYU pragma: keep
 #include <array>
+#include <iterator>
 #include <limits>
-#include <tuple>
+#include <utility>
 
 // Definition of various monoids
 // each consists of:

@@ -1110,13 +1110,7 @@ class sequence : protected _sequence_base<T, Allocator> {
 // Convert an arbitrary range into a sequence
 template<typename R>
 inline auto to_sequence(R&& r) -> sequence<range_value_type_t<R>> {
-  if constexpr (std::is_lvalue_reference<R>::value) {
-    return {std::begin(r), std::end(r)};
-  }
-  else {
-    return {std::make_move_iterator(std::begin(r)),
-            std::make_move_iterator(std::end(r))};
-  }
+  return {std::begin(r), std::end(r)};
 }
 
 }  // namespace parlay

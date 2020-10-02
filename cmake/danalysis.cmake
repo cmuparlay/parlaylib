@@ -49,6 +49,7 @@ function(CONFIGURE_DANALYSIS)
         "--inline-suppr"
         "--suppressions-list=${CMAKE_SOURCE_DIR}/.cppcheck-suppress"
         "--language=c++"
+        "--force"
         "${CONFIGURE_DANALYSIS_IGNORE_DEFINITIONS}"
       )
 

@@ -2,15 +2,31 @@
 #ifndef PARLAY_PRIMITIVES_H_
 #define PARLAY_PRIMITIVES_H_
 
+#include <cassert>
+#include <cstddef>
+#include <cctype>
+
+#include <algorithm>
+#include <atomic>
+#include <functional>
+#include <type_traits>
+#include <utility>
+
 #include "internal/collect_reduce.h"
 #include "internal/integer_sort.h"
-#include "internal/sequence_ops.h"
+#include "internal/merge.h"
+#include "internal/merge_sort.h"
+#include "internal/sequence_ops.h"     // IWYU pragma: export
 #include "internal/sample_sort.h"
+#include "internal/quicksort.h"
 
+#include "delayed_sequence.h"
 #include "monoid.h"
+#include "parallel.h"
 #include "range.h"
 #include "sequence.h"
 #include "slice.h"
+#include "utilities.h"
 
 namespace parlay {
 
@@ -286,11 +302,6 @@ void stable_sort_inplace(R&& in) {
 
 // Note: There is currently no stable integer sort.
 
-// For now, integer_sort makes a copy and then calls
-// integer_sort_inplace. Calling internal::integer_sort
-// directly currently has const correctness bugs.
-// TODO: Fix these bugs
-
 template<PARLAY_RANGE_TYPE R>
 auto integer_sort(const R& in) {
   return internal::integer_sort(make_slice(in), [](auto x) { return x; }); 
@@ -365,13 +376,13 @@ void for_each(R&& r , UnaryFunction f) {
 
 template <PARLAY_RANGE_TYPE R, typename UnaryPredicate>
 size_t count_if(const R& r, UnaryPredicate p) {
-  return count_if_index(parlay::size(r),
+  return internal::count_if_index(parlay::size(r),
     [&p, it = std::begin(r)](size_t i) { return p(it[i]); });
 }
 
 template <PARLAY_RANGE_TYPE R, class T>
 size_t count(const R& r, T const &value) {
-  return count_if_index(parlay::size(r),
+  return internal::count_if_index(parlay::size(r),
     [&value, it = std::begin(r)](size_t i)
       { return it[i] == value; });
 }
@@ -692,6 +703,107 @@ auto flatten(const R& r) {
      );
   });
   return res;
+}
+
+
+/* -------------------- Tokens and split -------------------- */
+
+// Return true if the given character is considered whitespace.
+// Whitespace characters are ' ', '\f', '\n', '\r'. '\t'. '\v'.
+bool inline is_whitespace(unsigned char c) {
+  return std::isspace(c);
+}
+
+// Apply the given function f to each token of the given range.
+//
+// This is essentially equivalent to parlay::map(parlay::tokens(
+//
+// The tokens are the longest contiguous subsequences of non space characters.
+// where spaces are define by the unary predicate is_space. By default, is_space
+// correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
+//
+// If f has no return value (i.e. void), this function returns nothing. Otherwise,
+// this function returns a sequence consisting of the returned values of f for
+// each token.
+template <PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
+auto map_tokens(const R& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
+  using f_return_type = decltype(f(make_slice(r)));
+
+  auto S = make_slice(r);
+  size_t n = S.size();
+
+  if (n == 0) {
+    if constexpr (std::is_same_v<f_return_type, void>) {
+      return;
+    }
+    else {
+      return sequence<f_return_type>();
+    }
+  }
+  
+  auto Flags = sequence<bool>::uninitialized(n+1);
+
+  parallel_for(1, n, [&] (long i) {
+    Flags[i] = is_space(S[i-1]) != is_space(S[i]);
+  }, 10000);
+    
+  Flags[0] = !is_space(S[0]);
+  Flags[n] = !is_space(S[n-1]);
+
+  sequence<long> Locations = pack_index<long>(Flags);
+  
+  // If f does not return anything, just apply f
+  // to each token and don't return anything
+  if constexpr (std::is_same_v<f_return_type, void>) {
+    parallel_for(0, Locations.size()/2, [&](size_t i) {
+      f(S.cut(Locations[2*i], Locations[2*i+1]));
+    });
+  }
+  // If f does return something, apply f to each token 
+  // and return a sequence of the resulting values
+  else {
+    return tabulate(Locations.size()/2, [&] (size_t i) {
+      return f(S.cut(Locations[2*i], Locations[2*i+1]));});
+  }
+}
+
+// Returns a sequence of tokens, each represented as a sequence of chars.
+// The tokens are the longest contiguous subsequences of non space characters.
+// where spaces are define by the unary predicate is_space. By default, is_space
+// correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
+template <PARLAY_RANGE_TYPE Range, typename UnaryPred = decltype(is_whitespace)>
+sequence<sequence<char>> tokens(const Range& R, UnaryPred is_space = is_whitespace) {
+  return map_tokens(R, [] (auto x) { return to_sequence(x); }, is_space);
+}
+
+// Returns a sequence of contiguous subsequences of R, each
+// of which is delimited by positions in the sequence i such that flags[i]
+// is (or converts to) true. There will always be one more subsequence than
+// number of true flags.
+template <PARLAY_RANGE_TYPE Range, PARLAY_RANGE_TYPE BoolRange>
+auto split_at(const Range& R, const BoolRange& flags) {
+  static_assert(std::is_convertible_v<range_value_type_t<BoolRange>, bool>);
+  return map_split_at(R, flags, [] (auto x) {return to_sequence(x);});
+}
+
+// Applies the given function f to each of the contiguous subsequences
+// of R delimited by positions i such that flags[i] is (or converts to)
+// true.
+template <PARLAY_RANGE_TYPE Range, PARLAY_RANGE_TYPE BoolRange, typename UnaryOp>
+auto map_split_at(const Range& R, const BoolRange& flags, UnaryOp f) {
+  static_assert(std::is_convertible_v<range_value_type_t<BoolRange>, bool>);
+  
+  auto S = make_slice(R);
+  auto Flags = make_slice(flags);
+  size_t n = S.size();
+  assert(Flags.size() == n);
+
+  sequence<size_t> Locations = pack_index<size_t>(Flags);
+
+  return tabulate(Locations.size(), [&] (size_t i) {
+    size_t start = (i==0) ? 0 : Locations[i-1] + 1;
+    size_t end = (i==n) ? n : Locations[i];
+    return f(S.cut(start, end)); });
 }
 
 /* -------------------- Other Utilities -------------------- */

@@ -289,8 +289,8 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
   
   size_t n = A.size();
 
-  if (false) {
-    auto cmp = [&] (T a, T b) { return false;}; // neeed to fix
+  if constexpr (false) {
+    auto cmp = [&] (T, T) { return false;}; // neeed to fix
     sequence<T> B = sample_sort(A, cmp);
     sequence<result_type> R(n);
     size_t j = 0;
