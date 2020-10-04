@@ -40,10 +40,10 @@ class file_map {
       
       struct stat sb;
       int fd = open(filename.c_str(), O_RDONLY);
-      
       assert(fd != -1);
-      assert(fstat(fd, &sb) != -1);
-      assert(S_ISREG (sb.st_mode));
+      [[maybe_unused]] auto fstat_res = fstat(fd, &sb);
+      assert(fstat_res != -1);
+      assert(S_ISREG(sb.st_mode));
     
       char *p = static_cast<char*>(mmap(0, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
       assert(p != MAP_FAILED);
