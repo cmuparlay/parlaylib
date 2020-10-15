@@ -25,14 +25,14 @@ struct random {
  public:
   random(size_t seed) : state(seed){};
   random() : state(0){};
-  random fork(uint64_t i) const { return random(hash64(hash64(i + state))); }
+  random fork(uint64_t i) const { return random(static_cast<size_t>(hash64(hash64(i + state)))); }
   random next() const { return fork(0); }
-  size_t ith_rand(uint64_t i) const { return hash64(i + state); }
+  size_t ith_rand(uint64_t i) const { return static_cast<size_t>(hash64(i + state)); }
   size_t operator[](size_t i) const { return ith_rand(i); }
   size_t rand() { return ith_rand(0); }
 
  private:
-  uint64_t state = 0;
+  size_t state = 0;
 };
 
 namespace internal {
@@ -69,7 +69,7 @@ void random_shuffle_(slice<InIterator, InIterator> In,
     bits = (log2_up(n) - 17);
   }
   
-  size_t num_buckets = (1<<bits);
+  size_t num_buckets = (size_t{1} << bits);
   size_t mask = num_buckets - 1;
   auto rand_pos = [&] (size_t i) -> size_t {
     return r.ith_rand(i) & mask;
@@ -118,7 +118,7 @@ auto random_shuffle(const R& In, random r = random()) {
 template <typename _Integer>
 sequence<_Integer> random_permutation(size_t n, random r = random()) {
   auto id = sequence<_Integer>::from_function(n,
-    [&] (size_t i) -> _Integer { return i; });
+    [&] (_Integer i) -> _Integer { return i; });
   return random_shuffle(id, r);
 }
 

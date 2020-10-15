@@ -162,8 +162,17 @@ class delayed_sequence {
         - static_cast<std::ptrdiff_t>(other.index);
     }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4267) // conversion from 'size_t' to *, possible loss of data
+#endif
+
     T operator[](size_t i) const { return parent->f(index + i); }
- 
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
    private:
 
     iterator(const delayed_sequence* _parent, size_t _index)
@@ -207,10 +216,19 @@ class delayed_sequence {
   const_reverse_iterator crend() const { return rend(); }
   
   // ---------------- Other operations --------------------
-  
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4267) // conversion from 'size_t' to *, possible loss of data
+#endif
+
   // Subscript access
   T operator[](size_t i) const { return f(i); }
-  
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
   // Subscript access with bounds checking
   T at(size_t i) const {
     if (i < first || i >= last) {

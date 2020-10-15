@@ -39,7 +39,7 @@ TEST(TestRange, TestArray) {
 }
 
 TEST(TestRange, TestDelayedSequence) {
-  PARLAY_RANGE a = parlay::delayed_seq<int>(10, [](size_t x) -> int { return x; });
+  PARLAY_RANGE a = parlay::delayed_seq<int>(10, [](int x) { return x; });
   ASSERT_EQ(a.size(), 10);
 }
 

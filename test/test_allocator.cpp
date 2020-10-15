@@ -7,17 +7,17 @@
 TEST(TestAllocator, TestParlayAllocator) {
   std::vector<int, parlay::allocator<int>> a;
   a.reserve(100000);
-  for (size_t i = 0; i < 100000; i++) {
+  for (int i = 0; i < 100000; i++) {
     a.push_back(i);
   }
-  for (size_t i = 0; i < 100000; i++) {
+  for (int i = 0; i < 100000; i++) {
     ASSERT_EQ(a[i], i);
   }
   a.clear();
-  for (size_t i = 0; i < 100000; i++) {
+  for (int i = 0; i < 100000; i++) {
     a.push_back(i);
   }
-  for (size_t i = 0; i < 100000; i++) {
+  for (int i = 0; i < 100000; i++) {
     ASSERT_EQ(a[i], i);
   }
 }
@@ -28,11 +28,11 @@ TEST(TestAllocator, TestTypeAllocator) {
   new (mem) std::vector<int>(100000);
   auto& a = *mem;
   a.reserve(100000);
-  for (size_t i = 0; i < 100000; i++) {
+  for (int i = 0; i < 100000; i++) {
     a.push_back(i);
   }
   a.clear();
-  for (size_t i = 0; i < 100000; i++) {
+  for (int i = 0; i < 100000; i++) {
     a.push_back(i);
   }
   a.~vector<int>();

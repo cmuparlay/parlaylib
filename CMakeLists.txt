@@ -16,18 +16,27 @@ include(GNUInstallDirs)
 # Set a default build type
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (Debug Release RelWithDebInfo MinSizeRel)" FORCE)
+  message(STATUS "No build type specified. Defaulted to DEBUG.")
+  message(STATUS "To specify a build type, add -DCMAKE_BUILD_TYPE=<DEBUG/RELEASE/RELWITHDEBINFO/MINSIZEREL>")
 endif(NOT CMAKE_BUILD_TYPE)
 
-message(STATUS "--------------- General configuration -------------")
-message(STATUS "CMake Generator:              ${CMAKE_GENERATOR}")
-message(STATUS "Compiler:                     ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
-message(STATUS "Build type:                   ${CMAKE_BUILD_TYPE}")
-message(STATUS "CMAKE_CXX_FLAGS:              ${CMAKE_CXX_FLAGS}")
-message(STATUS "CMAKE_EXE_LINKER_FLAGS        ${CMAKE_CXX_LINKER_FLAGS}")
-message(STATUS "CMAKE_INSTALL_PREFIX:         ${CMAKE_INSTALL_PREFIX}" )
-
 # Make sure -fno-omit-frame-pointer is set for profiling
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-omit-frame-pointer")
+if(NOT MSVC)
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-omit-frame-pointer")
+else()
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /Oy-")
+endif()
+
+message(STATUS "--------------- General configuration -------------")
+message(STATUS "CMake Generator:                ${CMAKE_GENERATOR}")
+message(STATUS "Compiler:                       ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "Build type:                     ${CMAKE_BUILD_TYPE}")
+message(STATUS "CMAKE_CXX_FLAGS:                ${CMAKE_CXX_FLAGS}")
+message(STATUS "CMAKE_CXX_FLAGS_DEBUG:          ${CMAKE_CXX_FLAGS_DEBUG}")
+message(STATUS "CMAKE_CXX_FLAGS_RELEASE:        ${CMAKE_CXX_FLAGS_RELEASE}")
+message(STATUS "CMAKE_CXX_FLAGS_RELWITHDEBINFO: ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+message(STATUS "CMAKE_EXE_LINKER_FLAGS          ${CMAKE_CXX_LINKER_FLAGS}")
+message(STATUS "CMAKE_INSTALL_PREFIX:           ${CMAKE_INSTALL_PREFIX}" )
 
 # Set module path
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
@@ -45,13 +54,6 @@ target_compile_features(parlay INTERFACE cxx_std_17)
 # Link against system threads
 find_package(Threads REQUIRED)
 target_link_libraries(parlay INTERFACE Threads::Threads)
-
-# Enable 16 byte CAS if available
-check_cxx_compiler_flag("-mcx16" MCX16_SUPPORTED)
-if (MCX16_SUPPORTED)
-  target_compile_definitions(parlay INTERFACE -DMCX16)
-  target_compile_options(parlay INTERFACE -mcx16)
-endif()
 
 # -------------------------------------------------------------------
 #                         Installation

@@ -24,7 +24,7 @@ TEST(TestPrimitives, TestMap) {
   auto s = parlay::tabulate(100000, [](long long i) -> long long {
     return (50021 * i + 61) % (1 << 20);
   });
-  auto m = parlay::map(s, [](int x) { return 3*x - 1; });
+  auto m = parlay::map(s, [](long long x) { return 3*x - 1; });
   ASSERT_EQ(m.size(), s.size());
   for (size_t i = 0; i < 10; i++) {
     ASSERT_EQ(m[i], 3*s[i] - 1);
@@ -35,7 +35,7 @@ TEST(TestPrimitives, TestDMap) {
   auto s = parlay::tabulate(100000, [](long long i) -> long long {
     return (50021 * i + 61) % (1 << 20);
   });
-  auto m = parlay::dmap(s, [](int x) { return 3*x - 1; });
+  auto m = parlay::dmap(s, [](long long x) { return 3*x - 1; });
   ASSERT_EQ(m.size(), s.size());
   for (size_t i = 0; i < 100000; i++) {
     ASSERT_EQ(m[i], 3*s[i] - 1);
@@ -256,7 +256,7 @@ TEST(TestPrimitives, TestHistogram) {
   ASSERT_EQ(hist.size(), 1 << 20);
   auto cnts = parlay::sequence<size_t>(1 << 20, 0);
   for (auto x : s) {
-    cnts[x]++;
+    cnts[static_cast<size_t>(x)]++;
   }
   ASSERT_TRUE(std::equal(hist.begin(), hist.end(), cnts.begin()));
 }
@@ -284,7 +284,7 @@ TEST(TestPrimitives, TestSortCustomCompare) {
 }
 
 TEST(TestPrimitives, TestStableSort) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;
@@ -298,7 +298,7 @@ TEST(TestPrimitives, TestStableSort) {
 }
 
 TEST(TestPrimitives, TestStableSortCustomCompare) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;
@@ -336,7 +336,7 @@ TEST(TestPrimitives, TestSortInplaceCustomCompare) {
 }
 
 TEST(TestPrimitives, TestStableSortInplace) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;
@@ -351,7 +351,7 @@ TEST(TestPrimitives, TestStableSortInplace) {
 }
 
 TEST(TestPrimitives, TestStableSortInplaceCustomCompare) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;
@@ -443,7 +443,7 @@ TEST(TestPrimitives, TestIntegerSortInplace) {
 }
 
 TEST(TestPrimitives, TestIntegerSortCustomKey) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](unsigned int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = 0;
@@ -459,7 +459,7 @@ TEST(TestPrimitives, TestIntegerSortCustomKey) {
 }
 
 TEST(TestPrimitives, TestIntegerSortInplaceCustomKey) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](unsigned int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = 0;
@@ -476,24 +476,24 @@ TEST(TestPrimitives, TestIntegerSortInplaceCustomKey) {
 }
 
 TEST(TestPrimitives, TestIntegerSortInplaceUncopyable) {
-  auto s = parlay::tabulate(100000, [](int i) -> UncopyableThing {
+  auto s = parlay::tabulate(100000, [](unsigned int i) -> UncopyableThing {
     return UncopyableThing(100000-i);
   });
-  auto s2 = parlay::tabulate(100000, [](int i) -> UncopyableThing {
+  auto s2 = parlay::tabulate(100000, [](unsigned int i) -> UncopyableThing {
     return UncopyableThing(100000-i);
   });
   ASSERT_EQ(s, s2);
-  parlay::integer_sort_inplace(s, [](const auto& a) { return a.x; });
+  parlay::integer_sort_inplace(s, [](const auto& a) -> unsigned int { return a.x; });
   std::sort(std::begin(s2), std::end(s2));
   ASSERT_EQ(s, s2);
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s))); 
 }
 
 TEST(TestPrimitives, TestIntegerSortInplaceNonContiguous) {
-  auto ss = parlay::tabulate(100000, [](long long i) -> long long {
+  auto ss = parlay::tabulate(100000, [](unsigned long long i) {
     return (50021 * i + 61) % (1 << 20);
   });
-  auto s = std::deque<long long>(ss.begin(), ss.end());
+  auto s = std::deque<unsigned long long>(ss.begin(), ss.end());
   auto s2 = s;
   ASSERT_EQ(s, s2);
   parlay::integer_sort_inplace(s);
@@ -599,7 +599,7 @@ TEST(TestPrimitives, TestSplitAt) {
 TEST(TestPrimitives, TestMapSplitAt) {
   auto seq = parlay::tabulate(999999, [](int i) { return i; });
   auto map_reduces = parlay::map_split_at(seq,
-    parlay::delayed_seq<bool>(999999, [&](int i) -> int { return i % 1000 == 0; }),
+    parlay::delayed_seq<bool>(999999, [&](int i) { return (i % 1000 == 0); }),
     [](const auto& s) { return parlay::reduce(s); });
   
   auto splits = parlay::tabulate(1000, [](int i) -> parlay::sequence<int> {

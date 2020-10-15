@@ -15,8 +15,8 @@
 TEST(TestIntegerSort, TestUninitialized) {
   auto s = parlay::sequence<parlay::debug_uninitialized>::uninitialized(10000000);
   parlay::parallel_for(0, 10000000, [&](size_t i) {
-    s[i].x = (50021 * i + 61) % (1 << 20);
+    s[i].x = static_cast<int>((50021 * i + 61) % (1 << 20));
   });
-  auto sorted = parlay::integer_sort(s, [](auto s) { return s.x; });
+  auto sorted = parlay::integer_sort(s, [](auto s) -> unsigned int { return s.x; });
   ASSERT_EQ(s.size(), sorted.size());
 }

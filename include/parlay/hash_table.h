@@ -38,7 +38,7 @@ class hashtable {
   eType empty;
   HASH hashStruct;
   sequence<eType> TA;
-  using index = long;
+  using index = size_t;
 
   static void clear(eType* A, size_t n, eType v) {
     auto f = [&](size_t i) { assign_uninitialized(A[i], v); };
@@ -53,7 +53,7 @@ class hashtable {
 
   index hashToRange(index h) { return static_cast<index>(static_cast<size_t>(h) % m); }
   index firstIndex(kType v) { return hashToRange(hashStruct.hash(v)); }
-  index incrementIndex(index h) { return (h + 1 == (long)m) ? 0 : h + 1; }
+  index incrementIndex(index h) { return (h + 1 == m) ? 0 : h + 1; }
   index decrementIndex(index h) { return (h == 0) ? m - 1 : h - 1; }
   bool lessIndex(index a, index b) {
     return (a < b) ? (2 * (b - a) < m) : (2 * (a - b) > m);
@@ -63,7 +63,7 @@ class hashtable {
  public:
   // Size is the maximum number of values the hash table will hold.
   // Overfilling the table could put it into an infinite loop.
-  hashtable(size_t size, HASH hashF, float load = 1.5)
+  hashtable(size_t size, HASH hashF, double load = 1.5)
     : m(100 + static_cast<size_t>(load * size)),
       empty(hashF.empty()),
       hashStruct(hashF),
@@ -282,11 +282,16 @@ struct hash_numeric {
   using kType = T;
   eType empty() { return -1; }
   kType getKey(eType v) { return v; }
-  T hash(kType v) { return static_cast<T>(hash64(v)); }
+  size_t hash(kType v) { return static_cast<size_t>(hash64(v)); }
   int cmp(kType v, kType b) { return (v > b) ? 1 : ((v == b) ? 0 : -1); }
   bool replaceQ(eType, eType) { return 0; }
   eType update(eType v, eType) { return v; }
   bool cas(eType* p, eType o, eType n) {
+    // TODO: Make this use atomics properly. This is a quick
+    // fix to get around the fact that the hashtable does
+    // not use atomics. This will break for types that
+    // do not inline perfectly inside a std::atomic (i.e.,
+    // any type that the standard library chooses to lock)
     return std::atomic_compare_exchange_strong_explicit(
       reinterpret_cast<std::atomic<eType>*>(p), &o, n, std::memory_order_relaxed, std::memory_order_relaxed);
   }

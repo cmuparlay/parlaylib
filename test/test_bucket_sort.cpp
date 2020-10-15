@@ -39,7 +39,7 @@ TEST(TestBucketSort, TestSortInplaceCustomCompare) {
 }
 
 TEST(TestBucketSort, TestStableSortInplace) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;
@@ -54,7 +54,7 @@ TEST(TestBucketSort, TestStableSortInplace) {
 }
 
 TEST(TestBucketSort, TestStableSortInplaceCustomCompare) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;

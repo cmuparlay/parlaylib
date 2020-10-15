@@ -22,7 +22,7 @@ TEST(TestSequential, TestParDo) {
 TEST(TestSequential, TestParFor) {
   size_t n = 1000;
   std::vector<int> v(n);
-  parlay::parallel_for(0, n, [&](auto i) {
+  parlay::parallel_for(0, n, [&](int i) {
     v[i] = i;
   });
   for (size_t i = 0; i < n; i++) {
@@ -33,7 +33,7 @@ TEST(TestSequential, TestParFor) {
 TEST(TestSequential, TestGranularFor) {
   size_t n = 1000;
   std::vector<int> v(n);
-  parlay::parallel_for(0, n, [&](auto i) {
+  parlay::parallel_for(0, n, [&](int i) {
     v[i] = i;
   }, 10);
   for (size_t i = 0; i < n; i++) {

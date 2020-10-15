@@ -58,7 +58,7 @@ private:
   block_allocator& operator=(block_allocator&&) = delete;
 
 public:
-  const int thread_count;
+  const size_t thread_count;
   size_t block_size () {return block_size_;}
   size_t num_allocated_blocks() {return blocks_allocated.load();}
 
@@ -76,7 +76,7 @@ public:
 
   size_t num_used_blocks() {
     size_t free_blocks = global_stack.size()*list_length;
-    for (int i = 0; i < thread_count; ++i) 
+    for (size_t i = 0; i < thread_count; ++i)
       free_blocks += local_lists[i].sz;
     return blocks_allocated.load() - free_blocks;
   }
@@ -103,7 +103,7 @@ public:
 
   // Allocate n elements across however many lists are needed (rounded up)
   void reserve(size_t n) {
-    size_t num_lists = thread_count + ceil(n / (double)list_length);
+    size_t num_lists = thread_count + (n + list_length - 1) / list_length;
     char* start = allocate_blocks(list_length*num_lists);
     parallel_for(0, num_lists, [&] (size_t i) {
       block_p offset = reinterpret_cast<block_p>(start + i * list_length * block_size_);
@@ -146,7 +146,7 @@ public:
 	   << " : allocated blocks remain" << std::endl;
     else {
       // clear lists
-      for (int i = 0; i < thread_count; ++i) 
+      for (size_t i = 0; i < thread_count; ++i)
         local_lists[i].sz = 0;
   
       // throw away all allocated memory
@@ -165,7 +165,7 @@ public:
 
   void free(void* ptr) {
     block_p new_node = reinterpret_cast<block_p>(ptr);
-    int id = worker_id();
+    size_t id = worker_id();
 
     if (local_lists[id].sz == list_length+1) {
       local_lists[id].mid = local_lists[id].head;
@@ -180,7 +180,7 @@ public:
   }
 
   inline void* alloc() {
-    int id = worker_id();
+    size_t id = worker_id();
 
     if (local_lists[id].sz == 0)  {
       local_lists[id].head = get_list();

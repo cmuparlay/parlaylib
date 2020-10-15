@@ -243,9 +243,9 @@ TEST(TestParsing, TestCharsToFloatSmall) {
   // Test the corner cases
   ASSERT_EQ(convert_std(0.0f), convert_parlay(0.0f));
   
-  // 1.000001 * is required since convering to a string rounds towards zero, which will take min below the range of representable values!
-  ASSERT_EQ(convert_std(1.000001 * (std::numeric_limits<float>::min)()), convert_parlay(1.000001 * (std::numeric_limits<float>::min)()));  
-  ASSERT_EQ(convert_std(-1.000001 * (std::numeric_limits<float>::min)()), convert_parlay(-1.000001 * (std::numeric_limits<float>::min)()));
+  // 1.000001 * is required since converting to a string rounds towards zero, which will take min below the range of representable values!
+  ASSERT_EQ(convert_std(1.000001f * (std::numeric_limits<float>::min)()), convert_parlay(1.000001f * (std::numeric_limits<float>::min)()));
+  ASSERT_EQ(convert_std(-1.000001f * (std::numeric_limits<float>::min)()), convert_parlay(-1.000001f * (std::numeric_limits<float>::min)()));
   ASSERT_EQ(convert_std(std::numeric_limits<float>::lowest()), convert_parlay(std::numeric_limits<float>::lowest()));
   ASSERT_EQ(convert_std((std::numeric_limits<float>::max)()), convert_parlay((std::numeric_limits<float>::max)()));
 

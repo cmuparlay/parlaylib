@@ -304,21 +304,29 @@ void stable_sort_inplace(R&& in) {
 
 template<PARLAY_RANGE_TYPE R>
 auto integer_sort(const R& in) {
+  static_assert(std::is_integral_v<std::remove_reference_t<decltype(*in.begin())>>);
+  static_assert(std::is_unsigned_v<std::remove_reference_t<decltype(*in.begin())>>);
   return internal::integer_sort(make_slice(in), [](auto x) { return x; }); 
 }
 
 template<PARLAY_RANGE_TYPE R, typename Key>
 auto integer_sort(const R& in, Key&& key) {
+  static_assert(std::is_integral_v<std::remove_reference_t<decltype(key(*in.begin()))>>);
+  static_assert(std::is_unsigned_v<std::remove_reference_t<decltype(key(*in.begin()))>>);
   return internal::integer_sort(make_slice(in), std::forward<Key>(key));
 }
 
 template<PARLAY_RANGE_TYPE R>
 void integer_sort_inplace(R&& in) {
+  static_assert(std::is_integral_v<std::remove_reference_t<decltype(*in.begin())>>);
+  static_assert(std::is_unsigned_v<std::remove_reference_t<decltype(*in.begin())>>);
   internal::integer_sort_inplace(make_slice(in), [](auto x) { return x; });
 }
 
 template<PARLAY_RANGE_TYPE R, typename Key>
 void integer_sort_inplace(R&& in, Key&& key) {
+  static_assert(std::is_integral_v<std::remove_reference_t<decltype(key(*in.begin()))>>);
+  static_assert(std::is_unsigned_v<std::remove_reference_t<decltype(key(*in.begin()))>>);
   internal::integer_sort_inplace(make_slice(in), std::forward<Key>(key));
 }
 

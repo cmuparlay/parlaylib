@@ -58,7 +58,7 @@ class file_map {
       std::ifstream in(filename);
       assert(in.is_open());
       in.seekg(0, std::ios::end);
-      size_t sz = in.tellg();
+      size_t sz = static_cast<size_t>(in.tellg());
       contents.resize(sz);
       in.seekg(0);
       in.read(&(*contents.begin()), sz);

@@ -31,7 +31,7 @@ inline sequence<char> chars_from_file(const std::string& filename,
            bool null_terminate, size_t start=0, size_t end=0) {
   std::ifstream file (filename, std::ios::in | std::ios::binary | std::ios::ate);
   assert(file.is_open());
-  size_t length = file.tellg();
+  size_t length = static_cast<size_t>(file.tellg());
   start = (std::min)(start,length);
   if (end == 0) end = length;
   else end = (std::min)(end,length);
@@ -76,35 +76,62 @@ namespace parlay {
 
 namespace internal {
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4146) // unary minus operator applied to unsigned type, result still unsigned
+#endif
+
 // Interpret a character sequence as an integral type _Integer.
 //
 // Faster than using std::stoi(std::string(...)) by a factor of
 // approximately 3-4 since it doesn't have to allocate a new string.
 template<typename _Integer, typename It>
 _Integer chars_to_int_t(slice<It, It> str) {
+  static_assert(std::is_integral_v<_Integer>);
+
   size_t i = 0;
-  // Compute the negative of str[i...], assuming that the sign has already
-  // been read. Why negative? Because in two's complement, the smallest
-  // possible value has greater magnitude by one than the largest possible
-  // value. That is, INT_MAX = 2147483647 but INT_MIN = -2147483648, so if
-  // we stored the result as a positive integer, we would overflow when reading
-  // INT_MIN, which is technically undefined behavior!
-  auto read_digits = [&] () {
-    _Integer r = 0;
-    while (i < str.size() && std::isdigit(static_cast<unsigned char>(str[i])))
-      r = r*10 - (str[i++] - '0');
-    return r;
-  };
-  if (str[i] == '-') {
-    i++;
-    return read_digits();
+
+  if constexpr (std::is_signed_v<_Integer>) {
+    // Compute the negative of str[i...], assuming that the sign has already
+    // been read. Why negative? Because in two's complement, the smallest
+    // possible value has greater magnitude by one than the largest possible
+    // value. That is, INT_MAX = 2147483647 but INT_MIN = -2147483648, so if
+    // we stored the result as a positive integer, we would overflow when reading
+    // INT_MIN, which is technically undefined behavior!
+    auto read_digits = [&]() {
+      _Integer r = 0;
+      while (i < str.size() && std::isdigit(static_cast<unsigned char>(str[i])))
+        r = r * 10 - (str[i++] - '0');
+      return r;
+    };
+    if (str[i] == '-') {
+      i++;
+      return read_digits();
+    } else {
+      if (str[i] == '+') i++;
+      return -read_digits();
+    }
   }
   else {
-    if (str[i] == '+') i++;
-    return -read_digits();
+    auto read_digits = [&]() {
+      _Integer r = 0;
+      while (i < str.size() && std::isdigit(static_cast<unsigned char>(str[i])))
+        r = r * 10 + (str[i++] - '0');
+      return r;
+    };
+    if (str[i] == '-') {
+      i++;
+      return -read_digits();
+    } else {
+      if (str[i] == '+') i++;
+      return read_digits();
+    }
   }
 }
 
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 // Interpret a character sequence as a double. Performs
 // no error checking, so the behaviour is unspecified
@@ -118,11 +145,11 @@ template<typename _Float, size_t _max_len, int64_t _max_exp, int64_t _max_man, t
 _Float chars_to_float_t(const sequence<char>& s, _FallbackF fallback) {
 
   static const _Float pow_ten[] = {
-    1e0,  1e1,  1e2,  1e3,  1e4,
-    1e5,  1e6,  1e7,  1e8,  1e9,
-    1e10, 1e11, 1e12, 1e13, 1e14,
-    1e15, 1e16, 1e17, 1e18, 1e19,
-    1e20, 1e21, 1e22
+    _Float{1e0},  _Float{1e1},  _Float{1e2},  _Float{1e3},  _Float{1e4},
+    _Float{1e5},  _Float{1e6},  _Float{1e7},  _Float{1e8},  _Float{1e9},
+    _Float{1e10}, _Float{1e11}, _Float{1e12}, _Float{1e13}, _Float{1e14},
+    _Float{1e15}, _Float{1e16}, _Float{1e17}, _Float{1e18}, _Float{1e19},
+    _Float{1e20}, _Float{1e21}, _Float{1e22}
   };
 
   // Fast Path
@@ -177,13 +204,13 @@ _Float chars_to_float_t(const sequence<char>& s, _FallbackF fallback) {
     // Found the decimal point. Continue looking until we find an exponent or the end
     else {
       assert(str[i] == '.' || str[i] == ',');
-      long period = i++;
+      int64_t period = i++;
       
       while (i < sz && std::isdigit(static_cast<unsigned char>(str[i]))) {
         r = r * 10 + (str[i++] - '0');
       }
       
-      exponent = -(static_cast<long>(i) - period - 1);
+      exponent = -(static_cast<int64_t>(i) - period - 1);
       
       if (i < sz && (str[i] == 'e' || str[i] == 'E')) {
         exponent += internal::chars_to_int_t<uint64_t>(str.cut(i+1, sz));
@@ -221,7 +248,7 @@ inline unsigned long long chars_to_ulong_long(const sequence<char>& s) { return 
 
 inline float chars_to_float(const sequence<char>& s) {
   return internal::chars_to_float_t<float, 10, 10, 24>(s, [](const auto& str) {
-    return std::stod(std::string(std::begin(str), std::end(str))); });
+    return std::stof(std::string(std::begin(str), std::end(str))); });
 }
 
 inline double chars_to_double(const sequence<char>& s) {

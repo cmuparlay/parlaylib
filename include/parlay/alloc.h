@@ -42,7 +42,7 @@ private:
   size_t num_small;
   size_t max_small;
   size_t max_size;
-  std::atomic<long> large_allocated{0};
+  std::atomic<size_t> large_allocated{0};
 
   std::unique_ptr<concurrent_stack<void*>[]> large_buckets;
   struct block_allocator *small_allocators;

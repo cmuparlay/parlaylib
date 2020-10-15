@@ -36,7 +36,7 @@ TEST(TestMergeSort, TestMergeSortCustomCompare) {
 }
 
 TEST(TestMergeSort, TestStableSort) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;
@@ -50,7 +50,7 @@ TEST(TestMergeSort, TestStableSort) {
 }
 
 TEST(TestMergeSort, TestStableSortCustomCompare) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;
@@ -89,7 +89,7 @@ TEST(TestMergeSort, TestSortInplaceCustomCompare) {
 }
 
 TEST(TestMergeSort, TestStableSortInplace) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;
@@ -104,7 +104,7 @@ TEST(TestMergeSort, TestStableSortInplace) {
 }
 
 TEST(TestMergeSort, TestStableSortInplaceCustomCompare) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;

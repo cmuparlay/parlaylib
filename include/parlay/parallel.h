@@ -2,6 +2,8 @@
 #ifndef PARLAY_PARALLEL_H_
 #define PARLAY_PARALLEL_H_
 
+#include <cstddef>
+
 //****************************************************
 // All algorithms in the library use only four functions for
 // accessing parallelism. These can be implemented on
@@ -11,10 +13,10 @@
 namespace parlay {
 
 // number of threads available from OS
-inline unsigned int num_workers();
+inline size_t num_workers();
 
 // id of running thread, should be numbered from [0...num-workers)
-inline unsigned int worker_id();
+inline size_t worker_id();
 
 // parallel loop from start (inclusive) to end (exclusive) running
 // function f.
@@ -23,7 +25,7 @@ inline unsigned int worker_id();
 //      if 0 (default) then the scheduler will decide
 //    conservative uses a safer scheduler
 template <typename F>
-inline void parallel_for(long start, long end, F f, long granularity = 0,
+inline void parallel_for(size_t start, size_t end, F f, size_t granularity = 0,
                          bool conservative = false);
 
 // runs the thunks left and right in parallel.
@@ -79,17 +81,17 @@ extern inline fork_join_scheduler& get_default_scheduler() {
 
 }  // namespace internal
 
-inline unsigned int num_workers() {
+inline size_t num_workers() {
   return internal::get_default_scheduler().num_workers();
 }
 
-inline unsigned int worker_id() {
+inline size_t worker_id() {
   return internal::get_default_scheduler().worker_id();
 }
 
 template <class F>
-inline void parallel_for(long start, long end, F f,
-			 long granularity,
+inline void parallel_for(size_t start, size_t end, F f,
+                         size_t granularity,
 			 bool conservative) {
   if (end > start)
     internal::get_default_scheduler().parfor(start, end, f, granularity, conservative);

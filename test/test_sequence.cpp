@@ -353,7 +353,7 @@ TEST(TestSequence, TestMoveAppendToEmptyAfterReserve) {
   ASSERT_FALSE(s2.empty());
   s1.append(std::move(s2));
   ASSERT_EQ(s1.size(), 4);
-  ASSERT_GE(s1.capacity(), 100);
+  ASSERT_GE(s1.capacity(), size_t{100});
   for (int i = 0; i < 4; i++) {
     ASSERT_EQ(s1[i], 5+i);
   }
@@ -681,10 +681,10 @@ TEST(TestSequence, TestPopTail2) {
 }
 
 TEST(TestSequence, TestEqual) {
-  auto s1 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+  auto s1 = parlay::sequence<size_t>::from_function(1000000, [](size_t i) {
     return 2*i + 1;
   });
-  auto s2 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+  auto s2 = parlay::sequence<size_t>::from_function(1000000, [](size_t i) {
     return 2*i + 1;
   });
   ASSERT_EQ(s1, s2);
@@ -692,10 +692,10 @@ TEST(TestSequence, TestEqual) {
 
 TEST(TestSequence, TestNotEqual) {
   // All different
-  auto s1 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+  auto s1 = parlay::sequence<size_t>::from_function(1000000, [](size_t i) {
     return 2*i + 1;
   });
-  auto s2 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+  auto s2 = parlay::sequence<size_t>::from_function(1000000, [](size_t i) {
     return 2*i + 2;
   });
   ASSERT_NE(s1, s2);
@@ -703,10 +703,10 @@ TEST(TestSequence, TestNotEqual) {
 
 TEST(TestSequence, TestNotEqual2) {
   // Equal up until the last element
-  auto s1 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+  auto s1 = parlay::sequence<size_t>::from_function(1000000, [](size_t i) {
     return 2*i + 1;
   });
-  auto s2 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+  auto s2 = parlay::sequence<size_t>::from_function(1000000, [](size_t i) {
     return 2*i + 1;
   });
   s2.back() = 0;
@@ -715,10 +715,10 @@ TEST(TestSequence, TestNotEqual2) {
 
 TEST(TestSequence, TestNotEqual3) {
   // Different lengths
-  auto s1 = parlay::sequence<int>::from_function(1000000, [](size_t i) {
+  auto s1 = parlay::sequence<size_t>::from_function(1000000, [](size_t i) {
     return 2*i + 1;
   });
-  auto s2 = parlay::sequence<int>::from_function(999999, [](size_t i) {
+  auto s2 = parlay::sequence<size_t>::from_function(999999, [](size_t i) {
     return 2*i + 1;
   });
   ASSERT_NE(s1, s2);
@@ -726,18 +726,18 @@ TEST(TestSequence, TestNotEqual3) {
 
 TEST(TestSequence, TestCapacity) {
   auto s = parlay::sequence<int>(2000);
-  ASSERT_GE(s.capacity(), 2000);
+  ASSERT_GE(s.capacity(), size_t{2000});
   auto s2 = parlay::sequence<int>();
   s2.reserve(2000);
-  ASSERT_GE(s2.capacity(), 2000);
+  ASSERT_GE(s2.capacity(), size_t{2000});
 }
 
 TEST(TestSequence, TestReserve) {  
   auto s = parlay::sequence<int>();
   s.reserve(1000);
   auto cap = s.capacity();
-  ASSERT_GE(cap, 1000);
-  for (size_t i = 0; i < 1000; i++) {
+  ASSERT_GE(cap, size_t{1000});
+  for (int i = 0; i < 1000; i++) {
     s.push_back(i);
   }
   ASSERT_EQ(s.size(), 1000);
@@ -746,7 +746,7 @@ TEST(TestSequence, TestReserve) {
 
 TEST(TestSequence, TestSequenceOfAtomic) {
   parlay::sequence<std::atomic<int>> s(10000);
-  for (size_t i = 0; i < 10000; i++) {
+  for (int i = 0; i < 10000; i++) {
     s[i].store(i);
   }
 }

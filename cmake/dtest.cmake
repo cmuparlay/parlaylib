@@ -209,11 +209,14 @@ function(add_dtest TESTNAME SOURCENAMES SANITIZER_FLAGS ABBRV TESTLIB ADDITIONAL
   
   target_compile_options(${TESTNAME}-${ABBRV} PRIVATE ${ADDITIONAL_FLAGS})
 
-  target_link_options(${TESTNAME}-${ABBRV} PRIVATE
-    -fno-omit-frame-pointer
-    ${SANITIZER_FLAGS} ${DTEST_SANITIZER_BLACKLIST_COMMAND}
-    ${ADDITIONAL_FLAGS}
-  )
+  if (NOT MSVC)
+    target_link_options(${TESTNAME}-${ABBRV} PRIVATE
+      -fno-omit-frame-pointer
+      ${SANITIZER_FLAGS} ${DTEST_SANITIZER_BLACKLIST_COMMAND}
+      ${ADDITIONAL_FLAGS}
+    )
+  endif()
+
   target_compile_definitions(${TESTNAME}-${ABBRV} PRIVATE DEBUG)
   if (USE_LIBCXX)
     use_libcxx(${TESTNAME}-${ABBRV})

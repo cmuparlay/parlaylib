@@ -36,6 +36,8 @@ void merge_seq(Iterator sA,
                size_t lA,
                size_t lB,
                Compare f) {
+  using s_size_t = typename std::iterator_traits<CountIterator>::value_type;
+
   if (lA == 0 || lB == 0) return;
   auto eA = sA + lA;
   auto eB = sB + lB;
@@ -58,7 +60,7 @@ void merge_seq(Iterator sA,
       if (sB == eB) break;
     }
   }
-  *sC = eA - sA;
+  *sC = static_cast<s_size_t>(eA - sA);
 }
 
 template <typename Iterator, typename Compare>
@@ -142,7 +144,7 @@ void sample_sort_(slice<InIterator, InIterator> In,
       block_quotient = 3;
     }
     size_t sqrt = (size_t)ceil(pow(n, 0.5));
-    size_t num_blocks = 1 << log2_up((sqrt / block_quotient) + 1);
+    size_t num_blocks = size_t{1} << log2_up((sqrt / block_quotient) + 1);
     size_t block_size = ((n - 1) / num_blocks) + 1;
     size_t num_buckets = (sqrt / bucket_quotient) + 1;
     size_t sample_set_size = num_buckets * OVER_SAMPLE;
@@ -197,10 +199,12 @@ auto sample_sort(slice<Iterator, Iterator> A,
                  bool stable = false) {
   using value_type = typename slice<Iterator, Iterator>::value_type;
   sequence<value_type> R = sequence<value_type>::uninitialized(A.size());
-  if (A.size() < (std::numeric_limits<unsigned int>::max)())
+  if (A.size() < (std::numeric_limits<unsigned int>::max)()) {
     sample_sort_<unsigned int, std::false_type>(A, make_slice(R), less, stable);
-  else
-    sample_sort_<unsigned long long, std::false_type>(A, make_slice(R), less, stable);
+  }
+  else {
+    sample_sort_<size_t, std::false_type>(A, make_slice(R), less, stable);
+  }
   return R;
 }
 
@@ -212,7 +216,7 @@ void sample_sort_inplace(slice<Iterator, Iterator> A,
     sample_sort_<unsigned int, std::true_type>(A, A, less, stable);
   }
   else {
-    sample_sort_<unsigned long long, std::true_type>(A, A, less, stable);
+    sample_sort_<size_t, std::true_type>(A, A, less, stable);
   }
 }
 

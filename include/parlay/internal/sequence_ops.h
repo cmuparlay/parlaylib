@@ -309,7 +309,7 @@ size_t filter_out(In_Seq const &In, Out_Seq Out, F f, flags) {
 
 template <typename Idx_Type, typename Bool_Seq>
 auto pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
-  auto identity = [](size_t i) -> Idx_Type { return i; };
+  auto identity = [](size_t i) -> Idx_Type { return static_cast<Idx_Type>(i); };
   return pack(delayed_seq<Idx_Type>(Fl.size(), identity), Fl, fl);
 }
 

@@ -21,7 +21,7 @@ bool base_case(Iterator x, size_t n) {
 template <class Iterator, class BinPred>
 void insertion_sort(Iterator A, size_t n, const BinPred& f) {
   for (size_t i = 1; i < n; i++) {
-    long j = i;
+    std::ptrdiff_t j = i;
     while (--j >= 0 && f(A[j + 1], A[j])) {
       std::swap(A[j + 1], A[j]);
     }

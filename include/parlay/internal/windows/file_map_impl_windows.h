@@ -72,7 +72,7 @@ struct file_map {
 
       LARGE_INTEGER file_size;
       GetFileSizeEx(hFile, &file_size);
-      size = file_size.QuadPart;
+      size = static_cast<size_t>(file_size.QuadPart);
     }
     
     ~file_map() {

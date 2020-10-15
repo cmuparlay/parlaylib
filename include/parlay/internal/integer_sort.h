@@ -40,10 +40,10 @@ void seq_radix_sort_(slice<InIterator, InIterator> In,
   if (n == 0) return;
   size_t counts[max_buckets + 1];
   bool swapped = false;
-  int bit_offset = 0;
+  size_t bit_offset = 0;
   while (bits > 0) {
     size_t round_bits = (std::min)(radix, bits);
-    size_t num_buckets = (1 << round_bits);
+    size_t num_buckets = (size_t{1} << round_bits);
     size_t mask = num_buckets - 1;
     
     if (swapped) {
@@ -92,7 +92,7 @@ template <typename inplace_tag, typename copy_tag, typename out_uninitialized_ta
           typename InIterator, typename OutIterator, typename TmpIterator, class GetKey>
 void seq_radix_sort(slice<InIterator, InIterator> In,
                     slice<OutIterator, OutIterator> Out,
-                    slice<TmpIterator, TmpIterator> Tmp,
+   [[maybe_unused]] slice<TmpIterator, TmpIterator> Tmp,
                     GetKey const &g,
                     size_t key_bits) {
   if constexpr (inplace_tag::value == true) {
@@ -171,9 +171,9 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
   // few bits, just do a single parallel count sort
   else if (key_bits <= base_bits) {
     size_t mask = (1 << key_bits) - 1;
-    auto f = [&](size_t i) { return g(In[i]) & mask; };
+    auto f = [&](size_t i) { return static_cast<size_t>(g(In[i]) & mask); };
     auto get_bits = delayed_seq<size_t>(n, f);
-    size_t num_bkts = (num_buckets == 0) ? (1 << key_bits) : num_buckets;
+    size_t num_bkts = (num_buckets == 0) ? (size_t{1} << key_bits) : num_buckets;
     
     // only uses one bucket optimization (last argument) if inplace
     std::tie(offsets, one_bucket) =
@@ -196,10 +196,10 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
   } else {
     size_t bits = 8;
     size_t shift_bits = key_bits - bits;
-    size_t num_outer_buckets = (1 << bits);
+    size_t num_outer_buckets = (size_t{1} << bits);
     size_t num_inner_buckets = return_offsets ? ((size_t)1 << shift_bits) : 0;
     size_t mask = num_outer_buckets - 1;
-    auto f = [&](size_t i) { return (g(In[i]) >> shift_bits) & mask; };
+    auto f = [&](size_t i) { return static_cast<size_t>((g(In[i]) >> shift_bits) & mask); };
     auto get_bits = delayed_seq<size_t>(n, f);
 
     // divide into buckets
@@ -273,7 +273,7 @@ sequence<size_t> integer_sort_(slice<InIterator, InIterator> In,
                                size_t bits,
                                size_t num_buckets) {
   if (bits == 0) {
-    auto get_key = [&](size_t i) { return g(In[i]); };
+    auto get_key = [&](size_t i) { return static_cast<size_t>(g(In[i])); };
     auto keys = delayed_seq<size_t>(In.size(), get_key);
     bits = log2_up(internal::reduce(make_slice(keys), maxm<size_t>()) + 1);
   }

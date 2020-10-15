@@ -30,8 +30,8 @@ void radix_step_(slice<InIterator, InIterator> A,
     counts[i] = s;
   }
 
-  for (long j = n - 1; j >= 0; j--) {
-    long x = --counts[keys[j]];
+  for (std::ptrdiff_t j = n - 1; j >= 0; j--) {
+    auto x = --counts[keys[j]];
     B[x] = std::move(A[j]);
   }
 }
@@ -57,13 +57,13 @@ bool get_buckets(slice<Iterator, Iterator> A,
                  BinaryOp f,
                  size_t rounds) {
   size_t n = A.size();
-  size_t num_buckets = (1 << rounds);
+  size_t num_buckets = (size_t{1} << rounds);
   size_t over_sample = 1 + n / (num_buckets * 400);
   size_t sample_set_size = num_buckets * over_sample;
   size_t num_pivots = num_buckets - 1;
   
   auto sample_set = sequence<size_t>::from_function(sample_set_size,
-    [&](size_t i) { return hash64(i) % n; });
+    [&](size_t i) { return static_cast<size_t>(hash64(i) % n); });
 
   // sort the samples
   quicksort(sample_set.begin(), sample_set_size, [&](size_t i, size_t j) {
@@ -80,7 +80,8 @@ bool get_buckets(slice<Iterator, Iterator> A,
   for (size_t i = 0; i < n; i++) {
     size_t j = 0;
     for (size_t k = 0; k < rounds; k++) j = 1 + 2 * j + !f(A[i], A[heap[j]]);
-    buckets[i] = j - num_pivots;
+    assert(j - num_pivots <= (std::numeric_limits<unsigned char>::max)());
+    buckets[i] = static_cast<unsigned char>(j - num_pivots);
   }
   return false;
 }
@@ -114,7 +115,7 @@ void bucket_sort_r(slice<InIterator, InIterator> in,
                    bool inplace) {
   size_t n = in.size();
   size_t bits = 4;
-  size_t num_buckets = 1 << bits;
+  size_t num_buckets = size_t{1} << bits;
   if (n < num_buckets * 32) {
     base_sort(in, out, f, stable, inplace);
   } else {

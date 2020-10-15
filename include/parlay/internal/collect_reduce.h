@@ -43,8 +43,10 @@ void seq_collect_reduce_few(Seq const &A, OutSeq &&Out, Key const &get_key,
   for (size_t i = 0; i < num_buckets; i++)
     assign_uninitialized(Out[i],monoid.identity);
   for (size_t j = 0; j < n; j++) {
-    size_t k = get_key(A[j]);
-    Out[k] = monoid.f(Out[k], get_value(A[j]));
+    auto k = get_key(A[j]);
+    assert(k >= 0);
+    size_t idx = static_cast<size_t>(k);
+    Out[idx] = monoid.f(Out[idx], get_value(A[j]));
   }
 }
 
@@ -78,7 +80,7 @@ auto collect_reduce_few(Seq const &A, Key const &get_key,
   size_t num_threads = num_workers();
   size_t num_blocks = (std::min)(4 * num_threads, n / num_buckets / 64);
 
-  num_blocks = 1 << log2_up(num_blocks);
+  num_blocks = size_t{1} << log2_up(num_blocks);
 
   sequence<val_type> Out(num_buckets);
 
@@ -117,7 +119,7 @@ auto collect_reduce_few(Seq const &A, Key const &get_key,
 template <typename E, typename K, typename HashEq, typename GetKey>
 struct get_bucket {
   using key_type = K;
-  using KI = std::pair<K, int>;
+  using KI = std::pair<K, std::ptrdiff_t>;
   sequence<KI> hash_table;
   size_t table_mask;
   size_t bucket_mask;
@@ -136,7 +138,7 @@ struct get_bucket {
     : heq(heq), get_key(get_key) {
     size_t n = A.size();
     size_t low_bits = bits - 1;   // for the bottom half
-    num_buckets = 1 << low_bits;  // in bottom half
+    num_buckets = size_t{1} << low_bits;  // in bottom half
     size_t count = 2 * num_buckets;
     size_t table_size = 4 * count;
     table_mask = table_size - 1;
@@ -192,8 +194,8 @@ struct get_bucket {
 
 template <typename K>
 struct hasheq_mask_low {
-  inline size_t hash(K a) const { return hash64_2(a & ~((size_t)15)); }
-  inline bool eql(K a, K b) const { return a = b; }
+  inline size_t hash(K a) const { return static_cast<size_t>(hash64_2(a & ~((size_t)15))); }
+  inline bool eql(K a, K b) const { return a == b; }
 };
 
 template <typename Seq, class Key, class Value, typename M>
@@ -212,7 +214,7 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
   size_t bits = std::max<size_t>(
       log2_up(1 + 2 * (size_t)sizeof(val_type) * n / cache_per_thread), 4);
 
-  size_t num_blocks = (1 << bits);
+  size_t num_blocks = (size_t{1} << bits);
   
   if (num_buckets <= 4 * num_blocks)
     return collect_reduce_few(A, get_key, get_value, monoid, num_buckets);
@@ -248,7 +250,9 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
                  // small blocks have indices in bottom half
                  if (i < cut)
                    for (size_t i = start; i < end; i++) {
-                     size_t j = get_key(B[i]);
+                     auto k = get_key(B[i]);
+                     assert(k >= 0);
+                     size_t j = static_cast<size_t>(k);
                      sums[j] = monoid.f(sums[j], get_value(B[i]));
                    }
 
@@ -258,7 +262,9 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
                      return get_value(B[i]);
                    };
                    auto vals = delayed_seq<val_type>(n, x);
-                   sums[get_key(B[i])] = internal::reduce(vals, monoid);
+                   auto k = get_key(B[i]);
+                   assert(k >= 0);
+                   sums[static_cast<size_t>(k)] = internal::reduce(vals, monoid);
                  }
                },
                1);

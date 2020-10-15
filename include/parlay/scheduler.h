@@ -142,7 +142,7 @@ struct scheduler {
         finished_flag(false) {
     // Stopping condition
     auto finished = [this]() {
-      return finished_flag.load(std::memory_order_relaxed) == true;
+      return finished_flag.load(std::memory_order_relaxed);
     };
 
     // Spawn num_threads many threads on startup
@@ -191,6 +191,11 @@ struct scheduler {
     return deques[id].pop_bottom();
   }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4996)  // 'getenv': This function or variable may be unsafe.
+#endif
+
   // Determine the number of workers to spawn
   unsigned int init_num_workers() {
     if (const auto env_p = std::getenv("PARLAY_NUM_THREADS")) {
@@ -199,6 +204,10 @@ struct scheduler {
       return std::thread::hardware_concurrency();
     }
   }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
   unsigned int num_workers() { return num_threads; }
   unsigned int worker_id() { return thread_id; }
@@ -255,11 +264,11 @@ struct scheduler {
     }
   }
 
-  size_t hash(size_t x) {
+  size_t hash(uint64_t x) {
     x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
     x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
     x = x ^ (x >> 31);
-    return x;
+    return static_cast<size_t>(x);
   }
 };
 
@@ -293,8 +302,13 @@ class fork_join_scheduler {
     }
   }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4267) // conversion from 'size_t' to *, possible loss of data
+#endif
+
   template <typename F>
-  int get_granularity(size_t start, size_t end, F f) {
+  size_t get_granularity(size_t start, size_t end, F f) {
     size_t done = 0;
     size_t sz = 1;
     int ticks = 0;
@@ -303,7 +317,7 @@ class fork_join_scheduler {
       auto tstart = std::chrono::high_resolution_clock::now();
       for (size_t i = 0; i < sz; i++) f(start + done + i);
       auto tstop = std::chrono::high_resolution_clock::now();
-      ticks = (tstop - tstart).count();
+      ticks = static_cast<int>((tstop - tstart).count());
       done += sz;
       sz *= 2;
     } while (ticks < 1000 && done < (end - start));
@@ -338,6 +352,11 @@ class fork_join_scheduler {
             conservative);
     }
   }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 };
 
 }  // namespace parlay

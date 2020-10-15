@@ -4,15 +4,12 @@
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
 
-#include <iostream>
-#include <sstream>
-
 namespace parlay {
 
 // IWYU pragma: private, include "../../parallel.h"
 
-inline unsigned int num_workers() { return __cilkrts_get_nworkers(); }
-inline unsigned int worker_id() { return __cilkrts_get_worker_number(); }
+inline size_t num_workers() { return __cilkrts_get_nworkers(); }
+inline size_t worker_id() { return __cilkrts_get_worker_number(); }
 
 template <typename Lf, typename Rf>
 inline void par_do(Lf left, Rf right, bool) {
@@ -22,16 +19,16 @@ inline void par_do(Lf left, Rf right, bool) {
 }
 
 template <typename F>
-inline void parallel_for(long start, long end, F f,
-			 long granularity,
+inline void parallel_for(size_t start, size_t end, F f,
+                         size_t granularity,
 			 bool) {
   if (granularity == 0)
-    cilk_for(long i=start; i<end; i++) f(i);
+    cilk_for(size_t i=start; i<end; i++) f(i);
   else if ((end - start) <= granularity)
-    for (long i=start; i < end; i++) f(i);
+    for (size_t i=start; i < end; i++) f(i);
   else {
-    long n = end-start;
-    long mid = (start + (9*(n+1))/16);
+    size_t n = end-start;
+    size_t mid = (start + (9*(n+1))/16);
     cilk_spawn parallel_for(start, mid, f, granularity);
     parallel_for(mid, end, f, granularity);
     cilk_sync;

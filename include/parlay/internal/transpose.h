@@ -131,7 +131,7 @@ sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
   if (n < (1 << 22) || num_buckets <= 512 || num_blocks <= 512) {
     size_t block_bits = log2_up(num_blocks);
     size_t block_mask = num_blocks - 1;
-    if ((size_t)1 << block_bits != num_blocks)
+    if (size_t{1} << block_bits != num_blocks)
       throw std::invalid_argument(
           "in transpose_buckets: num_blocks must be a power or 2");
 
@@ -142,8 +142,8 @@ sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
 
     // slow down?
     dest_offsets = sequence<s_size_t>::from_function(m, get);
-    size_t sum = scan_inplace(make_slice(dest_offsets), add);
-    if (sum != n) throw std::logic_error("in transpose, internal bad count");
+    [[maybe_unused]] auto sum = scan_inplace(make_slice(dest_offsets), add);
+    assert(sum == n);
 
     // send each key to correct location within its bucket
     auto f = [&](size_t i) {
@@ -165,9 +165,8 @@ sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
     // do both scans inplace
     size_t total = scan_inplace(make_slice(dest_offsets), add);
     size_t total2 = scan_inplace(make_slice(counts), add);
-    if (total != n || total2 != n)
-      throw std::logic_error("in transpose, internal bad count");
-    counts[m] = n;
+    assert(total == n && total2 == n);
+    counts[m] = static_cast<s_size_t>(n);
 
     blockTrans<InIterator, OutIterator,
                typename sequence<s_size_t>::iterator,
