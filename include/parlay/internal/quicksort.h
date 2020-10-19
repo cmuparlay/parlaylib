@@ -3,28 +3,55 @@
 #define PARLAY_QUICKSORT_H_
 
 #include <algorithm>
+#include <new>
 #include <utility>
 
+#include "uninitialized_storage.h"
 #include "sequence_ops.h"
+
 #include "../utilities.h"
 
 namespace parlay {
 namespace internal {
 
-template <class Iterator>
+template <typename Iterator>
 bool base_case(Iterator x, size_t n) {
   using value_type = typename std::iterator_traits<Iterator>::value_type;
   bool large = std::is_pointer<value_type>::value || (sizeof(x) > 8);
   return large ? (n < 16) : (n < 24);
 }
 
-template <class Iterator, class BinPred>
-void insertion_sort(Iterator A, size_t n, const BinPred& f) {
+// Optimized insertion sort using uninitialized relocate
+//
+// Note that the strange looking loop body is really just a
+// slightly more optimized version of:
+//
+//    T tmp = std::move(A[i])
+//    std::ptrdiff_t j = i - 1;
+//    for (; j >= 0 && f(tmp, A[j]); j--) {
+//      A[j+1] = std::move(A[j])
+//    }
+//    A[j+1] = std::move(tmp);
+//
+// but instead of using move, we use relocation to potentially
+// save on wasteful destructor invocations.
+//
+template <class Iterator, typename BinPred>
+auto insertion_sort(Iterator A, size_t n, const BinPred& f) {
+  using T = typename std::iterator_traits<Iterator>::value_type;
   for (size_t i = 1; i < n; i++) {
-    std::ptrdiff_t j = i;
-    while (--j >= 0 && f(A[j + 1], A[j])) {
-      std::swap(A[j + 1], A[j]);
+    // We want to store the value being moved (A[i]) in a temporary
+    // variable. In order to take advantage of uninitialized
+    // relocate, we need uninitialized storage to put it in.
+    uninitialized_storage<T> temp_storage;
+    T* tmp = temp_storage.get();
+    uninitialized_relocate(tmp, &A[i]);
+
+    std::ptrdiff_t j = i - 1;
+    for (; j >= 0 && f(*tmp, A[j]); j--) {
+      uninitialized_relocate(&A[j+1], &A[j]);
     }
+    uninitialized_relocate(&A[j+1], tmp);
   }
 }
 
@@ -37,10 +64,17 @@ void sort5(Iterator A, size_t n, const BinPred& f) {
   insertion_sort(A, size, f);
 }
 
-// splits based on two pivots (p1 and p2) into 3 parts:
-//    less than p1, greater than p2, and the rest in the middle
-// If the pivots are the same, returns a true flag to indicate middle need not
-// be sorted
+// Dual-pivot partition. Picks two pivots from the input A
+// and then divides it into three parts:
+//
+//   [x < p1), [p1 <= x <= p2], (p2 < x]
+//
+// Returns a triple consisting of iterators to the start
+// of the second and third part, and a boolean flag, which
+// is true if the pivots were equal, and hence the middle
+// part contains all equal elements.
+//
+// Requires that the size of A is at least 5.
 template <class Iterator, class BinPred>
 std::tuple<Iterator, Iterator, bool> split3(Iterator A, size_t n, const BinPred& f) {
   assert(n >= 5);
@@ -96,9 +130,7 @@ std::tuple<Iterator, Iterator, bool> split3(Iterator A, size_t n, const BinPred&
 template <class Iterator, class BinPred>
 void quicksort_serial(Iterator A, size_t n, const BinPred& f) {
   while (!base_case(A, n)) {
-    Iterator L, M;
-    bool mid_eq;
-    std::tie(L, M, mid_eq) = split3(A, n, f);
+    auto [L, M, mid_eq] = split3(A, n, f);
     if (!mid_eq) quicksort_serial(L+1, M - L-1, f);
     quicksort_serial(M, A + n - M, f);
     n = L - A;
@@ -112,13 +144,13 @@ void quicksort(Iterator A, size_t n, const BinPred& f) {
   if (n < (1 << 10))
     quicksort_serial(A, n, f);
   else {
-    Iterator L;
-    Iterator M;
-    bool mid_eq;
-    std::tie(L, M, mid_eq) = split3(A, n, f);
-    auto left = [&]() { quicksort(A, L - A, f); };
-    auto mid = [&]() { quicksort(L + 1, M - L - 1, f); };
-    auto right = [&]() { quicksort(M, A + n - M, f); };
+    auto [L, M, mid_eq] = split3(A, n, f);
+    // Note: generic lambda capture for L and M (i.e. writing L = L, etc.)
+    // in the capture is required due to a defect in the C++ standard which
+    // prohibits capturing names resulting from a structured binding!
+    auto left = [&, L = L]() { quicksort(A, L - A, f); };
+    auto mid = [&, L = L, M = M]() { quicksort(L + 1, M - L - 1, f); };
+    auto right = [&, M = M]() { quicksort(M, A + n - M, f); };
 
     if (!mid_eq)
       par_do3(left, mid, right);

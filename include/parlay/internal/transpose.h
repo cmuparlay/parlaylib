@@ -13,9 +13,15 @@ constexpr const size_t TRANS_THRESHHOLD = PAR_GRANULARITY / 4;
 constexpr const size_t TRANS_THRESHHOLD = 500;
 #endif
 
+#ifdef DEBUG
+constexpr const size_t NON_CACHE_OBLIVIOUS_THRESHOLD = 10000;
+#else
+constexpr const size_t NON_CACHE_OBLIVIOUS_THRESHOLD = 1 << 22;
+#endif
+
 inline size_t split(size_t n) { return n / 2; }
 
-template <class Iterator>
+template <typename assignment_tag, typename Iterator>
 struct transpose {
   Iterator A, B;
   transpose(Iterator AA, Iterator BB) : A(AA), B(BB) {}
@@ -25,7 +31,7 @@ struct transpose {
     if (cCount * rCount < TRANS_THRESHHOLD) {
       for (size_t i = rStart; i < rStart + rCount; i++)
         for (size_t j = cStart; j < cStart + cCount; j++)
-          B[j * cLength + i] = A[i * rLength + j];
+          assign_dispatch(B[j * cLength + i], A[i * rLength + j], assignment_tag());
     } else if (cCount > rCount) {
       size_t l1 = split(cCount);
       size_t l2 = cCount - l1;
@@ -58,7 +64,7 @@ struct transpose {
   }
 };
 
-template <typename InIterator, typename OutIterator, typename CountIterator, typename DestIterator>
+template <typename assignment_tag, typename InIterator, typename OutIterator, typename CountIterator, typename DestIterator>
 struct blockTrans {
   InIterator A;
   OutIterator B;
@@ -76,7 +82,7 @@ struct blockTrans {
           size_t sa = OA[i * rLength + j];
           size_t sb = OB[j * cLength + i];
           size_t l = OA[i * rLength + j + 1] - sa;
-          for (size_t k = 0; k < l; k++) B[k + sb] = A[k + sa];
+          for (size_t k = 0; k < l; k++) assign_dispatch(B[k + sb], A[k + sa], assignment_tag());
         }
 
       });
@@ -118,7 +124,7 @@ struct blockTrans {
 // From and To are of lenght n
 // counts is of length num_blocks * num_buckets
 // Data is memcpy'd into To avoiding initializers and overloaded =
-template <typename InIterator, typename OutIterator, typename s_size_t>
+template <typename assignment_tag, typename InIterator, typename OutIterator, typename s_size_t>
 sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
                                    sequence<s_size_t>& counts, size_t n,
                                    size_t block_size, size_t num_blocks,
@@ -128,12 +134,10 @@ sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
   auto add = addm<s_size_t>();
 
   // for smaller input do non-cache oblivious version
-  if (n < (1 << 22) || num_buckets <= 512 || num_blocks <= 512) {
+  if (n < NON_CACHE_OBLIVIOUS_THRESHOLD || num_buckets <= 512 || num_blocks <= 512) {
     size_t block_bits = log2_up(num_blocks);
     size_t block_mask = num_blocks - 1;
-    if (size_t{1} << block_bits != num_blocks)
-      throw std::invalid_argument(
-          "in transpose_buckets: num_blocks must be a power or 2");
+    assert(size_t{1} << block_bits == num_blocks);
 
     // determine the destination offsets
     auto get = [&](size_t i) {
@@ -152,23 +156,24 @@ sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
         size_t d_offset = dest_offsets[i + num_blocks * j];
         size_t len = counts[i * num_buckets + j];
         for (size_t k = 0; k < len; k++)
-          To[d_offset++] = From[s_offset++];
+          assign_dispatch(To[d_offset++], From[s_offset++], assignment_tag());
       }
     };
     parallel_for(0, num_blocks, f, 1);
   } else {  // for larger input do cache efficient transpose
     // sequence<s_size_t> source_offsets(counts,m+1);
     dest_offsets = sequence<s_size_t>(m);
-    transpose<typename sequence<s_size_t>::iterator>(counts.begin(), dest_offsets.begin())
+    transpose<assignment_tag, typename sequence<s_size_t>::iterator>(counts.begin(), dest_offsets.begin())
         .trans(num_blocks, num_buckets);
 
     // do both scans inplace
-    size_t total = scan_inplace(make_slice(dest_offsets), add);
-    size_t total2 = scan_inplace(make_slice(counts), add);
+    [[maybe_unused]] size_t total = scan_inplace(make_slice(dest_offsets), add);
+    [[maybe_unused]] size_t total2 = scan_inplace(make_slice(counts), add);
     assert(total == n && total2 == n);
+
     counts[m] = static_cast<s_size_t>(n);
 
-    blockTrans<InIterator, OutIterator,
+    blockTrans<assignment_tag, InIterator, OutIterator,
                typename sequence<s_size_t>::iterator,
                typename sequence<s_size_t>::iterator>(
       From, To, counts.begin(), dest_offsets.begin())

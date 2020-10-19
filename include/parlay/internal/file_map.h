@@ -95,7 +95,7 @@ class file_map {
 #endif  // PARLAY_NO_FILE_MAP
 
 namespace std {
-  void swap(parlay::file_map& first, parlay::file_map& second) {
+  inline void swap(parlay::file_map& first, parlay::file_map& second) {
     first.swap(second);
   }
 }

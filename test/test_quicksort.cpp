@@ -53,6 +53,22 @@ TEST(TestQuicksort, TestQuicksortUncopyable) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
+TEST(TestQuicksort, TestQuicksortUniquePtr) {
+  auto s = parlay::tabulate(100000, [](long long int i) {
+    return std::make_unique<int>((50021 * i + 61) % (1 << 20));
+  });
+  auto s2 = parlay::tabulate(100000, [](long long int i) {
+    return std::make_unique<int>((50021 * i + 61) % (1 << 20));
+  });
+  auto cmp = [](const auto& a, const auto& b) { return *a < *b; };
+  parlay::internal::quicksort(make_slice(s), cmp);
+  std::stable_sort(std::begin(s2), std::end(s2), cmp);
+  for (size_t i = 0; i < 100000; i++) {
+    ASSERT_EQ(*s[i], *s2[i]);
+  }
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s), cmp));
+}
+
 TEST(TestQuicksort, TestQuicksortSelfReferential) {
   auto s = parlay::tabulate(100000, [](int i) -> SelfReferentialThing {
     return SelfReferentialThing(i);

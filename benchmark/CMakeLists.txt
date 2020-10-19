@@ -1,14 +1,22 @@
-# Benchmarks of example applications (word count, primes, etc.)
-add_executable(bench_examples bench_examples.cpp)
-target_link_libraries(bench_examples PRIVATE parlay benchmark_main)
-target_compile_options(bench_examples PRIVATE -Wall -Wextra -Wfatal-errors)
+# Benchmarks for Parlay
+#
+# Benchmarks are implemented using Google Benchmark.
+#
+set(NUMA_COMMAND numactl -i all)
 
-# Benchmarks of standard primitives with good performance coverage
-add_executable(bench_standard bench_standard.cpp)
-target_link_libraries(bench_standard PRIVATE parlay benchmark_main)
-target_compile_options(bench_standard PRIVATE -Wall -Wextra -Wfatal-errors)
+function(add_benchmark NAME)
+  add_executable(bench_${NAME} bench_${NAME}.cpp)
+  target_link_libraries(bench_${NAME} PRIVATE parlay benchmark_main)
+  target_compile_options(bench_${NAME} PRIVATE -Wall -Wextra -Wfatal-errors -march=native)
 
-# Benchmarks of standard primitives with good performance coverage
-add_executable(bench_parsing bench_parsing.cpp)
-target_link_libraries(bench_parsing PRIVATE parlay benchmark_main)
-target_compile_options(bench_parsing PRIVATE -Wall -Wextra -Wfatal-errors)
+  if(PARLAY_BENCHMARK_NUMACTL_TARGETS)
+    add_custom_target(numactl_bench_${NAME}
+      COMMAND ${NUMA_COMMAND} ${CMAKE_CURRENT_BINARY_DIR}/bench_${NAME} --benchmark_counters_tabular=true
+    )
+    add_dependencies(numactl_bench_${NAME} bench_${NAME})
+  endif()
+endfunction()
+
+add_benchmark(examples)
+add_benchmark(standard)
+add_benchmark(parsing)

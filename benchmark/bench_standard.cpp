@@ -7,19 +7,56 @@
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
-#include <parlay/sequence.h>
 
-#include <parlay/internal/merge_sort.h>
+using benchmark::Counter;
+
+// Use this macro to avoid accidentally timing the destructors
+// of the output produced by algorithms that return data
+//
+// The expression e is evaluated as if written in the context
+// auto result_ = (e);
+//
+#define RUN_AND_CLEAR(e)      \
+  {                           \
+    auto result_ = (e);       \
+    state.PauseTiming();      \
+  }                           \
+  state.ResumeTiming();
+
+// Use this macro to copy y into x without measuring the cost
+// of the copy in the benchmark
+//
+// The effect of this macro on the arguments x and is equivalent
+// to the statement (x) = (y)
+#define COPY_NO_TIME(x, y)    \
+  state.PauseTiming();        \
+  (x) = (y);                  \
+  state.ResumeTiming();
+
+// Report bandwidth and throughput statistics for the benchmark
+//
+// Arguments:
+//  n:             The number of elements processed
+//  bytes_read:    The number of bytes read per element processed
+//  bytes_written: The number of bytes written per element processed
+//
+#define REPORT_STATS(n, bytes_read, bytes_written)                                                                                   \
+  state.counters["       Bandwidth"] = Counter(state.iterations()*(n)*((bytes_read) + 0.7 * (bytes_written)), Counter::kIsRate);     \
+  state.counters["    Elements/sec"] = Counter(state.iterations()*(n), Counter::kIsRate);                                            \
+  state.counters["       Bytes/sec"] = Counter(state.iterations()*(n)*(sizeof(T)), Counter::kIsRate);
+
 
 template<typename T>
 static void bench_map(benchmark::State& state) {
   size_t n = state.range(0);
   auto In = parlay::sequence<T>(n, 1);
   auto f = [&] (auto x) -> T { return x; };
-  
+
   for (auto _ : state) {
-    parlay::map(In, f);
+    RUN_AND_CLEAR(parlay::map(In, f));
   }
+
+  REPORT_STATS(n, 2*sizeof(T), sizeof(T));
 }
 
 template<typename T>
@@ -28,8 +65,10 @@ static void bench_tabulate(benchmark::State& state) {
   auto f = [] (size_t i) -> T { return i; };
   
   for (auto _ : state) {
-    parlay::tabulate(n, f);
+    RUN_AND_CLEAR(parlay::tabulate(n, f));
   }
+
+  REPORT_STATS(n, sizeof(T), sizeof(T));
 }
 
 template<typename T>
@@ -38,8 +77,10 @@ static void bench_reduce_add(benchmark::State& state) {
   auto s = parlay::sequence<T>(n, 1);
   
   for (auto _ : state) {
-    parlay::reduce(s);
+    [[maybe_unused]] auto sum = parlay::reduce(s);
   }
+
+  REPORT_STATS(n, sizeof(T), 0);
 }
 
 template<typename T>
@@ -48,8 +89,10 @@ static void bench_scan_add(benchmark::State& state) {
   auto s = parlay::sequence<T>(n, 1);
   
   for (auto _ : state) {
-    parlay::scan(s);
+    RUN_AND_CLEAR(parlay::scan(s).first);
   }
+
+  REPORT_STATS(n, 3*sizeof(T), sizeof(T));
 }
 
 template<typename T>
@@ -59,27 +102,33 @@ static void bench_pack(benchmark::State& state) {
   auto In = parlay::tabulate(n, [] (size_t i) -> T {return i;});
   
   for (auto _ : state) {
-    parlay::pack(In, flags);
+    RUN_AND_CLEAR(parlay::pack(In, flags));
   }
+
+  REPORT_STATS(n, 14, 4);  // Why 14 and 4?
 }
 
 template<typename T>
 static void bench_gather(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
-  auto in = parlay::tabulate(n, [&] (size_t i) -> T {return i;});
-  auto idx = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
+  auto in = parlay::tabulate(n, [&] (size_t i) -> T { return i; });
+  auto in_slice = parlay::make_slice(in);
+  auto idx = parlay::tabulate(n, [&] (size_t i) -> T { return r.ith_rand(i) % n; });
+  auto idx_slice = parlay::make_slice(idx);
   auto f = [&] (size_t i) -> T {
     // prefetching helps significantly
     __builtin_prefetch (&in[idx[i+4]], 0, 1);
-    return in[idx[i]];
+    return in_slice[idx_slice[i]];
   };
   
   for (auto _ : state) {
     if (n > 4) {
-      parlay::tabulate(n-4, f);
+      RUN_AND_CLEAR(parlay::tabulate(n-4, f));
     }
   }
+
+  REPORT_STATS(n, 10*sizeof(T), sizeof(T));
 }
 
 template<typename T>
@@ -87,36 +136,40 @@ static void bench_scatter(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   parlay::sequence<T> out(n, 0);
-  auto idx = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
+  auto out_slice = parlay::make_slice(out);
+  auto idx = parlay::tabulate(n, [&] (size_t i) -> T { return r.ith_rand(i) % n; });
+  auto idx_slice = parlay::make_slice(idx);
   auto f = [&] (size_t i) {
     // prefetching makes little if any difference
     //__builtin_prefetch (&out[idx[i+4]], 1, 1);
-      out[idx[i]] = i;
+      out_slice[idx_slice[i]] = i;
   };
-      
+
   for (auto _ : state) {
     if (n > 4) {
       parlay::parallel_for(0, n-4, f);
     }
   }
+
+  REPORT_STATS(n, 9*sizeof(T), 8*sizeof(T));
 }
 
 template<typename T>
 static void bench_write_add(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
-  
-  std::atomic<T>* out = (std::atomic<T>*)::operator new(n * sizeof(std::atomic<T>));
-  parlay::parallel_for(0, n, [&](size_t i) {
-    new (std::addressof(out[i])) std::atomic<T>(0);
-  });
+
+  auto out = parlay::sequence<std::atomic<T>>(n);
+  auto out_slice = parlay::make_slice(out);
   
   auto idx = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
+  auto idx_slice = parlay::make_slice(idx);
+
   auto f = [&] (size_t i) {
     // putting write prefetch in slows it down
     //__builtin_prefetch (&out[idx[i+4]], 0, 1);
     //__sync_fetch_and_add(&out[idx[i]],1);};
-    parlay::write_add(&out[idx[i]],1);
+    parlay::write_add(&out_slice[idx_slice[i]],1);
   };
     
   for (auto _ : state) {
@@ -124,24 +177,25 @@ static void bench_write_add(benchmark::State& state) {
       parlay::parallel_for(0, n-4, f);
     }
   }
-  
-  ::operator delete(out);
+
+  REPORT_STATS(n, 9*sizeof(T), 8*sizeof(T));
 }
 
 template<typename T>
 static void bench_write_min(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
-  std::atomic<T>* out = (std::atomic<T>*)::operator new(n * sizeof(std::atomic<T>));
-  parlay::parallel_for(0, n, [&](size_t i) {
-    new (std::addressof(out[i])) std::atomic<T>(n);
-  });
-  
+
+  auto out = parlay::sequence<std::atomic<T>>(n);
+  auto out_slice = parlay::make_slice(out);
+
   auto idx = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
+  auto idx_slice = parlay::make_slice(idx);
+
   auto f = [&] (size_t i) {
     // putting write prefetch in slows it down
     //__builtin_prefetch (&out[idx[i+4]], 1, 1);
-    parlay::write_min(&out[idx[i]], (T) i, std::less<T>());
+    parlay::write_min(&out_slice[idx_slice[i]], (T) i, std::less<T>());
   };
   
   for (auto _ : state) {
@@ -149,8 +203,8 @@ static void bench_write_min(benchmark::State& state) {
       parlay::parallel_for(0, n-4, f);
     }
   }
-  
-  ::operator delete(out);
+
+  REPORT_STATS(n, 9*sizeof(T), 8*sizeof(T));
 }
 
 template<typename T>
@@ -158,21 +212,16 @@ static void bench_count_sort(benchmark::State& state) {
   size_t n = state.range(0);
   size_t bits = state.range(1);
   parlay::random r(0);
-  size_t num_buckets = (1<<bits);
+  size_t num_buckets = (1 << bits);
   size_t mask = num_buckets - 1;
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i);});
-  parlay::sequence<T> out(n);
-  auto f = [&] (size_t i) {return in[i] & mask;};
-  auto keys = parlay::delayed_seq<unsigned char>(n, f);
-  
+  auto get_key = [&] (const T& t) {return t & mask;};
+
   for (auto _ : state) {
-    parlay::internal::count_sort<std::true_type, std::false_type>(
-      parlay::make_slice(in),
-      parlay::make_slice(out),
-      parlay::make_slice(keys.begin(),keys.end()),
-      num_buckets
-    );
+    RUN_AND_CLEAR(parlay::internal::count_sort(parlay::make_slice(in), get_key, num_buckets));
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
@@ -181,8 +230,10 @@ static void bench_random_shuffle(benchmark::State& state) {
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return i;});
   
   for (auto _ : state) {
-    parlay::random_shuffle(in, n);
+    RUN_AND_CLEAR(parlay::random_shuffle(in, n));
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
@@ -190,22 +241,24 @@ static void bench_histogram(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
-  parlay::sequence<T> out;
   
   for (auto _ : state) {
-    out = parlay::histogram(in, (T) n);
+    RUN_AND_CLEAR(parlay::histogram(in, (T) n));
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
 static void bench_histogram_same(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::sequence<T> in(n, (T) 10311);
-  parlay::sequence<T> out;
  
   for (auto _ : state) {
-    out = parlay::histogram(in, (T) n);
+    RUN_AND_CLEAR(parlay::histogram(in, (T) n));
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
@@ -213,11 +266,12 @@ static void bench_histogram_few(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%256;});
-  parlay::sequence<T> out;
   
   for (auto _ : state) {
-    out = parlay::histogram(in, (T) 256);
+    RUN_AND_CLEAR(parlay::histogram(in, (T) 256));
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
@@ -228,12 +282,15 @@ static void bench_integer_sort_pair(benchmark::State& state) {
   size_t bits = sizeof(T)*8;
   auto S = parlay::tabulate(n, [&] (size_t i) -> par {
 				 return par(r.ith_rand(i),i);});
-  parlay::sequence<par> R;
   auto first = [] (par a) {return a.first;};
-  
-  for (auto _ : state) {
-    R = parlay::internal::integer_sort(parlay::make_slice(S), first, bits);
+
+  while (state.KeepRunningBatch(10)) {
+    for (int i = 0; i < 10; i++) {
+      RUN_AND_CLEAR(parlay::internal::integer_sort(parlay::make_slice(S), first, bits));
+    }
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
@@ -244,11 +301,14 @@ static void bench_integer_sort(benchmark::State& state) {
   auto S = parlay::tabulate(n, [&] (size_t i) -> T {
 				 return r.ith_rand(i);});
   auto identity = [] (T a) {return a;};
-  parlay::sequence<T> R;
-  
-  for (auto _ : state) {
-    R = parlay::internal::integer_sort(parlay::make_slice(S), identity, bits);
+
+  while (state.KeepRunningBatch(10)) {
+    for (int i = 0; i < 10; i++) {
+      RUN_AND_CLEAR(parlay::internal::integer_sort(parlay::make_slice(S), identity, bits));
+    }
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
@@ -259,23 +319,46 @@ static void bench_integer_sort_128(benchmark::State& state) {
   auto S = parlay::tabulate(n, [&] (size_t i) -> __int128 {
       return r.ith_rand(2*i) + (((__int128) r.ith_rand(2*i+1)) << 64) ;});
   auto identity = [] (auto a) {return a;};
-  parlay::sequence<__int128> out;
-  
-  for (auto _ : state) {
-    out = parlay::internal::integer_sort(parlay::make_slice(S),identity,bits);
+
+  while (state.KeepRunningBatch(10)) {
+    for (int i = 0; i < 10; i++) {
+      RUN_AND_CLEAR(parlay::internal::integer_sort(parlay::make_slice(S), identity, bits));
+    }
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
-static void bench_sample_sort(benchmark::State& state) {
+static void bench_sort(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
-  parlay::sequence<T> out;
-  
-  for (auto _ : state) {
-    out = parlay::internal::sample_sort(parlay::make_slice(in), std::less<T>());
+
+  while (state.KeepRunningBatch(10)) {
+    for (int i = 0; i < 10; i++) {
+      RUN_AND_CLEAR(parlay::internal::sample_sort(parlay::make_slice(in), std::less<T>()));
+    }
   }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_sort_inplace(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
+  auto out = in;
+
+  while (state.KeepRunningBatch(10)) {
+    for (int i = 0; i < 10; i++) {
+      COPY_NO_TIME(out, in);
+      parlay::internal::sample_sort_inplace(parlay::make_slice(out), std::less<T>());
+    }
+  }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
@@ -283,11 +366,12 @@ static void bench_merge(benchmark::State& state) {
   size_t n = state.range(0);
   auto in1 = parlay::tabulate(n/2, [&] (size_t i) -> T {return 2*i;});
   auto in2 = parlay::tabulate(n-n/2, [&] (size_t i) -> T {return 2*i+1;});
-  parlay::sequence<T> out;
   
   for (auto _ : state) {
-    out = parlay::merge(in1, in2, std::less<T>());
+    RUN_AND_CLEAR(parlay::merge(in1, in2, std::less<T>()));
   }
+
+  REPORT_STATS(n, 2*sizeof(T), sizeof(T));
 }
 
 template<typename T>
@@ -295,10 +379,16 @@ static void bench_merge_sort(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
-  
-  for (auto _ : state) {
-    parlay::internal::merge_sort_inplace(make_slice(in), std::less<T>());
+  auto out = in;
+
+  while (state.KeepRunningBatch(10)) {
+    for (int i = 0; i < 10; i++) {
+      COPY_NO_TIME(out, in);
+      parlay::internal::merge_sort_inplace(make_slice(out), std::less<T>());
+    }
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
@@ -311,6 +401,8 @@ static void bench_split3(benchmark::State& state) {
   for (auto _ : state) {
     parlay::internal::split_three(make_slice(In), make_slice(Out), flags);
   }
+
+  REPORT_STATS(n, 3*sizeof(T), sizeof(T));
 }
 
 template<typename T>
@@ -318,10 +410,16 @@ static void bench_quicksort(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   auto in = parlay::tabulate(n, [&] (size_t i) {return r.ith_rand(i)%n;});
+  auto out = in;
 
-  for (auto _ : state) {
-    parlay::internal::p_quicksort_inplace(make_slice(in), std::less<T>());
+  while (state.KeepRunningBatch(10)) {
+    for (int i = 0; i < 10; i++) {
+      COPY_NO_TIME(out, in);
+      parlay::internal::p_quicksort_inplace(make_slice(in), std::less<T>());
+    }
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 template<typename T>
@@ -334,10 +432,12 @@ static void bench_collect_reduce(benchmark::State& state) {
       return par(r.ith_rand(i) % num_buckets, 1);});
   auto get_key = [&] (const auto& a) {return a.first;};
   auto get_val = [&] (const auto& a) {return a.first;};
-  
+
   for (auto _ : state) {
-    parlay::internal::collect_reduce(S, get_key, get_val, parlay::addm<T>(), num_buckets);
+    RUN_AND_CLEAR(parlay::internal::collect_reduce(S, get_key, get_val, parlay::addm<T>(), num_buckets));
   }
+
+  REPORT_STATS(n, 0, 0);
 }
 
 // ------------------------- Registration -------------------------------
@@ -350,6 +450,7 @@ static void bench_collect_reduce(benchmark::State& state) {
 BENCH(map, long, 100000000);
 BENCH(tabulate, long, 100000000);
 BENCH(reduce_add, long, 100000000);
+BENCH(scan_add, long, 100000000);
 BENCH(pack, long, 100000000);
 BENCH(gather, long, 100000000);
 BENCH(scatter, long, 100000000);
@@ -360,12 +461,15 @@ BENCH(random_shuffle, long, 100000000);
 BENCH(histogram, unsigned int, 100000000);
 BENCH(histogram_same, unsigned int, 100000000);
 BENCH(histogram_few, unsigned int, 100000000);
-BENCH(integer_sort_pair, unsigned int, 100000000);
 BENCH(integer_sort, unsigned int, 100000000);
-BENCH(integer_sort_128, void, 100000000);
-BENCH(sample_sort, long, 100000000);
-BENCH(sample_sort, unsigned int, 100000000);
-BENCH(sample_sort, __int128, 100000000);
+BENCH(integer_sort_pair, unsigned int, 100000000);
+BENCH(integer_sort_128, __int128, 100000000);
+BENCH(sort, unsigned int, 100000000);
+BENCH(sort, long, 100000000);
+BENCH(sort, __int128, 100000000);
+BENCH(sort_inplace, unsigned int, 100000000);
+BENCH(sort_inplace, long, 100000000);
+BENCH(sort_inplace, __int128, 100000000);
 BENCH(merge, long, 100000000);
 BENCH(scatter, int, 100000000);
 BENCH(merge_sort, long, 100000000);

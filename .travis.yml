@@ -155,7 +155,7 @@ jobs:
       # Run the analysis
       - mkdir build
       - cd build
-      - CC=clang-10 CXX=clang++-10 cmake -DENABLE_CLANG_TIDY=On ..
+      - CC=clang-10 CXX=clang++-10 cmake -DENABLE_CLANG_TIDY=On -DCLANG_TIDY_EXE=/usr/bin/clang-tidy ..
       - make clang-tidy-all
 
     # Run include-what-you-use on the codebase

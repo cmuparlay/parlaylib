@@ -26,6 +26,7 @@
 #include "integer_sort.h"
 #include "sequence_ops.h"
 #include "transpose.h"
+#include "uninitialized_sequence.h"
 
 #include "../utilities.h"
 
@@ -230,11 +231,11 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
   using hasheq = hasheq_mask_low<key_type>;
   get_bucket<T, key_type, hasheq, Key> gb(A, hasheq(), get_key, bits);
   sequence<T> B = sequence<T>::uninitialized(n);
-  sequence<T> Tmp = sequence<T>::uninitialized(n);
+  auto Tmp = uninitialized_sequence<T>(n);
 
   // first partition into blocks based on hash using a counting sort
   sequence<size_t> block_offsets;
-  block_offsets = integer_sort_<std::false_type, std::true_type, std::true_type, std::true_type>(
+  block_offsets = integer_sort_<std::false_type, uninitialized_copy_tag>(
     make_slice(A), make_slice(B), make_slice(Tmp) , gb, bits, num_blocks);
 
   // note that this is cache line alligned

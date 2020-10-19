@@ -372,7 +372,9 @@ TEST(TestSequence, TestAppendMoveNonTrivial) {
   s1.append(std::move(s2));
   
   ASSERT_EQ(s1.size(), 2);
-  ASSERT_TRUE(s2[0] == nullptr);
+  ASSERT_EQ(s2[0], nullptr);
+  ASSERT_NE(s1[0], nullptr);
+  ASSERT_NE(s1[1], nullptr);
   ASSERT_EQ(*s1[0], 5);
   ASSERT_EQ(*s1[1], 6);
 }

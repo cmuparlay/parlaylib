@@ -29,23 +29,23 @@ void seq_merge(slice<InIterator1, InIterator1> A,
   while (true) {
     if (i == nA) {
       while (j < nB) {
-        assign_dispatch(B[j], R[i + j], assignment_tag{});
+        assign_dispatch(R[i + j], B[j], assignment_tag{});
         j++;
       }
       break;
     }
     if (j == nB) {
       while (i < nA) {
-        assign_dispatch(A[i], R[i + j], assignment_tag{});
+        assign_dispatch(R[i + j], A[i], assignment_tag{});
         i++;
       }
       break;
     }
     if (f(B[j], A[i])) {
-      assign_dispatch(B[j], R[i + j], assignment_tag{});
+      assign_dispatch(R[i + j], B[j], assignment_tag{});
       j++;
     } else {
-      assign_dispatch(A[i], R[i + j], assignment_tag{});
+      assign_dispatch(R[i + j], A[i], assignment_tag{});
       i++;
     }
   }
@@ -66,12 +66,12 @@ void merge_into(slice<InIterator1, InIterator1> A,
   }
   else if (nA == 0) {
     parallel_for(0, nB, [&](size_t i) {
-      assign_dispatch(B[i], R[i], assignment_tag{});
+      assign_dispatch(R[i], B[i], assignment_tag{});
     });
   }
   else if (nB == 0) {
     parallel_for(0, nA, [&](size_t i) {
-      assign_dispatch(A[i], R[i], assignment_tag{});
+      assign_dispatch(R[i], A[i], assignment_tag{});
     });
   }
   else {

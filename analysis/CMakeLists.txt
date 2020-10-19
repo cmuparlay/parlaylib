@@ -20,6 +20,7 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/sequence.h
     ${PARLAY_INCLUDE_DIR}/parlay/scheduler.h
     ${PARLAY_INCLUDE_DIR}/parlay/slice.h
+    ${PARLAY_INCLUDE_DIR}/parlay/type_traits.h
     ${PARLAY_INCLUDE_DIR}/parlay/utilities.h
   IGNORE_DEFINITIONS
     PARLAY_CILK

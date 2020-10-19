@@ -22,6 +22,7 @@
 #include <iterator>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 namespace parlay {
 
@@ -44,7 +45,7 @@ class delayed_sequence {
   // Note that, counterintuitively, reference is not necessarily
   // a reference type, but rather, it refers to the type returned
   // by dereferencing the iterator. For a delayed sequence, this
-  // must be a value type since elements are generated on demand.
+  // could be a value type since elements are generated on demand.
   using value_type = T;
   using reference = T;
   using const_reference = T;
@@ -65,7 +66,7 @@ class delayed_sequence {
     using iterator_category = std::random_access_iterator_tag;
     using value_type = T;
     using difference_type = std::ptrdiff_t;
-    using pointer = const T*;
+    using pointer = typename std::add_pointer<T>::type;
     using reference = T;
 
     friend class delayed_sequence<T, F>;
@@ -91,9 +92,10 @@ class delayed_sequence {
  
     // ---- Requirements for input iterator ----
 
-    iterator operator++(int) const {
+    iterator operator++(int) {
       assert(index < parent->last);
-      return iterator(parent, index+1);
+      index++;
+      return *this;
     }
 
     bool operator==(const iterator& other) const {
@@ -112,9 +114,10 @@ class delayed_sequence {
       return *this;
     }
 
-    iterator operator--(int) const {
+    iterator operator--(int) {
       assert(index > parent->first);
-      return iterator(parent, index-1);
+      index--;
+      return *this;
     }
 
     // ---- Requirements for random access iterator ----

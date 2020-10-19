@@ -17,11 +17,17 @@ add_dtests(NAME test_merge_sort FILES test_merge_sort.cpp LIBS parlay)
 add_dtests(NAME test_quicksort FILES test_quicksort.cpp LIBS parlay)
 add_dtests(NAME test_bucket_sort FILES test_bucket_sort.cpp LIBS parlay)
 add_dtests(NAME test_integer_sort FILES test_integer_sort.cpp LIBS parlay)
+add_dtests(NAME test_counting_sort FILES test_counting_sort.cpp LIBS parlay)
+add_dtests(NAME test_sample_sort FILES test_sample_sort.cpp LIBS parlay)
 
 # -------------------------------- Primitives ---------------------------------
 
 add_dtests(NAME test_primitives FILES test_primitives.cpp LIBS parlay)
 add_dtests(NAME test_random FILES test_random.cpp LIBS parlay)
+
+# -------------------------- Uninitialized memory testing ---------------------------
+
+add_dtests(NAME test_uninitialized_memory FILES test_uninitialized_memory.cpp LIBS parlay NO_SANITIZE)
 
 # -------------------------------- IO ---------------------------------
 
@@ -44,6 +50,10 @@ add_dtests(NAME test_seq_scheduling FILES test_seq_scheduling.cpp LIBS parlay)
 # ----------------------------- Parlay Allocator ------------------------------
 
 add_dtests(NAME test_allocator FILES test_allocator.cpp LIBS parlay)
+
+# ----------------------------- Utilities ------------------------------
+
+add_dtests(NAME test_relocate FILES test_relocate.cpp LIBS parlay)
 
 # --------------------- External scheduler integration tests -------------------
 

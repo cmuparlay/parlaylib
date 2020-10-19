@@ -32,25 +32,45 @@ void radix_step_(slice<InIterator, InIterator> A,
 
   for (std::ptrdiff_t j = n - 1; j >= 0; j--) {
     auto x = --counts[keys[j]];
-    B[x] = std::move(A[j]);
+    uninitialized_relocate(&B[x], &A[j]);
   }
 }
 
-template <typename InIterator, typename OutIterator>
-void to_heap_order(InIterator In,
-                   OutIterator Out,
-                   size_t root,
-                   size_t l,
-                   size_t r) {
+// Given the sequence In[l, r), write to Out, the values of
+// In arranged in a balanced tree. Values are indexed using
+// the standard implicit tree ordering (a la binary heaps)
+//
+//                      root (i)
+//                    /          \                       |
+//              left (2i+1)   right(2i+2)
+//
+// i.e. the root of the tree is at index 0, and the left
+// and right children of the node at index i are at indices
+// 2i+1 and 2i+2 respectively.
+//
+// Template parameters: assignment_tag: one of copy_assign_tag,
+// move_assign_tag, uninitialized_copy_tag, uninitialized_move_tag,
+// or unintialized_relocate_tag. Specifies the mode by which
+// values are relocated from In to Out.
+template <typename assignment_tag, typename InIterator, typename OutIterator>
+void to_balanced_tree(InIterator In,
+                      OutIterator Out,
+                      size_t root,
+                      size_t l,
+                      size_t r) {
   size_t n = r - l;
   size_t m = l + n / 2;
-  Out[root] = std::move(In[m]);
+  assign_dispatch(Out[root], In[m], assignment_tag());
   if (n == 1) return;
-  to_heap_order(In, Out, 2 * root + 1, l, m);
-  to_heap_order(In, Out, 2 * root + 2, m + 1, r);
+  to_balanced_tree<assignment_tag>(In, Out, 2 * root + 1, l, m);
+  to_balanced_tree<assignment_tag>(In, Out, 2 * root + 2, m + 1, r);
 }
 
 // returns true if all equal
+// TODO: Can we avoid the indirection of having to refer to
+// the pivots via their indices? Copying the elements is
+// bad because it doesn't work non-copyable types, but
+// there should be some middle ground.
 template <typename Iterator, typename BinaryOp>
 bool get_buckets(slice<Iterator, Iterator> A,
                  unsigned char* buckets,
@@ -74,12 +94,12 @@ bool get_buckets(slice<Iterator, Iterator> A,
 
   if (!f(A[pivots[0]], A[pivots[num_pivots - 1]])) return true;
 
-  auto heap = sample_set.begin();
-  to_heap_order(pivots.begin(), heap, 0, 0, num_pivots);
+  auto pivot_tree = sample_set.begin();
+  to_balanced_tree<copy_assign_tag>(pivots.begin(), pivot_tree, 0, 0, num_pivots);
 
   for (size_t i = 0; i < n; i++) {
     size_t j = 0;
-    for (size_t k = 0; k < rounds; k++) j = 1 + 2 * j + !f(A[i], A[heap[j]]);
+    for (size_t k = 0; k < rounds; k++) j = 1 + 2 * j + !f(A[i], A[pivot_tree[j]]);
     assert(j - num_pivots <= (std::numeric_limits<unsigned char>::max)());
     buckets[i] = static_cast<unsigned char>(j - num_pivots);
   }
@@ -93,16 +113,12 @@ void base_sort(slice<InIterator, InIterator> in,
                bool stable,
                bool inplace) {
   if (stable) {
-    auto n = in.size();
-    size_t levels = n > MERGE_SORT_BASE ? log2_up(n / MERGE_SORT_BASE) : 0;
-    merge_sort_(in, out, f, levels, inplace);
+    merge_sort_(in, out, f, inplace);
   }
   else {
     quicksort(in.begin(), in.size(), f);
     if (!inplace) {
-      std::copy(std::make_move_iterator(in.begin()),
-                std::make_move_iterator(in.end()),
-                out.begin());
+      uninitialized_relocate_n(out.begin(), in.begin(), in.size());
     }
   }
 }
@@ -140,7 +156,7 @@ template <typename Iterator, typename BinaryOp>
 void bucket_sort(slice<Iterator, Iterator> in, BinaryOp f, bool stable = false) {
   using T = typename slice<Iterator, Iterator>::value_type;
   size_t n = in.size();
-  auto tmp = sequence<T>::uninitialized(n);
+  auto tmp = uninitialized_sequence<T>(n);
   bucket_sort_r(make_slice(in), make_slice(tmp), f, stable, true);
 }
 

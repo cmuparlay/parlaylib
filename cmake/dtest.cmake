@@ -228,7 +228,7 @@ endfunction()
 function(add_dtests)
 
   # Parse arguments
-  set(options OPTIONAL "")
+  set(options NO_SANITIZE)
   set(oneValueArgs NAME)
   set(multiValueArgs FILES LIBS FLAGS)
   cmake_parse_arguments(CONFIGURE_ADD_DTESTS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -237,27 +237,28 @@ function(add_dtests)
   set(TESTFILES ${CONFIGURE_ADD_DTESTS_FILES})
   set(TESTLIBS ${CONFIGURE_ADD_DTESTS_LIBS})
   set(TESTFLAGS ${CONFIGURE_ADD_DTESTS_FLAGS})
+  set(NO_SANITIZE ${CONFIGURE_ADD_DTESTS_NO_SANITIZE})
 
   # Vanilla test -- no instrumentation
   add_dtest("${TESTNAME}" "${TESTFILES}" "" "nosan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
 
   # Test with ASAN (AddressSanitizer)
-  if(BUILD_ASAN_TESTS)
+  if(BUILD_ASAN_TESTS AND NOT NO_SANITIZE)
     add_dtest("${TESTNAME}" "${TESTFILES}" "${DTEST_ASAN_FLAGS}" "asan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
   endif()
 
   # Test with UBSAN (UndefinedBehaviourSanitizer)
-  if(BUILD_UBSAN_TESTS)
+  if(BUILD_UBSAN_TESTS AND NOT NO_SANITIZE)
     add_dtest("${TESTNAME}" "${TESTFILES}" "${DTEST_UBSAN_FLAGS}" "ubsan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
   endif()
 
   # Test with TSAN (ThreadSanitizer)
-  if(BUILD_TSAN_TESTS)
+  if(BUILD_TSAN_TESTS AND NOT NO_SANITIZE)
     add_dtest("${TESTNAME}" "${TESTFILES}" "${DTEST_TSAN_FLAGS}" "tsan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
   endif()
 
   # Test with MSAN (MemorySanitizer)
-  if (BUILD_MSAN_TESTS)
+  if (BUILD_MSAN_TESTS AND NOT NO_SANITIZE)
     add_dtest("${TESTNAME}" "${TESTFILES}" "${MSAN_FLAGS}" "msan" gtest_main-msan "${TESTLIBS}" "${TESTFLAGS}")
     add_msan_instrumentation(${TESTNAME}-msan)
   endif()

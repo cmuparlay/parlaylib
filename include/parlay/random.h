@@ -6,7 +6,6 @@
 #include <cstdint>
 
 #include <tuple>
-#include <type_traits>
 
 #include "delayed_sequence.h"
 #include "parallel.h"
@@ -80,8 +79,7 @@ void random_shuffle_(slice<InIterator, InIterator> In,
   // first randomly sorts based on random values [0,num_buckets)
   sequence<size_t> bucket_offsets;
   bool single;
-  std::tie(bucket_offsets, single)
-    = count_sort<std::true_type, std::true_type>(
+  std::tie(bucket_offsets, single) = count_sort<uninitialized_copy_tag>(
         make_slice(In), make_slice(Out), make_slice(get_pos), num_buckets);
 
   // now sequentially randomly shuffle within each bucket
@@ -102,12 +100,8 @@ void random_shuffle_(slice<InIterator, InIterator> In,
 template <PARLAY_RANGE_TYPE R>
 auto random_shuffle(const R& In, random r = random()) {
   using T = range_value_type_t<R>;
-  // We have to make a redundant copy here due to a const
-  // correctness bug inside counting sort.
-  // TODO: Fix this
-  auto InCopy = to_sequence(In);
   auto Out = sequence<T>::uninitialized(In.size());
-  internal::random_shuffle_(make_slice(InCopy), make_slice(Out), r);
+  internal::random_shuffle_(make_slice(In), make_slice(Out), r);
   return Out;
 }
 

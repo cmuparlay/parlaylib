@@ -18,7 +18,6 @@
 #include "internal/merge_sort.h"
 #include "internal/sequence_ops.h"     // IWYU pragma: export
 #include "internal/sample_sort.h"
-#include "internal/quicksort.h"
 
 #include "delayed_sequence.h"
 #include "monoid.h"
@@ -45,6 +44,14 @@ auto map(R&& r, UnaryOp&& f) {
 }
 
 // Return a delayed sequence consisting of the elements
+//   f(0), f(1), ... f(n)
+template<typename F>
+auto delayed_tabulate(size_t n, F&& f) {
+  using T = decltype(f(n));
+  return delayed_seq<T, F>(n, std::forward<F>(f));
+}
+
+// Return a delayed sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
 //
 // If r is a temporary, the delayed sequence will take
@@ -53,13 +60,15 @@ auto map(R&& r, UnaryOp&& f) {
 // r must remain alive as long as the delayed sequence.
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto dmap(R&& r, UnaryOp&& f) {
+  using T = decltype(f(*std::begin(r)));
   size_t n = parlay::size(r);
-  return delayed_seq<typename std::remove_reference<
-                          typename std::remove_cv<
-                           decltype(f(std::declval<range_value_type_t<R>&>()))
-                           >::type>::type>
-     (n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
+  return delayed_seq<T>(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
        (size_t i) { return f(std::begin(r)[i]); });
+}
+
+template<PARLAY_RANGE_TYPE R, typename UnaryOp>
+auto delayed_map(R&& r, UnaryOp&& f) {
+  return dmap(std::forward<R>(r), std::forward<UnaryOp>(f));
 }
 
 /* -------------------- Copying -------------------- */
@@ -217,21 +226,6 @@ auto histogram(const R& A, Integer_ m) {
 
 /* -------------------- General Sorting -------------------- */
 
-namespace internal {
-  
-// We are happy to copy objects that are trivially copyable
-// and at most 16 bytes large. This is used to choose between
-// using sample sort, which makes copies, or quicksort and
-// merge sort, which do not.
-template<typename T>
-struct okay_to_copy : public std::integral_constant<bool,
-    std::is_trivially_copy_constructible_v<T> &&
-    std::is_trivially_copy_assignable_v<T>    &&
-    std::is_trivially_destructible_v<T>
-> {};
-
-}
-
 // Sort the given sequence and return the sorted sequence
 template<PARLAY_RANGE_TYPE R>
 auto sort(const R& in) {
@@ -260,15 +254,7 @@ auto stable_sort(const R& in, Compare&& comp) {
 
 template<PARLAY_RANGE_TYPE R, typename Compare>
 void sort_inplace(R&& in, Compare&& comp) {
-  using value_type = range_value_type_t<R>;
-  // Could use tag dispatch instead of constexpr 
-  // if to make it compatible with C++14
-  if constexpr (internal::okay_to_copy<value_type>::value) {
-    internal::sample_sort_inplace(make_slice(in), std::forward<Compare>(comp), false);
-  }
-  else {
-    internal::quicksort(make_slice(in), std::forward<Compare>(comp));
-  }
+  internal::sample_sort_inplace(make_slice(in), std::forward<Compare>(comp));
 }
 
 template<PARLAY_RANGE_TYPE R>
@@ -279,15 +265,7 @@ void sort_inplace(R&& in) {
 
 template<PARLAY_RANGE_TYPE R, typename Compare>
 void stable_sort_inplace(R&& in, Compare&& comp) {
-  using value_type = range_value_type_t<R>;
-  // Could use tag dispatch instead of constexpr 
-  // if to make it compatible with C++14
-  if constexpr (internal::okay_to_copy<value_type>::value) {
-    internal::sample_sort_inplace(make_slice(in), std::forward<Compare>(comp), true);
-  }
-  else {
-    internal::merge_sort_inplace(make_slice(in), std::forward<Compare>(comp));
-  }
+  internal::merge_sort_inplace(make_slice(in), std::forward<Compare>(comp));
 }
 
 template<PARLAY_RANGE_TYPE R>

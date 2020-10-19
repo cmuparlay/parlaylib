@@ -20,6 +20,16 @@ TEST(TestPrimitives, TestTabulate) {
   }
 }
 
+TEST(TestPrimitives, TestDelayedTabulate) {
+  auto s = parlay::delayed_tabulate(100000, [](long long i) -> long long {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  ASSERT_EQ(s.size(), 100000);
+  for (size_t i = 0; i < 100000; i++) {
+    ASSERT_EQ(s[i], (50021 * i + 61) % (1 << 20));
+  }
+}
+
 TEST(TestPrimitives, TestMap) {
   auto s = parlay::tabulate(100000, [](long long i) -> long long {
     return (50021 * i + 61) % (1 << 20);
@@ -31,11 +41,11 @@ TEST(TestPrimitives, TestMap) {
   }
 }
 
-TEST(TestPrimitives, TestDMap) {
+TEST(TestPrimitives, TestDelayedMap) {
   auto s = parlay::tabulate(100000, [](long long i) -> long long {
     return (50021 * i + 61) % (1 << 20);
   });
-  auto m = parlay::dmap(s, [](long long x) { return 3*x - 1; });
+  auto m = parlay::delayed_map(s, [](int x) { return 3*x - 1; });
   ASSERT_EQ(m.size(), s.size());
   for (size_t i = 0; i < 100000; i++) {
     ASSERT_EQ(m[i], 3*s[i] - 1);
