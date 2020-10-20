@@ -762,9 +762,12 @@ sequence<sequence<char>> tokens(const Range& R, UnaryPred is_space = is_whitespa
   return map_tokens(R, [] (auto x) { return to_sequence(x); }, is_space);
 }
 
-// Returns a sequence of contiguous subsequences of R, each
-// of which is delimited by positions in the sequence i such that flags[i]
-// is (or converts to) true. There will always be one more subsequence than
+// Partitions R into contiguous subsequences, by marking the last
+// element of each subsequence with a true in flags.  There is an
+// implied flag at the end.  Returns a nested sequence whose sum of
+// lengths is equal to the original length.  If the last position is
+// marked as true, then there will be an empty subsequence at the end.
+// The length of the result is therefore always one more than the
 // number of true flags.
 template <PARLAY_RANGE_TYPE Range, PARLAY_RANGE_TYPE BoolRange>
 auto split_at(const Range& R, const BoolRange& flags) {
@@ -772,9 +775,9 @@ auto split_at(const Range& R, const BoolRange& flags) {
   return map_split_at(R, flags, [] (auto x) {return to_sequence(x);});
 }
 
-// Applies the given function f to each of the contiguous subsequences
-// of R delimited by positions i such that flags[i] is (or converts to)
-// true.
+// Like split_at, but applies the given function f to each of the
+// contiguous subsequences of R delimited by positions i such that
+// flags[i] is (or converts to) true.
 template <PARLAY_RANGE_TYPE Range, PARLAY_RANGE_TYPE BoolRange, typename UnaryOp>
 auto map_split_at(const Range& R, const BoolRange& flags, UnaryOp f) {
   static_assert(std::is_convertible_v<range_value_type_t<BoolRange>, bool>);
@@ -785,10 +788,11 @@ auto map_split_at(const Range& R, const BoolRange& flags, UnaryOp f) {
   assert(Flags.size() == n);
 
   sequence<size_t> Locations = pack_index<size_t>(Flags);
+  size_t m = Locations.size();
 
-  return tabulate(Locations.size(), [&] (size_t i) {
+  return tabulate(m + 1, [&] (size_t i) {
     size_t start = (i==0) ? 0 : Locations[i-1] + 1;
-    size_t end = (i==n) ? n : Locations[i];
+    size_t end = (i==m) ? n : Locations[i] + 1;
     return f(S.cut(start, end)); });
 }
 

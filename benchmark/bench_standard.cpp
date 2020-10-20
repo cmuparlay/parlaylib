@@ -216,9 +216,10 @@ static void bench_count_sort(benchmark::State& state) {
   size_t mask = num_buckets - 1;
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i);});
   auto get_key = [&] (const T& t) {return t & mask;};
+  auto keys = parlay::delayed_seq<size_t>(n, get_key);
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::internal::count_sort(parlay::make_slice(in), get_key, num_buckets));
+    RUN_AND_CLEAR(parlay::internal::count_sort(parlay::make_slice(in), keys, num_buckets));
   }
 
   REPORT_STATS(n, 0, 0);

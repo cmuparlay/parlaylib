@@ -229,19 +229,18 @@ auto count_sort(slice<InIterator, InIterator> In,
 }
 
 
-template <typename InIterator, typename GetKey>
-auto count_sort(slice<InIterator, InIterator> In, GetKey get_key, size_t num_buckets) {
+    
+template <typename InIterator, typename KeyS>
+auto count_sort(slice<InIterator, InIterator> In, KeyS const& Keys, size_t num_buckets) {
   using value_type = typename slice<InIterator, InIterator>::value_type;
-  auto Keys = delayed_seq<decltype(get_key(*In.begin()))>(In.size(), [&](size_t i) { return get_key(In[i]); });
   auto Out = sequence<value_type>::uninitialized(In.size());
   auto a = count_sort<copy_assign_tag>(In, make_slice(Out), make_slice(Keys), num_buckets);
   return std::make_pair(std::move(Out), std::move(a.first));
 }
 
-template <typename InIterator, typename GetKey>
-auto count_sort_inplace(slice<InIterator, InIterator> In, GetKey get_key, size_t num_buckets) {
+template <typename InIterator, typename KeyS>
+auto count_sort_inplace(slice<InIterator, InIterator> In, KeyS const& Keys, size_t num_buckets) {
   using value_type = typename slice<InIterator, InIterator>::value_type;
-  auto Keys = delayed_seq<decltype(get_key(*In.begin()))>(In.size(), [&](size_t i) { return get_key(In[i]); });
   auto Tmp = uninitialized_sequence<value_type>(In.size());
   auto a = count_sort<uninitialized_relocate_tag>(In, make_slice(Tmp), make_slice(Keys), num_buckets);
   uninitialized_relocate_n(In.begin(), Tmp.begin(), In.size());

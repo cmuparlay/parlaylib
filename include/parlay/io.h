@@ -28,7 +28,7 @@ namespace parlay {
 // If null_terminate is true, a null terminator (an extra '0' character)
 // is be appended to the sequence.
 inline sequence<char> chars_from_file(const std::string& filename,
-           bool null_terminate, size_t start=0, size_t end=0) {
+           bool null_terminate=false, size_t start=0, size_t end=0) {
   std::ifstream file (filename, std::ios::in | std::ios::binary | std::ios::ate);
   assert(file.is_open());
   size_t length = static_cast<size_t>(file.tellg());
@@ -268,84 +268,96 @@ inline long double chars_to_long_double(const sequence<char>& s) {
 
 // Still a work in progress. TODO: Improve these?
 
-// helper function
-sequence<char> to_chars(char c) {
-  return sequence<char>(1,c);
-}
+  template <typename T>
+  sequence<char> to_chars(T const &x);
 
-sequence<char> to_chars(bool v) {
-  return to_chars(v ? '1' : '0');
-}
+  template <>
+  inline sequence<char> to_chars<char>(char const &c) {
+    return sequence<char>(1,c);
+  }
 
-sequence<char> to_chars(long v) {
-  constexpr int max_len = 21;
-  char s[max_len+1];
-  int l = snprintf(s, max_len, "%ld", v);
-  return sequence<char>(s, s + (std::min)(max_len-1, l));
-}
+  template <>
+  inline sequence<char> to_chars<bool>(bool const &v) {
+    return to_chars(v ? '1' : '0');
+  }
 
-sequence<char> to_chars(int v) {
-  return to_chars((long) v);};
+  template <>
+  inline sequence<char> to_chars(long const &v) {
+    int max_len = 21;
+    char s[max_len+1];
+    int l = snprintf(s, max_len, "%ld", v);
+    return sequence<char>(s, s + std::min(max_len-1, l));
+  }
 
-sequence<char> to_chars(unsigned long v) {
-  constexpr int max_len = 21;
-  char s[max_len+1];
-  int l = snprintf(s, max_len, "%lu", v);
-  return sequence<char>(s, s + (std::min)(max_len-1, l));
-}
+  template <>
+  inline sequence<char> to_chars<int>(int const &v) {
+    return to_chars((long) v);};
 
-sequence<char> to_chars(unsigned int v) {
-  return to_chars((unsigned long) v);};
+  template <>
+  inline sequence<char> to_chars<unsigned long>(unsigned long const &v) {
+    int max_len = 21;
+    char s[max_len+1];
+    int l = snprintf(s, max_len, "%lu", v);
+    return sequence<char>(s, s + std::min(max_len-1, l));
+  }
 
-sequence<char> to_chars(double v) {
-  constexpr int max_len = 20;
-  char s[max_len+1];
-  int l = snprintf(s, max_len, "%.11le", v);
-  return sequence<char>(s, s + (std::min)(max_len-1, l));
-}
+  template <>
+  inline sequence<char> to_chars<unsigned int>(unsigned int const &v) {
+    return to_chars((unsigned long) v);};
 
-sequence<char> to_chars(float v) {
-  return to_chars((double) v);};
+  template <>
+  inline sequence<char> to_chars<double>(double const &v) {
+    int max_len = 20;
+    char s[max_len+1];
+    int l = snprintf(s, max_len, "%.11le", v);
+    return sequence<char>(s, s + std::min(max_len-1, l));
+  }
 
-sequence<char> to_chars(std::string const &s) {
-  return tabulate(s.size(), [&] (size_t i) -> char {return s[i];});
-}
+  template <>
+  inline sequence<char> to_chars<float>(float const &v) {
+    return to_chars((double) v);};
 
-sequence<char> to_chars(char* const s) {
-  size_t l = strlen(s);
-  return tabulate(l, [&] (size_t i) -> char {return s[i];});
-}
+  template <>
+  inline sequence<char> to_chars<std::string>(std::string const &s) {
+    return tabulate(s.size(), [&] (size_t i) -> char {return s[i];});
+  }
 
-template <class A, class B>
-sequence<char> to_chars(const std::pair<A,B>& P) {
-  sequence<sequence<char>> s = {
-    to_chars('('), to_chars(P.first),
-    to_chars((std::string) ", "),
-    to_chars(P.second), to_chars(')')};
-  return flatten(s);
-}
+  template <>
+  inline sequence<char> to_chars<char*>(char* const &s) {
+    size_t l = strlen(s);
+    return tabulate(l, [&] (size_t i) -> char {return s[i];});
+  }
 
-template <class T>
-sequence<char> to_chars(slice<T,T> A) {
-  auto n = A.size();
-  if (n==0) return to_chars((std::string) "[]");
-  auto separator = to_chars((std::string) ", ");
-  return flatten(tabulate(2 * n + 1, [&] (size_t i) {
-    if (i == 0) return to_chars('[');
-    if (i == 2*n) return to_chars(']');
-    if (i & 1) return to_chars(A[i/2]);
-    return separator;
-  }));
-}
+  template <class A, class B>
+  sequence<char> to_chars(std::pair<A,B> const &P) {
+    sequence<sequence<char>> s = {
+      to_chars('('), to_chars(P.first),
+      to_chars((std::string) ", "),
+      to_chars(P.second), to_chars(')')};
+    return flatten(s);
+  }
 
-template <class T>
-sequence<char> to_chars(const sequence<T>& A) {
-  return to_chars(make_slice(A));
-}
+  template <class T>
+  sequence<char> to_chars(slice<T,T> const &A) {
+    auto n = A.size();
+    if (n==0) return to_chars((std::string) "[]");
+    auto separator = to_chars((std::string) ", ");
+    return flatten(tabulate(2 * n + 1, [&] (size_t i) {
+	  if (i == 0) return to_chars('[');
+	  if (i == 2*n) return to_chars(']');
+	  if (i & 1) return to_chars(A[i/2]);
+	  return separator;
+	}));
+  }
 
-sequence<char> to_chars(const sequence<char>& s) {
-  return s;
-}
+  template <class T>
+  sequence<char> to_chars(sequence<T> const &A) {
+    return to_chars(make_slice(A));
+  }
+
+  template <>
+  inline sequence<char> to_chars<sequence<char>>(sequence<char> const &s) {
+    return s; }
 
 }  // namespace parlay
 
