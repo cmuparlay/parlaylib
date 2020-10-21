@@ -92,11 +92,10 @@ TEST(TestPrimitives, TestScanInclusive) {
   auto s = parlay::tabulate(100000, [](long long i) -> long long {
     return (50021 * i + 61) % (1 << 20);
   });
-  auto [scanz, total] = parlay::scan_inclusive(s);
+  auto scanz = parlay::scan_inclusive(s);
   auto psums = parlay::sequence<long long>(100000);
   std::partial_sum(std::begin(s), std::end(s), std::begin(psums));
   ASSERT_EQ(scanz, psums);
-  ASSERT_EQ(total, std::accumulate(std::begin(s), std::end(s), 0LL));
 }
 
 TEST(TestPrimitives, TestScanInplace) {
@@ -144,11 +143,10 @@ TEST(TestPrimitives, TestScanInclusiveMax) {
   auto s = parlay::tabulate(100000, [](long long i) -> long long {
     return (50021 * i + 61) % (1 << 20);
   });
-  auto [scanz, total] = parlay::scan_inclusive(s, parlay::maxm<long long>());
+  auto scanz = parlay::scan_inclusive(s, parlay::maxm<long long>());
   auto psums = parlay::sequence<long long>(100000);
   std::partial_sum(std::begin(s), std::end(s), std::begin(psums), TakeMax<long long>());
   ASSERT_EQ(scanz, psums);
-  ASSERT_EQ(total, std::accumulate(std::begin(s), std::end(s), 0LL, TakeMax<long long>()));
 }
 
 TEST(TestPrimitives, TestScanInplaceMax) {

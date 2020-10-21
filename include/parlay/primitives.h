@@ -60,9 +60,8 @@ auto delayed_tabulate(size_t n, F&& f) {
 // r must remain alive as long as the delayed sequence.
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto dmap(R&& r, UnaryOp&& f) {
-  using T = decltype(f(*std::begin(r)));
   size_t n = parlay::size(r);
-  return delayed_seq<T>(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
+  return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
        (size_t i) { return f(std::begin(r)[i]); });
 }
 
@@ -113,7 +112,7 @@ template<PARLAY_RANGE_TYPE R>
 auto scan_inclusive(const R& r) {
   using value_type = range_value_type_t<R>;
   return internal::scan(make_slice(r), addm<value_type>(),
-    internal::fl_scan_inclusive);
+    internal::fl_scan_inclusive).first;
 }
 
 template<PARLAY_RANGE_TYPE R>
@@ -137,7 +136,7 @@ auto scan(const R& r, Monoid&& m) {
 template<PARLAY_RANGE_TYPE R, typename Monoid>
 auto scan_inclusive(const R& r, Monoid&& m) {
   return internal::scan(make_slice(r), std::forward<Monoid>(m),
-    internal::fl_scan_inclusive);
+    internal::fl_scan_inclusive).first;
 }
 
 template<PARLAY_RANGE_TYPE R, typename Monoid>
@@ -160,7 +159,7 @@ auto pack(const R& r, const BoolSeq& b) {
 }
 
 template<PARLAY_RANGE_TYPE R_in, PARLAY_RANGE_TYPE BoolSeq, PARLAY_RANGE_TYPE R_out>
-auto pack_into(const R_in& in, const BoolSeq& b, R_out& out) {
+auto pack_into(const R_in& in, const BoolSeq& b, R_out&& out) {
   static_assert(std::is_convertible<decltype(*std::begin(b)), bool>::value);
   return internal::pack_out(make_slice(in), b, make_slice(out));
 }
@@ -712,7 +711,7 @@ bool inline is_whitespace(unsigned char c) {
 // this function returns a sequence consisting of the returned values of f for
 // each token.
 template <PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
-auto map_tokens(const R& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
+auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   using f_return_type = decltype(f(make_slice(r)));
 
   auto S = make_slice(r);

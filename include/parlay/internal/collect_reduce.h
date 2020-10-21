@@ -24,11 +24,12 @@
 #include <cstdio>
 
 #include "integer_sort.h"
+#include "uninitialized_sequence.h"
 #include "sequence_ops.h"
 #include "transpose.h"
 
 #include "../utilities.h"
-//#include "../../../../common/get_time.h"
+//#include "../../../pbbstimings/get_time.h"
 
 namespace parlay {
 namespace internal {
@@ -192,9 +193,9 @@ struct get_bucket {
   }
 };
 
-template <typename K>
+template <typename K, int offset>
 struct hasheq_mask_low {
-  inline size_t hash(K a) const { return hash64_2(a & ~((size_t)15)); }
+  inline size_t hash(K a) const { return hash64_2((a+offset) & ~((size_t)15)); }
   inline bool equal(K a, K b) const { return a == b; }
 };
 
@@ -202,6 +203,7 @@ template <typename Seq, class Key, class Value, typename M>
 auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
                     M const &monoid, size_t num_buckets) {
   //-> sequence<decltype(get_value(A[0]))> {
+  //timer t("collect reduce");
   using T = typename Seq::value_type;
   using key_type = typename std::remove_cv_t<std::remove_reference_t<decltype(get_key(A[0]))>>;
   using val_type = typename std::remove_cv_t<std::remove_reference_t<decltype(get_value(A[0]))>>;
@@ -219,6 +221,10 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
   if (num_buckets <= 4 * num_blocks)
     return collect_reduce_few(A, get_key, get_value, monoid, num_buckets);
 
+  // allocate results.  Shift is to align cache lines.
+  sequence<val_type> sums(num_buckets, monoid.identity);
+  constexpr size_t shift = 8 / sizeof(T);
+
   // Returns a map (hash) from key to block.
   // Keys with many elements (big) have their own block while
   // others share a block.
@@ -226,20 +232,17 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
   // This is to avoid false sharing.
   // auto get_i = [&] (size_t i) -> size_t {return A[i].first;};
   // auto s = delayed_seq<size_t>(n,get_i);
-
-  using hasheq = hasheq_mask_low<key_type>;
+  
+  using hasheq = hasheq_mask_low<key_type,shift>;
   get_bucket<T, key_type, hasheq, Key> gb(A, hasheq(), get_key, bits);
   sequence<T> B = sequence<T>::uninitialized(n);
   sequence<T> Tmp = sequence<T>::uninitialized(n);
-
+  
   // first partition into blocks based on hash using a counting sort
   sequence<size_t> block_offsets;
   block_offsets = integer_sort_<std::false_type, uninitialized_copy_tag>(
     make_slice(A), make_slice(B), make_slice(Tmp) , gb, bits, num_blocks);
   
-  // note that this is cache line alligned
-  sequence<val_type> sums(num_buckets, monoid.identity);
-
   // now process each block in parallel
   parallel_for(0, num_blocks,
                [&](size_t i) {
@@ -279,7 +282,7 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
     using result_type = std::pair<key_type,val_type>;
 
     size_t count=0;
-    auto table = sequence<result_type>::uninitialized(table_size);
+    uninitialized_sequence<result_type> table (table_size);
     sequence<bool> flags(table_size, false);
 		 
     // insert small buckets (ones with multiple different items)
@@ -314,14 +317,13 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
     }
 
     // pack non-empty entries of table into result sequence
-    auto r = sequence<result_type>::uninitialized(count);
+    // uninitialized_sequence<result_type> r(count); // breaks ??
+    auto r = sequence<result_type>::uninitialized(count); 
     size_t j = 0;
     for (size_t i = 0; i < table_size; i++) {
       if (flags[i])
 	move_uninitialized(r[j++], table[i]);
     }
-    // For efficiency. Entries should be moved out already.
-    // table.clear_uninitialized();
 
     assert(j == count);
     return r;
@@ -334,7 +336,6 @@ template <typename Iterator, typename HashEq, typename GetK, typename GetV, type
 auto collect_reduce_sparse(slice<Iterator,Iterator> A,
 			   HashEq hasheq, GetK get_key, GetV get_val,
 			   M const &monoid) {
-  //timer t;
   using T = typename slice<Iterator, Iterator>::value_type;
   using key_type = typename std::remove_cv_t<std::remove_reference_t<decltype(get_key(A[0]))>>;
   using val_type = typename std::remove_cv_t<std::remove_reference_t<decltype(get_val(A[0]))>>;
@@ -342,8 +343,11 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
   
   size_t n = A.size();
 
-  if (n < 10000) 
-    return seq_collect_reduce_sparse(A, A.cut(0,0), hasheq, get_key, get_val, monoid);
+  if (n < 10000) {
+    auto x = seq_collect_reduce_sparse(A, A.cut(0,0), hasheq,
+				       get_key, get_val, monoid);
+    return map(x, [&] (auto v) {return std::move(v);});
+  };
   
   // #bits is selected so each block fits into L3 cache
   //   assuming an L3 cache of size 1M per thread
@@ -358,30 +362,29 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
   // Keys with many elements (big) have their own bucket while
   // others share a bucket.
   sequence<T> B = sequence<T>::uninitialized(n);
-  sequence<T> Tmp = sequence<T>::uninitialized(n);
+  uninitialized_sequence<T> Tmp(n); // = sequence<T>::uninitialized(n);
 
   // first buckets based on hash using a counting sort
   // Guy : could possibly just use counting sort.  Would avoid needing tmp
   get_bucket<T, key_type, HashEq, GetK> gb(A, hasheq, get_key, bits);
   sequence<size_t> bucket_offsets =
-    integer_sort_r<std::false_type, uninitialized_copy_tag>(
-      make_slice(A), make_slice(B), make_slice(Tmp), gb, bits, num_buckets, false);
-  //t.next("integer sort");
-
-  //  Tmp.clear_uninitialized();  // Guy : needed to avoid destructing garbage
+    integer_sort_<std::false_type, uninitialized_copy_tag>(
+      make_slice(A), make_slice(B), make_slice(Tmp) , gb, bits, num_buckets);
 
   size_t num_tables = gb.heavy_hitters ? num_buckets / 2 : num_buckets;
   
   // now in parallel process each bucket sequentially, returning a packed sequence
   // of the results within that bucket
-  auto tables = sequence<sequence<result_type>>::from_function(num_tables, [&] (size_t i) {
+  //auto tables = sequence<uninitialized_sequence<result_type>>:: // breaks ??
+  auto tables = sequence<sequence<result_type>>::
+    from_function(num_tables, [&] (size_t i) {
       auto heavy = (gb.heavy_hitters ?
 		    B.cut(bucket_offsets[num_tables + i], bucket_offsets[num_tables + i + 1]) :
 		    B.cut(0,0));
       return seq_collect_reduce_sparse(B.cut(bucket_offsets[i],bucket_offsets[i+1]),
 				       heavy, hasheq, get_key, get_val, monoid);
     }, 1);
-
+  
   // based on sizes of each result, allocate offset in full result sequence
   auto sizes = tabulate(num_tables+1, [&] (size_t i) {
       return (i==num_tables) ? 0 : tables[i].size();});
@@ -394,11 +397,9 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
     size_t d_offset = sizes[i];
     size_t len = sizes[i + 1] - sizes[i];
     for (size_t j = 0; j < len; j++)
-      move_uninitialized(result[d_offset + j], tables[i][j]); // could be a mem move?
-      //    tables[i].clear_uninitialized(); // should be fully clear already
+      move_uninitialized(result[d_offset + j], tables[i][j]); 
   };
   parallel_for(0, num_tables, copy_f, 1);
-  //t.next("move");
   return result;
 }
 
