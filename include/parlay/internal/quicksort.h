@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <new>
 #include <utility>
+#include <cassert>
 
 #include "uninitialized_storage.h"
 #include "sequence_ops.h"

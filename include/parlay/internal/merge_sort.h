@@ -1,4 +1,3 @@
-
 #ifndef PARLAY_MERGE_SORT_H_
 #define PARLAY_MERGE_SORT_H_
 
@@ -6,6 +5,7 @@
 #include "quicksort.h"  // needed for insertion_sort
 
 #include "../utilities.h"
+#include "uninitialized_sequence.h"
 
 namespace parlay {
 namespace internal {
