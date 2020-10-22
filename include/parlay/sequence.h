@@ -74,7 +74,7 @@ struct _sequence_base {
   using allocator_type = Allocator;
   using value_type = T;
 
-  static size_t pick_granularity(size_t n) {
+  static size_t pick_granularity([[maybe_unused]] size_t n) {
     return std::is_trivially_default_constructible<value_type>::value ? 1000 : 0;
   }
 
@@ -1109,7 +1109,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     impl.ensure_capacity(size() + n);
     auto it = end();
     parallel_for(0, n, [&](size_t i) { impl.initialize_explicit(it + i, first[i]); },
-		 this->initialize_range(n));
+		 this->pick_granularity(n));
     impl.set_size(size() + n);
     return it;
   }
