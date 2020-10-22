@@ -74,6 +74,10 @@ struct _sequence_base {
   using allocator_type = Allocator;
   using value_type = T;
 
+  static size_t pick_granularity(size_t n) {
+    return std::is_trivially_default_constructible<value_type>::value ? 1000 : 0;
+  }
+
   // This class handles internal memory allocation and whether
   // the sequence is big or small. We inherit from Allocator to
   // employ empty base optimization so that the size of the
@@ -131,7 +135,7 @@ struct _sequence_base {
       auto other_buffer = other.data();
       parallel_for(0, n, [&](size_t i) {
         initialize_explicit(buffer + i, other_buffer[i]);
-      });
+			 }, pick_granularity(n));
       set_size(n);
     }
 
@@ -799,9 +803,10 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto current = size();
     if (new_size < current) {
       auto buffer = impl.data();
+      // Guy: this needs to avoided if trivially destructible
       parallel_for(new_size, current, [&](size_t i) {
         impl.destroy(&buffer[i]);
-      });
+      }, this->pick_granularity(current-new_size));
     }
     else {
       impl.ensure_capacity(new_size);
@@ -809,7 +814,7 @@ class sequence : protected _sequence_base<T, Allocator> {
       auto buffer = impl.data();
       parallel_for(current, new_size, [&](size_t i) {
         impl.initialize_explicit(&buffer[i], v);
-      });
+      }, this->pick_granularity(new_size-current));
     }
     impl.set_size(new_size);
   }
@@ -905,6 +910,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     else {
       sequence<value_type> the_tail(std::make_move_iterator(p),
         std::make_move_iterator(end()));
+      // Guy, should be avoided if trivially destructible
       parallel_for(0, end() - p, [&](size_t i) { impl.destroy(&p[i]); });
       impl.set_size(p - begin());
       return the_tail;
@@ -995,7 +1001,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {   // Calling initialize with
       impl.initialize(buffer + i);       // no arguments performs
-    });                                  // value initialization
+    }, this->pick_granularity(n));       // value initialization
     impl.set_size(n);
   }
 
@@ -1004,7 +1010,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {
       impl.initialize_explicit(buffer + i, v);
-    });
+    }, this->pick_granularity(n));
     impl.set_size(n);
   }
 
@@ -1025,15 +1031,15 @@ class sequence : protected _sequence_base<T, Allocator> {
     }
     impl.set_size(n);
   }
-  
+
   template<typename _RandomAccessIterator>
   void initialize_range(_RandomAccessIterator first, _RandomAccessIterator last, std::random_access_iterator_tag) {
     auto n = std::distance(first, last);
     impl.initialize_capacity(n);
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {
-      impl.initialize_explicit(buffer + i, first[i]); // granularity?
-    });
+      impl.initialize_explicit(buffer + i, first[i]); 
+    }, this->pick_granularity(n));
     impl.set_size(n);
   }
   
@@ -1068,7 +1074,8 @@ class sequence : protected _sequence_base<T, Allocator> {
   iterator append_n(size_t n, const value_type& t) {
     impl.ensure_capacity(size() + n);
     auto it = end();
-    parallel_for(0, n, [&](size_t i) { impl.initialize_explicit(it + i, t); });
+    parallel_for(0, n, [&](size_t i) { impl.initialize_explicit(it + i, t); },
+		 this->pick_granularity(n));
     impl.set_size(size() + n);
     return it;
   }
@@ -1101,7 +1108,8 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto n = std::distance(first, last);
     impl.ensure_capacity(size() + n);
     auto it = end();
-    parallel_for(0, n, [&](size_t i) { impl.initialize_explicit(it + i, first[i]); });
+    parallel_for(0, n, [&](size_t i) { impl.initialize_explicit(it + i, first[i]); },
+		 this->initialize_range(n));
     impl.set_size(size() + n);
     return it;
   }
