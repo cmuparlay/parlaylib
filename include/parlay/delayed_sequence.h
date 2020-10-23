@@ -87,9 +87,18 @@ class delayed_sequence {
       return *this;
     }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4267) // conversion from 'size_t' to *, possible loss of data
+#endif
+
     // Dereference by value
     T operator*() const { return parent->f(index); }
- 
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
     // ---- Requirements for input iterator ----
 
     iterator operator++(int) {
@@ -228,10 +237,6 @@ class delayed_sequence {
   // Subscript access
   T operator[](size_t i) const { return f(i); }
 
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
   // Subscript access with bounds checking
   T at(size_t i) const {
     if (i < first || i >= last) {
@@ -243,7 +248,23 @@ class delayed_sequence {
     }
     return f(i);
   }
-  
+
+  // Return the first element
+  T front() const {
+    assert(!empty());
+    return f(first);
+  }
+
+  // Return the last element
+  T back() const {
+    assert(!empty());
+    return f(last-1);
+  }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
   // Size
   size_t size() const {
     assert(first <= last);
@@ -253,18 +274,6 @@ class delayed_sequence {
   // Is empty?
   bool empty() const {
     return size() == 0;
-  }
-  
-  // Return the first element
-  T front() const {
-    assert(!empty());
-    return f(first);
-  }
-  
-  // Return the last element
-  T back() const {
-    assert(!empty());
-    return f(last-1);
   }
   
   // Swap this with another delayed sequence

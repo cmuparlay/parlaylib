@@ -33,6 +33,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <new>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -72,10 +73,22 @@ struct _sequence_base {
   constexpr static uint64_t _max_size = (1LL << 48LL) - 1LL;
 
   using allocator_type = Allocator;
+  using T_allocator_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<T>;
+  using raw_allocator_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<std::byte>;
+
   using value_type = T;
 
-  static size_t pick_granularity([[maybe_unused]] size_t n) {
-    return std::is_trivially_default_constructible<value_type>::value ? 1000 : 0;
+  // For trivial types, we want to specify a loop granularity so that (a) time isn't wasted
+  // by the automatic granularity control on very small sequences, and (b) to give the optimizer
+  // a higher chance to combine adjacent loop iterations (e.g. by converting copies in a loop
+  // into a memcpy)
+
+  static constexpr size_t copy_granularity(size_t) {
+    return std::is_trivially_copyable_v<value_type> ? (1 + (1024 * sizeof(size_t) / sizeof(T))) : 0;
+  }
+
+  static constexpr size_t initialization_granularity(size_t) {
+    return std::is_trivially_default_constructible_v<value_type> ? (1 + (1024 * sizeof(size_t) / sizeof(T))) : 0;
   }
 
   // This class handles internal memory allocation and whether
@@ -121,22 +134,26 @@ struct _sequence_base {
   // 16-byte CAS operation. On other compilers / platforms, a sequence
   // might be 24 bytes.
   //
-  struct _sequence_impl : public allocator_type {
+  struct _sequence_impl : public T_allocator_type {
 
     // Empty constructor
-    _sequence_impl() : allocator_type(), _data() { }
+    _sequence_impl() : T_allocator_type(), _data() { }
 
     // Copy constructor
-    _sequence_impl(const _sequence_impl& other) : allocator_type(other) {
-      if (other.is_small()) { _data = other._data; return;}
-      auto n = other.size();
-      initialize_capacity(n);
-      auto buffer = data();
-      auto other_buffer = other.data();
-      parallel_for(0, n, [&](size_t i) {
-        initialize_explicit(buffer + i, other_buffer[i]);
-			 }, pick_granularity(n));
-      set_size(n);
+    _sequence_impl(const _sequence_impl& other) : T_allocator_type(other) {
+      if (other.is_small()) {
+        std::memcpy(static_cast<void*>(std::addressof(_data)), static_cast<const void*>(std::addressof(other._data)), sizeof(_data));
+      }
+      else {
+        auto n = other.size();
+        initialize_capacity(n);
+        auto buffer = data();
+        auto other_buffer = other.data();
+        parallel_for(0, n, [&](size_t i) {
+          initialize_explicit(buffer + i, other_buffer[i]);
+        }, copy_granularity(n));
+        set_size(n);
+      }
     }
 
     // Move constructor
@@ -149,6 +166,24 @@ struct _sequence_base {
       clear();
       move_from(std::move(other));
       return *this;
+    }
+
+    // Allocator access
+
+    T_allocator_type& get_T_allocator() {
+      return *static_cast<T_allocator_type*>(this);
+    }
+
+    const T_allocator_type& get_T_allocator() const {
+      return *static_cast<const T_allocator_type*>(this);
+    }
+
+    allocator_type get_allocator() const {
+      return allocator_type(get_T_allocator());
+    }
+
+    raw_allocator_type get_raw_allocator() const {
+      return raw_allocator_type(get_T_allocator());
     }
 
     // Swap a sequence backend with another. Since small sequences
@@ -201,7 +236,8 @@ struct _sequence_base {
       // types, so no destruction is necessary
       if (!is_small()) {
         destroy_all();
-        _data.long_mode.buffer.free_buffer(*this);
+        auto alloc = get_raw_allocator();
+        _data.long_mode.buffer.free_buffer(alloc);
       }
       
       _data.flag = 0;
@@ -221,50 +257,82 @@ struct _sequence_base {
     // handle construction or destruction or the
     // elements in the buffer.
     //
-    // Memory is not freed on destruction since it requires
-    // the allocator to do so, so free_buffer(alloc) must be
-    // called manually before the buffer is destroyed!
+    // IMPORTANT: Memory is not freed on destruction since it
+    // requires a reference to the allocator to do so, so
+    // free_buffer(alloc) must be called manually before the
+    // buffer is destroyed!
     struct capacitated_buffer {
 
-      // It takes "offset" objects of (value_type) to have enough
-      // memory to store a size_t. We use this to prepend the buffer
-      // with its capacity.
-      constexpr static size_t offset =
-        (sizeof(size_t) + sizeof(value_type) - 1) / sizeof(value_type);
+      // Prepended header buffer. This is the magic type that makes
+      // this all work. It works by constructing a buffer of size
+      //
+      //   offsetof(header, data) + capacity * sizeof(value_type)
+      //
+      // in order to get an array of value_types of size capacity.
+      //
+      // How/why does this work? First a disclaimer: This is still almost
+      // certainly undefined behaviour, but until C++ gets flexible array members
+      // this is probably the best/ we can do. The trick we use is to have a
+      // single std::byte data member that is aligned to the alignment of a
+      // value_type object to tell us how far away from capacity we should put
+      // the data. This prevents alignment issues where the data might get too
+      // close to the capacity. With this member, we can use offsetof to compute
+      // its position, at which we then allocate space for capacity elements
+      // of type value_type.
+      struct header {
+        const size_t capacity;
+        union { alignas(value_type) std::byte data[1]; };
 
-      capacitated_buffer(size_t capacity, allocator_type& a)
-        : buffer(a.allocate(capacity + offset)) {
-          assert(buffer != nullptr);
-          set_capacity(capacity);
-      }
+        static header* create(size_t capacity, raw_allocator_type& a) {
+          auto buffer_size = offsetof(header, data) + capacity * sizeof(value_type);
+          std::byte* bytes = std::allocator_traits<raw_allocator_type>::allocate(a, buffer_size);
+          return new(bytes) header(capacity);
+        }
 
-      ~capacitated_buffer() = default;
+        static void destroy(header* p, raw_allocator_type& a) {
+          auto buffer_size = offsetof(header, data) + p->capacity * sizeof(value_type);
+          std::byte *bytes = reinterpret_cast<std::byte*>(p);
+          std::allocator_traits<raw_allocator_type>::deallocate(a, bytes, buffer_size);
+        }
 
-      void free_buffer(allocator_type& a) {
+        header(size_t _capacity) : capacity(_capacity) { }
+        ~header() = delete;
+
+        value_type* get_data() { return reinterpret_cast<value_type*>(std::addressof(data)); }
+        const value_type* get_data() const { return reinterpret_cast<const value_type*>(std::addressof(data)); }
+      };
+
+      // Construct a capacitated buffer with the capacity to hold the given
+      // number of objects of type value_type, using the given allocator
+      capacitated_buffer(size_t capacity, raw_allocator_type& a)
+          : buffer(header::create(capacity, a)) {
         assert(buffer != nullptr);
-        auto sz = get_capacity() + offset;
-        a.deallocate(static_cast<value_type*>(buffer), sz);
-        buffer = nullptr;
-      }
-
-      void set_capacity(size_t capacity) {
-        *reinterpret_cast<size_t*>(buffer) = capacity;
         assert(get_capacity() == capacity);
       }
 
+      // This unfortunately can not go in the destructor and be done
+      // automatically because we need a reference to the allocator
+      // to deallocate the buffer, and we do not want to store the
+      // allocator here.
+      void free_buffer(raw_allocator_type& a) {
+        assert(buffer != nullptr);
+        header::destroy(buffer, a);
+        buffer = nullptr;
+      }
+
       size_t get_capacity() const {
-        return *reinterpret_cast<size_t*>(buffer);
+        return buffer->capacity;
       }
 
       value_type* data() {
-        return static_cast<value_type*>(buffer) + offset;
+        return buffer->get_data();
       }
 
       const value_type* data() const {
-        return static_cast<value_type*>(buffer) + offset;
+        return buffer->get_data();
       }
 
-      void* buffer;
+      header* buffer;
     }
 #if defined(__GNUC__)
     __attribute__((packed))
@@ -404,7 +472,7 @@ struct _sequence_base {
     // uninitialized memory location p using args...
     template<typename... Args>
     void initialize(value_type* p, Args&&... args) {
-      std::allocator_traits<allocator_type>::construct(
+      std::allocator_traits<T_allocator_type>::construct(
         *this, p, std::forward<Args>(args)...);
     }
     
@@ -416,18 +484,18 @@ struct _sequence_base {
     // of length 1,2,3 respectively.
     
     void initialize_explicit(value_type* p, const value_type& v) {
-      std::allocator_traits<allocator_type>::construct(
+      std::allocator_traits<T_allocator_type>::construct(
         *this, p, v);
     }
     
     void initialize_explicit(value_type* p, value_type&& v) {
-      std::allocator_traits<allocator_type>::construct(
+      std::allocator_traits<T_allocator_type>::construct(
         *this, p, std::move(v));
     }
     
     // Destroy the object of type value_type pointed to by p
     void destroy(value_type* p) {
-      std::allocator_traits<allocator_type>::destroy(*this, p);
+      std::allocator_traits<T_allocator_type>::destroy(*this, p);
     }
 
     // Return a reference to the i'th element
@@ -449,7 +517,8 @@ struct _sequence_base {
       auto current = capacity();
       if (current < desired) {
         _data.flag = 1;  // large sequence
-        _data.long_mode = long_seq(capacitated_buffer(desired, *this), 0);
+        auto alloc = get_raw_allocator();
+        _data.long_mode = long_seq(capacitated_buffer(desired, alloc), 0);
       }
       
       assert(capacity() >= desired);
@@ -465,9 +534,9 @@ struct _sequence_base {
       if (current < desired) {
         // Allocate a new buffer that is at least
         // 50% larger than the old capacity
-        size_t new_capacity = (std::max)(desired,
-          (15 * current + 9) / 10);
-        capacitated_buffer new_buffer(new_capacity, *this);
+        size_t new_capacity = (std::max)(desired, (15 * current + 9) / 10);
+        auto alloc = get_raw_allocator();
+        capacitated_buffer new_buffer(new_capacity, alloc);
         
         // Move initialize the new buffer with the
         // contents of the old buffer
@@ -478,7 +547,8 @@ struct _sequence_base {
         
         // Destroy the old stuff
         if (!is_small()) {
-          _data.long_mode.buffer.free_buffer(*this);
+          auto alloc = get_raw_allocator();
+          _data.long_mode.buffer.free_buffer(alloc);
         }
         
         // Assign the new stuff
@@ -528,9 +598,13 @@ class sequence : protected _sequence_base<T, Allocator> {
   
   using view_type = slice<iterator, iterator>;
   using const_view_type = slice<const_iterator, const_iterator>;
-  
+
+  using allocator_type = Allocator;
+
   using _sequence_base<T, Allocator>::impl;
   using _sequence_base<T, Allocator>::_max_size;
+  using _sequence_base<T, Allocator>::copy_granularity;
+  using _sequence_base<T, Allocator>::initialization_granularity;
 
   // creates an empty sequence
   sequence() : _sequence_base<T, Allocator>() { }
@@ -560,6 +634,8 @@ class sequence : protected _sequence_base<T, Allocator> {
     });
   }
 #endif
+
+  allocator_type get_allocator() const { return impl.get_allocator(); }
 
   iterator begin() { return impl.data(); }
   iterator end() { return impl.data() + impl.size(); }
@@ -802,11 +878,12 @@ class sequence : protected _sequence_base<T, Allocator> {
   void resize(size_t new_size, const value_type& v = value_type()) {
     auto current = size();
     if (new_size < current) {
-      auto buffer = impl.data();
-      // Guy: this needs to avoided if trivially destructible
-      parallel_for(new_size, current, [&](size_t i) {
-        impl.destroy(&buffer[i]);
-      }, this->pick_granularity(current-new_size));
+      if constexpr (!std::is_trivially_destructible_v<value_type>) {
+        auto buffer = impl.data();
+        parallel_for(new_size, current, [&](size_t i) {
+          impl.destroy(&buffer[i]);
+        });
+      }
     }
     else {
       impl.ensure_capacity(new_size);
@@ -814,7 +891,7 @@ class sequence : protected _sequence_base<T, Allocator> {
       auto buffer = impl.data();
       parallel_for(current, new_size, [&](size_t i) {
         impl.initialize_explicit(&buffer[i], v);
-      }, this->pick_granularity(new_size-current));
+      }, copy_granularity(new_size - current));
     }
     impl.set_size(new_size);
   }
@@ -950,8 +1027,7 @@ class sequence : protected _sequence_base<T, Allocator> {
   // generated by f(0), f(1), ..., f(n-1)
   template<typename F>
   static sequence<value_type> from_function(size_t n, F&& f, size_t granularity=0) {
-    return sequence<value_type>(n, std::forward<F>(f), _from_function_tag(),
-				granularity);
+    return sequence<value_type>(n, std::forward<F>(f), _from_function_tag(), granularity);
   }
 
 #ifdef _MSC_VER
@@ -1001,7 +1077,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {   // Calling initialize with
       impl.initialize(buffer + i);       // no arguments performs
-    }, this->pick_granularity(n));       // value initialization
+    }, initialization_granularity(n));   // value initialization
     impl.set_size(n);
   }
 
@@ -1010,7 +1086,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {
       impl.initialize_explicit(buffer + i, v);
-    }, this->pick_granularity(n));
+    }, copy_granularity(n));
     impl.set_size(n);
   }
 
@@ -1039,7 +1115,7 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto buffer = impl.data();
     parallel_for(0, n, [&](size_t i) {
       impl.initialize_explicit(buffer + i, first[i]); 
-    }, this->pick_granularity(n));
+    }, copy_granularity(n));
     impl.set_size(n);
   }
   
@@ -1074,8 +1150,9 @@ class sequence : protected _sequence_base<T, Allocator> {
   iterator append_n(size_t n, const value_type& t) {
     impl.ensure_capacity(size() + n);
     auto it = end();
-    parallel_for(0, n, [&](size_t i) { impl.initialize_explicit(it + i, t); },
-		 this->pick_granularity(n));
+    parallel_for(0, n, [&](size_t i) {
+      impl.initialize_explicit(it + i, t);
+    }, this->copy_granularity(n));
     impl.set_size(size() + n);
     return it;
   }
@@ -1108,8 +1185,9 @@ class sequence : protected _sequence_base<T, Allocator> {
     auto n = std::distance(first, last);
     impl.ensure_capacity(size() + n);
     auto it = end();
-    parallel_for(0, n, [&](size_t i) { impl.initialize_explicit(it + i, first[i]); },
-		 this->pick_granularity(n));
+    parallel_for(0, n, [&](size_t i) {
+      impl.initialize_explicit(it + i, first[i]);
+    }, copy_granularity(n));
     impl.set_size(size() + n);
     return it;
   }
@@ -1164,7 +1242,10 @@ class sequence : protected _sequence_base<T, Allocator> {
   // beginning at other. The sequence beginning at other must be
   // of at least the same length as this sequence.
   template<typename _Iterator>
-  bool compare_equal(_Iterator other, size_t granularity = 1000) const {
+  bool compare_equal(_Iterator other, size_t granularity = 0) const {
+    if (granularity == 0) {
+      granularity = 1024 * sizeof(size_t) / sizeof(value_type);
+    }
     auto n = size();
     auto self = begin();
     size_t i;

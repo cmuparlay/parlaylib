@@ -45,7 +45,7 @@ TEST(TestPrimitives, TestDelayedMap) {
   auto s = parlay::tabulate(100000, [](long long i) -> long long {
     return (50021 * i + 61) % (1 << 20);
   });
-  auto m = parlay::delayed_map(s, [](int x) { return 3*x - 1; });
+  auto m = parlay::delayed_map(s, [](long long x) { return 3*x - 1; });
   ASSERT_EQ(m.size(), s.size());
   for (size_t i = 0; i < 100000; i++) {
     ASSERT_EQ(m[i], 3*s[i] - 1);
@@ -592,7 +592,7 @@ TEST(TestPrimitives, TestMapTokensVoid) {
 
 TEST(TestPrimitives, TestSplitAt) {
   auto seq = parlay::sequence<int>(999999, 1);
-  auto seqs = parlay::split_at(seq, parlay::delayed_tabulate(999999,[&](int i)->bool {
+  auto seqs = parlay::split_at(seq, parlay::delayed_tabulate(999999,[&](size_t i) -> bool {
     return i % 1000 == 999;
   }));
   
@@ -605,7 +605,7 @@ TEST(TestPrimitives, TestSplitAt) {
 TEST(TestPrimitives, TestMapSplitAt) {
   auto seq = parlay::sequence<int>(999999, 1);
   auto map_reduces = parlay::map_split_at(seq,
-    parlay::delayed_tabulate(999999, [&](int i) -> bool { return i % 1000 == 999; }),
+    parlay::delayed_tabulate(999999, [&](size_t i) -> bool { return i % 1000 == 999; }),
     [](const auto& s) { return parlay::reduce(s); });
   
   auto answer = parlay::tabulate(1000, [](int i) -> int {

@@ -121,72 +121,72 @@ TEST(TestRelocate, TestCustomTriviallyRelocatable) {
 
 
 TEST(TestRelocate, TestNotTriviallyRelocatableArray) {
-  constexpr size_t N = 100000;
+  constexpr int N = 100000;
   std::vector<std::aligned_storage<sizeof(NotTriviallyRelocatable), alignof(NotTriviallyRelocatable)>::type> a(N), b(N);
   NotTriviallyRelocatable* from = std::launder(reinterpret_cast<NotTriviallyRelocatable*>(a.data()));
   NotTriviallyRelocatable* to = std::launder(reinterpret_cast<NotTriviallyRelocatable*>(b.data()));
   // -- Both from and to point to uninitialized memory
   
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     new (&from[i]) NotTriviallyRelocatable(i);
   }
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ(from[i].x, i);
     ASSERT_EQ(from[i].px, &(from[i].x));
   }
   // -- Now from points to an array of valid objects, and to points to uninitialized memory
   
   parlay::uninitialized_relocate_n(to, from, N);
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ(to[i].x, i);
     ASSERT_EQ(to[i].px, &(to[i].x));
   }
   // -- Now to points to an array of valid objects, and from points to uninitialized memory
   
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     to[i].~NotTriviallyRelocatable();
   }
   // -- Both from and to point to uninitialized memory
 }
 
 TEST(TestRelocate, TestTriviallyRelocatableArray) {
-  constexpr size_t N = 100000;
+  constexpr int N = 100000;
   std::vector<std::aligned_storage<sizeof(TriviallyRelocatable), alignof(TriviallyRelocatable)>::type> a(N), b(N);
   TriviallyRelocatable* from = std::launder(reinterpret_cast<TriviallyRelocatable*>(a.data()));
   TriviallyRelocatable* to = std::launder(reinterpret_cast<TriviallyRelocatable*>(b.data()));
   // -- Both from and to point to uninitialized memory
   
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     new (&from[i]) TriviallyRelocatable(i);
   }
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ(from[i].x, i);
   }
   // -- Now from points to an array of valid objects, and to points to uninitialized memory
   
   parlay::uninitialized_relocate_n(to, from, N);
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ(to[i].x, i);
   }
   // -- Now to points to an array of valid objects, and from points to uninitialized memory
   
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     to[i].~TriviallyRelocatable();
   }
   // -- Both from and to point to uninitialized memory
 }
 
 TEST(TestRelocate, TestCustomTriviallyRelocatableArray) {
-  constexpr size_t N = 100000;
+  constexpr int N = 100000;
   std::vector<std::aligned_storage<sizeof(MyTriviallyRelocatable), alignof(MyTriviallyRelocatable)>::type> a(N), b(N);
   MyTriviallyRelocatable* from = std::launder(reinterpret_cast<MyTriviallyRelocatable*>(a.data()));
   MyTriviallyRelocatable* to = std::launder(reinterpret_cast<MyTriviallyRelocatable*>(b.data()));
   // -- Both from and to point to uninitialized memory
   
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     new (&from[i]) MyTriviallyRelocatable(i);
   }
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ(*(from[i].x), i);
   }
   // -- Now from points to an array of valid objects, and to points to uninitialized memory
@@ -197,14 +197,14 @@ TEST(TestRelocate, TestCustomTriviallyRelocatableArray) {
   }
   // -- Now to points to an array of valid objects, and from points to uninitialized memory
   
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     to[i].~MyTriviallyRelocatable();
   }
   // -- Both from and to point to uninitialized memory
 }
 
 TEST(TestRelocate, TestRelocatableNonContiguousArray) {
-  constexpr size_t N = 100000;
+  constexpr int N = 100000;
   std::deque<std::aligned_storage<sizeof(MyTriviallyRelocatable), alignof(MyTriviallyRelocatable)>::type> a(N), b(N);
   auto from = std::begin(a);
   auto to = std::begin(b);
@@ -213,36 +213,36 @@ TEST(TestRelocate, TestRelocatableNonContiguousArray) {
   static_assert(!parlay::is_contiguous_iterator_v<decltype(from)>);
   static_assert(!parlay::is_contiguous_iterator_v<decltype(to)>);
 
-  auto get_from = [&](size_t i) {
+  auto get_from = [&](auto i) {
     return std::launder(reinterpret_cast<MyTriviallyRelocatable*>(&from[i]));
   };
 
-  auto get_to = [&](size_t i) {
+  auto get_to = [&](auto i) {
     return std::launder(reinterpret_cast<MyTriviallyRelocatable*>(&to[i]));
   };
 
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     new (get_from(i)) MyTriviallyRelocatable(i);
   }
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ(*(get_from(i)->x), i);
   }
   // -- Now from points to an array of valid objects, and to points to uninitialized memory
 
   parlay::uninitialized_relocate_n(to, from, N);
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ(*(get_to(i)->x), i);
   }
   // -- Now to points to an array of valid objects, and from points to uninitialized memory
 
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     get_to(i)->~MyTriviallyRelocatable();
   }
   // -- Both from and to point to uninitialized memory
 }
 
 TEST(TestRelocate, TestRelocatableNonRandomAccessArray) {
-  constexpr size_t N = 1000;
+  constexpr int N = 1000;
   std::list<std::aligned_storage<sizeof(MyTriviallyRelocatable), alignof(MyTriviallyRelocatable)>::type> a(N), b(N);
   auto from = std::begin(a);
   auto to = std::begin(b);
@@ -251,33 +251,33 @@ TEST(TestRelocate, TestRelocatableNonRandomAccessArray) {
   static_assert(!parlay::is_random_access_iterator_v<decltype(from)>);
   static_assert(!parlay::is_random_access_iterator_v<decltype(to)>);
 
-  auto get_from = [&](size_t i) {
+  auto get_from = [&](auto i) {
     auto it = from;
     std::advance(it, i);
     return std::launder(reinterpret_cast<MyTriviallyRelocatable*>(&(*it)));
   };
 
-  auto get_to = [&](size_t i) {
+  auto get_to = [&](auto i) {
     auto it = to;
     std::advance(it, i);
     return std::launder(reinterpret_cast<MyTriviallyRelocatable*>(&(*it)));
   };
 
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     new (get_from(i)) MyTriviallyRelocatable(i);
   }
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ(*(get_from(i)->x), i);
   }
   // -- Now from points to an array of valid objects, and to points to uninitialized memory
 
   parlay::uninitialized_relocate_n(to, from, N);
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ(*(get_to(i)->x), i);
   }
   // -- Now to points to an array of valid objects, and from points to uninitialized memory
 
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     get_to(i)->~MyTriviallyRelocatable();
   }
   // -- Both from and to point to uninitialized memory
@@ -300,7 +300,7 @@ struct NonRelocatableStorage {
 
 
 TEST(TestRelocate, TestNonRelocatableNonRandomAccessArray) {
-  constexpr size_t N = 1000;
+  constexpr int N = 1000;
   std::list<NonRelocatableStorage<NotTriviallyRelocatable>> a(N), b(N);
   auto from = std::begin(a);
   auto to = std::begin(b);
@@ -311,35 +311,35 @@ TEST(TestRelocate, TestNonRelocatableNonRandomAccessArray) {
 
   // -- Both from and to point to uninitialized memory
 
-  auto get_from = [&](size_t i) {
+  auto get_from = [&](auto i) {
     auto it = from;
     std::advance(it, i);
     return it->get_storage();
   };
 
-  auto get_to = [&](size_t i) {
+  auto get_to = [&](auto i) {
     auto it = to;
     std::advance(it, i);
     return it->get_storage();
   };
 
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     new (get_from(i)) NotTriviallyRelocatable(i);
   }
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ((get_from(i)->x), i);
     ASSERT_EQ(get_from(i)->px, &(get_from(i)->x));
   }
   // -- Now from points to an array of valid objects, and to points to uninitialized memory
 
   parlay::uninitialized_relocate_n(to, from, N);
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     ASSERT_EQ((get_to(i)->x), i);
     ASSERT_EQ(get_to(i)->px, &(get_to(i)->x));
   }
   // -- Now to points to an array of valid objects, and from points to uninitialized memory
 
-  for (size_t i = 0; i < N; i++) {
+  for (int i = 0; i < N; i++) {
     get_to(i)->~NotTriviallyRelocatable();
   }
   // -- Both from and to point to uninitialized memory

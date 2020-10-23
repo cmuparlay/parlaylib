@@ -6,7 +6,12 @@
 #include "gtest/gtest.h"
 
 #include <parlay/sequence.h>
+#include <parlay/utilities.h>
 
+// Sequences should be trivially relocatable provided that they
+// have a trivially relocatable allocator
+static_assert(parlay::is_trivially_relocatable_v<parlay::sequence<int, std::allocator<int>>>);
+static_assert(parlay::is_trivially_relocatable_v<parlay::sequence<int, parlay::allocator<int>>>);
 
 TEST(TestSequence, TestDefaultConstruct) {
   auto s = parlay::sequence<int>();
@@ -752,3 +757,55 @@ TEST(TestSequence, TestSequenceOfAtomic) {
     s[i].store(i);
   }
 }
+
+struct NotDefaultConstructible {
+  int x;
+  NotDefaultConstructible(int _x) : x(_x) { }
+};
+
+TEST(TestSequence, TestNonDefaultConstructibleType) {
+  static_assert(!std::is_default_constructible_v<NotDefaultConstructible>);
+  parlay::sequence<NotDefaultConstructible> s;
+  for (int i = 0; i < 100000; i++) {
+    s.emplace_back(i);
+  }
+  for (int i = 0; i < 100000; i++) {
+    ASSERT_EQ(s[i].x, i);
+  }
+}
+
+struct NonStandardLayout {
+  int x;
+  NonStandardLayout(int _x) : x(_x) { }
+  virtual ~NonStandardLayout() = default;
+};
+
+TEST(TestSequence, TestNonStandardLayout) {
+  static_assert(!std::is_standard_layout_v<NonStandardLayout>);
+  parlay::sequence<NotDefaultConstructible> s;
+  for (int i = 0; i < 100000; i++) {
+    s.emplace_back(i);
+  }
+  for (int i = 0; i < 100000; i++) {
+    ASSERT_EQ(s[i].x, i);
+  }
+}
+
+TEST(TestSequence, TestOtherAllocator) {
+  parlay::sequence<int, std::allocator<double>> s;
+  for (int i = 0; i < 100000; i++) {
+    s.push_back(i);
+  }
+  for (int i = 0; i < 100000; i++) {
+    ASSERT_EQ(s[i], i);
+  }
+}
+
+TEST(TestSequence, TestGetAllocator) {
+  parlay::sequence<int, std::allocator<int>> s;
+  auto alloc = s.get_allocator();
+  ASSERT_EQ(alloc, std::allocator<int>());
+}
+
+// TODO: More thorough tests with custom allocators
+// to validate allocator usage.

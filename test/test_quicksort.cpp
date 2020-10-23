@@ -55,10 +55,10 @@ TEST(TestQuicksort, TestQuicksortUncopyable) {
 
 TEST(TestQuicksort, TestQuicksortUniquePtr) {
   auto s = parlay::tabulate(100000, [](long long int i) {
-    return std::make_unique<int>((50021 * i + 61) % (1 << 20));
+    return std::make_unique<long long int>((50021 * i + 61) % (1 << 20));
   });
   auto s2 = parlay::tabulate(100000, [](long long int i) {
-    return std::make_unique<int>((50021 * i + 61) % (1 << 20));
+    return std::make_unique<long long int>((50021 * i + 61) % (1 << 20));
   });
   auto cmp = [](const auto& a, const auto& b) { return *a < *b; };
   parlay::internal::quicksort(make_slice(s), cmp);

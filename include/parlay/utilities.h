@@ -237,7 +237,7 @@ inline size_t granularity(size_t n) {
 template<typename T>
 inline void uninitialized_relocate(T* to, T* from) noexcept(is_nothrow_relocatable<T>::value) {
   if constexpr (is_trivially_relocatable<T>::value) {
-    std::memcpy(to, from, sizeof(T));
+    std::memcpy(static_cast<void*>(to), static_cast<void*>(from), sizeof(T));
   }
   else {
     static_assert(std::is_move_constructible<T>::value);
@@ -274,7 +274,9 @@ inline void uninitialized_relocate_n_a(It1 to, It2 from, size_t n, Alloc& alloc)
     parallel_for(0, n_chunks, [&](size_t i) {
       size_t n_objects = (std::min)(chunk_size, n - i * chunk_size);
       size_t n_bytes = sizeof(T) * n_objects;
-      std::memcpy(to + i * chunk_size, from + i * chunk_size, n_bytes);
+      void* src = static_cast<void*>(std::addressof(*(from + i * chunk_size)));
+      void* dest = static_cast<void*>(std::addressof(*(to + i * chunk_size)));
+      std::memcpy(dest, src, n_bytes);
     }, 1);
   // The next best thing -- If the objects are trivially relocatable and the allocator
   // has no special behaviour, so long as the iterators are random access, we can still
@@ -284,7 +286,9 @@ inline void uninitialized_relocate_n_a(It1 to, It2 from, size_t n, Alloc& alloc)
     const size_t n_chunks = (n + chunk_size - 1) / chunk_size;
     parallel_for(0, n_chunks, [&](size_t i) {
       for (size_t j = 0; j < chunk_size && (j + i *chunk_size < n); j++) {
-        std::memcpy(&to[j + i * chunk_size], &from[j + i * chunk_size], sizeof(T));
+        void* src = static_cast<void*>(std::addressof(from[j + i * chunk_size]));
+        void* dest = static_cast<void*>(std::addressof(to[j + i * chunk_size]));
+        std::memcpy(dest, src, sizeof(T));
       }
     }, 1);
   }

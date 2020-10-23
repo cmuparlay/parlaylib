@@ -65,6 +65,36 @@ class uninitialized_sequence {
     ~uninitialized_sequence_impl() {
       std::allocator_traits<allocator_type>::deallocate(*this, data, n);
     }
+
+    // Delete copy for uninitialized sequences
+    uninitialized_sequence_impl(const uninitialized_sequence_impl&) = delete;
+    uninitialized_sequence_impl& operator=(const uninitialized_sequence_impl&) = delete;
+
+    // Move constructing an uninitialized sequence
+    // leaves the other sequence in an empty state
+    uninitialized_sequence_impl(uninitialized_sequence_impl&& other) noexcept : data(other.data), n(other.n) {
+      other.data = nullptr;
+      other.n = 0;
+    }
+
+    // Move assigning an uninitialized sequence clears the current sequence
+    // (without destruction) and swaps it with the given other sequence
+    uninitialized_sequence_impl& operator=(uninitialized_sequence_impl&& other) noexcept {
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+      // If uninitialized memory debugging is turned on, make sure that
+      // each object of type UninitializedTracker is destroyed or still
+      // uninitialized by the time this sequence is destroyed
+      auto buffer = impl.data;
+      parallel_for(0, impl.n, [&](size_t i) {
+        PARLAY_ASSERT_UNINITIALIZED(buffer[i]);
+      });
+#endif
+      n = 0;
+      data = nullptr;
+      std::swap(n, other.n);
+      std::swap(data, other.data);
+    }
+
   } impl;
 
  public:
@@ -83,6 +113,12 @@ class uninitialized_sequence {
 #endif
   }
 
+  uninitialized_sequence(const uninitialized_sequence<T, Alloc>&) = delete;
+  uninitialized_sequence& operator=(const uninitialized_sequence<T, Alloc>&) = delete;
+
+  uninitialized_sequence(uninitialized_sequence<T, Alloc>&&) noexcept = default;
+  uninitialized_sequence& operator=(uninitialized_sequence<T, Alloc>&&) noexcept = default;
+
 #ifdef PARLAY_DEBUG_UNINITIALIZED
   // If uninitialized memory debugging is turned on, make sure that
   // each object of type UninitializedTracker is destroyed or still
@@ -93,6 +129,8 @@ class uninitialized_sequence {
       PARLAY_ASSERT_UNINITIALIZED(buffer[i]);
     });
   }
+#else
+  ~uninitialized_sequence() = default;
 #endif
 
   iterator begin() { return impl.data; }

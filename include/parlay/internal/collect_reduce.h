@@ -80,7 +80,7 @@ auto collect_reduce_few(Seq const &A, Key const &get_key,
   size_t num_threads = num_workers();
   size_t num_blocks = (std::min)(4 * num_threads, n / num_buckets / 64);
 
-  num_blocks = 1 << log2_up(num_blocks);
+  num_blocks = size_t{1} << log2_up(num_blocks);
 
   sequence<val_type> Out(num_buckets);
 
@@ -119,7 +119,7 @@ auto collect_reduce_few(Seq const &A, Key const &get_key,
 template <typename E, typename K, typename HashEq, typename GetKey>
 struct get_bucket {
   using key_type = K;
-  using KI = std::pair<K, int>;
+  using KI = std::pair<K, std::ptrdiff_t>;
   sequence<KI> hash_table;
   size_t table_mask;
   size_t bucket_mask;
@@ -138,7 +138,7 @@ struct get_bucket {
     : heq(heq), get_key(get_key) {
     size_t n = A.size();
     size_t low_bits = bits - 1;   // for the bottom half
-    num_buckets = 1 << low_bits;  // in bottom half
+    num_buckets = size_t{1} << low_bits;  // in bottom half
     size_t count = 2 * num_buckets;
     size_t table_size = 4 * count;
     table_mask = table_size - 1;
@@ -216,7 +216,7 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
   size_t bits = std::max<size_t>(
       log2_up(1 + 2 * (size_t)sizeof(val_type) * n / cache_per_thread), 4);
 
-  size_t num_blocks = (1 << bits);
+  size_t num_blocks = size_t{1} << bits;
   
   if (num_buckets <= 4 * num_blocks)
     return collect_reduce_few(A, get_key, get_value, monoid, num_buckets);
@@ -455,8 +455,7 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
 	    typename Hash = std::hash<typename range_value_type_t<R>::first_type>,
 	    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
   auto group_by_and_combine_by_bucket(R const &A, size_t num_buckets,
-				      Monoid const &monoid,
-				      Hash hash = {}, Equal equal = {}) { 
+				      Monoid const &monoid) {
     auto get_key = [] (const auto& a) {return a.first;};
     auto get_val = [] (const auto& a) {return a.second;};
     return collect_reduce(make_slice(A), get_key, get_val, monoid, num_buckets);

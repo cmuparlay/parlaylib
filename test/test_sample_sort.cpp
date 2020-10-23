@@ -36,7 +36,7 @@ TEST(TestSampleSort, TestSortCustomCompare) {
 }
 
 TEST(TestSampleSort, TestStableSort) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;
@@ -50,7 +50,7 @@ TEST(TestSampleSort, TestStableSort) {
 }
 
 TEST(TestSampleSort, TestStableSortCustomCompare) {
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % (1 << 10);
     x.y = i;
@@ -109,10 +109,10 @@ namespace parlay {
 
 TEST(TestSampleSort, TestSortInplaceUniquePtr) {
   auto s = parlay::tabulate(100000, [](long long int i) {
-    return std::make_unique<int>((50021 * i + 61) % (1 << 20));
+    return std::make_unique<long long int>((50021 * i + 61) % (1 << 20));
   });
   auto s2 = parlay::tabulate(100000, [](long long int i) {
-    return std::make_unique<int>((50021 * i + 61) % (1 << 20));
+    return std::make_unique<long long int>((50021 * i + 61) % (1 << 20));
   });
   parlay::internal::sample_sort_inplace(parlay::make_slice(s), [](const auto& a, const auto& b) { return *a < *b; });
   std::stable_sort(std::begin(s2), std::end(s2), [](const auto& a, const auto& b) { return *a < *b; });
