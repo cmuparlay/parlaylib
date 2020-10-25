@@ -8,6 +8,7 @@
 #include <cassert>
 
 #include "uninitialized_storage.h"
+#include "uninitialized_sequence.h"
 #include "sequence_ops.h"
 
 #include "../utilities.h"
@@ -244,7 +245,7 @@ sequence<typename SeqA::value_type> p_quicksort(SeqA const& In, const F& f) {
 template <typename Iterator, class F>
 void p_quicksort_inplace(slice<Iterator, Iterator> In, const F& f) {
   using value_type = typename slice<Iterator, Iterator>::value_type;
-  auto Tmp = sequence<value_type>::uninitialized(In.size());
+  auto Tmp = uninitialized_sequence<value_type>(In.size());
   p_quicksort_(In, make_slice(Tmp), f, true);
 }
 
