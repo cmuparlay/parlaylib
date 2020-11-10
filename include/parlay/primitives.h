@@ -393,7 +393,7 @@ bool none_of(const R& r, UnaryPredicate p) {
 
 template <PARLAY_RANGE_TYPE R, typename UnaryPredicate>
 auto find_if(R&& r, UnaryPredicate p) {
-  return std::begin(r) + find_if_index(parlay::size(r),
+  return std::begin(r) + internal::find_if_index(parlay::size(r),
     [&p, it = std::begin(r)](size_t i) { return p(it[i]); });
 }
 
@@ -404,13 +404,13 @@ auto find(R&& r, T const &value) {
 
 template <PARLAY_RANGE_TYPE R, typename UnaryPredicate>
 auto find_if_not(R&& r, UnaryPredicate p) {
-  return std::begin(r) + find_if_index(parlay::size(r),
+  return std::begin(r) + internal::find_if_index(parlay::size(r),
     [&p, it = std::begin(r)](size_t i) { return !p(it[i]); });
 }
 
 template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, typename BinaryPredicate>
 auto find_first_of(R1&& r1, const R2& r2, BinaryPredicate p) {
-  return std::begin(r1) + find_if_index(parlay::size(r1), [&] (size_t i) {
+  return std::begin(r1) + internal::find_if_index(parlay::size(r1), [&] (size_t i) {
     size_t j;
     for (j = 0; j < parlay::size(r2); j++)
       if (p(std::begin(r1)[i], std::begin(r2)[j])) break;
@@ -424,7 +424,7 @@ template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, typename BinaryPred>
 auto find_end(R1&& r1, const R2& r2, BinaryPred p) {
   size_t n1 = parlay::size(r1);
   size_t n2 = parlay::size(r2);
-  size_t idx = find_if_index(parlay::size(r1) - parlay::size(r2) + 1, [&](size_t i) {
+  size_t idx = internal::find_if_index(parlay::size(r1) - parlay::size(r2) + 1, [&](size_t i) {
     size_t j;
     for (j = 0; j < n2; j++)
       if (!p(r1[(n1 - i - n2) + j], r2[j])) break;
@@ -443,14 +443,14 @@ auto find_end(const R1& r1, const R2& r2) {
 
 template <PARLAY_RANGE_TYPE R, typename BinaryPred>
 auto adjacent_find(R&& r, BinaryPred p) {
-  return std::begin(r) + find_if_index(parlay::size(r) - 1,
+  return std::begin(r) + internal::find_if_index(parlay::size(r) - 1,
     [&p, it = std::begin(r)](size_t i) {
       return p(it[i], it[i + 1]); });
 }
 
 template <PARLAY_RANGE_TYPE R>
-size_t adjacent_find(const R& r) {
-  return std::begin(r) + find_if_index(parlay::size(r) - 1,
+auto adjacent_find(const R& r) {
+  return std::begin(r) + internal::find_if_index(parlay::size(r) - 1,
     [it = std::begin(r)](size_t i) {
       return it[i] == it[i + 1]; });
 }
@@ -459,7 +459,7 @@ size_t adjacent_find(const R& r) {
 
 template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
 auto mismatch(R1&& r1, R2&& r2) {
-  auto d = find_if_index(std::min(parlay::size(r1), parlay::size(r2)),
+  auto d = internal::find_if_index(std::min(parlay::size(r1), parlay::size(r2)),
     [it1 = std::begin(r1), it2 = std::begin(r2)](size_t i) {
       return it1[i] != it2[i]; });
   return std::make_pair(std::begin(r1) + d, std::begin(r2) + d);
@@ -467,7 +467,7 @@ auto mismatch(R1&& r1, R2&& r2) {
 
 template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, typename BinaryPred>
 auto mismatch(R1&& r1, R2&& r2, BinaryPred p) {
-  auto d = find_if_index(std::min(parlay::size(r1), parlay::size(r2)),
+  auto d = internal::find_if_index(std::min(parlay::size(r1), parlay::size(r2)),
     [&p, it1 = std::begin(r1), it2 = std::begin(r2)](size_t i) {
       return !p(it1[i], it2[i]); });
   return std::make_pair(std::begin(r1) + d, std::begin(r2) + d);
@@ -477,7 +477,7 @@ auto mismatch(R1&& r1, R2&& r2, BinaryPred p) {
 
 template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, typename BinaryPred>
 auto search(R1&& r1, const R2& r2, BinaryPred pred) {
-  return std::begin(r1) + find_if_index(parlay::size(r1), [&](size_t i) {
+  return std::begin(r1) + internal::find_if_index(parlay::size(r1), [&](size_t i) {
     if (i + parlay::size(r2) > parlay::size(r1)) return false;
     size_t j;
     for (j = 0; j < parlay::size(r2); j++)
@@ -487,9 +487,9 @@ auto search(R1&& r1, const R2& r2, BinaryPred pred) {
 }
 
 template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
-size_t search(R1&& r1, const R2& r2) {
+auto search(R1&& r1, const R2& r2) {
   auto eq = [](const auto& a, const auto& b) { return a == b; };
-  return std::begin(r1) + search(r1, r2, eq);
+  return search(r1, r2, eq);
 }
 
 /* ------------------------- Equal ------------------------- */
@@ -497,7 +497,7 @@ size_t search(R1&& r1, const R2& r2) {
 template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, class BinaryPred>
 bool equal(const R1& r1, const R2& r2, BinaryPred p) {
   return parlay::size(r1) == parlay::size(r2) &&
-    find_if_index(parlay::size(r1),
+    internal::find_if_index(parlay::size(r1),
       [&p, it1 = std::begin(r1), it2 = std::begin(r2)](size_t i)
         { return !p(it1[i], it2[i]); }) == parlay::size(r1);
 }
@@ -513,7 +513,7 @@ bool equal(const R1& r1, const R2& r2) {
 template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, class Compare>
 bool lexicographical_compare(const R1& r1, const R2& r2, Compare less) {
   size_t m = std::min(parlay::size(r1), parlay::size(r2));
-  size_t i = find_if_index(m,
+  size_t i = internal::find_if_index(m,
     [&less, it1 = std::begin(r1), it2 = std::begin(r2)](size_t i)
       { return less(it1[i], it2[i]) || less(it2[i], it1[i]); });
   return (i < m) ? (less(std::begin(r1)[i], std::begin(r2)[i]))
@@ -628,7 +628,7 @@ bool is_sorted(const R& r) {
 
 template <PARLAY_RANGE_TYPE R, typename Compare>
 auto is_sorted_until(const R& r, Compare comp) {
-  return std::begin(r) + find_if_index(parlay::size(r) - 1,
+  return std::begin(r) + internal::find_if_index(parlay::size(r) - 1,
     [&comp, it = std::begin(r)](size_t i) { return comp(it[i + 1], it[i]); }) + 1;
 }
 
@@ -642,11 +642,11 @@ auto is_sorted_until(const R& r) {
 template <PARLAY_RANGE_TYPE R, typename UnaryPred>
 bool is_partitioned(const R& r, UnaryPred f) {
   auto n = parlay::size(r);
-  auto d = find_if_index(n, [&f, it = std::begin(r)](size_t i) {
+  auto d = internal::find_if_index(n, [&f, it = std::begin(r)](size_t i) {
     return !f(it[i]);
   });
   if (d == n) return true;
-  auto d2 = find_if_index(n - d - 1, [&f, it = std::begin(r) + d + 1](size_t i) {
+  auto d2 = internal::find_if_index(n - d - 1, [&f, it = std::begin(r) + d + 1](size_t i) {
     return f(it[i]);
   });
   return (d2 == n - d - 1);
