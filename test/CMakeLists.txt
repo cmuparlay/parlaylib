@@ -35,11 +35,13 @@ add_dtests(NAME test_io FILES test_io.cpp LIBS parlay)
 add_dtests(NAME test_file_map FILES test_file_map.cpp LIBS parlay)
 add_dtests(NAME test_file_map_fallback FILES test_file_map.cpp LIBS parlay FLAGS "-DPARLAY_USE_FALLBACK_FILE_MAP")
 
-# -------------------------------- Parsing ---------------------------------
+# --------------------------- Parsing and Formatting ----------------------------
 
 if(NOT WSL)
   add_dtests(NAME test_parsing FILES test_parsing.cpp LIBS parlay)
 endif()
+
+add_dtests(NAME test_formatting FILES test_formatting.cpp LIBS parlay)
 
 # ----------------------------- Parlay Scheduling ------------------------------
 

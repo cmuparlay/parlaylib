@@ -1,7 +1,9 @@
 # Build directory
 build*
 
-# VIM swap files
+# IDE settings
+.idea/
+CMakeSettings.json
 *.swp
 
 # Prerequisites

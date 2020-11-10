@@ -16,11 +16,11 @@ namespace parlay {
 }
 
 TEST(TestIntegerSort, TestIntegerSortInplaceUniquePtr) {
-  auto s = parlay::tabulate(100000, [](size_t i) {
-    return std::make_unique<int>((50021 * i + 61) % (1 << 20));
+  auto s = parlay::tabulate(100000, [](long long int i) {
+    return std::make_unique<long long int>((50021 * i + 61) % (1 << 20));
   });
-  auto sorted = parlay::tabulate(100000, [](size_t i) {
-    return std::make_unique<int>((50021 * i + 61) % (1 << 20));
+  auto sorted = parlay::tabulate(100000, [](long long int i) {
+    return std::make_unique<long long int>((50021 * i + 61) % (1 << 20));
   });
   std::sort(std::begin(sorted), std::end(sorted), [](const auto& p1, const auto& p2) {
     return *p1 < *p2;

@@ -170,6 +170,15 @@ inline constexpr bool is_trivially_relocatable_v = is_trivially_relocatable<T>::
 template<typename T>
 inline constexpr bool is_nothrow_relocatable_v = is_nothrow_relocatable<T>::value;
 
+// The standard allocator is stateless, so it is trivially relocatable,
+// but unfortunately it is not detected as such, so we mark it manually.
+// This is important because parlay::sequence<T, Alloc> is only trivially
+// relocatable when its allocator is trivially relocatable.
+
+template<typename T>
+struct is_trivially_relocatable<std::allocator<T>> : std::true_type {};
+
+
 }  // namespace parlay
 
 #endif //PARLAY_TYPE_TRAITS_H

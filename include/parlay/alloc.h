@@ -232,8 +232,8 @@ struct allocator {
     internal::get_default_allocator().deallocate((void*) ptr, n * sizeof(T));
   }
 
-  allocator() = default;
-  template <class U> constexpr allocator(const allocator<U>&) {}
+  constexpr allocator() = default;
+  template <class U> constexpr allocator(const allocator<U>&) noexcept { }
 };
 
 template <class T, class U>
@@ -253,59 +253,52 @@ bool operator!=(const allocator<T>&, const allocator<U>&) { return false; }
 template <typename T>
 class type_allocator {
 public:
-  static constexpr size_t default_alloc_size = 0;
-  static block_allocator allocator;
-  static const bool initialized{true};
-  static T* alloc() { return (T*) allocator.alloc();}
-  static void free(T* ptr) {allocator.free((void*) ptr);}
+  static constexpr inline size_t default_alloc_size = 0;
+  static constexpr inline bool initialized = true;
+  static inline block_allocator allocator = block_allocator(sizeof(T));
+
+  static T* alloc() { return static_cast<T*>(allocator.alloc()); }
+  static void free(T* ptr) { allocator.free(static_cast<void*>(ptr)); }
 
   // for backward compatibility
-  //static void init(size_t _alloc_size = 0, size_t _list_size=0) {};
   static void init(size_t, size_t) {};
   static void init() {};
-  static void reserve(size_t n = default_alloc_size) {
-    allocator.reserve(n);
-  }
-  static void finish() {allocator.clear();
-  }
-  static size_t block_size () {return allocator.block_size();}
-  static size_t num_allocated_blocks() {return allocator.num_allocated_blocks();}
-  static size_t num_used_blocks() {return allocator.num_used_blocks();}
-  static size_t num_used_bytes() {return num_used_blocks() * block_size();}
-  static void print_stats() {allocator.print_stats();}
+  static void reserve(size_t n = default_alloc_size) { allocator.reserve(n); }
+  static void finish() { allocator.clear(); }
+  static size_t block_size () { return allocator.block_size(); }
+  static size_t num_allocated_blocks() { return allocator.num_allocated_blocks(); }
+  static size_t num_used_blocks() { return allocator.num_used_blocks(); }
+  static size_t num_used_bytes() { return num_used_blocks() * block_size(); }
+  static void print_stats() { allocator.print_stats(); }
 };
 
-template<typename T>
-block_allocator type_allocator<T>::allocator = block_allocator(sizeof(T));
+constexpr size_t size_offset = 1; // in size_t sized words
 
-  constexpr size_t size_offset = 1; // in size_t sized words
+// needs to be at least size_offset * sizeof(size_t)
+inline size_t header_size(size_t n) { // in bytes
+  return (n >= 1024) ? 64 : (n & 15) ? 8 : (n & 63) ? 16 : 64;
+}
 
- // needs to be at least size_offset * sizeof(size_t)
- inline size_t header_size(size_t n) { // in bytes
-   return (n >= 1024) ? 64 : (n & 15) ? 8 : (n & 63) ? 16 : 64;
- }
+// allocates and tags with a header (8, 16 or 64 bytes) that contains the size
+extern inline void* p_malloc(size_t n) {
+  size_t hsize = header_size(n);
+  void* ptr = internal::get_default_allocator().allocate(n + hsize);
+  void* r = (void*) (((char*) ptr) + hsize);
+  *(((size_t*) r) - size_offset) = n; // puts size in header
+  return r;
+}
 
- // allocates and tags with a header (8, 16 or 64 bytes) that contains the size
- extern inline void* p_malloc(size_t n) {
-   size_t hsize = header_size(n);
-   void* ptr;
-   ptr = internal::get_default_allocator().allocate(n + hsize);
-   void* r = (void*) (((char*) ptr) + hsize);
-   *(((size_t*) r)-size_offset) = n; // puts size in header
-   return r;
- }
-
- // reads the size, offsets the header and frees
- extern inline void p_free(void *ptr) {
-   size_t n = *(((size_t*) ptr)-size_offset);
-   size_t hsize = header_size(n);
-   if (hsize > (1ul << 48)) {
-     std::cout << "corrupted header in my_free" << std::endl;
-     throw std::bad_alloc(); 
-   }
-   internal::get_default_allocator().deallocate((void*) (((char*) ptr) - hsize),
-						n + hsize);
- }
+// reads the size, offsets the header and frees
+extern inline void p_free(void* ptr) {
+  size_t n = *(((size_t*) ptr) - size_offset);
+  size_t hsize = header_size(n);
+  if (hsize > (1ull << 48)) {
+    std::cout << "corrupted header in my_free" << std::endl;
+    throw std::bad_alloc();
+  }
+  internal::get_default_allocator().deallocate((void*) (((char*) ptr) - hsize),
+                                               n + hsize);
+}
 
 }  // namespace parlay
 

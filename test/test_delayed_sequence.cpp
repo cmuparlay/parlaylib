@@ -7,7 +7,7 @@
 #include <parlay/delayed_sequence.h>
 
 TEST(TestDelayedSequence, TestConstruction) {
-  auto s = parlay::delayed_seq<int>(100000, [](size_t i) -> int { return i; });
+  auto s = parlay::delayed_seq<int>(100000, [](int i) -> int { return i; });
   ASSERT_EQ(s.size(), 100000);
 }
 
@@ -84,14 +84,14 @@ TEST(TestDelayedSequence, TestLambdaCapture) {
 }
 
 TEST(TestDelayedSequence, TestAsInputIterator) {
-  auto s = parlay::delayed_seq<int>(100000, [](size_t i) -> int { return i; });
+  auto s = parlay::delayed_seq<int>(100000, [](int i) -> int { return i; });
   std::vector<int> v;
   std::copy(std::begin(s), std::end(s), std::back_inserter(v));
   ASSERT_TRUE(std::equal(std::begin(s), std::end(s), std::begin(v)));
 }
 
 TEST(TestDelayedSequence, TestForwardIterator) {
-  auto s = parlay::delayed_seq<int>(100000, [](size_t i) -> int { return i; });
+  auto s = parlay::delayed_seq<int>(100000, [](int i) -> int { return i; });
   size_t i = 0;
   for (auto it = s.begin(); it != s.end(); it++) {
     ASSERT_EQ(*it, i++);
@@ -100,7 +100,7 @@ TEST(TestDelayedSequence, TestForwardIterator) {
 }
 
 TEST(TestDelayedSequence, TestBackwardIterator) {
-  auto s = parlay::delayed_seq<int>(100000, [](size_t i) -> int { return i; });
+  auto s = parlay::delayed_seq<int>(100000, [](int i) -> int { return i; });
   size_t i = 100000;
   for (auto it = s.end(); it != s.begin(); it--) {
     ASSERT_EQ(*(it-1), --i);
@@ -109,14 +109,14 @@ TEST(TestDelayedSequence, TestBackwardIterator) {
 }
 
 TEST(TestDelayedSequence, TestAsReverseIterator) {
-  auto s = parlay::delayed_seq<int>(100000, [](size_t i) -> int { return i; });
+  auto s = parlay::delayed_seq<int>(100000, [](int i) -> int { return i; });
   std::vector<int> v;
   std::copy(std::rbegin(s), std::rend(s), std::back_inserter(v));
   ASSERT_TRUE(std::equal(std::begin(s), std::end(s), std::rbegin(v)));
 }
 
 TEST(TestDelayedSequence, TestAsRandomAccess) {
-  auto s = parlay::delayed_seq<int>(100000, [](size_t i) -> int { return i; });
+  auto s = parlay::delayed_seq<int>(100000, [](int i) -> int { return i; });
   auto found = std::binary_search(std::begin(s), std::end(s), 49998);
   ASSERT_TRUE(found);
   auto it = std::lower_bound(std::begin(s), std::end(s), 49998);
@@ -125,26 +125,26 @@ TEST(TestDelayedSequence, TestAsRandomAccess) {
 }
 
 TEST(TestDelayedSequence, TestSubscript) {
-  auto s = parlay::delayed_seq<int>(100000, [](size_t i) -> int { return i; });
+  auto s = parlay::delayed_seq<int>(100000, [](int i) -> int { return i; });
   for (size_t i = 0; i < 100000; i++) {
     ASSERT_EQ(i, s[i]);
   }
 }
 
 TEST(TestDelayedSequence, TestAt) {
-  auto s = parlay::delayed_seq<int>(100000, [](size_t i) -> int { return i; });
+  auto s = parlay::delayed_seq<int>(100000, [](int i) -> int { return i; });
   for (size_t i = 0; i < 100000; i++) {
     ASSERT_EQ(i, s.at(i));
   }
 }
 
 TEST(TestDelayedSequence, TestFront) {
-  auto s = parlay::delayed_seq<int>(100000, [](size_t i) -> int { return i; });
+  auto s = parlay::delayed_seq<int>(100000, [](int i) -> int { return i; });
   ASSERT_EQ(s.front(), 0);
 }
 
 TEST(TestDelayedSequence, TestBack) {
-  auto s = parlay::delayed_seq<int>(100000, [](size_t i) -> int { return i; });
+  auto s = parlay::delayed_seq<int>(100000, [](int i) -> int { return i; });
   ASSERT_EQ(s.back(), 99999);
 }
 
@@ -152,13 +152,13 @@ TEST(TestDelayedSequence, TestBack) {
 // they will not make copies of the things they refer to.
 TEST(TestDelayedSequence, TestDelayedSequenceOfReferences) {
   std::vector<std::unique_ptr<int>> v;
-  for (size_t i = 0; i < 100000; i++) {
+  for (int i = 0; i < 100000; i++) {
     v.emplace_back(std::make_unique<int>(i));
   }
   auto s = parlay::delayed_seq<const std::unique_ptr<int>&>(100000, [&](size_t i) -> const std::unique_ptr<int>& {
     return v[i];
   });
-  for (size_t i = 0; i < 100000; i++) {
+  for (int i = 0; i < 100000; i++) {
     const auto& si = s[i];
     ASSERT_EQ(*v[i], *si);
   }
@@ -169,13 +169,13 @@ TEST(TestDelayedSequence, TestDelayedSequenceOfReferences) {
 // the underlying source!
 TEST(TestDelayedSequence, TestDelayedSequenceOfMutableReferences) {
   std::vector<std::unique_ptr<int>> v;
-  for (size_t i = 0; i < 100000; i++) {
+  for (int i = 0; i < 100000; i++) {
     v.emplace_back(std::make_unique<int>(i));
   }
   auto s = parlay::delayed_seq<int&>(100000, [&](size_t i) -> int& {
     return *v[i];
   });
-  for (size_t i = 0; i < 100000; i++) {
+  for (int i = 0; i < 100000; i++) {
     s[i]++;
     ASSERT_EQ(*v[i], i+1);
   }

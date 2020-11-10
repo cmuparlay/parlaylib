@@ -115,7 +115,7 @@ void sample_sort_inplace_(slice<InIterator, InIterator> In,
     size_t sample_blocks = 4;
 
     size_t sqrt = static_cast<size_t>(std::sqrt(n));
-    size_t num_blocks = 1 << log2_up((sqrt / block_quotient) + 1);
+    size_t num_blocks = size_t{1} << log2_up((sqrt / block_quotient) + 1);
     size_t block_size = ((n - 1) / num_blocks) + 1;
     size_t num_buckets = (sqrt / bucket_quotient) + 1;
     size_t sample_set_size = sample_blocks * block_size;

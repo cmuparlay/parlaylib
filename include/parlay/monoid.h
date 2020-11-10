@@ -68,7 +68,7 @@ T lowest() {
 
 template <class T>
 T highest() {
-  return std::numeric_limits<T>::max();
+  return (std::numeric_limits<T>::max)();
 }
 
 template <class TT>
@@ -76,7 +76,7 @@ struct maxm {
   using T = TT;
   maxm() : identity(lowest<T>()) {}
   T identity;
-  static T f(T a, T b) { return std::max(a, b); }
+  static T f(T a, T b) { return (std::max)(a, b); }
 };
 
 template <class T1, class T2>
@@ -84,7 +84,7 @@ struct maxm<std::pair<T1, T2>> {
   using T = std::pair<T1, T2>;
   maxm() : identity(std::make_pair(lowest<T1>(), lowest<T2>())) {}
   T identity;
-  static T f(T a, T b) { return std::max(a, b); }
+  static T f(T a, T b) { return (std::max)(a, b); }
 };
 
 template <class TT>
@@ -92,7 +92,7 @@ struct minm {
   using T = TT;
   minm() : identity(highest<T>()) {}
   T identity;
-  static T f(T a, T b) { return std::min(a, b); }
+  static T f(T a, T b) { return (std::min)(a, b); }
 };
 
 template <class T1, class T2>
@@ -100,7 +100,7 @@ struct minm<std::pair<T1, T2>> {
   using T = std::pair<T1, T2>;
   minm() : identity(std::make_pair(highest<T1>(), highest<T2>())) {}
   T identity;
-  static T f(T a, T b) { return std::max(a, b); }
+  static T f(T a, T b) { return (std::max)(a, b); }
 };
 
 template <class TT>
@@ -117,7 +117,7 @@ struct minmaxm {
   minmaxm() : identity(T(highest<T>(), lowest<T>())) {}
   T identity;
   static T f(T a, T b) {
-    return T(std::min(a.first, b.first), std::max(a.second, b.second));
+    return T((std::min)(a.first, b.first), (std::max)(a.second, b.second));
   }
 };
 
@@ -131,15 +131,15 @@ struct Add {
 template <class TT>
 struct Max {
   using T = TT;
-  static T identity() { return (T)std::numeric_limits<T>::min(); }
-  static T add(T a, T b) { return std::max(a, b); }
+  static T identity() { return (T)(std::numeric_limits<T>::min)(); }
+  static T add(T a, T b) { return (std::max)(a, b); }
 };
 
 template <class TT>
 struct Min {
   using T = TT;
-  static T identity() { return (T)std::numeric_limits<T>::max(); }
-  static T add(T a, T b) { return std::min(a, b); }
+  static T identity() { return (T)(std::numeric_limits<T>::max)(); }
+  static T add(T a, T b) { return (std::min)(a, b); }
 };
 
 template <class A1, class A2>

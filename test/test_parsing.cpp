@@ -299,7 +299,6 @@ TEST(TestParsing, TestCharsToDoubleSmall) {
     ASSERT_TRUE(std::isnan(convert_parlay(std::numeric_limits<double>::quiet_NaN())));
   }
 
-  std::cout << std::fixed << std::setprecision(std::numeric_limits<long double>::max_digits10);
   // Test some random doubles
   for (double x = -1.3e21; x < 1.3e21; x+= 3.1415e16) {
     ASSERT_EQ(convert_std(x), convert_parlay(x));
@@ -345,7 +344,6 @@ TEST(TestParsing, TestCharsToLongDoubleSmall) {
     ASSERT_TRUE(std::isnan(convert_parlay(std::numeric_limits<long double>::quiet_NaN())));
   }
 
-  std::cout << std::fixed << std::setprecision(std::numeric_limits<long double>::max_digits10);
   // Test some random doubles
   for (long double x = -1.3e21L; x < 1.3e21L; x+= 3.1415e16L) {
     ASSERT_EQ(convert_std(x), convert_parlay(x));

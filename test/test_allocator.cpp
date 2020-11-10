@@ -3,6 +3,7 @@
 #include <vector>
 
 #include <parlay/alloc.h>
+#include <parlay/random.h>
 
 TEST(TestAllocator, TestParlayAllocator) {
   std::vector<int, parlay::allocator<int>> a;
@@ -50,4 +51,24 @@ TEST(TestAllocator, TestTypeAllocatorAlignment) {
   s->x = 5;
   ASSERT_EQ(s->x, 5);
   strange_allocator::free(s);
+}
+
+// Allocate blocks of memory of random sizes and fill
+// them with characters, then free the blocks.
+TEST(TestAllocator, TestPMallocAndPFree) {
+  parlay::random rng(0);
+  std::vector<void*> memory;
+  for (int j = 1; j < 1000000; j *= 10) {
+    for (int i = 0; i < 10000000 / j; i++) {
+      size_t size = j * (rng.ith_rand(j + i) % 9 + 1);
+      void* p = parlay::p_malloc(size);
+      memory.push_back(p);
+      for (size_t b = 0; b < size; b++) {
+        new (static_cast<char*>(p) + b) char('b');
+      }
+    }
+  }
+  for (void* p : memory) {
+    parlay::p_free(p);
+  }
 }
