@@ -43,6 +43,7 @@ private:
   size_t max_small;
   size_t max_size;
   std::atomic<size_t> large_allocated{0};
+  std::atomic<size_t> large_used{0};
 
   std::unique_ptr<concurrent_stack<void*>[]> large_buckets;
   struct block_allocator *small_allocators;
@@ -52,6 +53,7 @@ private:
 
     size_t bucket = num_small;
     size_t alloc_size;
+    large_used += n;
 
     if (n <= max_size) {
       while (n > sizes[bucket]) bucket++;
@@ -74,6 +76,7 @@ private:
   }
 
   void deallocate_large(void* ptr, size_t n) {
+    large_used -= n;
     if (n > max_size) { 
       ::operator delete(ptr, std::align_val_t{large_align});
       large_allocated -= n;
@@ -176,6 +179,20 @@ public:
     std::cout << "Total bytes used = " << total_u << std::endl;
   }
 
+  // pair of total currently used space, and total unused space the allocator has in reserve
+  std::pair<size_t,size_t> stats() {
+    size_t total_a = large_allocated;
+    size_t total_u = large_used;
+    for (size_t i = 0; i < num_small; i++) {
+      size_t bucket_size = sizes[i];
+      size_t allocated = small_allocators[i].num_allocated_blocks();
+      size_t used = small_allocators[i].num_used_blocks();
+      total_a += allocated * bucket_size;
+      total_u += used * bucket_size;
+    }
+    return std::pair(total_u, total_a-total_u);
+  }
+
   void clear() {
     for (size_t i = num_small; i < num_buckets; i++) {
       std::optional<void*> r = large_buckets[i-num_small].pop();
@@ -206,12 +223,24 @@ inline std::vector<size_t> default_sizes() {
 
 
 namespace internal {
-  
+
+#ifndef PARLAY_USE_STD_ALLOC
 extern inline pool_allocator& get_default_allocator() {
   static pool_allocator default_allocator(default_sizes());
   return default_allocator;
 }
+#endif
 
+// pair of total currently used space, and total unused space the allocator has in reserve  
+extern inline std::pair<size_t,size_t> memory_usage() {
+  return get_default_allocator().stats();
+}
+
+// pair of total currently used space, and total unused space the allocator has in reserve  
+extern inline void memory_clear() {
+  return get_default_allocator().clear();
+}
+  
 }  // namespace internal
 
 
