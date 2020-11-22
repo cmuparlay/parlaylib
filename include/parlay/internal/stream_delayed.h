@@ -80,7 +80,7 @@ namespace stream_delayed {
   template <typename Seq1, typename Seq2>
   auto zip(Seq1 &S1, Seq2 &S2) {
     auto f = [] (auto a, auto b) {return std::pair(a,b);};
-    return forward_zip_with(S1, S2, f);
+    return zip_with(S1, S2, f);
   }
 
   template <typename Seq, typename F>
