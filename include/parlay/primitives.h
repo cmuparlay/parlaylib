@@ -19,6 +19,10 @@
 #include "internal/sequence_ops.h"     // IWYU pragma: export
 #include "internal/sample_sort.h"
 
+#include "internal/block_delayed.h"
+
+#include "internal/get_time.h"
+
 #include "delayed_sequence.h"
 #include "monoid.h"
 #include "parallel.h"
@@ -31,8 +35,6 @@ namespace parlay {
 
 /* -------------------- Map and Tabulate -------------------- */
 
-// Return a sequence consisting of the elements
-//   f(0), f(1), ... f(n)
 using internal::tabulate;
 
 // Return a sequence consisting of the elements
@@ -313,10 +315,9 @@ namespace internal {
 
 template <typename IntegerPred>
 size_t count_if_index(size_t n, IntegerPred p) {
-  auto BS =
-      delayed_seq<size_t>(n, [&](size_t i) -> size_t { return p(i); });
-  size_t r = internal::reduce(make_slice(BS), addm<size_t>());
-  return r;
+  auto BS = delayed_tabulate(n, [&](size_t i) -> size_t {
+      return (bool) p(i); });
+  return reduce(make_slice(BS));
 }
 
 template <typename IntegerPred>
@@ -366,10 +367,9 @@ size_t count_if(const R& r, UnaryPredicate p) {
 }
 
 template <PARLAY_RANGE_TYPE R, class T>
-size_t count(const R& r, T const &value) {
+size_t count(const R& r, T value) {
   return internal::count_if_index(parlay::size(r),
-    [&value, it = std::begin(r)](size_t i)
-      { return it[i] == value; });
+     [&] (size_t i) { return r[i] == value; });
 }
 
 /* -------------------- Boolean searching -------------------- */
@@ -683,9 +683,9 @@ auto flatten(const R& r) {
   size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
   auto res = sequence<T>::uninitialized(len);
   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
-    parallel_for(0, parlay::size(it[i]),
-      [&](size_t j) { assign_uninitialized(res[offsets[i] + j], it[i][j]); }
-     );
+    parallel_for(0, parlay::size(it[i]), [&] (size_t j) {
+	assign_uninitialized(res[offsets[i] + j], it[i][j]); },
+     1000);
   });
   return res;
 }
@@ -711,7 +711,8 @@ bool inline is_whitespace(unsigned char c) {
 // this function returns a sequence consisting of the returned values of f for
 // each token.
 template <PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
-auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
+auto map_tokens_old(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
+  //internal::timer t("map tokens");
   using f_return_type = decltype(f(make_slice(r)));
 
   auto S = make_slice(r);
@@ -725,17 +726,15 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
       return sequence<f_return_type>();
     }
   }
+
+  auto Flags = tabulate(n+1, [&] (size_t i) {
+      return ((i==0) ? !is_space(S[0]) :
+	      (i==n) ? !is_space(S[n-1]) :
+	      is_space(S[i-1]) != is_space(S[i]));});
+  //t.next("flags");
   
-  auto Flags = sequence<bool>::uninitialized(n+1);
-
-  parallel_for(1, n, [&] (long i) {
-    Flags[i] = is_space(S[i-1]) != is_space(S[i]);
-  }, 10000);
-    
-  Flags[0] = !is_space(S[0]);
-  Flags[n] = !is_space(S[n-1]);
-
   sequence<long> Locations = pack_index<long>(Flags);
+  //t.next("pack index");
   
   // If f does not return anything, just apply f
   // to each token and don't return anything
@@ -747,8 +746,53 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   // If f does return something, apply f to each token 
   // and return a sequence of the resulting values
   else {
-    return tabulate(Locations.size()/2, [&] (size_t i) {
+    auto x = tabulate(Locations.size()/2, [&] (size_t i) {
       return f(S.cut(Locations[2*i], Locations[2*i+1]));});
+    //t.next("final");
+    return x;
+  }
+}
+
+template <PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
+auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
+  using f_return_type = decltype(f(make_slice(r)));
+  auto A = make_slice(r);
+  using ipair = std::pair<long,long>;
+  size_t n = A.size();
+
+  if (n == 0) {
+    if constexpr (std::is_same_v<f_return_type, void>) return;
+    else return sequence<f_return_type>();
+  }
+
+  auto is_start = [&] (size_t i) {
+    return ((i == 0) || is_space(A[i-1])) && !(is_space(A[i]));};
+  auto is_end = [&] (size_t i) {
+    return  ((i == n) || (is_space(A[i]))) && (i != 0) && !is_space(A[i-1]);};
+  // associative combining function
+  // first = # of starts, second = index of last start
+  auto g = [] (ipair a, ipair b) { 
+    return (b.first == 0) ? a : ipair(a.first+b.first,b.second);};
+
+  auto in = delayed_tabulate(n+1, [&] (size_t i) -> ipair {
+      return is_start(i) ? ipair(1,i) : ipair(0,0);});
+  auto [offsets, sum] = block_delayed::scan(in, make_monoid(g, ipair(0,0)));
+
+  auto z = block_delayed::zip(offsets, iota(n+1));
+
+  auto start = r.begin();
+
+  if constexpr (std::is_same_v<f_return_type, void>) 
+    block_delayed::apply(z, [&] (auto x) {
+	if (is_end(x.second)) 
+	  f(make_slice(x.first.second+start, x.second+start));});
+  else {
+    auto result = sequence<f_return_type>::uninitialized(sum.first);
+    block_delayed::apply(z, [&] (auto x) {
+	if (is_end(x.second)) 
+	  assign_uninitialized(result[x.first.first-1],
+			       f(make_slice(x.first.second+start, x.second+start)));});
+    return result;
   }
 }
 

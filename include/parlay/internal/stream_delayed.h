@@ -141,25 +141,27 @@ namespace stream_delayed {
       f(*i1,*i2);
   }
 
+
   // allocates own temporary space, returns just filtered sequence
-  template <typename SeqIn, typename F>
-  auto filter(const SeqIn &In, F f) {
+  template <typename SeqIn, typename F, typename G>
+  auto filter_map(const SeqIn &In, F f, G g) {
     size_t n = In.size();
-    using T = decltype(*(In.begin()));
+    using T = decltype(g(*(In.begin())));
     auto tmp_out = parlay::internal::uninitialized_sequence<T>(n);
     auto out_iter = tmp_out.begin();
     for (auto s = In.begin(); s != In.end(); ++s) {
       auto val = *s;
       if (f(val)) {
-	*out_iter = val;
+	*out_iter = g(val);
 	++out_iter;
       }
     }
     size_t m = out_iter - tmp_out.begin();
     auto result = parlay::sequence<T>::uninitialized(m);
-    // should be a relocate instead of assignment
-    for (size_t i=0; i < m; i++) result[i] = tmp_out[i];
+    for (size_t i=0; i < m; i++)
+      assign_uninitialized(result[i], std::move(tmp_out[i]));
     return result;
   }
+
 }
 }

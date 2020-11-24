@@ -1,10 +1,8 @@
 #pragma once
 
 #include "../sequence.h"
-#include "../primitives.h"
 #include "uninitialized_sequence.h"
 #include "stream_delayed.h"
-#include "../io.h"
 #include "get_time.h"
 
 using std::cout;
@@ -12,7 +10,7 @@ using std::endl;
 
 namespace parlay {
 namespace block_delayed {
-  size_t _block_size = 10000;
+  static size_t _block_size = 10000;
 
   // takes nested forward iterators and flattens them into a single forward iterator
   // The value_type of the outer iterator must be a range type
@@ -58,7 +56,7 @@ namespace block_delayed {
       rng(stream_delayed::forward_delayed_sequence(flatten_iterator(sub_ranges.begin()),n)) {}
   };
 
-  std::pair<size_t,size_t> num_blocks_and_size(size_t n) {
+  static std::pair<size_t,size_t> num_blocks_and_size(size_t n) {
     return std::pair((n==0) ? 0 : 1ul + ((n)-1ul) / (_block_size),
 		     _block_size);
   }
@@ -78,7 +76,7 @@ namespace block_delayed {
   auto make_iterators(Seq const &S) {
     size_t n = S.end()-S.begin();
     auto [num_blocks, block_size] = num_blocks_and_size(n);
-    return parlay::tabulate(num_blocks, [&] (size_t i) {
+    return internal::tabulate(num_blocks, [&] (size_t i) {
 	size_t start = i * block_size;
 	size_t end = std::min(start + block_size, n);
 	return parlay::make_slice(S).cut(start,end);
@@ -90,7 +88,7 @@ namespace block_delayed {
   auto make_out_iterators(Seq &S) {
     size_t n = S.end()-S.begin();
     auto [num_blocks, block_size] = num_blocks_and_size(n);
-    return parlay::tabulate(num_blocks, [&] (size_t i) {
+    return internal::tabulate(num_blocks, [&] (size_t i) {
 	size_t start = i * block_size;
 	size_t end = std::min(start + block_size, n);
 	return parlay::make_slice(S).cut(start,end);
@@ -109,10 +107,10 @@ namespace block_delayed {
   template <typename Seq, typename Monoid>
   auto scan_(Seq const &S, Monoid const &m, bool inclusive) {
     auto iters = make_iterators(S);
-    auto sums = parlay::map(iters, [&] (auto iter) {
+    auto sums = internal::map(iters, [&] (auto iter) {
 	return stream_delayed::reduce(m.f, m.identity, iter);});
-    auto r = parlay::scan(sums, m);
-    auto iters2 = parlay::tabulate(iters.size(), [&] (size_t i) {
+    auto r = internal::scan(sums, m);
+    auto iters2 = internal::tabulate(iters.size(), [&] (size_t i) {
 	return stream_delayed::scan(m.f, (r.first)[i], iters[i], inclusive);}, 1);
     return std::pair(block_delayed_sequence(iters2, S.size()), r.second);
   }
@@ -129,16 +127,16 @@ namespace block_delayed {
 
   template <typename IDS, typename Monoid>
   long reduce(block_delayed_sequence<IDS> A, Monoid m) {
-    auto sums = parlay::map(A.sub_ranges, [&] (auto iter) {
+    auto sums = internal::map(A.sub_ranges, [&] (auto iter) {
 	return stream_delayed::reduce(m.f, m.identity, iter);});
-    return parlay::reduce(sums, m);
+    return internal::reduce(sums, m);
   }
 
   template <typename Seq1, typename Seq2>
   auto zip(Seq1 const &S1, Seq2 const &S2) {
     auto iters1 = make_iterators(S1);
     auto iters2 = make_iterators(S2);
-    auto results = parlay::tabulate(iters1.size(), [&] (size_t i) {
+    auto results = internal::tabulate(iters1.size(), [&] (size_t i) {
 	return stream_delayed::zip(iters1[i], iters2[i]);}, 1);
     return block_delayed_sequence(results, S1.size());
   }
@@ -147,7 +145,7 @@ namespace block_delayed {
   auto zip_with(Seq1 const &S1, Seq2 const &S2, F f) {
     auto iters1 = make_iterators(S1);
     auto iters2 = make_iterators(S2);
-    auto results = parlay::tabulate(iters1.size(), [&] (size_t i) {
+    auto results = internal::tabulate(iters1.size(), [&] (size_t i) {
 	return stream_delayed::zip_with(iters1[i], iters2[i], f);}, 1);
     return block_delayed_sequence(results,S1.size());
   }
@@ -170,7 +168,7 @@ namespace block_delayed {
   template <typename IDS, typename F>
   auto map(block_delayed_sequence<IDS> A, F f) {
     auto I = A.sub_ranges;
-    auto results = parlay::tabulate(I.size(), [&] (size_t i) {
+    auto results = internal::tabulate(I.size(), [&] (size_t i) {
 	return stream_delayed::map(I[i], f);
       },1);
     return block_delayed_sequence(results, A.size());
@@ -198,11 +196,11 @@ namespace block_delayed {
     using out_iter_t = typename Seq::iterator;
     using in_iter_t = typename Seq::value_type::iterator;
     using T = typename Seq::value_type::value_type;
-    auto sizes = parlay::map(seq, [] (auto const& s) -> size_t {
+    auto sizes = internal::map(seq, [] (auto const& s) -> size_t {
 	return s.size();});
-    auto [offsets, n] = parlay::scan(sizes);
+    auto [offsets, n] = internal::scan(sizes,addm<size_t>());
     auto [num_blocks, block_size] = num_blocks_and_size(n);
-    auto results = parlay::tabulate(num_blocks, [&] (size_t i) {
+    auto results = internal::tabulate(num_blocks, [&] (size_t i) {
 	size_t start = i * block_size;
 	size_t len = std::min(block_size, n-start);
 	size_t j = (std::upper_bound(offsets.begin(),offsets.end(),start)
@@ -218,19 +216,19 @@ namespace block_delayed {
   // into a smaller block sequenc of just copied elements, and finally into the result.
   // This involves an extra copy but works well if the temp block is reused
   // across blocks since it will be in the cache.   It can save significant memory.
-  template <typename Seq, typename F>
-  auto filter(Seq A, F f) {
-    timer t("new filter", false);
-    using T = decltype(*(A.begin()));
+  template <typename Seq, typename F, typename G>
+  auto filter_map(Seq A, F f, G g) {
+    internal::timer t("new filter", false);
+    using T = decltype(g(*(A.begin())));
     size_t n = A.size();
     auto iters = make_iterators(A);
     auto num_blocks = iters.size();
-    auto seqs = parlay::tabulate(num_blocks, [&] (size_t i) -> parlay::sequence<T> {
-	return stream_delayed::filter(iters[i], f);}, 1);
+    auto seqs = internal::tabulate(num_blocks, [&] (size_t i) -> parlay::sequence<T> {
+	return stream_delayed::filter_map(iters[i], f, g);}, 1);
     t.next("tabulate");
-    auto sizes = parlay::map(seqs, [&] (parlay::sequence<T> const& x) {
+    auto sizes = internal::map(seqs, [&] (parlay::sequence<T> const& x) {
 				    return x.size();});
-    auto [r, total]  = parlay::scan(sizes);
+    auto [r, total]  = internal::scan(sizes, addm<size_t>());
     parlay::sequence<T> out = parlay::sequence<T>::uninitialized(total);
     parlay::parallel_for(0, num_blocks, [&] (size_t i) {
 	for (size_t j = 0; j < sizes[i]; j++) 
@@ -238,6 +236,11 @@ namespace block_delayed {
       }, 1);
     t.next("parallel for");
     return out;
+  }
+
+  template <typename Seq, typename F>
+  auto filter(Seq A, F f) {
+    return filter_map(A, f, [] (auto x) {return x;});
   }
 }
 }
