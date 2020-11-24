@@ -2,6 +2,8 @@
 
 #include "../sequence.h"
 #include "uninitialized_sequence.h"
+#include "../delayed_sequence.h"
+#include "sequence_ops.h"
 #include "stream_delayed.h"
 #include "get_time.h"
 
@@ -240,7 +242,7 @@ namespace block_delayed {
 
   template <typename Seq, typename F>
   auto filter(Seq A, F f) {
-    return filter_map(A, f, [] (auto x) {return x;});
+    return block_delayed::filter_map(A, f, [] (auto x) {return x;});
   }
 }
 }
