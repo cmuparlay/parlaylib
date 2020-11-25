@@ -12,7 +12,7 @@ using std::endl;
 
 namespace parlay {
 namespace block_delayed {
-  static size_t _block_size = 10000;
+  static size_t _block_size = 2000;
 
   // takes nested forward iterators and flattens them into a single forward iterator
   // The value_type of the outer iterator must be a range type
