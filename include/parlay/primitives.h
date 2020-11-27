@@ -40,9 +40,9 @@ using internal::tabulate;
 // Return a sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto map(R&& r, UnaryOp&& f) {
+auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
   return tabulate(parlay::size(r), [&f, it = std::begin(r)](size_t i) {
-    return f(it[i]); });
+      return f(it[i]); }, granularity);
 }
 
 // Return a delayed sequence consisting of the elements
@@ -675,21 +675,22 @@ auto iota(Index n) {
 
 /* -------------------- Flatten -------------------- */
 
-template <PARLAY_RANGE_TYPE R>
+  template <PARLAY_RANGE_TYPE R>
 auto flatten(const R& r) {
   using T = range_value_type_t<range_value_type_t<R>>;
-  auto offsets = sequence<size_t>::from_function(parlay::size(r),
+  auto offsets = tabulate(parlay::size(r),
     [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
   size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
   auto res = sequence<T>::uninitialized(len);
   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
-    parallel_for(0, parlay::size(it[i]), [&] (size_t j) {
-	assign_uninitialized(res[offsets[i] + j], it[i][j]); },
-     1000);
+      auto dit = std::begin(res)+offsets[i];
+      auto sit = std::begin(it[i]);
+      parallel_for(0, parlay::size(it[i]), [=] (size_t j) {
+	  assign_uninitialized(*(dit+j), *(sit+j)); },
+	1000);
   });
   return res;
 }
-
 
 /* -------------------- Tokens and split -------------------- */
 
