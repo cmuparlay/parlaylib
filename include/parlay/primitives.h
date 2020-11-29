@@ -728,13 +728,17 @@ auto map_tokens_old(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
     }
   }
 
-  auto Flags = tabulate(n+1, [&] (size_t i) {
+  // auto Flags = tabulate(n+1, [&] (size_t i) {
+  //     return ((i==0) ? !is_space(S[0]) :
+  // 	      (i==n) ? !is_space(S[n-1]) :
+  // 	      is_space(S[i-1]) != is_space(S[i]));});
+  //t.next("flags");
+  
+  //sequence<long> Locations = pack_index<long>(Flags);
+  sequence<long> Locations = block_delayed::filter(iota<long>(n+1), [&] (size_t i) {
       return ((i==0) ? !is_space(S[0]) :
 	      (i==n) ? !is_space(S[n-1]) :
 	      is_space(S[i-1]) != is_space(S[i]));});
-  //t.next("flags");
-  
-  sequence<long> Locations = pack_index<long>(Flags);
   //t.next("pack index");
   
   // If f does not return anything, just apply f
@@ -775,7 +779,7 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   auto g = [] (ipair a, ipair b) { 
     return (b.first == 0) ? a : ipair(a.first+b.first,b.second);};
 
-  auto in = delayed_tabulate(n+1, [&] (size_t i) -> ipair {
+  auto in = delayed_tabulate(n, [&] (size_t i) -> ipair {
       return is_start(i) ? ipair(1,i) : ipair(0,0);});
   auto [offsets, sum] = block_delayed::scan(in, make_monoid(g, ipair(0,0)));
 
@@ -803,7 +807,7 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
 // correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
 template <PARLAY_RANGE_TYPE Range, typename UnaryPred = decltype(is_whitespace)>
 sequence<sequence<char>> tokens(const Range& R, UnaryPred is_space = is_whitespace) {
-  return map_tokens(R, [] (auto x) { return to_sequence(x); }, is_space);
+  return map_tokens_old(R, [] (auto x) { return to_sequence(x); }, is_space);
 }
 
 // Partitions R into contiguous subsequences, by marking the last
