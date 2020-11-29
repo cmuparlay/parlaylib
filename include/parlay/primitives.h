@@ -516,9 +516,27 @@ bool lexicographical_compare(const R1& r1, const R2& r2, Compare less) {
   size_t i = internal::find_if_index(m,
     [&less, it1 = std::begin(r1), it2 = std::begin(r2)](size_t i)
       { return less(it1[i], it2[i]) || less(it2[i], it1[i]); });
+      // { return it1[i] != it2[i];});
   return (i < m) ? (less(std::begin(r1)[i], std::begin(r2)[i]))
     : (parlay::size(r1) < parlay::size(r2));
 }
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
+inline bool lexicographical_compare(const R1& r1, const R2& r2) {
+  lexicographical_compare(r1, r2, std::less{});}
+
+template <typename T>
+inline bool operator<(const sequence<T> &a, 
+		      const sequence<T> &b) {
+  if (a.size() > 1000) 
+    return lexicographical_compare(a, b);
+  auto sa = a.begin();
+  auto sb = b.begin();
+  auto ea = sa + std::min(a.size(),b.size());
+  while (sa < ea && *sa == *sb) {sa++; sb++;}
+  return sa == ea ? (a.size() < b.size()) : *sa < *sb;
+};
+
 
 /* -------------------- Remove duplicates -------------------- */
 

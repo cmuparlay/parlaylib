@@ -33,4 +33,9 @@ namespace parlay {
     t.next("make pairs");
     return r;
   }
+
+  template <class Range>
+  auto group_by_key(Range const &S) {
+    return group_by_key(S, std::less{});}
+
 }
