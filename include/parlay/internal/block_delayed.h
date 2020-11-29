@@ -225,6 +225,8 @@ namespace block_delayed {
     size_t n = A.size();
     auto iters = make_iterators(A);
     auto num_blocks = iters.size();
+    if (num_blocks == 1) 
+	return stream_delayed::filter_map(iters[0], f, g);
     auto seqs = internal::tabulate(num_blocks, [&] (size_t i) -> parlay::sequence<T> {
 	return stream_delayed::filter_map(iters[i], f, g);}, 1);
     t.next("tabulate");
