@@ -411,6 +411,8 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
     hasheq(Hash hash, Equal equal) : hash(hash), equal(equal) {};
   };
 
+} // namespace internal
+
   // ***************************************
   // User facing interface below here
   // ***************************************
@@ -423,12 +425,12 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
 	    typename Monoid,
 	    typename Hash = std::hash<typename range_value_type_t<R>::first_type>,
 	    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
-  auto group_by_and_combine(R const &A, Monoid const &monoid,
+  auto reduce_by_key(R const &A, Monoid const &monoid,
 			    Hash hash = {}, Equal equal = {}) { 
     auto get_key = [] (const auto& a) {return a.first;};
     auto get_val = [] (const auto& a) {return a.second;};
-    return collect_reduce_sparse(make_slice(A), hasheq(hash,equal),
-				 get_key, get_val, monoid);
+    return internal::collect_reduce_sparse(make_slice(A), internal::hasheq(hash,equal),
+					   get_key, get_val, monoid);
   }
 
   // Returns a sequence of <R::value_type,size_t> pairs, each consisting of
@@ -437,12 +439,21 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
   template <PARLAY_RANGE_TYPE R,
 	    typename Hash = std::hash<range_value_type_t<R>>,
 	    typename Equal = std::equal_to<range_value_type_t<R>>>
-  auto group_by_and_count(const R& A, Hash hash = {}, Equal equal = {}) { 
+  auto count_by_key(const R& A, Hash hash = {}, Equal equal = {}) { 
     auto get_key = [] (const auto& a) -> auto& { return a; };
     auto get_val = [] (const auto&) { return (size_t) 1; };
     
-    return collect_reduce_sparse(make_slice(A), hasheq(hash, equal),
-				 get_key, get_val, parlay::addm<size_t>());
+    return internal::collect_reduce_sparse(make_slice(A), internal::hasheq(hash, equal),
+					   get_key, get_val, parlay::addm<size_t>());
+  }
+
+  // should be made more efficient by avoiding generating and then stripping counts
+  template <PARLAY_RANGE_TYPE R,
+	    typename Hash = std::hash<range_value_type_t<R>>,
+	    typename Equal = std::equal_to<range_value_type_t<R>>>
+  auto remove_duplicates(const R& A, Hash hash = {}, Equal equal = {}) { 
+    auto x = count_by_key(A, hash, equal);
+    return map(x, [] (auto p) {return p.first;});
   }
 
   // Takes a range of <integer_key,value_type> pairs and returns a sequence of
@@ -454,11 +465,12 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
 	    typename Monoid,
 	    typename Hash = std::hash<typename range_value_type_t<R>::first_type>,
 	    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
-  auto group_by_and_combine_by_bucket(R const &A, size_t num_buckets,
-				      Monoid const &monoid) {
+  auto reduce_by_bucket(R const &A, size_t num_buckets,
+			Monoid const &monoid) {
     auto get_key = [] (const auto& a) {return a.first;};
     auto get_val = [] (const auto& a) {return a.second;};
-    return collect_reduce(make_slice(A), get_key, get_val, monoid, num_buckets);
+    return internal::collect_reduce(make_slice(A), get_key, get_val, 
+				    monoid, num_buckets);
   }
 
   // Given a sequence of integers creates a histogram with the count
@@ -468,10 +480,10 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
   auto histogram(R const &A, Integer_t num_buckets) {
     auto get_key = [&] (const auto& a) { return a; };
     auto get_val = [&] (const auto&) { return (Integer_t) 1; };
-    return collect_reduce(A, get_key, get_val, parlay::addm<Integer_t>(), num_buckets);
+    return internal::collect_reduce(A, get_key, get_val, 
+				    parlay::addm<Integer_t>(), num_buckets);
   }
 
-}  // namespace internal
 }  // namespace parlay
 
 #endif  // PARLAY_COLLECT_REDUCE_H_

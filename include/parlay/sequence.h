@@ -1296,6 +1296,17 @@ inline void swap(parlay::sequence<T, Allocator>& a, parlay::sequence<T, Allocato
   a.swap(b);
 }
 
+// exchange the values of a and b
+template<typename T, typename Allocator>
+struct hash<parlay::sequence<T, Allocator>> {
+  std::size_t operator()(parlay::sequence<T, Allocator> const& s) const noexcept {
+    size_t hash = 5381;
+      for (size_t i = 0; i < s.size(); i++) 
+	hash = ((hash << 5) + hash) + std::hash<T>{}(s[i]);
+      return hash;
+  }
+};
+
 }  // namespace std
 
 #endif  // PARLAY_SEQUENCE_H_

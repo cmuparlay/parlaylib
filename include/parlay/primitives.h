@@ -219,11 +219,12 @@ auto merge(const R1& r1, const R2& r2) {
 
 /* ----------------------- Histograms --------------------- */
 
+// Now in internal::collect_reduce.h
 // Compute a histogram of the values of A, with m buckets.
-template<PARLAY_RANGE_TYPE R, typename Integer_>
-auto histogram(const R& A, Integer_ m) {
-  return internal::histogram(make_slice(A), m);
-}
+// template<PARLAY_RANGE_TYPE R, typename Integer_>
+//  auto histogram(const R& A, Integer_ m) {
+//   return internal::histogram(make_slice(A), m);
+//}
 
 /* -------------------- General Sorting -------------------- */
 
@@ -720,8 +721,6 @@ bool inline is_whitespace(unsigned char c) {
 
 // Apply the given function f to each token of the given range.
 //
-// This is essentially equivalent to parlay::map(parlay::tokens(
-//
 // The tokens are the longest contiguous subsequences of non space characters.
 // where spaces are define by the unary predicate is_space. By default, is_space
 // correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
@@ -825,7 +824,9 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
 // correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
 template <PARLAY_RANGE_TYPE Range, typename UnaryPred = decltype(is_whitespace)>
 sequence<sequence<char>> tokens(const Range& R, UnaryPred is_space = is_whitespace) {
-  return map_tokens_old(R, [] (auto x) { return to_sequence(x); }, is_space);
+  if (parlay::size(R) < 2000)
+    return map_tokens_old(R, [] (auto x) { return to_sequence(x); }, is_space);
+  return map_tokens(R, [] (auto x) { return to_sequence(x); }, is_space);
 }
 
 // Partitions R into contiguous subsequences, by marking the last
