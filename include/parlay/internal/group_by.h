@@ -17,7 +17,7 @@ namespace parlay {
     auto pair_less = [&] (auto const &a, auto const &b) {
       return less(a.first, b.first);};
 
-    auto sorted = parlay::stable_sort(S, pair_less);
+    auto sorted = parlay::stable_sort(make_slice(S), pair_less);
     t.next("sort");
 
     auto vals = sequence<V>::uninitialized(n);
