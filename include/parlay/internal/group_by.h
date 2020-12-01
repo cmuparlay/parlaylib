@@ -19,16 +19,19 @@ namespace parlay {
 
     auto sorted = parlay::stable_sort(S, pair_less);
     t.next("sort");
-      
+
+    auto vals = sequence<V>::uninitialized(n);
+
     auto idx = block_delayed::filter(iota(n), [&] (size_t i) {
-	return (i==0) || pair_less(sorted[i-1], sorted[i]);});
+        assign_uninitialized(vals[i], sorted[i].second);
+	return (i==0) || less(sorted[i-1].first, sorted[i].first);});
     t.next("pack index");
   
     auto r = tabulate(idx.size(), [&] (size_t i) {
         size_t start = idx[i];				    
 	size_t end = ((i==idx.size()-1) ? n : idx[i+1]);
 	return std::pair(std::move(sorted[idx[i]].first),
-			 to_sequence(sorted.cut(start, end)));
+			 to_sequence(vals.cut(start, end)));
     });
     t.next("make pairs");
     return r;

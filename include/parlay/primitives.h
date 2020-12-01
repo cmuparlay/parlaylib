@@ -788,7 +788,7 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   }
 
   auto is_start = [&] (size_t i) {
-    return ((i == 0) || is_space(A[i-1])) && !(is_space(A[i]));};
+    return ((i == 0) || is_space(A[i-1])) && (i != n) && !(is_space(A[i]));};
   auto is_end = [&] (size_t i) {
     return  ((i == n) || (is_space(A[i]))) && (i != 0) && !is_space(A[i-1]);};
   // associative combining function
@@ -796,7 +796,7 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   auto g = [] (ipair a, ipair b) { 
     return (b.first == 0) ? a : ipair(a.first+b.first,b.second);};
 
-  auto in = delayed_tabulate(n, [&] (size_t i) -> ipair {
+  auto in = delayed_tabulate(n+1, [&] (size_t i) -> ipair {
       return is_start(i) ? ipair(1,i) : ipair(0,0);});
   auto [offsets, sum] = block_delayed::scan(in, make_monoid(g, ipair(0,0)));
 
