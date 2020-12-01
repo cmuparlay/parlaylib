@@ -47,8 +47,8 @@ namespace block_delayed {
     using seq_iter = typename parlay::sequence<IDS>::iterator;
     using range = stream_delayed::forward_delayed_sequence<flatten_iterator<seq_iter>>;
     using iterator = typename range::iterator;
-    range rng;
     const parlay::sequence<IDS> sub_ranges;
+    range rng;
   
     size_t size() const {return rng.end()-rng.begin();}
     iterator begin() {return rng.end();}
@@ -197,7 +197,7 @@ namespace block_delayed {
   auto flatten(Seq &seq) {
     using out_iter_t = typename Seq::iterator;
     using in_iter_t = typename Seq::value_type::iterator;
-    using T = typename Seq::value_type::value_type;
+    //using T = typename Seq::value_type::value_type;
     auto sizes = internal::map(seq, [] (auto const& s) -> size_t {
 	return s.size();});
     auto [offsets, n] = internal::scan(sizes,addm<size_t>());
@@ -222,7 +222,6 @@ namespace block_delayed {
   auto filter_map(Seq A, F f, G g) {
     internal::timer t("new filter", false);
     using T = decltype(g(*(A.begin())));
-    size_t n = A.size();
     auto iters = make_iterators(A);
     auto num_blocks = iters.size();
     if (num_blocks == 1) 

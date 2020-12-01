@@ -10,6 +10,7 @@
 #include "transpose.h"
 
 #include "../utilities.h"
+#include "../delayed_sequence.h"
 
 namespace parlay {
 namespace internal {
@@ -238,7 +239,7 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
 
     // large blocks have indices in top half
     else if (end > start) {
-      auto vals = delayed_tabulate(n, [&] (size_t i) -> val_type {
+      auto vals = delayed_seq<val_type>(n, [&] (size_t i) -> val_type {
 	 return get_value(B[i]);});
       sums[get_key(B[i])] = internal::reduce(vals, monoid);
     }
@@ -252,7 +253,7 @@ auto collect_reduce(Seq const &A, Key const &get_key, Value const &get_value,
 				 HashEq hasheq, R const &rtype) {
     size_t table_size = 1.5 * A.size();
     using key_type = typename R::key_type;
-    using val_type = typename R::value_type;
+    //using val_type = typename R::value_type;
     using result_type = typename R::result_type;
 
     size_t count=0;
@@ -386,7 +387,7 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
     template <typename Range>
     result_type reduce(Range const &S) const {
       auto key = S[0].first;
-      auto sum = internal::reduce(S, delayed_tabulate(S.size(), [&] (size_t i) {
+      auto sum = internal::reduce(S, delayed_seq<value_type>(S.size(), [&] (size_t i) {
 	    S[i].second;}));
       return result_type(key, sum);}
   };
