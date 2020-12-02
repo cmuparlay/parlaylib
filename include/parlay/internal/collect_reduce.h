@@ -405,7 +405,7 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
       return result_type(k,1);}
     static const key_type& key(in_type const &k) { return k;}
     static const key_type& key(result_type const &p) { return p.first;}
-    static void update(result_type &p, in_type const &v) {
+    static void update(result_type &p, [[maybe_unused]] in_type const &v) {
       p.second += 1;}
     template <typename Range>
     static result_type reduce(Range const &S) {
@@ -422,7 +422,7 @@ auto collect_reduce_sparse(slice<Iterator,Iterator> A,
     dedup_result() {}
     static inline result_type make(in_type const &k) {return k;}
     static const key_type& key(in_type const &k) { return k;}
-    static void update(result_type &p, in_type const &v) {}
+    static void update([[maybe_unused]] result_type &p, [[maybe_unused]] in_type const &v) {}
     template <typename Range>
     static result_type reduce(Range const &S) {return S[0];};
   };
