@@ -204,7 +204,7 @@ namespace block_delayed {
     auto [num_blocks, block_size] = num_blocks_and_size(n);
     auto results = internal::tabulate(num_blocks, [&, bsize=block_size] (size_t i) {
         size_t start = i * bsize;
-	size_t len = std::min(block_size, n-start);
+	size_t len = std::min(bsize, n-start);
 	size_t j = (std::upper_bound(offsets.begin(),offsets.end(),start)
 		    - offsets.begin() - 1);
 	out_iter_t out_iter = seq.begin()+j;
