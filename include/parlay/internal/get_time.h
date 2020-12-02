@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdlib.h>
-#include <sys/time.h>
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -9,52 +8,16 @@
 namespace parlay {
   namespace internal {
 struct timer {
-  double total_time;
-  double last_time;
+
+private: 
+  using time_t = decltype(std::chrono::system_clock::now());
+  double total_so_far;
+  time_t last;
   bool on;
   std::string name;
-  struct timezone tzp;
 
-  timer(std::string name = "Parlay time", bool _start = true)
-  : total_time(0.0), on(false), name(name), tzp({0,0}) {
-    if (_start) start();
-  }
-  
-  double get_time() {
-    timeval now;
-    gettimeofday(&now, &tzp);
-    return ((double) now.tv_sec) + ((double) now.tv_usec)/1000000.;
-  }
-
-  void start () {
-    on = 1;
-    last_time = get_time();
-  }
-
-  double stop () {
-    on = 0;
-    double d = (get_time()-last_time);
-    total_time += d;
-    return d;
-  }
-
-  void reset() {
-     total_time=0.0;
-     on=0;
-  }
-
-  double get_total() {
-    if (on) return total_time + get_time() - last_time;
-    else return total_time;
-  }
-
-  double get_next() {
-    if (!on) return 0.0;
-    double t = get_time();
-    double td = t - last_time;
-    total_time += td;
-    last_time = t;
-    return td;
+  auto get_time() {
+    return std::chrono::system_clock::now();
   }
 
   void report(double time, std::string str) {
@@ -68,17 +31,54 @@ struct timer {
     std::cout.flags(cout_settings);
   }
 
-  void total() {
-    report(get_total(),"total");
-    total_time = 0.0;
+  double diff(time_t t1, time_t t2) {
+    return (t1-t2).count()/10e8;
+  }
+public:
+
+
+  timer(std::string name = "Parlay time", bool start_ = true)
+  : total_so_far(0.0), on(false), name(name) {
+    if (start_) start();
+  }
+  
+  void start () {
+    on = true;
+    last = get_time();
   }
 
-  void reportTotal(std::string str) {
-    report(get_total(), str);
+  double stop () {
+    on = false;
+    double d = diff(get_time(),last);
+    total_so_far += d;
+    return d;
+  }
+
+  void reset() {
+     total_so_far=0.0;
+     on=0;
+  }
+
+  double next_time() {
+    if (!on) return 0.0;
+    time_t t = get_time();
+    double td = diff(t, last);
+    total_so_far += td;
+    last = t;
+    return td;
+  }
+
+  double total_time() {
+    if (on) return total_so_far + diff(get_time(), last);
+    else return total_so_far;
   }
 
   void next(std::string str) {
-    if (on) report(get_next(), str);
+    if (on) report(next_time(), str);
+  }
+
+  void total() {
+    report(total_time(),"total");
   }
 };
 

@@ -78,9 +78,9 @@ namespace block_delayed {
   auto make_iterators(Seq const &S) {
     size_t n = S.end()-S.begin();
     auto [num_blocks, block_size] = num_blocks_and_size(n);
-    return internal::tabulate(num_blocks, [&] (size_t i) {
-	size_t start = i * block_size;
-	size_t end = std::min(start + block_size, n);
+    return internal::tabulate(num_blocks, [&, bs = block_size] (size_t i) {
+	size_t start = i * bs;
+	size_t end = std::min(start + bs, n);
 	return parlay::make_slice(S).cut(start,end);
       }, 1);
   }
@@ -90,9 +90,9 @@ namespace block_delayed {
   auto make_out_iterators(Seq &S) {
     size_t n = S.end()-S.begin();
     auto [num_blocks, block_size] = num_blocks_and_size(n);
-    return internal::tabulate(num_blocks, [&] (size_t i) {
-	size_t start = i * block_size;
-	size_t end = std::min(start + block_size, n);
+    return internal::tabulate(num_blocks, [&, bs = block_size] (size_t i) {
+	size_t start = i * bs;
+	size_t end = std::min(start + bs, n);
 	return parlay::make_slice(S).cut(start,end);
       }, 1);
   }
