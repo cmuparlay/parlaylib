@@ -15,7 +15,8 @@
 
 namespace parlay {
 namespace internal {
-
+  using uint = unsigned int;
+  
 // the following parameters can be tuned
 constexpr const size_t CR_SEQ_THRESHOLD = 8192;
 
