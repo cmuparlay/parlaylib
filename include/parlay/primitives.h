@@ -12,7 +12,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "internal/collect_reduce.h"
 #include "internal/integer_sort.h"
 #include "internal/merge.h"
 #include "internal/merge_sort.h"
@@ -61,15 +60,10 @@ auto delayed_tabulate(size_t n, F&& f) {
 // the delayed sequence will hold a reference to it, so
 // r must remain alive as long as the delayed sequence.
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto dmap(R&& r, UnaryOp&& f) {
+auto delayed_map(R&& r, UnaryOp&& f) {
   size_t n = parlay::size(r);
   return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
        (size_t i) { return f(std::begin(r)[i]); });
-}
-
-template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto delayed_map(R&& r, UnaryOp&& f) {
-  return dmap(std::forward<R>(r), std::forward<UnaryOp>(f));
 }
 
 /* -------------------- Copying -------------------- */
@@ -694,7 +688,7 @@ auto iota(Index n) {
 
 /* -------------------- Flatten -------------------- */
 
-  template <PARLAY_RANGE_TYPE R>
+template <PARLAY_RANGE_TYPE R>
 auto flatten(const R& r) {
   using T = range_value_type_t<range_value_type_t<R>>;
   auto offsets = tabulate(parlay::size(r),
@@ -706,6 +700,27 @@ auto flatten(const R& r) {
       auto sit = std::begin(it[i]);
       parallel_for(0, parlay::size(it[i]), [=] (size_t j) {
 	  assign_uninitialized(*(dit+j), *(sit+j)); },
+	1000);
+  });
+  return res;
+}
+
+// Guy :: should be merged with previous definition 
+// this one does a move in the assign_uninitialized.
+// If there was a way to clear a sequence withoud destructor 
+//    then could relocate to the destination, saving a bunch of writes
+template <PARLAY_RANGE_TYPE R>
+auto flatten(R&& r) {
+  using T = range_value_type_t<range_value_type_t<R>>;
+  auto offsets = tabulate(parlay::size(r),
+    [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
+  size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
+  auto res = sequence<T>::uninitialized(len);
+  parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
+      auto dit = std::begin(res)+offsets[i];
+      auto sit = std::begin(it[i]);
+      parallel_for(0, parlay::size(it[i]), [=] (size_t j) {
+	  assign_uninitialized(*(dit+j), std::move(*(sit+j))); },
 	1000);
   });
   return res;
@@ -882,5 +897,8 @@ auto append (const R1& s1, const R2& s2) {
 }
 
 }  // namespace parlay
+
+#include "internal/collect_reduce.h"
+#include "internal/group_by.h"
 
 #endif  // PARLAY_PRIMITIVES_H_

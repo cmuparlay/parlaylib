@@ -14,12 +14,17 @@ namespace parlay {
     internal::timer t("group by", false);
     size_t n = S.size();
   
-    auto pair_less = [&] (auto const &a, auto const &b) {
-      return less(a.first, b.first);};
-
-    auto sorted = parlay::stable_sort(make_slice(S), pair_less);
-    t.next("sort");
-
+    sequence<KV> sorted;
+    if constexpr(std::is_integral_v<K> &&
+		 std::is_unsigned_v<K> &&
+		 sizeof(KV) <= 16) {
+      sorted = parlay::integer_sort(make_slice(S), [] (KV a) {return a.first;});
+    } else {
+      auto pair_less = [&] (auto const &a, auto const &b) {
+	  return less(a.first, b.first);};
+      sorted = parlay::stable_sort(make_slice(S), pair_less);
+    }
+    
     auto vals = sequence<V>::uninitialized(n);
 
     auto idx = block_delayed::filter(iota(n), [&] (size_t i) {

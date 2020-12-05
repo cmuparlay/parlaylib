@@ -202,9 +202,9 @@ namespace block_delayed {
 	return s.size();});
     auto [offsets, n] = internal::scan(sizes,addm<size_t>());
     auto [num_blocks, block_size] = num_blocks_and_size(n);
-    auto results = internal::tabulate(num_blocks, [&, bsize=block_size] (size_t i) {
+    auto results = internal::tabulate(num_blocks, [&, n_=n, bsize=block_size] (size_t i) {
         size_t start = i * bsize;
-	size_t len = std::min(bsize, n-start);
+	size_t len = std::min(bsize, n_-start);
 	size_t j = (std::upper_bound(offsets.begin(),offsets.end(),start)
 		    - offsets.begin() - 1);
 	out_iter_t out_iter = seq.begin()+j;
