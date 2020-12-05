@@ -828,7 +828,7 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
     block_delayed::apply(z, [&] (auto x) {
 	if (is_end(x.second)) 
 	  assign_uninitialized(result[x.first.first-1],
-			       f(make_slice(x.first.second+start, x.second+start)));});
+			       f(make_slice(start+x.first.second, start+x.second)));});
     return result;
   }
 }

@@ -11,6 +11,7 @@
 #include "sequence_ops.h"
 #include "transpose.h"
 #include "uninitialized_sequence.h"
+#include "get_time.h"
 
 #include "../utilities.h"
 
@@ -107,6 +108,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                                               size_t num_buckets,
                                               float parallelism = 1.0,
                                               bool skip_if_in_one = false) {
+  timer t("count sort", false);
   using T = typename slice<InIterator, InIterator>::value_type;
   size_t n = In.size();
   size_t num_threads = num_workers();
@@ -141,6 +143,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                             counts.begin() + i * num_buckets, num_buckets);
                },
                1, is_nested);
+  t.next("first loop");
 
   auto bucket_offsets = sequence<size_t>::uninitialized(num_buckets + 1);
   parallel_for(0, num_buckets,
@@ -195,6 +198,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                             counts2.begin() + i * num_buckets, num_buckets);
                },
                1, is_nested);
+  t.next("last loop");
 
   return std::make_pair(std::move(bucket_offsets), false);
 }

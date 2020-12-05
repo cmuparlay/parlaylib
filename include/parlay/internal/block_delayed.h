@@ -58,7 +58,7 @@ namespace block_delayed {
       rng(stream_delayed::forward_delayed_sequence(flatten_iterator(sub_ranges.begin()),n)) {}
   };
 
-  static std::pair<size_t,size_t> num_blocks_and_size(size_t n) {
+  static inline std::pair<size_t,size_t> num_blocks_and_size(size_t n) {
     return std::pair((n==0) ? 0 : 1ul + ((n)-1ul) / (_block_size),
 		     _block_size);
   }
@@ -200,11 +200,13 @@ namespace block_delayed {
     //using T = typename Seq::value_type::value_type;
     auto sizes = internal::map(seq, [] (auto const& s) -> size_t {
 	return s.size();});
-    auto [offsets, n] = internal::scan(sizes,addm<size_t>());
+    auto res = internal::scan(sizes,addm<size_t>());
+    auto offsets = res.first;
+    auto n = res.second;
     auto [num_blocks, block_size] = num_blocks_and_size(n);
-    auto results = internal::tabulate(num_blocks, [&, n_=n, bsize=block_size] (size_t i) {
-        size_t start = i * bsize;
-	size_t len = std::min(bsize, n_-start);
+    auto results = internal::tabulate(num_blocks, [&, block_size=block_size] (size_t i) {
+        size_t start = i * block_size;
+	size_t len = std::min(block_size, n - start);
 	size_t j = (std::upper_bound(offsets.begin(),offsets.end(),start)
 		    - offsets.begin() - 1);
 	out_iter_t out_iter = seq.begin()+j;
@@ -233,9 +235,9 @@ namespace block_delayed {
 				    return x.size();});
     auto [r, total]  = internal::scan(sizes, addm<size_t>());
     parlay::sequence<T> out = parlay::sequence<T>::uninitialized(total);
-    parlay::parallel_for(0, num_blocks, [&] (size_t i) {
+    parlay::parallel_for(0, num_blocks, [&, ri = r.begin(), oi = out.begin()] (size_t i) {
 	for (size_t j = 0; j < sizes[i]; j++) 
-	  out[r[i]+j] = seqs[i][j];
+	  oi[ri[i]+j] = seqs[i][j];
       }, 1);
     t.next("parallel for");
     return out;

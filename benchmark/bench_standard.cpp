@@ -524,11 +524,28 @@ static void bench_group_by_key(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   using par = std::pair<T,T>;
+    auto hash = [] (T a) -> size_t {return parlay::hash64_2(a);};
+  auto equal = [] (T a, T b) -> bool {return a == b;};
   auto S = parlay::tabulate(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i) % (n/20), i);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::group_by_key(S));
+    RUN_AND_CLEAR(parlay::group_by_key(S, hash, equal));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_group_by_key_sorted(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % (n/20), i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_key_sorted(S));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -577,3 +594,4 @@ BENCH(reduce_by_key, unsigned int, 100000000);
 BENCH(count_by_key, unsigned long, 100000000);
 BENCH(remove_duplicates, unsigned long, 100000000);
 BENCH(group_by_key, unsigned long, 100000000);
+BENCH(group_by_key_sorted, unsigned long, 100000000);

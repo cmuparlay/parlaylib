@@ -7,7 +7,7 @@
 namespace parlay {
   
   template <class Range, class Comp>
-  auto group_by_key(Range const &S, Comp const &less) {
+  auto group_by_key_sorted(Range const &S, Comp const &less) {
     using KV = typename std::remove_reference<Range>::type::value_type;
     using K = typename KV::first_type;
     using V = typename KV::second_type;
@@ -43,7 +43,7 @@ namespace parlay {
   }
 
   template <class Range>
-  auto group_by_key(Range const &S) {
-    return group_by_key(S, std::less{});}
+  auto group_by_key_sorted(Range const &S) {
+    return group_by_key_sorted(S, std::less{});}
 
 }

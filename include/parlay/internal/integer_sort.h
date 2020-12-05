@@ -10,6 +10,7 @@
 #include "sequence_ops.h"
 #include "quicksort.h"
 #include "uninitialized_sequence.h"
+#include "get_time.h"
 
 #include "../delayed_sequence.h"
 #include "../slice.h"
@@ -186,6 +187,7 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
   
 
   using T = typename slice<InIterator, InIterator>::value_type;
+  timer t("integer sort", false);
   
   size_t n = In.size();
   size_t cache_per_thread = 1000000;
@@ -233,7 +235,8 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
     // only uses one bucket optimization (last argument) if inplace
     std::tie(offsets, one_bucket) = count_sort<assignment_tag>(In, Out,
       make_slice(get_bits), num_bkts, parallelism, inplace_tag::value);
-
+    t.next("count sort");
+  
     if constexpr (inplace_tag::value == true) {
       if (!one_bucket) {
         uninitialized_relocate_n(In.begin(), Out.begin(), In.size());
@@ -256,9 +259,9 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
     auto get_bits = delayed_seq<size_t>(n, f);
 
     // divide into buckets
-      std::tie(offsets, one_bucket) = count_sort<assignment_tag>(In,
+    std::tie(offsets, one_bucket) = count_sort<assignment_tag>(In,
         Out, make_slice(get_bits), num_outer_buckets, parallelism, !return_offsets);
- 
+    if (parallelism == 1.0) t.next("recursive count sort");
 
     // if all but one bucket are empty, try again on lower bits
     if (one_bucket) {

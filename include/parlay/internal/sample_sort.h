@@ -69,7 +69,7 @@ void seq_sort_inplace(slice<Iterator, Iterator> A, const Compare& less, bool sta
   using value_type = typename slice<Iterator, Iterator>::value_type;
   if (((sizeof(value_type) > 8) || std::is_pointer<value_type>::value))
     if (!stable) quicksort(A.begin(), A.size(), less);
-    else merge_sort_inplace(A, less);
+    else bucket_sort(A, less, true); //merge_sort_inplace(A, less);
   else
     bucket_sort(A, less, stable);
 }

@@ -6,8 +6,7 @@
 
 #include "integer_sort.h"
 #include "uninitialized_sequence.h"
-#include "sequence_ops.h"
-#include "transpose.h"
+#include "get_time.h"
 
 #include "../utilities.h"
 #include "../primitives.h"
@@ -271,6 +270,7 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
 //  monoid has fields m.identity and m.f (a binary associative function)
 template <typename Slice, typename Helper>
 auto collect_reduce_sparse(Slice A, Helper const &helper) {
+  timer t("collect reduce sparse", false);
   using in_type = typename Helper::in_type;
   //using key_type = typename Helper::key_type;
   size_t n = A.size();
@@ -289,8 +289,8 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
   // Returns a map (hash) from key to bucket.
   // Keys with many elements (heavy) have their own bucket while
   // others share a bucket.
-  auto gb = get_bucket<Helper>(A, helper, bits); 
-
+  auto gb = get_bucket<Helper>(A, helper, bits);
+    
   // first buckets based on hash using an integer sort
   // Guy : could possibly just use counting sort.  Would avoid needing tmp
   auto B = sequence<in_type>::uninitialized(n);
@@ -298,6 +298,7 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
   sequence<size_t> bucket_offsets =
     integer_sort_<std::false_type, uninitialized_copy_tag>(
       make_slice(A), make_slice(B), make_slice(Tmp), gb, bits, num_buckets);
+  t.next("integer sort");
 
   uint heavy_cutoff = gb.heavy_hitters;
 
@@ -308,6 +309,7 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
       if (i < heavy_cutoff) return sequence(1,helper.reduce(block));
       else return seq_collect_reduce_sparse(block, helper);
     }, 1);
+  t.next("block hash");
 
   // flatten the results
   return flatten(std::move(tables));
@@ -336,26 +338,53 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
       helper(Monoid const &m, Hash const &h, Equal const &e) : 
 	monoid(m), hash(h), equal(e) {};
       static result_type make(in_type const &kv) { return kv;}
-      static const key_type& get_key(result_type const &p) { return p.first;}
+      static const key_type& get_key(in_type const &p) { return p.first;}
       void update(result_type &p, in_type const &v) const {
 	p.second = monoid.f(p.second, v.second); }
       result_type reduce(slice<in_type*,in_type*> &S) const {
-	auto key = S[0].first;
-	auto sum = internal::reduce(delayed_tabulate(S.size(), [&] (size_t i) {
-			return S[i].second;}),monoid);
+	auto &key = S[0].first;
+	auto sum = internal::reduce(delayed_map(S, [&] (in_type const &kv) {
+			return kv.second;}), monoid);
 	return result_type(key, sum);}
     };
     return internal::collect_reduce_sparse(make_slice(A), helper{monoid, hash, equal});
   }
 
-  // Returns a sequence of <R::value_type,size_t> pairs, each consisting of
+  template <PARLAY_RANGE_TYPE R,
+  	    typename Hash = std::hash<typename range_value_type_t<R>::first_type>,
+  	    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
+  auto group_by_key(R const &A, Hash hash = {}, Equal equal = {}) { 
+    struct helper {
+      using in_type = range_value_type_t<R>;
+      using key_type = typename in_type::first_type;
+      using val_type = typename in_type::second_type;
+      using seq_type = sequence<val_type>;
+      using result_type = std::pair<key_type,seq_type>;
+      Hash hash; Equal equal;
+      helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
+      static result_type make(in_type const &kv) {
+	return std::pair(kv.first,sequence(1,kv.second));}
+      static const key_type& get_key(in_type const &p) { return p.first;}
+      static const key_type& get_key(result_type const &p) {return p.first;}
+      void update(result_type &p, in_type const &v) const {
+	p.second.push_back(v.second); }
+      result_type reduce(slice<in_type*,in_type*> &S) const {
+	auto &key = S[0].first;
+	auto vals = map(S, [&] (in_type const &kv) {return kv.second;});
+	return result_type(key, vals);}
+    };
+    return internal::collect_reduce_sparse(make_slice(A), helper{hash, equal});
+  }
+
+  // Returns a sequence of <R::value_type,sum_type> pairs, each consisting of
   // a unique value from the input, and the number of times it appears.
   // Returned in an arbitrary order that depends on the hash function.
   template <typename sum_type,
 	    PARLAY_RANGE_TYPE R,
 	    typename Hash = std::hash<range_value_type_t<R>>,
 	    typename Equal = std::equal_to<range_value_type_t<R>>>
-  auto count_by_key(R const &A, Hash hash = {}, Equal equal = {}) { 
+  sequence<std::pair<range_value_type_t<R>,sum_type>>
+  count_by_key(R const &A, Hash hash = {}, Equal equal = {}) { 
     struct helper {
       using in_type = range_value_type_t<R>;
       using key_type = in_type;
@@ -378,7 +407,7 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
 	    typename Hash = std::hash<range_value_type_t<R>>,
 	    typename Equal = std::equal_to<range_value_type_t<R>>>
   auto count_by_key(R const &A, Hash hash = {}, Equal equal = {}) { 
-    count_by_key<size_t>(A, hash, equal);}
+    return count_by_key<size_t>(A, hash, equal);}
 
   // should be made more efficient by avoiding generating and then stripping counts
   template <PARLAY_RANGE_TYPE R,
@@ -410,7 +439,7 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
 	    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
   auto reduce_by_index(R const &A, size_t num_buckets, Monoid const &monoid) {
     struct helper {
-    using pair_type = range_value_type_t<R>;
+      using pair_type = range_value_type_t<R>;
       using key_type = typename pair_type::first_type;
       using val_type = typename pair_type::second_type;
       Monoid mon;
