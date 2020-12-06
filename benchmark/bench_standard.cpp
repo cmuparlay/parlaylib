@@ -551,6 +551,38 @@ static void bench_group_by_key_sorted(benchmark::State& state) {
   REPORT_STATS(n, 0, 0);
 }
 
+template<typename T>
+static void bench_group_by_index(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+  T num_buckets = (n/20);
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % num_buckets, i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_index(S, num_buckets));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_group_by_index_256(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+  T num_buckets = 256;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % num_buckets, i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_index(S, num_buckets));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
 // ------------------------- Registration -------------------------------
 
 #define BENCH(NAME, T, args...) BENCHMARK_TEMPLATE(bench_ ## NAME, T)               \
@@ -590,8 +622,11 @@ BENCH(quicksort, long, 100000000);
 BENCH(reduce_by_index_256, unsigned int, 100000000);
 BENCH(reduce_by_index, unsigned int, 100000000);
 BENCH(remove_duplicates_by_index, unsigned int, 100000000);
+BENCH(group_by_index, unsigned int, 100000000);
+BENCH(group_by_index_256, unsigned int, 100000000);
 BENCH(reduce_by_key, unsigned int, 100000000);
 BENCH(count_by_key, unsigned long, 100000000);
 BENCH(remove_duplicates, unsigned long, 100000000);
 BENCH(group_by_key, unsigned long, 100000000);
 BENCH(group_by_key_sorted, unsigned long, 100000000);
+

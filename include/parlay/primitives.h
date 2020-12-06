@@ -20,8 +20,6 @@
 
 #include "internal/block_delayed.h"
 
-#include "internal/get_time.h"
-
 #include "delayed_sequence.h"
 #include "monoid.h"
 #include "parallel.h"

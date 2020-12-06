@@ -33,7 +33,7 @@ void seq_collect_reduce_few(Seq const &A, OutSeq &&Out,
 
 template <typename Seq, class Helper>
 auto seq_collect_reduce_few(Seq const &A, Helper const &helper, size_t num_buckets) {
-  using val_type = typename Helper::val_type;
+  using val_type = decltype(helper.init()); //typename Helper::val_type;
   sequence<val_type> Out = sequence<val_type>::uninitialized(num_buckets);
   seq_collect_reduce_few(A, Out, helper, num_buckets);
   return Out;
@@ -45,7 +45,7 @@ auto seq_collect_reduce_few(Seq const &A, Helper const &helper, size_t num_bucke
 //  all keys must be smaller than num_buckets
 template <typename Seq, typename Helper>
 auto collect_reduce_few(Seq const &A, Helper const &helper, size_t num_buckets) {
-  using val_type = typename Helper::val_type;
+  using val_type = decltype(helper.init()); //typename Helper::val_type;
   size_t n = A.size();
 
   // pad to 16 buckets to avoid false sharing (does not affect results)
@@ -75,7 +75,7 @@ auto collect_reduce_few(Seq const &A, Helper const &helper, size_t num_buckets) 
   });
   
   parallel_for(0, num_buckets, [&](size_t i) {
-       val_type o_val = helper.init();
+       auto o_val = helper.init();
        for (size_t j = 0; j < num_blocks; j++)
 	 helper.update(o_val, OutM[i + j * num_buckets]);
        Out[i] = o_val; }, 1);
@@ -167,11 +167,12 @@ struct get_bucket {
 
 template <typename Seq, class Helper>
 auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
+  timer t("collect reduce", false);
   using T = typename Seq::value_type;
   size_t n = A.size();
   //using key_type = typename Helper::key_type;
-  using val_type = typename Helper::val_type;
-
+  using val_type = decltype(helper.init()); //typename Helper::val_type;
+  
   // #bits is selected so each block fits into L3 cache
   //   assuming an L3 cache of size 1M per thread
   // the counting sort uses 2 x input size due to copy
@@ -211,6 +212,7 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
   sequence<size_t> block_offsets;
   block_offsets = integer_sort_<std::false_type, uninitialized_copy_tag>(
     make_slice(A), make_slice(B), make_slice(Tmp), gb, bits, num_blocks);
+  t.next("sort");
   
   // now process each block in parallel
   parallel_for(0, num_blocks, [&] (size_t i) {
@@ -225,6 +227,7 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
       }
     }
   }, 1);
+  t.next("into tables");
   return sums_s;
 }
 
@@ -439,16 +442,16 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
 	    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
   auto reduce_by_index(R const &A, size_t num_buckets, Monoid const &monoid) {
     struct helper {
-      using pair_type = range_value_type_t<R>;
-      using key_type = typename pair_type::first_type;
-      using val_type = typename pair_type::second_type;
+      using in_type = range_value_type_t<R>;
+      using key_type = typename in_type::first_type;
+      using val_type = typename in_type::second_type;
       Monoid mon;
-      static key_type get_key(const pair_type& a) {return a.first;};
-      static val_type get_val(const pair_type& a) {return a.second;};
+      static key_type get_key(const in_type& a) {return a.first;};
+      static val_type get_val(const in_type& a) {return a.second;};
       val_type init() const {return mon.identity;}
       void update(val_type& d, val_type const &a) const {d = mon.f(d, a);};
-      void combine(val_type& d, slice<pair_type*,pair_type*> s) const {
-	auto vals = delayed_map(s, [&] (pair_type &v) {return v.second;});
+      void combine(val_type& d, slice<in_type*,in_type*> s) const {
+	auto vals = delayed_map(s, [&] (in_type &v) {return v.second;});
 	d = internal::reduce(vals, mon);
       }
     };
@@ -487,6 +490,31 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
     };
     auto flags = internal::collect_reduce(A, helper(), num_buckets);
     return pack(iota<Integer_t>(num_buckets), flags);
+  }
+
+  template <typename Integer_t, PARLAY_RANGE_TYPE R>
+  auto group_by_index(R const &A, Integer_t num_buckets) {
+    if (A.size() > num_buckets*num_buckets) {
+      auto keys = delayed_map(A, [] (auto kv) {return kv.first;});
+      auto vals = delayed_map(A, [] (auto kv) {return kv.second;});
+      return internal::group_by_small_int(make_slice(vals), make_slice(keys), num_buckets);
+    } else {
+      struct helper {
+	using in_type = range_value_type_t<R>;
+	using key_type = typename in_type::first_type;
+	using val_type = typename in_type::second_type;
+	using result_type = sequence<val_type>;
+	static key_type get_key(const in_type& a) {return a.first;}
+	static val_type get_val(const in_type& a) {return a.second;}
+	static result_type init() {return result_type();}
+	static void update(result_type& d, const val_type& v) {d.push_back(v);}
+	static void update(result_type& d, const result_type& v) {
+	  abort(); d.append(std::move(v));}
+	static void combine(result_type& d, slice<in_type*,in_type*> s) {
+	  d =  map(s, [&] (in_type const &kv) {return get_val(kv);});}
+      };
+      return internal::collect_reduce(A, helper(), num_buckets);
+    }
   }
 
 }  // namespace parlay
