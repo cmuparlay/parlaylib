@@ -57,11 +57,19 @@ auto delayed_tabulate(size_t n, F&& f) {
 // ownership of it by moving it. If r is a reference,
 // the delayed sequence will hold a reference to it, so
 // r must remain alive as long as the delayed sequence.
+// template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto delayed_map(R&& r, UnaryOp&& f) {
   size_t n = parlay::size(r);
   return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
        (size_t i) { return f(std::begin(r)[i]); });
+}
+
+template<PARLAY_RANGE_TYPE R, typename UnaryOp>
+auto delayed_map(R &r, UnaryOp&& f) {
+  size_t n = parlay::size(r);
+  return delayed_tabulate(n, [ri = std::begin(r), f = std::forward<UnaryOp>(f) ]
+       (size_t i) { return f(ri[i]); });
 }
 
 /* -------------------- Copying -------------------- */

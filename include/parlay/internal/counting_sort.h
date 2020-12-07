@@ -215,7 +215,7 @@ auto group_by_small_int(slice<InIterator, InIterator> In,
   size_t m = num_blocks * num_buckets;
 
   auto counts = sequence<s_size_t>::uninitialized(m);
-  t.next("before first loop");
+
   // sort each block
   parallel_for(0, num_blocks,
                [&](size_t i) {
@@ -260,7 +260,7 @@ auto group_by_small_int(slice<InIterator, InIterator> In,
     }, 1);
   t.next("last loop");
 
-  return results;
+  return std::move(results);
 }
 
 // If skip_if_in_one and returned flag is true, then the Input was alread

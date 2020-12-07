@@ -244,6 +244,8 @@ void p_quicksort_(slice<InIterator, InIterator> In,
   }
 }
 
+  // currently does not compile because p_quicksort_ can write to In if inplance flag is true
+  // need to make it a compile time test
 template <class SeqA, class F>
 sequence<typename SeqA::value_type> p_quicksort(SeqA const& In, const F& f) {
   using T = typename SeqA::value_type;
