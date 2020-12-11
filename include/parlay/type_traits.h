@@ -178,6 +178,10 @@ inline constexpr bool is_nothrow_relocatable_v = is_nothrow_relocatable<T>::valu
 template<typename T>
 struct is_trivially_relocatable<std::allocator<T>> : std::true_type {};
 
+template <typename T1, typename T2>
+struct is_trivially_relocatable<std::pair<T1,T2>> : 
+    std::bool_constant<is_trivially_relocatable<T1>::value &&
+		       is_trivially_relocatable<T2>::value> {};
 
 }  // namespace parlay
 

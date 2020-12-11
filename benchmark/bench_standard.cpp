@@ -416,7 +416,7 @@ static void bench_quicksort(benchmark::State& state) {
   while (state.KeepRunningBatch(10)) {
     for (int i = 0; i < 10; i++) {
       COPY_NO_TIME(out, in);
-      parlay::internal::p_quicksort_inplace(make_slice(in), std::less<T>());
+      parlay::internal::p_quicksort_inplace(make_slice(out), std::less<T>());
     }
   }
 
@@ -424,18 +424,160 @@ static void bench_quicksort(benchmark::State& state) {
 }
 
 template<typename T>
-static void bench_collect_reduce(benchmark::State& state) {
+static void bench_reduce_by_index_256(benchmark::State& state) {
   size_t n = state.range(0);
   using par = std::pair<T,T>;
   parlay::random r(0);
   size_t num_buckets = (1<<8);
   auto S = parlay::tabulate(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i) % num_buckets, 1);});
-  auto get_key = [&] (const auto& a) {return a.first;};
-  auto get_val = [&] (const auto& a) {return a.first;};
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::internal::collect_reduce(S, get_key, get_val, parlay::addm<T>(), num_buckets));
+    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::addm<T>()));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_reduce_by_index(benchmark::State& state) {
+  size_t n = state.range(0);
+  using par = std::pair<T,T>;
+  parlay::random r(0);
+  size_t num_buckets = n;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % num_buckets, 1);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::addm<T>()));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_remove_duplicates_by_index(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  T num_buckets = n;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> T {
+      return r.ith_rand(i) % num_buckets;});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::remove_duplicates_by_index(S, num_buckets));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_reduce_by_key(benchmark::State& state) {
+  size_t n = state.range(0);
+  using par = std::pair<T,T>;
+  parlay::random r(0);
+  auto hash = [] (T a) -> size_t {return parlay::hash64_2(a);};
+  auto equal = [] (T a, T b) -> bool {return a == b;};
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par((T) r.ith_rand(i) % (n/2), (T) 1);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::reduce_by_key(S, parlay::addm<T>(), hash, equal));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_count_by_key(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  auto hash = [] (T a) -> size_t {return parlay::hash64_2(a);};
+  auto equal = [] (T a, T b) -> bool {return a == b;};
+  auto S = parlay::tabulate(n, [&] (size_t i) -> T {
+      return r.ith_rand(i) % (n/2);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::count_by_key<T>(S, hash, equal));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_remove_duplicates(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  auto hash = [] (T a) -> size_t {return parlay::hash64_2(a);};
+  auto equal = [] (T a, T b) -> bool {return a == b;};
+  auto S = parlay::tabulate(n, [&] (size_t i) -> T {
+      return r.ith_rand(i) % (n/2);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::remove_duplicates(S, hash, equal));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_group_by_key(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+    auto hash = [] (T a) -> size_t {return parlay::hash64_2(a);};
+  auto equal = [] (T a, T b) -> bool {return a == b;};
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % (n/20), i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_key(S, hash, equal));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_group_by_key_sorted(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % (n/20), i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_key_sorted(S));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_group_by_index(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+  T num_buckets = (n/20);
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % num_buckets, i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_index(S, num_buckets));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_group_by_index_256(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+  T num_buckets = 256;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % num_buckets, i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_index(S, num_buckets));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -477,4 +619,14 @@ BENCH(merge_sort, long, 100000000);
 BENCH(count_sort, long, 100000000, 2);
 BENCH(split3, long, 100000000);
 BENCH(quicksort, long, 100000000);
-BENCH(collect_reduce, unsigned int, 100000000);
+BENCH(reduce_by_index_256, unsigned int, 100000000);
+BENCH(reduce_by_index, unsigned int, 100000000);
+BENCH(remove_duplicates_by_index, unsigned int, 100000000);
+BENCH(group_by_index_256, unsigned int, 100000000);
+BENCH(group_by_index, unsigned int, 100000000);
+BENCH(reduce_by_key, unsigned long, 100000000);
+BENCH(count_by_key, unsigned long, 100000000);
+BENCH(remove_duplicates, unsigned long, 100000000);
+BENCH(group_by_key, unsigned long, 100000000);
+BENCH(group_by_key_sorted, unsigned long, 100000000);
+

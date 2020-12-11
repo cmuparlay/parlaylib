@@ -12,7 +12,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "internal/collect_reduce.h"
 #include "internal/integer_sort.h"
 #include "internal/merge.h"
 #include "internal/merge_sort.h"
@@ -20,8 +19,6 @@
 #include "internal/sample_sort.h"
 
 #include "internal/block_delayed.h"
-
-#include "internal/get_time.h"
 
 #include "delayed_sequence.h"
 #include "monoid.h"
@@ -60,16 +57,19 @@ auto delayed_tabulate(size_t n, F&& f) {
 // ownership of it by moving it. If r is a reference,
 // the delayed sequence will hold a reference to it, so
 // r must remain alive as long as the delayed sequence.
+// template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto dmap(R&& r, UnaryOp&& f) {
+auto delayed_map(R&& r, UnaryOp&& f) {
   size_t n = parlay::size(r);
   return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
        (size_t i) { return f(std::begin(r)[i]); });
 }
 
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto delayed_map(R&& r, UnaryOp&& f) {
-  return dmap(std::forward<R>(r), std::forward<UnaryOp>(f));
+auto delayed_map(R &r, UnaryOp&& f) {
+  size_t n = parlay::size(r);
+  return delayed_tabulate(n, [ri = std::begin(r), f = std::forward<UnaryOp>(f) ]
+       (size_t i) { return f(ri[i]); });
 }
 
 /* -------------------- Copying -------------------- */
@@ -219,11 +219,12 @@ auto merge(const R1& r1, const R2& r2) {
 
 /* ----------------------- Histograms --------------------- */
 
+// Now in internal::collect_reduce.h
 // Compute a histogram of the values of A, with m buckets.
-template<PARLAY_RANGE_TYPE R, typename Integer_>
-auto histogram(const R& A, Integer_ m) {
-  return internal::histogram(make_slice(A), m);
-}
+// template<PARLAY_RANGE_TYPE R, typename Integer_>
+//  auto histogram(const R& A, Integer_ m) {
+//   return internal::histogram(make_slice(A), m);
+//}
 
 /* -------------------- General Sorting -------------------- */
 
@@ -516,9 +517,27 @@ bool lexicographical_compare(const R1& r1, const R2& r2, Compare less) {
   size_t i = internal::find_if_index(m,
     [&less, it1 = std::begin(r1), it2 = std::begin(r2)](size_t i)
       { return less(it1[i], it2[i]) || less(it2[i], it1[i]); });
+      // { return it1[i] != it2[i];});
   return (i < m) ? (less(std::begin(r1)[i], std::begin(r2)[i]))
     : (parlay::size(r1) < parlay::size(r2));
 }
+
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
+inline bool lexicographical_compare(const R1& r1, const R2& r2) {
+  return lexicographical_compare(r1, r2, std::less{});}
+
+template <typename T>
+inline bool operator<(const sequence<T> &a, 
+		      const sequence<T> &b) {
+  if (a.size() > 1000) 
+    return lexicographical_compare(a, b);
+  auto sa = a.begin();
+  auto sb = b.begin();
+  auto ea = sa + std::min(a.size(),b.size());
+  while (sa < ea && *sa == *sb) {sa++; sb++;}
+  return sa == ea ? (a.size() < b.size()) : *sa < *sb;
+};
+
 
 /* -------------------- Remove duplicates -------------------- */
 
@@ -675,7 +694,7 @@ auto iota(Index n) {
 
 /* -------------------- Flatten -------------------- */
 
-  template <PARLAY_RANGE_TYPE R>
+template <PARLAY_RANGE_TYPE R>
 auto flatten(const R& r) {
   using T = range_value_type_t<range_value_type_t<R>>;
   auto offsets = tabulate(parlay::size(r),
@@ -692,6 +711,27 @@ auto flatten(const R& r) {
   return res;
 }
 
+// Guy :: should be merged with previous definition 
+// this one does a move in the assign_uninitialized.
+// If there was a way to clear a sequence withoud destructor 
+//    then could relocate to the destination, saving a bunch of writes
+template <PARLAY_RANGE_TYPE R>
+auto flatten(R&& r) {
+  using T = range_value_type_t<range_value_type_t<R>>;
+  auto offsets = tabulate(parlay::size(r),
+    [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
+  size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
+  auto res = sequence<T>::uninitialized(len);
+  parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
+      auto dit = std::begin(res)+offsets[i];
+      auto sit = std::begin(it[i]);
+      parallel_for(0, parlay::size(it[i]), [=] (size_t j) {
+	  assign_uninitialized(*(dit+j), std::move(*(sit+j))); },
+	1000);
+  });
+  return res;
+}
+
 /* -------------------- Tokens and split -------------------- */
 
 // Return true if the given character is considered whitespace.
@@ -701,8 +741,6 @@ bool inline is_whitespace(unsigned char c) {
 }
 
 // Apply the given function f to each token of the given range.
-//
-// This is essentially equivalent to parlay::map(parlay::tokens(
 //
 // The tokens are the longest contiguous subsequences of non space characters.
 // where spaces are define by the unary predicate is_space. By default, is_space
@@ -728,13 +766,17 @@ auto map_tokens_old(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
     }
   }
 
-  auto Flags = tabulate(n+1, [&] (size_t i) {
+  // auto Flags = tabulate(n+1, [&] (size_t i) {
+  //     return ((i==0) ? !is_space(S[0]) :
+  // 	      (i==n) ? !is_space(S[n-1]) :
+  // 	      is_space(S[i-1]) != is_space(S[i]));});
+  //t.next("flags");
+  
+  //sequence<long> Locations = pack_index<long>(Flags);
+  sequence<long> Locations = block_delayed::filter(iota<long>(n+1), [&] (size_t i) {
       return ((i==0) ? !is_space(S[0]) :
 	      (i==n) ? !is_space(S[n-1]) :
 	      is_space(S[i-1]) != is_space(S[i]));});
-  //t.next("flags");
-  
-  sequence<long> Locations = pack_index<long>(Flags);
   //t.next("pack index");
   
   // If f does not return anything, just apply f
@@ -767,7 +809,7 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   }
 
   auto is_start = [&] (size_t i) {
-    return ((i == 0) || is_space(A[i-1])) && !(is_space(A[i]));};
+    return ((i == 0) || is_space(A[i-1])) && (i != n) && !(is_space(A[i]));};
   auto is_end = [&] (size_t i) {
     return  ((i == n) || (is_space(A[i]))) && (i != 0) && !is_space(A[i-1]);};
   // associative combining function
@@ -792,7 +834,7 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
     block_delayed::apply(z, [&] (auto x) {
 	if (is_end(x.second)) 
 	  assign_uninitialized(result[x.first.first-1],
-			       f(make_slice(x.first.second+start, x.second+start)));});
+			       f(make_slice(start+x.first.second, start+x.second)));});
     return result;
   }
 }
@@ -803,6 +845,8 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
 // correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
 template <PARLAY_RANGE_TYPE Range, typename UnaryPred = decltype(is_whitespace)>
 sequence<sequence<char>> tokens(const Range& R, UnaryPred is_space = is_whitespace) {
+  if (parlay::size(R) < 2000)
+    return map_tokens_old(R, [] (auto x) { return to_sequence(x); }, is_space);
   return map_tokens(R, [] (auto x) { return to_sequence(x); }, is_space);
 }
 
@@ -859,5 +903,8 @@ auto append (const R1& s1, const R2& s2) {
 }
 
 }  // namespace parlay
+
+#include "internal/collect_reduce.h"
+#include "internal/group_by.h"
 
 #endif  // PARLAY_PRIMITIVES_H_

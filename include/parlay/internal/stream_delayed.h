@@ -35,9 +35,9 @@ namespace stream_delayed {
 	++(*this);
 	return tmp; }
       value_type operator*() const { return *ii; }
-      bool operator!=(const sentinal& other) const {
+      bool operator!=([[maybe_unused]] const sentinal& other) const {
 	return count != 0; }
-      bool operator==(const sentinal& other) const {
+      bool operator==([[maybe_unused]] const sentinal& other) const {
 	return count == 0; }
     };
 
@@ -62,17 +62,17 @@ namespace stream_delayed {
 
   template <typename Seq1, typename Seq2, typename F>
   auto zip_with(Seq1 &S1, Seq2 &S2, F f) {
-      struct iter {
-	using iter1_t = decltype(S1.begin());
-	using iter2_t = decltype(S2.begin());
-	using value_type = decltype(f(*(S1.begin()),*(S2.begin())));
-	iter1_t iter1;
-	iter2_t iter2;
-	F g;
-	iter& operator++() {++iter1; ++iter2;}
-	value_type operator*() const {return g(*iter1, *iter2);}
-	iter(F g, iter1_t iter1, iter2_t iter2) : g(g), iter1(iter1), iter2(iter2) {}
-      };
+    struct iter {
+      using iter1_t = decltype(S1.begin());
+      using iter2_t = decltype(S2.begin());
+      using value_type = decltype(f(*(S1.begin()),*(S2.begin())));
+      F g;
+      iter1_t iter1;
+      iter2_t iter2;
+      iter& operator++() {++iter1; ++iter2; return *this;}
+      value_type operator*() const {return g(*iter1, *iter2);}
+      iter(F g, iter1_t iter1, iter2_t iter2) : g(g), iter1(iter1), iter2(iter2) {}
+    };
     return forward_delayed_sequence(iter(f, S1.begin(),S2.begin()), S1.end()-S1.begin());
   }
 
@@ -87,9 +87,9 @@ namespace stream_delayed {
     struct iter {
       using iter_t = decltype(S.begin());
       using value_type = decltype(f(*(S.begin())));
-      iter_t input_iter;
       F g;
-      iter& operator++() {++input_iter;}
+      iter_t input_iter;
+      iter& operator++() {++input_iter; return *this;}
       value_type operator*() const {return g(*input_iter);}
       iter(F g, iter_t input_iter) : g(g), input_iter(input_iter) {}
     };
@@ -101,9 +101,10 @@ namespace stream_delayed {
     using input_iter_t = decltype(S.begin());
     struct iter {
       using value_type = T;
-      input_iter_t input_iterator;
-      value_type value;
       F f;
+      value_type value;
+      input_iter_t input_iterator;
+
       iter& operator++() {
 	value = f(value, *input_iterator);
 	++input_iterator;
