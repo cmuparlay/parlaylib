@@ -47,11 +47,7 @@ namespace block_delayed {
     using seq_iter = typename parlay::sequence<IDS>::iterator;
     using range = stream_delayed::forward_delayed_sequence<flatten_iterator<seq_iter>>;
     using iterator = typename range::iterator;
-<<<<<<< HEAD
     parlay::sequence<IDS> sub_ranges;
-=======
-    const parlay::sequence<IDS> sub_ranges;
->>>>>>> 7ec13297998aa51c3477f87c6010096f4f8af48f
     range rng;
   
     size_t size() const {return rng.end()-rng.begin();}
