@@ -20,7 +20,7 @@ inline void par_do(Lf left, Rf right, bool) {
 
 template <typename F>
 inline void parallel_for(size_t start, size_t end, F f,
-                         size_t granularity,
+                         long granularity,
 			 bool) {
   if (granularity == 0)
     cilk_for(size_t i=start; i<end; i++) f(i);

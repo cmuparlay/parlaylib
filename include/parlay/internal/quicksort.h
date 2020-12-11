@@ -38,22 +38,32 @@ bool base_case(Iterator x, size_t n) {
 // but instead of using move, we use relocation to potentially
 // save on wasteful destructor invocations.
 //
-template <class Iterator, typename BinPred>
-auto insertion_sort(Iterator A, size_t n, const BinPred& f) {
-  using T = typename std::iterator_traits<Iterator>::value_type;
-  for (size_t i = 1; i < n; i++) {
-    // We want to store the value being moved (A[i]) in a temporary
-    // variable. In order to take advantage of uninitialized
-    // relocate, we need uninitialized storage to put it in.
-    uninitialized_storage<T> temp_storage;
-    T* tmp = temp_storage.get();
-    uninitialized_relocate(tmp, &A[i]);
+// template <class Iterator, typename BinPred>
+// auto insertion_sort(Iterator A, size_t n, const BinPred& f) {
+//   using T = typename std::iterator_traits<Iterator>::value_type;
+//   for (size_t i = 1; i < n; i++) {
+//     // We want to store the value being moved (A[i]) in a temporary
+//     // variable. In order to take advantage of uninitialized
+//     // relocate, we need uninitialized storage to put it in.
+//     uninitialized_storage<T> temp_storage;
+//     T* tmp = temp_storage.get();
+//     uninitialized_relocate(tmp, &A[i]);
 
-    std::ptrdiff_t j = i - 1;
-    for (; j >= 0 && f(*tmp, A[j]); j--) {
-      uninitialized_relocate(&A[j+1], &A[j]);
+//     std::ptrdiff_t j = i - 1;
+//     for (; j >= 0 && f(*tmp, A[j]); j--) {
+//       uninitialized_relocate(&A[j+1], &A[j]);
+//     }
+//     uninitialized_relocate(&A[j+1], tmp);
+//   }
+// }
+
+template <class Iterator, class BinPred>
+void insertion_sort(Iterator A, size_t n, const BinPred& f) {
+  for (size_t i = 1; i < n; i++) {
+    long j = i;
+    while (--j >= 0 && f(A[j + 1], A[j])) {
+      std::swap(A[j + 1], A[j]);
     }
-    uninitialized_relocate(&A[j+1], tmp);
   }
 }
 
@@ -143,7 +153,7 @@ void quicksort_serial(Iterator A, size_t n, const BinPred& f) {
 
 template <class Iterator, class BinPred>
 void quicksort(Iterator A, size_t n, const BinPred& f) {
-  if (n < (1 << 10))
+  if (n < (1 << 8))
     quicksort_serial(A, n, f);
   else {
     auto [L, M, mid_eq] = split3(A, n, f);
@@ -234,6 +244,8 @@ void p_quicksort_(slice<InIterator, InIterator> In,
   }
 }
 
+  // currently does not compile because p_quicksort_ can write to In if inplance flag is true
+  // need to make it a compile time test
 template <class SeqA, class F>
 sequence<typename SeqA::value_type> p_quicksort(SeqA const& In, const F& f) {
   using T = typename SeqA::value_type;

@@ -11,7 +11,7 @@ inline size_t num_workers() { return omp_get_max_threads(); }
 inline size_t worker_id() { return omp_get_thread_num(); }
 
 template <class F>
-inline void parallel_for(size_t start, size_t end, F f, size_t, bool) {
+inline void parallel_for(size_t start, size_t end, F f, long, bool) {
   _Pragma("omp parallel for")
     for(size_t i=start; i<end; i++) f(i);
 }

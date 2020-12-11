@@ -62,7 +62,6 @@ namespace stream_delayed {
 
   template <typename Seq1, typename Seq2, typename F>
   auto zip_with(Seq1 &S1, Seq2 &S2, F f) {
-    using result_type = 
       struct iter {
 	using iter1_t = decltype(S1.begin());
 	using iter2_t = decltype(S2.begin());
