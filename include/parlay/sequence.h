@@ -244,6 +244,18 @@ struct _sequence_base {
       _data.small_n = 0;
     }
 
+    void clear_relocated() {
+      if (!is_small()) {
+	if constexpr (!is_trivially_relocatable<T>::value) 
+		       destroy_all();
+        auto alloc = get_raw_allocator();
+        _data.long_mode.buffer.free_buffer(alloc);
+      }
+      
+      _data.flag = 0;
+      _data.small_n = 0;
+    }
+
 // GCC gives a lot of false positive diagnoses for
 // "maybe uninitialized" variables inside long_seq
 // and capacitated_buffer so we disable that check
@@ -874,6 +886,12 @@ class sequence : protected _sequence_base<T, Allocator> {
   }
 
   void clear() { impl.clear(); }
+
+  // if all elements have been relocated out of this sequence then don't
+  // destroy them (it would not only be inefficient, but incorrect).
+  // Note that this is all or none: i.e. they better all be relocated for
+  // this function, or none for the standard destructor or clear().
+  void clear_relocated() { impl.clear_relocated(); }
   
   void resize(size_t new_size, const value_type& v = value_type()) {
     auto current = size();

@@ -715,9 +715,8 @@ auto flatten(const R& r) {
 // this one does a move in the assign_uninitialized.
 // If there was a way to clear a sequence withoud destructor 
 //    then could relocate to the destination, saving a bunch of writes
-template <PARLAY_RANGE_TYPE R>
-auto flatten(R&& r) {
-  using T = range_value_type_t<range_value_type_t<R>>;
+template <typename T>
+auto flatten(sequence<sequence<T>>&& r) {
   auto offsets = tabulate(parlay::size(r),
     [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
   size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
@@ -726,9 +725,12 @@ auto flatten(R&& r) {
       auto dit = std::begin(res)+offsets[i];
       auto sit = std::begin(it[i]);
       parallel_for(0, parlay::size(it[i]), [=] (size_t j) {
-	  assign_uninitialized(*(dit+j), std::move(*(sit+j))); },
+					     //assign_uninitialized(*(dit+j), std::move(*(sit+j))); },
+					     uninitialized_relocate((dit+j), (sit+j)); },
 	1000);
+      it[i].clear_relocated();
   });
+  r.clear();
   return res;
 }
 

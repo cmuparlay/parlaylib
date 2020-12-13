@@ -129,7 +129,7 @@ namespace block_delayed {
     return scan_(S, m, true).first;}
 
   template <typename IDS, typename Monoid>
-  long reduce(block_delayed_sequence<IDS> const &A, Monoid const &m) {
+  auto reduce(block_delayed_sequence<IDS> const &A, Monoid const &m) {
     auto sums = internal::map(A.sub_ranges, [&] (auto iter) {
 	return stream_delayed::reduce(m.f, m.identity, iter);});
     return internal::reduce(sums, m);
