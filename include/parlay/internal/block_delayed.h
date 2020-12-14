@@ -108,14 +108,21 @@ namespace block_delayed {
 
   template <typename Seq, typename Monoid>
   auto scan_(Seq const &S, Monoid const &m, bool inclusive) {
+    using T = typename Seq::value_type; 
     auto iters = make_iterators(S);
-    auto sums = internal::map(iters, [&] (auto iter) {
-	return stream_delayed::reduce(m.f, m.identity, iter);});
-    auto r = internal::scan(sums, m);
-    auto iters2 = internal::tabulate(iters.size(), [&] (size_t i) {
-	return stream_delayed::scan(m.f, (r.first)[i], iters[i], inclusive);}, 1);
+    size_t num_blocks = iters.size();
+    sequence<T> offsets;
+    T total = m.identity;
+    // if only one block and inclusive then can skip first phase
+    if (!(num_blocks == 1 && inclusive)) {
+      auto sums = internal::map(iters, [&] (auto iter) {
+	 return stream_delayed::reduce(m.f, m.identity, iter);});
+      std::tie(offsets, total) = internal::scan(sums, m);
+    } else offsets = sequence<T>(1, m.identity);
+    auto iters2 = internal::tabulate(num_blocks, [&] (size_t i) {
+	return stream_delayed::scan(m.f, offsets[i], iters[i], inclusive);}, 1);
     auto bls = block_delayed_sequence(std::move(iters2), S.size());
-    return std::pair(std::move(bls), r.second);
+    return std::pair(std::move(bls), inclusive ? m.identity : total);
   }
 
   // does not work if input is parlay-delayed for some reason

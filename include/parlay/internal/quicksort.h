@@ -10,6 +10,8 @@
 #include "uninitialized_storage.h"
 #include "uninitialized_sequence.h"
 #include "sequence_ops.h"
+#include "counting_sort.h"
+#include "sequence_ops.h"
 
 #include "../utilities.h"
 
@@ -180,11 +182,11 @@ void quicksort(slice<Iterator, Iterator> A, const BinPred& f) {
 
 // ---------------  Not currently tested or used ----------------
 
-template <class SeqA, class BinPred, typename Iterator>
-std::tuple<size_t, size_t, bool> p_split3(SeqA const& A,
+template <class assignment_tag, class Iterator, class BinPred>
+std::tuple<size_t, size_t, bool> p_split3(slice<Iterator, Iterator> A,
                                           slice<Iterator, Iterator> B,
                                           const BinPred& f) {
-  using E = typename SeqA::value_type;
+  using E = typename std::iterator_traits<Iterator>::value_type;
   size_t n = A.size();
   sort5(A.begin(), n, f);
   E p1 = A[1];
@@ -192,14 +194,18 @@ std::tuple<size_t, size_t, bool> p_split3(SeqA const& A,
   if (!f(A[0], A[1])) p1 = p2;  // if few elements less than p1, then set to p2
   if (!f(A[3], A[4]))
     p2 = p1;  // if few elements greater than p2, then set to p1
-  auto flag = [&](size_t i) { return f(A[i], p1) ? 0 : f(p2, A[i]) ? 2 : 1; };
-  auto r = split_three(A, make_slice(B), delayed_seq<unsigned char>(n, flag),
-                       fl_conservative);
-  return std::make_tuple(r.first, r.first + r.second, !f(p1, p2));
-  // sequence<size_t> r = count_sort(A, B.slice(),
-  //				    delayed_seq<unsigned char>(n, flag), 3,
-  //true);
-  // return std::make_tuple(r[0],r[0]+r[1], !f(p1,p2));
+  if (true) {
+    auto flag = [&](size_t i) { return f(A[i], p1) ? 0 : f(p2, A[i]) ? 2 : 1; };
+    auto r = split_three<assignment_tag>(A, make_slice(B),
+					 make_slice(delayed_seq<unsigned char>(n, flag)),
+					 fl_conservative);
+    return std::make_tuple(r.first, r.first + r.second, !f(p1, p2));
+  } else { // currently not used 
+    auto buckets = dseq(n, [&] (size_t i) {
+	    return f(A[i], p1) ? 0 : f(p2, A[i]) ? 2 : 1; });
+    auto r = count_sort<assignment_tag>(A, B, make_slice(buckets), 3, .9);
+    return std::make_tuple(r.first[0], r.first[0] + r.first[1], !f(p1, p2));
+  } 
 }
 
 // The fully parallel version copies back and forth between two arrays
@@ -209,7 +215,7 @@ std::tuple<size_t, size_t, bool> p_split3(SeqA const& A,
 //     In and Out cannot be the same (Out is needed as temp space)
 // cut_size: is when to revert to  quicksort.
 //    If -1 then it uses a default based on number of threads
-template <typename InIterator, typename OutIterator, typename F>
+template <typename assignment_tag, typename InIterator, typename OutIterator, typename F>
 void p_quicksort_(slice<InIterator, InIterator> In,
                   slice<OutIterator, OutIterator> Out,
                   const F& f,
@@ -220,45 +226,38 @@ void p_quicksort_(slice<InIterator, InIterator> In,
     cut_size = std::max<long>((3 * n) / num_workers(), (1 << 14));
   if (n < (size_t)cut_size) {
     quicksort(In.begin(), n, f);
-    auto copy_out = [&](size_t i) { Out[i] = In[i]; };
-    if (!inplace) parallel_for(0, n, copy_out, 2000);
+    if (!inplace)
+      parallel_for(0, n, [&] (size_t i) {
+         assign_dispatch(Out[i], In[i], assignment_tag()); }, 2000);
   } else {
     size_t l, m;
     bool mid_eq;
-    std::tie(l, m, mid_eq) = p_split3(In, Out, f);
+    std::tie(l, m, mid_eq) = p_split3<assignment_tag>(In, Out, f);
     par_do3(
         [&]() {
-          p_quicksort_(Out.cut(0, l), In.cut(0, l), f, !inplace, cut_size);
+          p_quicksort_<assignment_tag>(Out.cut(0, l), In.cut(0, l), f, !inplace, cut_size);
         },
         [&]() {
           auto copy_in = [&](size_t i) { In[i] = Out[i]; };
           if (!mid_eq)
-            p_quicksort_(Out.cut(l, m), In.cut(l, m), f, !inplace,
+            p_quicksort_<assignment_tag>(Out.cut(l, m), In.cut(l, m), f, !inplace,
                          cut_size);
           else if (inplace)
             parallel_for(l, m, copy_in, 2000);
         },
         [&]() {
-          p_quicksort_(Out.cut(m, n), In.cut(m, n), f, !inplace, cut_size);
+          p_quicksort_<assignment_tag>(Out.cut(m, n), In.cut(m, n), f, !inplace, cut_size);
         });
   }
-}
-
-  // currently does not compile because p_quicksort_ can write to In if inplance flag is true
-  // need to make it a compile time test
-template <class SeqA, class F>
-sequence<typename SeqA::value_type> p_quicksort(SeqA const& In, const F& f) {
-  using T = typename SeqA::value_type;
-  sequence<T> Out(In.size());
-  p_quicksort_(make_slice(In), make_slice(Out), f);
-  return Out;
 }
 
 template <typename Iterator, class F>
 void p_quicksort_inplace(slice<Iterator, Iterator> In, const F& f) {
   using value_type = typename slice<Iterator, Iterator>::value_type;
+
   auto Tmp = uninitialized_sequence<value_type>(In.size());
-  p_quicksort_(In, make_slice(Tmp), f, true);
+  p_quicksort_<uninitialized_move_tag>(In, make_slice(Tmp), f, true);
+  //p_quicksort_<uninitialized_relocate_tag>(In, make_slice(Tmp), f, true);
 }
 
 }  // namespace internal
