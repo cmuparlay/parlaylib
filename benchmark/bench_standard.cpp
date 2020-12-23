@@ -7,6 +7,8 @@
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
+#include <parlay/io.h>
+#include "trigram_words.h"
 
 using benchmark::Counter;
 
@@ -345,6 +347,22 @@ static void bench_sort(benchmark::State& state) {
   REPORT_STATS(n, 0, 0);
 }
 
+template<>
+void bench_sort<parlay::sequence<char>>(benchmark::State& state) {
+  using T = parlay::sequence<char>;
+  size_t n = state.range(0);
+  ngram_table words;
+  auto in = parlay::tabulate(n, [&] (size_t i) -> T {return words.word(i);});
+
+  while (state.KeepRunningBatch(10)) {
+    for (int i = 0; i < 10; i++) {
+      RUN_AND_CLEAR(parlay::internal::sample_sort(parlay::make_slice(in), std::less<T>()));
+    }
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
 template<typename T>
 static void bench_sort_inplace(benchmark::State& state) {
   size_t n = state.range(0);
@@ -503,6 +521,21 @@ static void bench_count_by_key(benchmark::State& state) {
   REPORT_STATS(n, 0, 0);
 }
 
+template<>
+void bench_count_by_key<parlay::sequence<char>>(benchmark::State& state) {
+  using T = parlay::sequence<char>;
+  size_t n = state.range(0);
+  ngram_table words;
+  auto S = parlay::tabulate(n, [&] (size_t i) {return words.word(i);});
+  parlay::sequence<T> Tmp;
+  for (auto _ : state) {
+    COPY_NO_TIME(Tmp, S);
+    RUN_AND_CLEAR(parlay::count_by_key(std::move(Tmp)));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
 template<typename T>
 static void bench_remove_duplicates(benchmark::State& state) {
   size_t n = state.range(0);
@@ -519,6 +552,20 @@ static void bench_remove_duplicates(benchmark::State& state) {
   REPORT_STATS(n, 0, 0);
 }
 
+template<>
+void bench_remove_duplicates<parlay::sequence<char>>(benchmark::State& state) {
+  using T = parlay::sequence<char>;
+  size_t n = state.range(0);
+  ngram_table words;
+  auto S = parlay::tabulate(n, [&] (size_t i) {return words.word(i);});
+  parlay::sequence<T> Tmp;
+  for (auto _ : state) {
+    COPY_NO_TIME(Tmp, S);
+    RUN_AND_CLEAR(parlay::remove_duplicates(std::move(Tmp)));
+  }
+  REPORT_STATS(n, 0, 0);
+}
+
 template<typename T>
 static void bench_group_by_key(benchmark::State& state) {
   size_t n = state.range(0);
@@ -531,6 +578,23 @@ static void bench_group_by_key(benchmark::State& state) {
 
   for (auto _ : state) {
     RUN_AND_CLEAR(parlay::group_by_key(S, hash, equal));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<>
+void bench_group_by_key<parlay::sequence<char>>(benchmark::State& state) {
+  using T = parlay::sequence<char>;
+  using par = std::pair<T,size_t>;
+  size_t n = state.range(0);
+  ngram_table words;
+  auto S = parlay::tabulate(n, [&] (size_t i) {
+      return par(words.word(i), i);});
+  parlay::sequence<par> Tmp;
+  for (auto _ : state) {
+    COPY_NO_TIME(Tmp, S);
+    RUN_AND_CLEAR(parlay::group_by_key(std::move(Tmp)));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -608,6 +672,7 @@ BENCH(integer_sort_128, __int128, 100000000);
 BENCH(sort, unsigned int, 100000000);
 BENCH(sort, long, 100000000);
 BENCH(sort, __int128, 100000000);
+BENCH(sort, parlay::sequence<char>, 100000000);
 BENCH(sort_inplace, unsigned int, 100000000);
 BENCH(sort_inplace, long, 100000000);
 BENCH(sort_inplace, __int128, 100000000);
@@ -628,4 +693,6 @@ BENCH(count_by_key, unsigned long, 100000000);
 BENCH(remove_duplicates, unsigned long, 100000000);
 BENCH(group_by_key, unsigned long, 100000000);
 BENCH(group_by_key_sorted, unsigned long, 100000000);
-
+BENCH(count_by_key, parlay::sequence<char>, 100000000);
+BENCH(remove_duplicates, parlay::sequence<char>, 100000000);
+BENCH(group_by_key, parlay::sequence<char>, 100000000);

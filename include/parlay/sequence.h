@@ -199,7 +199,12 @@ struct _sequence_base {
 
     // Destroy a sequence backend
     ~_sequence_impl() {
-      clear();
+      if (!is_small()) {
+        destroy_all();
+        auto alloc = get_raw_allocator();
+        _data.long_mode.buffer.free_buffer(alloc);
+      }
+      //clear();
     }
 
     // Move the contents of other into this sequence
@@ -213,9 +218,11 @@ struct _sequence_base {
       // sequences, this will copy their buffer pointer
       // and size.
       std::memcpy(static_cast<void*>(this), &other, sizeof(*this));         // NOLINT
-      
-      other._data.flag = 0;
-      other._data.small_n = 0;
+
+      if (!is_small()) {
+	other._data.flag = 0;
+	other._data.small_n = 0;
+      }
     }
 
     // Call the destructor on all elements
@@ -891,7 +898,8 @@ class sequence : protected _sequence_base<T, Allocator> {
   // destroy them (it would not only be inefficient, but incorrect).
   // Note that this is all or none: i.e. they better all be relocated for
   // this function, or none for the standard destructor or clear().
-  void clear_relocated() { impl.clear_relocated(); }
+  // It is not a member function, so as to discourage its use by naive users.
+  friend void clear_relocated(sequence &S) { S.impl.clear_relocated(); }
   
   void resize(size_t new_size, const value_type& v = value_type()) {
     auto current = size();

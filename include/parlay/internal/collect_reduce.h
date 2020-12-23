@@ -231,9 +231,10 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
   return sums_s;
 }
 
-  template <typename Slice, typename Helper>
+  template <typename assignment_tag, typename Slice, typename Helper>
   auto seq_collect_reduce_sparse(Slice A, Helper const &helper) {
     size_t table_size = 1.5 * A.size();
+    //using in_type = typename Helper::in_type;
     using key_type = typename Helper::key_type;
     using result_type = typename Helper::result_type;
 
@@ -249,12 +250,22 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
       size_t k = ((size_t) helper.hash(key)) % table_size;
       while (flags[k] && !helper.equal(helper.get_key(table[k]), key))
 	k = (k + 1 == table_size) ? 0 : k + 1;
-      if (flags[k]) helper.update(table[k], A[j]);
-      else {
+      if (flags[k]) {
+	helper.update(table[k], A[j]);
+	// if relocating input need to destruct key
+	if constexpr (std::is_same<assignment_tag,uninitialized_relocate_tag>::value)
+           helper.get_key(A[j]).~key_type();
+      } else {
 	flags[k] = true;
 	count++;
-	assign_uninitialized(table[k], helper.make(A[j]));
+	helper.init(table[k], A[j]);
+	assign_dispatch(helper.get_key(table[k]),
+			helper.get_key(A[j]),
+			assignment_tag());
       }
+      // if relocating input need to destruct value
+      if constexpr (std::is_same<assignment_tag,uninitialized_relocate_tag>::value)
+	 helper.destruct_val(A[j]);
     }
 
     // pack non-empty entries of table into result sequence
@@ -271,14 +282,13 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
 // this one is for more buckets than the length of A (i.e. sparse)
 //  A is a sequence of key-value pairs
 //  monoid has fields m.identity and m.f (a binary associative function)
-template <typename Slice, typename Helper>
-auto collect_reduce_sparse(Slice A, Helper const &helper) {
+template <typename assignment_tag, typename Slice, typename Helper>
+auto collect_reduce_sparse_(Slice A, Helper const &helper) {
   timer t("collect reduce sparse", false);
-  using in_type = typename Helper::in_type;
-  //using key_type = typename Helper::key_type;
+  using in_type = std::remove_const_t<typename Helper::in_type>;
   size_t n = A.size();
 
-  if (n < 10000) return seq_collect_reduce_sparse(A, helper);
+  if (n < 10000) return seq_collect_reduce_sparse<assignment_tag>(A, helper);
   
   // #bits is selected so each block fits into L3 cache
   //   assuming an L3 cache of size 1M per thread
@@ -294,23 +304,28 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
   // others share a bucket.
   auto gb = get_bucket<Helper>(A, helper, bits);
     
-  // first buckets based on hash using an integer sort
-  // Guy : could possibly just use counting sort.  Would avoid needing tmp
-  auto B = sequence<in_type>::uninitialized(n);
-  uninitialized_sequence<in_type> Tmp(n); 
-  sequence<size_t> bucket_offsets =
-    integer_sort_<std::false_type, uninitialized_copy_tag>(
-      make_slice(A), make_slice(B), make_slice(Tmp), gb, bits, num_buckets);
+  // first bucket based on hash using an integer sort
+  uninitialized_sequence<in_type> B(n);
+  auto keys = delayed_tabulate(n, [&] (size_t i) {return gb(A[i]);});
+  auto bucket_offsets =
+    count_sort<assignment_tag>(make_slice(A), make_slice(B),
+			       make_slice(keys), num_buckets).first;
   t.next("integer sort");
-
+  // all buckets up to heavy_cutoff have a single key in them
   uint heavy_cutoff = gb.heavy_hitters;
 
-  // now in parallel process each bucket sequentially, returning a packed sequence
+  // now in parallel process each bucket sequentially, returning a sequence
   // of the results within that bucket
+  // Note that all elements of B need to be destructed within this code
+  // since no destructor will be called on B after it.
   auto tables = tabulate(num_buckets, [&] (size_t i) {
-      auto block = B.cut(bucket_offsets[i], bucket_offsets[i+1]);				
-      if (i < heavy_cutoff) return sequence(1,helper.reduce(block));
-      else return seq_collect_reduce_sparse(block, helper);
+      auto block = make_slice(B).cut(bucket_offsets[i], bucket_offsets[i+1]);				
+      if (i < heavy_cutoff) { 
+	auto a = sequence(1,helper.reduce(block));
+	if constexpr (!std::is_trivially_destructible_v<in_type>)  
+           parallel_for(0, block.size(), [&] (size_t i) {block[i].~in_type();}, 1000);
+	return a;
+      } else return seq_collect_reduce_sparse<uninitialized_relocate_tag>(block, helper);
     }, 1);
   t.next("block hash");
 
@@ -318,12 +333,48 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
   return flatten(std::move(tables));
 }
 
+template <typename T, typename Helper>
+auto collect_reduce_sparse(sequence<T> &&A, Helper const &helper) {
+  auto r = collect_reduce_sparse_<uninitialized_relocate_tag>(make_slice(A), helper);
+  clear_relocated(A);
+  return r;
+}
+
+template <typename Range, typename Helper>
+auto collect_reduce_sparse(Range const &A, Helper const &helper) {
+  return collect_reduce_sparse_<uninitialized_copy_tag>(make_slice(A), helper);
+}  
+  
 } // namespace internal
 
   // ***************************************
   // User facing interface below here
   // ***************************************
-  
+
+  template <typename arg_type, typename Monoid, typename Hash, typename Equal>
+  struct reduce_by_key_helper {
+    using in_type = arg_type;
+    using key_type = typename in_type::first_type;
+    using value_type = typename in_type::second_type;
+    using result_type = in_type;
+    Monoid monoid; Hash hash; Equal equal;
+    reduce_by_key_helper(Monoid const &m, Hash const &h, Equal const &e) : 
+      monoid(m), hash(h), equal(e) {};
+    static const key_type& get_key(in_type const &p) { return p.first;}
+    static key_type& get_key(in_type &p) { return p.first;}
+    void init(result_type &p, in_type const &kv) const {
+      assign_uninitialized(p.second, kv.second);}
+    void update(result_type &p, in_type const &kv) const {
+      p.second = monoid.f(p.second, kv.second); }
+    static void destruct_val(in_type &kv) {kv.second.~value_type();}
+    template <typename Range>
+    result_type reduce(Range &S) const {
+      auto &key = S[0].first;
+      auto sum = internal::reduce(delayed_map(S, [&] (in_type const &kv) {
+						   return kv.second;}), monoid);
+      return result_type(key, sum);}
+  };
+
   // Takes a range of <key_type,value_type> pairs and returns a sequence of
   // the same type, but with equal keys combined into a single element.
   // Values are combined with a monoid, which must be on the value type.
@@ -332,52 +383,60 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
   	    typename Monoid,
   	    typename Hash = std::hash<typename range_value_type_t<R>::first_type>,
   	    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
-  auto reduce_by_key(R const &A, Monoid const &monoid, Hash hash = {}, Equal equal = {}) { 
-    struct helper {
-      using in_type = range_value_type_t<R>;
-      using key_type = typename in_type::first_type;
-      using result_type = in_type;
-      Monoid monoid; Hash hash; Equal equal;
-      helper(Monoid const &m, Hash const &h, Equal const &e) : 
-	monoid(m), hash(h), equal(e) {};
-      static result_type make(in_type const &kv) { return kv;}
-      static const key_type& get_key(in_type const &p) { return p.first;}
-      void update(result_type &p, in_type const &v) const {
-	p.second = monoid.f(p.second, v.second); }
-      result_type reduce(slice<in_type*,in_type*> &S) const {
-	auto &key = S[0].first;
-	auto sum = internal::reduce(delayed_map(S, [&] (in_type const &kv) {
-			return kv.second;}), monoid);
-	return result_type(key, sum);}
-    };
-    return internal::collect_reduce_sparse(make_slice(A), helper{monoid, hash, equal});
+  auto reduce_by_key(R &&A, Monoid const &monoid, Hash hash = {}, Equal equal = {}) { 
+    auto helper = reduce_by_key_helper<range_value_type_t<R>,Monoid,Hash,Equal>{monoid,hash,equal};
+    return internal::collect_reduce_sparse(std::forward<R>(A), helper);
   }
+
+  template <typename arg_type, typename Hash, typename Equal>
+  struct group_by_key_helper {
+    using in_type = arg_type;
+    using key_type = typename in_type::first_type;
+    using val_type = typename in_type::second_type;
+        using seq_type = sequence<val_type>;
+    using result_type = std::pair<key_type,seq_type>;
+    Hash hash; Equal equal;
+    group_by_key_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
+    static const key_type& get_key(in_type const &p) { return p.first;}
+    static key_type& get_key(in_type &p) { return p.first;}
+    static key_type& get_key(result_type &p) {return p.first;}
+    static void init(result_type &p, in_type const &kv) {
+      assign_uninitialized(p.second,sequence(1, kv.second));}
+    static void update(result_type &p, in_type const &kv) {
+      p.second.push_back(kv.second); }
+    static void destruct_val(in_type &kv) {kv.second.~val_type();}
+    template <typename Range>
+    static result_type reduce(Range &S) {
+      auto &key = S[0].first;
+      auto vals = map(S, [&] (in_type const &kv) {return kv.second;});
+      return result_type(key, vals);}
+  };
 
   template <PARLAY_RANGE_TYPE R,
   	    typename Hash = std::hash<typename range_value_type_t<R>::first_type>,
   	    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
-  auto group_by_key(R const &A, Hash hash = {}, Equal equal = {}) { 
-    struct helper {
-      using in_type = range_value_type_t<R>;
-      using key_type = typename in_type::first_type;
-      using val_type = typename in_type::second_type;
-      using seq_type = sequence<val_type>;
-      using result_type = std::pair<key_type,seq_type>;
-      Hash hash; Equal equal;
-      helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
-      static result_type make(in_type const &kv) {
-	return std::pair(kv.first,sequence(1,kv.second));}
-      static const key_type& get_key(in_type const &p) { return p.first;}
-      static const key_type& get_key(result_type const &p) {return p.first;}
-      void update(result_type &p, in_type const &v) const {
-	p.second.push_back(v.second); }
-      result_type reduce(slice<in_type*,in_type*> &S) const {
-	auto &key = S[0].first;
-	auto vals = map(S, [&] (in_type const &kv) {return kv.second;});
-	return result_type(key, vals);}
-    };
-    return internal::collect_reduce_sparse(make_slice(A), helper{hash, equal});
+  auto group_by_key(R &&A, Hash hash = {}, Equal equal = {}) {
+    auto helper = group_by_key_helper<range_value_type_t<R>,Hash,Equal>{hash,equal};
+    return internal::collect_reduce_sparse(std::forward<R>(A), helper);
   }
+
+  template <typename arg_type, typename sum_type, typename Hash, typename Equal>
+  struct count_by_key_helper {
+    using in_type = arg_type;
+    using key_type = in_type;
+    using val_type = sum_type;
+    using result_type = std::pair<key_type,val_type>;
+    Hash hash; Equal equal;
+    count_by_key_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
+    static const key_type& get_key(in_type const &k) {return k;}
+    static key_type& get_key(in_type &k) {return k;}
+    static key_type& get_key(result_type &p) {return p.first;}
+    static void init(result_type &p, in_type const&) {p.second = 1;}
+    static void update(result_type &p, in_type const&) {p.second += 1;}
+    static void destruct_val(in_type &) {}
+    template <typename Range>
+    static result_type reduce(Range &S) {return result_type(S[0], S.size());}
+  };
 
   // Returns a sequence of <R::value_type,sum_type> pairs, each consisting of
   // a unique value from the input, and the number of times it appears.
@@ -387,48 +446,40 @@ auto collect_reduce_sparse(Slice A, Helper const &helper) {
 	    typename Hash = std::hash<range_value_type_t<R>>,
 	    typename Equal = std::equal_to<range_value_type_t<R>>>
   sequence<std::pair<range_value_type_t<R>,sum_type>>
-  count_by_key(R const &A, Hash hash = {}, Equal equal = {}) { 
-    struct helper {
-      using in_type = range_value_type_t<R>;
-      using key_type = in_type;
-      using val_type = sum_type;
-      using result_type = std::pair<key_type,val_type>;
-      Hash hash; Equal equal;
-      helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
-      static inline result_type make(in_type const &k) {
-	return result_type(k,1);}
-      static const key_type& get_key(in_type const &k) {return k;}
-      static const key_type& get_key(result_type const &p) {return p.first;}
-      static void update(result_type &p, in_type const&) {p.second += 1;}
-      static result_type reduce(slice<in_type*,in_type*> &S) {
-	return result_type(S[0], S.size());}
-    };
-    return internal::collect_reduce_sparse(make_slice(A), helper{hash,equal});
+  count_by_key(R &&A, Hash hash = {}, Equal equal = {}) { 
+    auto helper = count_by_key_helper<range_value_type_t<R>,sum_type,Hash,Equal>{hash,equal};
+    return internal::collect_reduce_sparse(std::forward<R>(A), helper);
   }
 
   template <PARLAY_RANGE_TYPE R,
 	    typename Hash = std::hash<range_value_type_t<R>>,
 	    typename Equal = std::equal_to<range_value_type_t<R>>>
-  auto count_by_key(R const &A, Hash hash = {}, Equal equal = {}) { 
-    return count_by_key<size_t>(A, hash, equal);}
+  auto count_by_key(R &&A, Hash hash = {}, Equal equal = {}) { 
+    return count_by_key<size_t>(std::forward<R>(A), hash, equal);}
+
+  template <typename arg_type, typename Hash, typename Equal>
+  struct remove_duplicates_helper {
+    using in_type = arg_type;
+    using key_type = in_type;
+    using result_type = in_type;
+    Hash hash; Equal equal;
+    remove_duplicates_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
+    static const key_type& get_key(in_type const &k) { return k;}
+    static key_type& get_key(in_type &k) { return k;}
+    static void init(result_type &, in_type const&) {}
+    static void update(result_type &, in_type const&) {}
+    static void destruct_val(in_type &) {}
+    template <typename Range>
+    static result_type reduce(Range S) {return S[0];};
+  };
 
   // should be made more efficient by avoiding generating and then stripping counts
   template <PARLAY_RANGE_TYPE R,
 	    typename Hash = std::hash<range_value_type_t<R>>,
 	    typename Equal = std::equal_to<range_value_type_t<R>>>
-  auto remove_duplicates(const R& A, Hash hash = {}, Equal equal = {}) { 
-    struct helper {
-      using in_type = range_value_type_t<R>;
-      using key_type = in_type;
-      using result_type = in_type;
-      Hash hash; Equal equal;
-      helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
-      static inline result_type make(in_type const &k) {return k;}
-      static const key_type& get_key(in_type const &k) { return k;}
-      static void update(result_type &, in_type const&) {}
-      static result_type reduce(slice<in_type*,in_type*> S) {return S[0];};
-    };
-    return internal::collect_reduce_sparse(make_slice(A), helper{hash, equal});
+  auto remove_duplicates(R&& A, Hash hash = {}, Equal equal = {}) {
+    auto helper = remove_duplicates_helper<range_value_type_t<R>,Hash,Equal>{hash,equal};
+    return internal::collect_reduce_sparse(std::forward<R>(A), helper);
   }
 
   // Takes a range of <integer_key,value_type> pairs and returns a sequence of

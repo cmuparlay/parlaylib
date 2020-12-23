@@ -728,7 +728,7 @@ auto flatten(sequence<sequence<T>>&& r) {
 					     //assign_uninitialized(*(dit+j), std::move(*(sit+j))); },
 					     uninitialized_relocate((dit+j), (sit+j)); },
 	1000);
-      it[i].clear_relocated();
+      clear_relocated(it[i]);
   });
   r.clear();
   return res;

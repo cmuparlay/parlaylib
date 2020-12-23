@@ -48,9 +48,10 @@ void seq_write_(InSeq In, KeySeq Keys, OffsetIterator offsets, size_t num_bucket
   for (size_t i = 0; i < num_buckets; i++) local_offsets[i] = offsets[i];
   for (size_t j = 0; j < In.size(); j++) {
     oi k = local_offsets[Keys[j]]++;
-    // needs to be made portable, and safe
-    #ifdef PARLAY_PREFETCH
-    __builtin_prefetch (((char*) k) + 64);
+    // needs to be made portable
+    #if defined(__GNUC__) || defined(__clang__)
+    if constexpr (is_contiguous_iterator_v<oi>)
+       __builtin_prefetch (((char*) k) + 64);
     #endif
     assign_dispatch(*k, In[j], assignment_tag());
   }
@@ -113,7 +114,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                                               float parallelism = 1.0,
                                               bool skip_if_in_one = false) {
   timer t("count sort", false);
-  //using T = typename slice<InIterator, InIterator>::value_type;
+  using T = typename slice<InIterator, InIterator>::value_type;
   size_t n = In.size();
   size_t num_threads = num_workers();
   bool is_nested = parallelism < .5;
@@ -124,8 +125,8 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
   // size_t size_lower = 1;  // + n * sizeof(T) / 2000000;
   // size_t bucket_upper =
   //     1 + n * sizeof(T) / (4 * num_buckets * sizeof(s_size_t));
-  //size_t num_blocks = (std::min)(bucket_upper, (std::max)(par_lower, size_lower));
-  size_t num_blocks = 1 + n / std::max<size_t>(num_buckets * 100, 1000);
+  // size_t num_blocks = (std::min)(bucket_upper, (std::max)(par_lower, size_lower));
+  size_t num_blocks = 1 + n * sizeof(T) / std::max<size_t>(num_buckets * 500, 5000);
   
   // if insufficient parallelism, sort sequentially
   if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {
