@@ -265,16 +265,15 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
       }
       // if relocating input need to destruct value
       if constexpr (std::is_same<assignment_tag,uninitialized_relocate_tag>::value)
-	 helper.destruct_val(A[j]);
+        helper.destruct_val(A[j]);
     }
 
     // pack non-empty entries of table into result sequence
-    // ideally this would relocate instead of a move
     auto r_s = sequence<result_type>::uninitialized(count); 
     auto r = r_s.begin();
     size_t j = 0;
     for (size_t i = 0; i < table_size; i++) 
-      if (flags[i]) move_uninitialized(r[j++], table[i]);
+      if (flags[i]) uninitialized_relocate(&r[j++], &table[i]);
     assert(j == count);
     return r_s;
   }

@@ -493,13 +493,11 @@ static void bench_reduce_by_key(benchmark::State& state) {
   size_t n = state.range(0);
   using par = std::pair<T,T>;
   parlay::random r(0);
-  auto hash = [] (T a) -> size_t {return parlay::hash64_2(a);};
-  auto equal = [] (T a, T b) -> bool {return a == b;};
   auto S = parlay::tabulate(n, [&] (size_t i) -> par {
       return par((T) r.ith_rand(i) % (n/2), (T) 1);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::reduce_by_key(S, parlay::addm<T>(), hash, equal));
+    RUN_AND_CLEAR(parlay::reduce_by_key(S, parlay::addm<T>())); 
   }
 
   REPORT_STATS(n, 0, 0);
@@ -509,13 +507,11 @@ template<typename T>
 static void bench_count_by_key(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
-  auto hash = [] (T a) -> size_t {return parlay::hash64_2(a);};
-  auto equal = [] (T a, T b) -> bool {return a == b;};
   auto S = parlay::tabulate(n, [&] (size_t i) -> T {
       return r.ith_rand(i) % (n/2);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::count_by_key<T>(S, hash, equal));
+    RUN_AND_CLEAR(parlay::count_by_key<T>(S));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -540,13 +536,11 @@ template<typename T>
 static void bench_remove_duplicates(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
-  auto hash = [] (T a) -> size_t {return parlay::hash64_2(a);};
-  auto equal = [] (T a, T b) -> bool {return a == b;};
   auto S = parlay::tabulate(n, [&] (size_t i) -> T {
       return r.ith_rand(i) % (n/2);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::remove_duplicates(S, hash, equal));
+    RUN_AND_CLEAR(parlay::remove_duplicates(S)); 
   }
 
   REPORT_STATS(n, 0, 0);
@@ -571,13 +565,11 @@ static void bench_group_by_key(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   using par = std::pair<T,T>;
-    auto hash = [] (T a) -> size_t {return parlay::hash64_2(a);};
-  auto equal = [] (T a, T b) -> bool {return a == b;};
   auto S = parlay::tabulate(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i) % (n/20), i);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::group_by_key(S, hash, equal));
+    RUN_AND_CLEAR(parlay::group_by_key(S)); 
   }
 
   REPORT_STATS(n, 0, 0);

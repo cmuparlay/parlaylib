@@ -107,18 +107,18 @@ TEST(TestSequence, TestCopyAssign) {
 
 // Since SSO is disabled for non-trivial types,
 // this should be the same as copying
-TEST(TestSequence, TestSmallMove) {
-  auto s = parlay::sequence<int>{1,2};
-  ASSERT_EQ(s.size(), 2);
-  ASSERT_FALSE(s.empty());
-  auto s2 = parlay::sequence<int>(std::move(s));
-  ASSERT_TRUE(s.empty());
-  ASSERT_EQ(s2.size(), 2);
-  ASSERT_FALSE(s2.empty());
-  for (size_t i = 0; i < 2; i++) {
-    ASSERT_EQ(s2[i], i+1);
-  }
-}
+// TEST(TestSequence, TestSmallMove) {
+//   auto s = parlay::sequence<int>{1,2};
+//   ASSERT_EQ(s.size(), 2);
+//   ASSERT_FALSE(s.empty());
+//   auto s2 = parlay::sequence<int>(std::move(s));
+//   ASSERT_TRUE(s.empty());
+//   ASSERT_EQ(s2.size(), 2);
+//   ASSERT_FALSE(s2.empty());
+//   for (size_t i = 0; i < 2; i++) {
+//     ASSERT_EQ(s2[i], i+1);
+//   }
+// }
 
 TEST(TestSequence, TestCopyAssignOther) {
   auto s = parlay::sequence<int>{1,2,3,4,5,6};
