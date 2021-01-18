@@ -19,67 +19,51 @@ namespace internal {
 // the following parameters can be tuned
 constexpr const size_t CR_SEQ_THRESHOLD = 8192;
 
-template <typename Seq, typename OutSeq, class Helper>
-void seq_collect_reduce_few(Seq const &A, OutSeq &&Out, 
-			    Helper const &helper, size_t num_buckets) {
-  size_t n = A.size();
-  for (size_t i = 0; i < num_buckets; i++)
-    assign_uninitialized(Out[i], helper.init());
-  for (size_t j = 0; j < n; j++) {
+// Sequential version of collect_reduce
+// The helper must supply an init() function to initialize a bucket,
+// a get_key(.) function to extrat a key from an element of A, 
+// a get_val(.) function to extract a value from an element of A, and
+// a update(.,.) function to add in a new value into a bucket.
+// all keys must be less than num_buckets.
+template <typename Seq, class Helper>
+auto seq_collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
+  using result_type = decltype(helper.init());
+  sequence<result_type> Out(num_buckets, helper.init());
+  for (size_t j = 0; j < A.size(); j++) {
     size_t k = helper.get_key(A[j]);
+    assert(k < num_buckets);
     helper.update(Out[k], helper.get_val(A[j]));
   }
-}
-
-template <typename Seq, class Helper>
-auto seq_collect_reduce_few(Seq const &A, Helper const &helper, size_t num_buckets) {
-  using val_type = decltype(helper.init()); //typename Helper::val_type;
-  sequence<val_type> Out = sequence<val_type>::uninitialized(num_buckets);
-  seq_collect_reduce_few(A, Out, helper, num_buckets);
   return Out;
 }
 
-// This one is for few buckets (e.g. less than 2^16)
-//  A is a sequence of key-value pairs
-//  monoid has fields m.identity and m.f (a binary associative function)
-//  all keys must be smaller than num_buckets
+// This is for few buckets (e.g. less than 2^16)
 template <typename Seq, typename Helper>
 auto collect_reduce_few(Seq const &A, Helper const &helper, size_t num_buckets) {
-  using val_type = decltype(helper.init()); //typename Helper::val_type;
+  using result_type = decltype(helper.init()); 
   size_t n = A.size();
 
-  // pad to 16 buckets to avoid false sharing (does not affect results)
-  num_buckets = (std::max)(num_buckets, (size_t)16);
-
-  // size_t num_blocks = ceil(pow(n/num_buckets,0.5));
   size_t num_threads = num_workers();
-  size_t num_blocks = (std::min)(4 * num_threads, n / num_buckets / 64);
-
-  num_blocks = size_t{1} << log2_up(num_blocks);
-
-  sequence<val_type> Out(num_buckets);
+  size_t num_blocks = (std::min)(4 * num_threads, n / num_buckets / 64) + 1;
 
   // if insufficient parallelism, do sequentially
   if (n < CR_SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1)
-    return seq_collect_reduce_few(A, helper, num_buckets);
+    return seq_collect_reduce(A, helper, num_buckets);
 
+  // partial results for each block
   size_t block_size = ((n - 1) / num_blocks) + 1;
-  size_t m = num_blocks * num_buckets;
-
-  sequence<val_type> OutM = sequence<val_type>::uninitialized(m);
-
+  sequence<sequence<result_type>> Out(num_blocks);
   sliced_for(n, block_size, [&](size_t i, size_t start, size_t end) {
-    seq_collect_reduce_few(make_slice(A).cut(start, end),
-                           make_slice(OutM).cut(i * num_buckets, (i + 1) * num_buckets),
-                           helper, num_buckets);
+    Out[i] = seq_collect_reduce(make_slice(A).cut(start, end),
+				helper, num_buckets);
   });
   
-  parallel_for(0, num_buckets, [&](size_t i) {
-       auto o_val = helper.init();
+  // comibine partial results into total result
+  return tabulate(num_buckets, [&](size_t i) {
+       result_type o_val = helper.init();
        for (size_t j = 0; j < num_blocks; j++)
-	 helper.update(o_val, OutM[i + j * num_buckets]);
-       Out[i] = o_val; }, 1);
-  return Out;
+	 helper.update(o_val, Out[j][i]); 
+       return o_val; }, 1);
 }
 
 // The idea is to return a hash function that maps any items
@@ -109,6 +93,7 @@ struct get_bucket {
   get_bucket(Seq const &A, HashEq const &hasheq, size_t bits) : hasheq(hasheq) {
     size_t n = A.size();
     size_t num_buckets = size_t{1} << bits; 
+    int copy_cutoff = 5; // number of copies in sample to be considered a heavy hitter
     size_t num_samples = num_buckets;
     size_t table_size = 4 * num_samples;
     table_mask = table_size - 1;
@@ -133,12 +118,12 @@ struct get_bucket {
       }
     }
 
-    // add to the hash table if at least four copies and give added items
-    // consecutive numbers.   
+    // add to the hash table if at least copy_cutoff copies appear in sample
+    // give added items consecutive numbers.   
     heavy_hitters = 0;
     hash_table = sequence<KI>(table_size, std::make_pair(key_type(), -1));
     for (size_t i = 0; i < table_size; i++) {
-      if (hash_table_count[i].second > 2) {
+      if (hash_table_count[i].second + 2 > copy_cutoff) {
         key_type key = hash_table_count[i].first;
         size_t idx = hasheq.hash(key) & table_mask;
 	if (hash_table[idx].second == -1)
@@ -170,23 +155,21 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
   timer t("collect reduce", false);
   using T = typename Seq::value_type;
   size_t n = A.size();
-  //using key_type = typename Helper::key_type;
-  using val_type = decltype(helper.init()); //typename Helper::val_type;
+  //using val_type = typename Helper::val_type;
+  using result_type = decltype(helper.init()); 
   
   // #bits is selected so each block fits into L3 cache
   //   assuming an L3 cache of size 1M per thread
   // the counting sort uses 2 x input size due to copy
   size_t cache_per_thread = 1000000;
   size_t bits = std::max<size_t>(
-      log2_up(1 + 2 * (size_t) sizeof(T) * n / cache_per_thread), 4);
+      log2_up(1 + (2 * (size_t) sizeof(T) * n) / cache_per_thread), 4);
   size_t num_blocks = size_t{1} << bits;
-  
-  if (num_buckets <= 4 * num_blocks)
+
+  if (num_buckets <= 4 * num_blocks || n < CR_SEQ_THRESHOLD)
     return collect_reduce_few(A, helper, num_buckets);
 
-  // allocate results.  Shift is to align cache lines.
-  sequence<val_type> sums_s(num_buckets, helper.init());
-  auto sums = sums_s.begin();
+  // Shift is to align cache lines.
   constexpr size_t shift = 8 / sizeof(T);
 
   // Returns a map (hash) from key to block.
@@ -214,6 +197,10 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
     make_slice(A), make_slice(B), make_slice(Tmp), gb, bits, num_blocks);
   t.next("sort");
   
+  // results
+  sequence<result_type> sums_s(num_buckets, helper.init());
+  auto sums = sums_s.begin();
+
   // now process each block in parallel
   parallel_for(0, num_blocks, [&] (size_t i) {
     auto slice = B.cut(block_offsets[i], block_offsets[i + 1]);
@@ -223,10 +210,11 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
     else { // shared blocks
       for (size_t j = 0; j < slice.size(); j++) {
 	size_t k = helper.get_key(slice[j]);
+	assert(k < num_buckets);
 	helper.update(sums[k], helper.get_val(slice[j]));
       }
     }
-  }, 1);
+  });
   t.next("into tables");
   return sums_s;
 }
@@ -516,14 +504,15 @@ auto collect_reduce_sparse(Range const &A, Helper const &helper) {
     struct helper {
       using key_type = range_value_type_t<R>;
       using val_type = Integer_t;
+      size_t n;
       static key_type get_key(const key_type& a) { return a;}
       static val_type get_val(const key_type&) { return 1;}
       static val_type init() {return 0;}
-      static void update(val_type& d, val_type a) {d += a;}
+      void update(val_type& d, val_type a) const {d += a;}
       static void combine(val_type& d, slice<key_type*,key_type*> s) {
 	d = s.size();}
     };
-    return internal::collect_reduce(A, helper(), num_buckets);
+    return internal::collect_reduce(A, helper{A.size()}, num_buckets);
   }
 
   template <typename Integer_t, PARLAY_RANGE_TYPE R>

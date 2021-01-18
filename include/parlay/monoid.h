@@ -100,7 +100,7 @@ struct minm<std::pair<T1, T2>> {
   using T = std::pair<T1, T2>;
   minm() : identity(std::make_pair(highest<T1>(), highest<T2>())) {}
   T identity;
-  static T f(T a, T b) { return (std::max)(a, b); }
+  static T f(T a, T b) { return (std::min)(a, b); }
 };
 
 template <class TT>

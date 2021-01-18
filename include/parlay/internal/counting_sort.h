@@ -205,17 +205,8 @@ auto group_by_small_int(slice<InIterator, InIterator> In,
   timer t("group by small int", false);
   using T = typename slice<InIterator, InIterator>::value_type;
   size_t n = In.size();
-  size_t num_threads = num_workers();
-  double parallelism = 1.0;
   using s_size_t = size_t;
 
-  // pick number of blocks for sufficient parallelism but to make sure
-  // cost on counts is not to high (i.e. bucket upper).
-  // size_t par_lower = 1 + static_cast<size_t>(round(num_threads * parallelism * 9));
-  // size_t size_lower = 1;  // + n * sizeof(T) / 2000000;
-  // size_t bucket_upper =
-  //     1 + n * sizeof(T) / (4 * num_buckets * sizeof(s_size_t));
-  //size_t num_blocks = (std::min)(bucket_upper, (std::max)(par_lower, size_lower));
   size_t num_blocks = 1 + n * sizeof(T) / std::max<size_t>(num_buckets * 500, 5000);
   
   size_t block_size = ((n - 1) / num_blocks) + 1;

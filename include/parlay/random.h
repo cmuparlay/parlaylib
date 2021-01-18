@@ -110,7 +110,7 @@ auto random_shuffle(const R& In, random r = random()) {
 // same permutation will be generated every time by
 // the default seed
 template <typename _Integer>
-sequence<_Integer> random_permutation(size_t n, random r = random()) {
+sequence<_Integer> random_permutation(_Integer n, random r = random()) {
   auto id = sequence<_Integer>::from_function(n,
     [&] (_Integer i) -> _Integer { return i; });
   return random_shuffle(id, r);

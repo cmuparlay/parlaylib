@@ -368,7 +368,7 @@ size_t count_if(const R& r, UnaryPredicate p) {
 }
 
 template <PARLAY_RANGE_TYPE R, class T>
-size_t count(const R& r, T value) {
+size_t count(const R& r, const T& value) {
   return internal::count_if_index(parlay::size(r),
      [&] (size_t i) { return r[i] == value; });
 }
@@ -543,7 +543,7 @@ inline bool operator<(const sequence<T> &a,
 
 template <PARLAY_RANGE_TYPE R, typename BinaryPredicate>
 auto unique(const R& r, BinaryPredicate eq) {
-  auto b = delayed_seq<bool>(
+  auto b = tabulate(
     parlay::size(r), [&eq, it = std::begin(r)](size_t i)
       { return (i == 0) || !eq(it[i], it[i - 1]); });
   return pack(r, b);

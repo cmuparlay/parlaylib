@@ -371,6 +371,7 @@ sequence<Tint> get_counts(slice<Iterator, Iterator> In, Get_Key const &g, size_t
 
 template <typename Tint = size_t, typename Iterator, typename Get_Key>
 auto integer_sort_with_counts(slice<Iterator, Iterator> In, Get_Key const &g, size_t num_buckets) {
+  assert(num_buckets > 0);
   size_t bits = log2_up(num_buckets);
   auto R = integer_sort(In, g, bits);
   return std::make_pair(std::move(R), get_counts<Tint>(make_slice(R), g, num_buckets));
