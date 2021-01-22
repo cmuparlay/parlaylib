@@ -70,14 +70,14 @@ private:
 
     void* a = (void*) ::operator new(alloc_size, std::align_val_t{large_align});
     if (a == nullptr) throw std::bad_alloc();
-    
+
     large_allocated += n;
     return a;
   }
 
   void deallocate_large(void* ptr, size_t n) {
     large_used -= n;
-    if (n > max_size) { 
+    if (n > max_size) {
       ::operator delete(ptr, std::align_val_t{large_align});
       large_allocated -= n;
     } else {
@@ -88,7 +88,7 @@ private:
   }
 
   const size_t small_alloc_block_size = (1 << 20);
-  
+
   pool_allocator(const pool_allocator&) = delete;
   pool_allocator(pool_allocator&&) = delete;
   pool_allocator& operator=(const pool_allocator&) = delete;
@@ -118,7 +118,7 @@ public:
       ::operator new(num_buckets * sizeof(struct block_allocator), std::align_val_t{alignof(block_allocator)} );
 
     size_t prev_bucket_size = 0;
-  
+
     for (size_t i = 0; i < num_small; i++) {
       size_t bucket_size = sizes[i];
       if (bucket_size < 8)
@@ -126,8 +126,8 @@ public:
       if (!(bucket_size > prev_bucket_size))
         throw std::invalid_argument("for small_allocator, bucket sizes must increase");
       prev_bucket_size = bucket_size;
-      new (static_cast<void*>(std::addressof(small_allocators[i]))) 
-      block_allocator(bucket_size, 0, small_alloc_block_size - 64); 
+      new (static_cast<void*>(std::addressof(small_allocators[i])))
+      block_allocator(bucket_size, 0, small_alloc_block_size - 64);
     }
   }
 
@@ -222,27 +222,23 @@ inline std::vector<size_t> default_sizes() {
 
 
 
-namespace internal {
-
 #ifndef PARLAY_USE_STD_ALLOC
+namespace internal {
 extern inline pool_allocator& get_default_allocator() {
   static pool_allocator default_allocator(default_sizes());
   return default_allocator;
 }
-#endif
 
-// pair of total currently used space, and total unused space the allocator has in reserve  
+// pair of total currently used space, and total unused space the allocator has in reserve
 extern inline std::pair<size_t,size_t> memory_usage() {
   return get_default_allocator().stats();
 }
 
-// pair of total currently used space, and total unused space the allocator has in reserve  
+// pair of total currently used space, and total unused space the allocator has in reserve
 extern inline void memory_clear() {
   return get_default_allocator().clear();
 }
-  
 }  // namespace internal
-
 
 // ****************************************
 // Following Matches the c++ Allocator specification (minimally)
@@ -269,37 +265,6 @@ template <class T, class U>
 bool operator==(const allocator<T>&, const allocator<U>&) { return true; }
 template <class T, class U>
 bool operator!=(const allocator<T>&, const allocator<U>&) { return false; }
-
-// ****************************************
-// Static allocator for single items of a given type, e.g.
-//   using long_allocator = type_allocator<long>;
-//   long* foo = long_allocator::alloc();
-//   *foo = (long) 23;
-//   long_allocator::free(foo);
-// Uses block allocator, and is headerless  
-// ****************************************
-
-template <typename T>
-class type_allocator {
-public:
-  static constexpr inline size_t default_alloc_size = 0;
-  static constexpr inline bool initialized = true;
-  static inline block_allocator allocator = block_allocator(sizeof(T));
-
-  static T* alloc() { return static_cast<T*>(allocator.alloc()); }
-  static void free(T* ptr) { allocator.free(static_cast<void*>(ptr)); }
-
-  // for backward compatibility
-  static void init(size_t, size_t) {};
-  static void init() {};
-  static void reserve(size_t n = default_alloc_size) { allocator.reserve(n); }
-  static void finish() { allocator.clear(); }
-  static size_t block_size () { return allocator.block_size(); }
-  static size_t num_allocated_blocks() { return allocator.num_allocated_blocks(); }
-  static size_t num_used_blocks() { return allocator.num_used_blocks(); }
-  static size_t num_used_bytes() { return num_used_blocks() * block_size(); }
-  static void print_stats() { allocator.print_stats(); }
-};
 
 constexpr size_t size_offset = 1; // in size_t sized words
 
@@ -328,6 +293,39 @@ extern inline void p_free(void* ptr) {
   internal::get_default_allocator().deallocate((void*) (((char*) ptr) - hsize),
                                                n + hsize);
 }
+#endif
+
+// ****************************************
+// Static allocator for single items of a given type, e.g.
+//   using long_allocator = type_allocator<long>;
+//   long* foo = long_allocator::alloc();
+//   *foo = (long) 23;
+//   long_allocator::free(foo);
+// Uses block allocator, and is headerless
+// ****************************************
+
+template <typename T>
+class type_allocator {
+public:
+  static constexpr inline size_t default_alloc_size = 0;
+  static constexpr inline bool initialized = true;
+  static inline block_allocator allocator = block_allocator(sizeof(T));
+
+  static T* alloc() { return static_cast<T*>(allocator.alloc()); }
+  static void free(T* ptr) { allocator.free(static_cast<void*>(ptr)); }
+
+  // for backward compatibility
+  static void init(size_t, size_t) {};
+  static void init() {};
+  static void reserve(size_t n = default_alloc_size) { allocator.reserve(n); }
+  static void finish() { allocator.clear(); }
+  static size_t block_size () { return allocator.block_size(); }
+  static size_t num_allocated_blocks() { return allocator.num_allocated_blocks(); }
+  static size_t num_used_blocks() { return allocator.num_used_blocks(); }
+  static size_t num_used_bytes() { return num_used_blocks() * block_size(); }
+  static void print_stats() { allocator.print_stats(); }
+};
+
 
 }  // namespace parlay
 
