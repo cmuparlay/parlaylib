@@ -39,11 +39,11 @@ message(STATUS "CMAKE_EXE_LINKER_FLAGS          ${CMAKE_CXX_LINKER_FLAGS}")
 message(STATUS "CMAKE_INSTALL_PREFIX:           ${CMAKE_INSTALL_PREFIX}" )
 
 # Set module path
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH "${PARLAY_SOURCE_DIR}/cmake")
 
 # -------------------------------------------------------------------
 #                       Library definition
-             
+
 add_library(parlay INTERFACE)
 set(PARLAY_INCLUDE_DIR "${PARLAY_SOURCE_DIR}/include")
 target_include_directories(parlay INTERFACE

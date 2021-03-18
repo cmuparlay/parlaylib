@@ -31,24 +31,20 @@
 namespace parlay {
 
 /* -------------------- Map and Tabulate -------------------- */
+// Pull all of these from internal/sequence_ops.h
 
 using internal::tabulate;
 
 // Return a sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
-template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
-  return tabulate(parlay::size(r), [&f, it = std::begin(r)](size_t i) {
-      return f(it[i]); }, granularity);
-}
+using internal::map;
 
 // Return a delayed sequence consisting of the elements
 //   f(0), f(1), ... f(n)
-template<typename F>
-auto delayed_tabulate(size_t n, F&& f) {
-  using T = decltype(f(n));
-  return delayed_seq<T, F>(n, std::forward<F>(f));
-}
+using internal::delayed_tabulate;
+
+// Deprecated. Renamed to delayed_map.
+using internal::dmap;
 
 // Return a delayed sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
@@ -57,20 +53,8 @@ auto delayed_tabulate(size_t n, F&& f) {
 // ownership of it by moving it. If r is a reference,
 // the delayed sequence will hold a reference to it, so
 // r must remain alive as long as the delayed sequence.
-// template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto delayed_map(R&& r, UnaryOp&& f) {
-  size_t n = parlay::size(r);
-  return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
-       (size_t i) { return f(std::begin(r)[i]); });
-}
+using internal::delayed_map;
 
-template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto delayed_map(R &r, UnaryOp&& f) {
-  size_t n = parlay::size(r);
-  return delayed_tabulate(n, [ri = std::begin(r), f = std::forward<UnaryOp>(f) ]
-       (size_t i) { return f(ri[i]); });
-}
 
 /* -------------------- Copying -------------------- */
 
@@ -563,8 +547,7 @@ auto min_element(R&& r, Compare comp) {
   auto SS = delayed_seq<size_t>(parlay::size(r), [&](size_t i) { return i; });
   auto f = [&comp, it = std::begin(r)](size_t l, size_t r)
     { return (!comp(it[r], it[l]) ? l : r); };
-  return std::begin(r) +
-    internal::reduce(make_slice(SS), make_monoid(f, (size_t)parlay::size(r)));
+  return std::begin(r) + internal::reduce(make_slice(SS), make_monoid(f, (size_t)parlay::size(r)));
 }
 
 template <PARLAY_RANGE_TYPE R>
@@ -767,19 +750,12 @@ auto map_tokens_old(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
       return sequence<f_return_type>();
     }
   }
-
-  // auto Flags = tabulate(n+1, [&] (size_t i) {
-  //     return ((i==0) ? !is_space(S[0]) :
-  // 	      (i==n) ? !is_space(S[n-1]) :
-  // 	      is_space(S[i-1]) != is_space(S[i]));});
-  //t.next("flags");
   
   //sequence<long> Locations = pack_index<long>(Flags);
   sequence<long> Locations = block_delayed::filter(iota<long>(n+1), [&] (size_t i) {
       return ((i==0) ? !is_space(S[0]) :
 	      (i==n) ? !is_space(S[n-1]) :
 	      is_space(S[i-1]) != is_space(S[i]));});
-  //t.next("pack index");
   
   // If f does not return anything, just apply f
   // to each token and don't return anything
@@ -793,7 +769,6 @@ auto map_tokens_old(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   else {
     auto x = tabulate(Locations.size()/2, [&] (size_t i) {
       return f(S.cut(Locations[2*i], Locations[2*i+1]));});
-    //t.next("final");
     return x;
   }
 }

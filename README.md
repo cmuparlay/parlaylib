@@ -255,23 +255,25 @@ Note that `operator==` is only well defined when the two slices refer to iterato
 ```c++
 template <
     typename T,
-    typename Allocator = parlay::allocator<T>
+    typename Allocator = parlay::allocator<T>,
+    bool EnableSSO = false
 > class sequence
 ```
 
-A **sequence** is a parallel version of `std::vector`. It supports the same operations, but performs all initialization, updates, and destruction in parallel. Sequences satisfiy the range concept. Like `std::vector`, it stores all elements contiguously, and hence it is well defined to operate on pointers to ranges of elements of the sequence.
+A **sequence** is a parallel version of `std::vector`. It supports the same operations, but performs all initialization, updates, and destruction in parallel. Sequences satisfiy the range concept. Like `std::vector`, it stores all elements contiguously, and hence it is well defined to operate on pointers to ranges of elements of the sequence. It optionally supports small-size optimization, where sequences of trivial types that fit inside the sequence object will be stored inline without performing any heap allocations. A convenience alias, `short_sequence<T, Allocator>`, is provided, which is equivalent to `sequence<T, Allocator, true>`.
 
 #### Template parameters
 
 * **T** is the type of the elements of the sequence. In general, elements of a sequence should be move constructible, but immobile types (e.g. `std::atomic`) can be used provided that no operations that could trigger a reallocation (e.g. push_back, resize, etc) are used. T must be *Erasable*, i.e. destructible.
 * **Allocator** is the allocator used to allocate/deallocate memory for the sequence. The `value_type` of the allocator must be `T`. By default, `parlay::allocator<T>` is used. To switch the default to `std::allocator<T>`, add the compile definition `PARLAY_USE_STD_ALLOC`
+* **EnableSSO** should be true to enable small-size optimization. This will only have an effect for trivial types that fit inside the sequence object (typically sequences of elements totalling at most 15 bytes).
 
 #### Constructors
 
 ```c++
 sequence()
-sequence(const sequence<T, Allocator>& s)
-sequence(sequence<T, Allocator>&& rv) noexcept
+sequence(const sequence& s)
+sequence(sequence&& rv) noexcept
 ```
 
 Constructs an empty sequence, a copy of the given sequence, or moves the given sequence respectively.
@@ -412,29 +414,29 @@ Function | Description
 Function | Description
 ---|---
 `iterator erase(iterator q1, iterator q2)` | Removes all elements in the iterator range `[q1, q2)` and returns a pointer to the element now at the position that was previously pointed to by `q1`
-`sequence<value_type> pop_tail(iterator p)` | Removes all elements of the sequence from that pointed to by `p` onwards and returns a new sequence consisting of the removed elements
-`sequence<value_type> pop_tail(size_type len)` | Removes the last `len` elements from the sequence and returns a new sequence consisting of the removed elements
+`sequence pop_tail(iterator p)` | Removes all elements of the sequence from that pointed to by `p` onwards and returns a new sequence consisting of the removed elements
+`sequence pop_tail(size_type len)` | Removes the last `len` elements from the sequence and returns a new sequence consisting of the removed elements
 
 **Miscelaneous**
 
 Function | Description
 ---|---
-`bool operator==(const sequence<T, Allocator>& other)` | Compare two sequences for equality
-`bool operator!=(const sequence<T, Allocator>& b)` | Compare two sequences for inequality
-`void swap(sequence<T, Allocator>& b)` | Swap the contents the sequence with another
-`sequence<T, Allocator>& operator=(sequence<T, Allocator> b)` | Copy and move assignment
-`sequence<T, Allocator>& operator=(std::initializer_list<value_type> l)` | Assignment from an initializer list
+`bool operator==(const sequence& other)` | Compare two sequences for equality
+`bool operator!=(const sequence& b)` | Compare two sequences for inequality
+`void swap(sequence& b)` | Swap the contents the sequence with another
+`sequence& operator=(sequence b)` | Copy and move assignment
+`sequence& operator=(std::initializer_list<value_type> l)` | Assignment from an initializer list
 
 #### Factories
 
 ```c++
-static sequence<T> sequence<T>::uninitialized(size_t n)
+sequence<T, Allocator, EnableSSO>::uninitialized(size_t n)
 ```
 
 Returns a sequence of size `n` containing uninitialized memory. If `T` is a non-trivial type, memory must be initialized before any operation that could resize, delete, or otherwise destroy any element of the sequence, or this will lead to undefined behaviour. Use with caution.
 
 ```c++
-static sequence<T> sequence<T>::from_function(size_t n, F&& f)
+sequence<T, Allocator, EnableSSO>::from_function(size_t n, F&& f)
 ```
 
 Returns a sequence consisting of elements of type `T` constructed from `f(0), f(1), ..., f(n-1)`.
@@ -445,7 +447,12 @@ Returns a sequence consisting of elements of type `T` constructed from `f(0), f(
 template<typename R>
 auto to_sequence(R&& r) -> sequence<range_value_type_t<R>>
 ```
-Return a sequence consisting of copies of the elements of the iterable range `r`.
+```c++
+template<typename R>
+auto to_short_sequence(R&& r) -> short_sequence<range_value_type_t<R>>
+```
+
+Return a sequence or short sequence respectively, consisting of copies of the elements of the iterable range `r`.
 
 ### Delayed Sequence
 
@@ -458,7 +465,7 @@ template<
 > class delayed_sequence;
 ```
 
-A delayed sequence is a lazy functional sequence that generates its elements on demand, rather than storing them in memory. A delayed sequence satisfies the range concept. The easiest way to construct a delayed sequence is to use the `delayed_seq` factory function.
+A delayed sequence is a lazy functional sequence that generates its elements on demand, rather than storing them in memory. A delayed sequence satisfies the range concept. The easiest way to construct a delayed sequence is to use the `delayed_tabulate` function (see below), since this avoids the need to explicitly specify the template parameters.
 
 **Example**
 
@@ -484,10 +491,10 @@ delayed_sequence(size_t _first, size_t _last, F _f)
 Constructs a delayed sequence that generates elements from the given function `_f`. Given `n`, the sequence consists of the elements `f(0), ..., f(n-1)`. Otherwise, given `_first` and `_last`, the sequence consists of the elements `f(_first), ... f(_last-1)`.
 
 ```c++
-delayed_sequence(const delayed_sequence<T, F>&)
-delayed_sequence(delayed_sequence<T, F>&&) noexcept
-delayed_sequence<T, F>& operator=(const delayed_sequence<T, F>&)
-delayed_sequence<T, F>& operator=(delayed_sequence<T, F>&&) noexcept
+delayed_sequence(const delayed_sequence&)
+delayed_sequence(delayed_sequence&&) noexcept
+delayed_sequence& operator=(const delayed_sequence&)
+delayed_sequence& operator=(delayed_sequence&&) noexcept
 ```
 The copy constructor and move constructor are viable provided that the underlying function object is copyable and movable respectively.
 
@@ -539,7 +546,7 @@ Function | Description
 
 Function | Description
 ---|---
-`void swap(delayed_sequence<T, F>& other)` | Swap this delayed sequence with another of the same type
+`void swap(delayed_sequence& other)` | Swap this delayed sequence with another of the same type
 
 ### Phase-concurrent Hashtable
 
@@ -565,7 +572,12 @@ template<typename UnaryOp>
 auto tabulate(size_t n, UnaryOp&& f)
 ```
 
-**tabulate** takes an integer n and and a function f of integers, and produces a sequence consisting of f(0), f(1), ..., f(n-1)
+```c++
+template<typename UnaryOp>
+auto delayed_tabulate(size_t n, UnaryOp&& f)
+```
+
+**tabulate** takes an integer n and and a function f of integers, and produces a sequence consisting of f(0), f(1), ..., f(n-1). **delayed_tabulate** does the same but returns a delayed sequence instead.
 
 ### Map
 
@@ -576,12 +588,12 @@ auto map(R&& r, UnaryOp&& f)
 
 ```c++
 template<parlay::Range R, typename UnaryOp>
-auto dmap(R&& r, UnaryOp&& f)
+auto delayed_map(R&& r, UnaryOp&& f)
 ```
 
 **map** takes a range `r` and a function `f` from the value type of that range, and produces the sequence consisting of `f(r[0]), f(r[1]), f(r[2]), ...`.
 
-**dmap** (Delayed map) is the same as map, but the resulting sequence is a delayed sequence. Note that **dmap** forwards the range argument to the closure owned by the delayed sequence, so if `r` is an rvalue reference, it will be moved into and owned by the delayed sequence. If it is an lvalue reference, the delayed sequence will only keep a reference to `r`, so `r` must remain alive as long as the delayed sequence does.
+**delayed_map** is the same as map, but the resulting sequence is a delayed sequence. Note that **delayed_map** forwards the range argument to the closure owned by the delayed sequence, so if `r` is an rvalue reference, it will be moved into and owned by the delayed sequence. If it is an lvalue reference, the delayed sequence will only keep a reference to `r`, so `r` must remain alive as long as the delayed sequence does.
 
 ### Copy
 
@@ -1073,9 +1085,11 @@ auto flatten(const R& r)
 ```c++
 template <parlay::Range R, typename UnaryPred = decltype(parlay::is_whitespace)>
 sequence<sequence<char>> tokens(const R& r, UnaryPred is_space = parlay::is_whitespace)
+```
 
+```c++
 template <parlay::Range R, typename UnaryOp,
-          typename UnaryPred =  decltype(parlay::is_whitespace)>
+          typename UnaryPred = decltype(parlay::is_whitespace)>
 auto map_tokens(const R& r, UnaryOp f, UnaryPred is_space = parlay::is_whitespace)
 ```
 
@@ -1094,7 +1108,9 @@ In essence, `map_tokens` is just equivalent to `parlay::map(parlay::tokens(r), f
 ```c++
 template <parlay::Range R, parlay::Range BoolRange>
 auto split_at(const R& r, const BoolRange& flags)
+```
 
+```c++
 template <parlay::Range R, parlay::Range BoolRange, typename UnaryOp>
 auto map_split_at(const R& r, const BoolRange& flags, UnaryOp f)
 ```
