@@ -6,12 +6,15 @@
 
 #include "../delayed_sequence.h"
 #include "../monoid.h"
+#include "../range.h"
 #include "../sequence.h"
 #include "../utilities.h"
 
 namespace parlay {
 namespace internal {
 
+// Return a sequence consisting of the elements
+//   f(0), f(1), ... f(n)
 template<typename UnaryOp>
 auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
   return sequence<typename std::remove_reference<
@@ -21,9 +24,20 @@ auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
     from_function(n, f, granularity);
 }
 
-template <typename Seq, typename UnaryFunc>
-auto map(Seq const &A, UnaryFunc f) -> sequence<decltype(f(A[0]))> {
-  return tabulate(A.size(), [&](size_t i) { return f(A[i]); });
+// Return a sequence consisting of the elements
+//   f(r[0]), f(r[1]), ..., f(r[n-1])
+template<PARLAY_RANGE_TYPE R, typename UnaryOp>
+auto map(R&& r, UnaryOp&& f) {
+  return tabulate(parlay::size(r), [&f, it = std::begin(r)](size_t i) {
+    return f(it[i]); });
+}
+
+// Return a delayed sequence consisting of the elements
+//   f(0), f(1), ... f(n)
+template<typename F>
+auto delayed_tabulate(size_t n, F&& f) {
+  using T = decltype(f(n));
+  return delayed_seq<T, F>(n, std::forward<F>(f));
 }
 
 template <class F>
@@ -32,15 +46,24 @@ auto dseq (size_t n, F f) -> delayed_sequence<decltype(f(0)),F> {
   return delayed_sequence<T,F>(n,f);
 }
 
-// delayed version of map
-// requires C++14 or greater, both since return type is not defined (a lambda)
-//   and for support of initialization of the closure lambda capture
-template <typename Seq, typename UnaryFunc>
-auto dmap(Seq &&A, UnaryFunc&& f) {
-  size_t n = A.size();
-  return dseq(n, [f=std::forward<UnaryFunc>(f),
-		  A=std::forward<Seq>(A)] (size_t i) {
-		return f(A[i]);});
+// Deprecated. Renamed to delayed_map.
+template<PARLAY_RANGE_TYPE R, typename UnaryOp>
+auto dmap(R&& r, UnaryOp&& f) {
+  size_t n = parlay::size(r);
+  return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
+      (size_t i) { return f(std::begin(r)[i]); });
+}
+
+// Return a delayed sequence consisting of the elements
+//   f(r[0]), f(r[1]), ..., f(r[n-1])
+//
+// If r is a temporary, the delayed sequence will take
+// ownership of it by moving it. If r is a reference,
+// the delayed sequence will hold a reference to it, so
+// r must remain alive as long as the delayed sequence.
+template<PARLAY_RANGE_TYPE R, typename UnaryOp>
+auto delayed_map(R&& r, UnaryOp&& f) {
+  return dmap(std::forward<R>(r), std::forward<UnaryOp>(f));
 }
 
 template <typename T>
@@ -388,7 +411,7 @@ auto split_two(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
   return std::make_pair(std::move(Out), m);
 }
 
-}
+}  // namespace internal
 }  // namespace parlay
 
 #endif  // PARLAY_SEQUENCE_OPS_H_

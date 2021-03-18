@@ -12,6 +12,15 @@
 // have a trivially relocatable allocator
 static_assert(parlay::is_trivially_relocatable_v<parlay::sequence<int, std::allocator<int>>>);
 static_assert(parlay::is_trivially_relocatable_v<parlay::sequence<int, parlay::allocator<int>>>);
+static_assert(parlay::is_trivially_relocatable_v<parlay::short_sequence<int, std::allocator<int>>>);
+static_assert(parlay::is_trivially_relocatable_v<parlay::short_sequence<int, parlay::allocator<int>>>);
+
+// With GNU packed structs, everything should fit into 16 bytes.
+#if defined(__GNUC__)
+static_assert(sizeof(parlay::sequence<int>) <= 16);
+static_assert(sizeof(parlay::short_sequence<int>) <= 16);
+#endif
+
 
 TEST(TestSequence, TestDefaultConstruct) {
   auto s = parlay::sequence<int>();
@@ -71,7 +80,7 @@ TEST(TestSequence, TestMoveConstructor) {
 }
 
 TEST(TestSequence, TestSmallConstruct) {
-  auto s = parlay::sequence<int>{1,2};
+  auto s = parlay::short_sequence<int>{1,2};
   ASSERT_EQ(s.size(), 2);
   ASSERT_FALSE(s.empty());
   for (size_t i = 0; i < 2; i++) {
@@ -80,10 +89,10 @@ TEST(TestSequence, TestSmallConstruct) {
 }
 
 TEST(TestSequence, TestSmallCopy) {
-  auto s = parlay::sequence<int>{1,2};
+  auto s = parlay::short_sequence<int>{1,2};
   ASSERT_EQ(s.size(), 2);
   ASSERT_FALSE(s.empty());
-  auto s2 = parlay::sequence<int>(s);
+  auto s2 = parlay::short_sequence<int>(s);
   ASSERT_EQ(s, s2);
   ASSERT_EQ(s2.size(), 2);
   ASSERT_FALSE(s2.empty());
@@ -108,10 +117,10 @@ TEST(TestSequence, TestCopyAssign) {
 // Since SSO is disabled for non-trivial types,
 // this should be the same as copying
 TEST(TestSequence, TestSmallMove) {
-  auto s = parlay::sequence<int>{1,2};
+  auto s = parlay::short_sequence<int>{1,2};
   ASSERT_EQ(s.size(), 2);
   ASSERT_FALSE(s.empty());
-  auto s2 = parlay::sequence<int>(std::move(s));
+  auto s2 = parlay::short_sequence<int>(std::move(s));
   ASSERT_TRUE(s.empty());
   ASSERT_EQ(s2.size(), 2);
   ASSERT_FALSE(s2.empty());
@@ -159,7 +168,7 @@ TEST(TestSequence, TestInitializerListAssign) {
 // SSO is disabled for non-trivial types
 // so this should just do a heap allocation
 TEST(TestSequence, TestSmallNonTrivial) {
-  auto s = parlay::sequence<std::unique_ptr<int>>();
+  auto s = parlay::short_sequence<std::unique_ptr<int>>();
   ASSERT_TRUE(s.empty());
   s.push_back(std::make_unique<int>(5));
   ASSERT_FALSE(s.empty());
