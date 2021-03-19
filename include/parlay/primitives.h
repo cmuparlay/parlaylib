@@ -773,45 +773,44 @@ auto map_tokens_old(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   }
 }
 
-template <PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
+template<PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
 auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   using f_return_type = decltype(f(make_slice(r)));
   auto A = make_slice(r);
-  using ipair = std::pair<long,long>;
+  using ipair = std::pair<long, long>;
   size_t n = A.size();
 
   if (n == 0) {
-    if constexpr (std::is_same_v<f_return_type, void>) return;
-    else return sequence<f_return_type>();
+    if constexpr (std::is_same_v<f_return_type, void>)
+      return;
+    else
+      return sequence<f_return_type>();
   }
 
-  auto is_start = [&] (size_t i) {
-    return ((i == 0) || is_space(A[i-1])) && (i != n) && !(is_space(A[i]));};
-  auto is_end = [&] (size_t i) {
-    return  ((i == n) || (is_space(A[i]))) && (i != 0) && !is_space(A[i-1]);};
+  auto is_start = [&](size_t i) { return ((i == 0) || is_space(A[i - 1])) && (i != n) && !(is_space(A[i])); };
+  auto is_end = [&](size_t i) { return ((i == n) || (is_space(A[i]))) && (i != 0) && !is_space(A[i - 1]); };
   // associative combining function
   // first = # of starts, second = index of last start
-  auto g = [] (ipair a, ipair b) { 
-    return (b.first == 0) ? a : ipair(a.first+b.first,b.second);};
+  auto g = [](ipair a, ipair b) { return (b.first == 0) ? a : ipair(a.first + b.first, b.second); };
 
-  auto in = delayed_tabulate(n+1, [&] (size_t i) -> ipair {
-      return is_start(i) ? ipair(1,i) : ipair(0,0);});
-  auto [offsets, sum] = block_delayed::scan(in, make_monoid(g, ipair(0,0)));
+  auto in = delayed_tabulate(n + 1, [&](size_t i) -> ipair { return is_start(i) ? ipair(1, i) : ipair(0, 0); });
+  auto [offsets, sum] = block_delayed::scan(in, make_monoid(g, ipair(0, 0)));
 
-  auto z = block_delayed::zip(offsets, iota(n+1));
+  auto idxs = iota(n + 1);
+  auto z = block_delayed::zip(offsets, idxs);
 
   auto start = r.begin();
 
-  if constexpr (std::is_same_v<f_return_type, void>) 
-    block_delayed::apply(z, [&] (auto x) {
-	if (is_end(x.second)) 
-	  f(make_slice(x.first.second+start, x.second+start));});
+  if constexpr (std::is_same_v<f_return_type, void>)
+    block_delayed::apply(z, [&](auto x) {
+      if (is_end(x.second)) f(make_slice(x.first.second + start, x.second + start));
+    });
   else {
     auto result = sequence<f_return_type>::uninitialized(sum.first);
-    block_delayed::apply(z, [&] (auto x) {
-	if (is_end(x.second)) 
-	  assign_uninitialized(result[x.first.first-1],
-			       f(make_slice(start+x.first.second, start+x.second)));});
+    block_delayed::apply(z, [&](auto x) {
+      if (is_end(x.second))
+        assign_uninitialized(result[x.first.first - 1], f(make_slice(start + x.first.second, start + x.second)));
+    });
     return result;
   }
 }
