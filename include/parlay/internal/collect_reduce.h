@@ -427,21 +427,15 @@ struct count_by_key_helper {
 // Returns a sequence of <R::value_type,sum_type> pairs, each consisting of
 // a unique value from the input, and the number of times it appears.
 // Returned in an arbitrary order that depends on the hash function.
-template <typename sum_type,
+template <typename sum_type = size_t,
     PARLAY_RANGE_TYPE R,
     typename Hash = std::hash<range_value_type_t<R>>,
 typename Equal = std::equal_to<range_value_type_t<R>>>
 sequence<std::pair<range_value_type_t<R>,sum_type>>
 count_by_key(R &&A, Hash hash = {}, Equal equal = {}) {
-auto helper = count_by_key_helper<range_value_type_t<R>,sum_type,Hash,Equal>{hash,equal};
-return internal::collect_reduce_sparse(std::forward<R>(A), helper);
+  auto helper = count_by_key_helper<range_value_type_t<R>,sum_type,Hash,Equal>{hash,equal};
+  return internal::collect_reduce_sparse(std::forward<R>(A), helper);
 }
-
-template <PARLAY_RANGE_TYPE R,
-    typename Hash = std::hash<range_value_type_t<R>>,
-typename Equal = std::equal_to<range_value_type_t<R>>>
-auto count_by_key(R &&A, Hash hash = {}, Equal equal = {}) {
-  return count_by_key<size_t>(std::forward<R>(A), hash, equal);}
 
 template <typename arg_type, typename Hash, typename Equal>
 struct remove_duplicates_helper {
