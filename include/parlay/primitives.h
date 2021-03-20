@@ -880,7 +880,7 @@ auto append (const R1& s1, const R2& s2) {
 
 }  // namespace parlay
 
-#include "internal/collect_reduce.h"
-#include "internal/group_by.h"
+#include "internal/collect_reduce.h"      // IWYU pragma: export
+#include "internal/group_by.h"            // IWYU pragma: export
 
 #endif  // PARLAY_PRIMITIVES_H_
