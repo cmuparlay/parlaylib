@@ -19,9 +19,12 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 #include <type_traits>
 #include <utility>
+
+// Falsely suggested for std::hash
+// IWYU pragma: no_include <string_view>
+// IWYU pragma: no_include <system_error>
 
 #include "alloc.h"
 #include "parallel.h"
@@ -740,13 +743,16 @@ inline void swap(parlay::sequence<T, Allocator, EnableSSO>& a, parlay::sequence<
   a.swap(b);
 }
 
+
+
 // exchange the values of a and b
 template<typename T, typename Allocator, bool EnableSSO>
 struct hash<parlay::sequence<T, Allocator, EnableSSO>> {
   std::size_t operator()(parlay::sequence<T, Allocator, EnableSSO> const& s) const noexcept {
     size_t hash = 5381;
-      for (size_t i = 0; i < s.size(); i++) 
+      for (size_t i = 0; i < s.size(); i++) {
         hash = ((hash << 5) + hash) + std::hash<T>{}(s[i]);
+      }
       return hash;
   }
 };
