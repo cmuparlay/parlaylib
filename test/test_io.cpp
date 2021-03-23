@@ -33,7 +33,7 @@ TEST(TestIO, TestCharsToFile) {
   std::string filename = "test.txt";
   std::string contents = "Words, words, words\nAnother line\n";
   
-  parlay::chars_to_file(parlay::to_sequence(contents), filename);
+  parlay::chars_to_file(parlay::to_chars(contents), filename);
   
   std::ifstream in(filename);
   
@@ -50,7 +50,7 @@ TEST(TestIO, TestCharsToFile) {
 TEST(TestIO, TestCharsToStream) {
   std::string contents = "Words, words, words";
   std::stringstream ss;
-  parlay::chars_to_stream(parlay::to_sequence(contents), ss);
+  parlay::chars_to_stream(parlay::to_chars(contents), ss);
   std::string result;
   getline(ss, result);
   ASSERT_EQ(result, contents);
@@ -59,7 +59,7 @@ TEST(TestIO, TestCharsToStream) {
 TEST(TestIO, TestCharsToStreamOperator) {
   std::string contents = "Words, words, words";
   std::stringstream ss;
-  ss << parlay::to_sequence(contents);
+  ss << parlay::to_chars(contents);
   std::string result;
   getline(ss, result);
   ASSERT_EQ(result, contents);

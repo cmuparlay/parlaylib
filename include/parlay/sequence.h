@@ -695,7 +695,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   }
 };
 
-// A small_sequence is a dynamic array supporting parallel modification operations
+// A short_sequence is a dynamic array supporting parallel modification operations
 // that may also perform small-size optimization. For sequences of trivial types
 // whose elements fit in 15 bytes or less, the sequence will be stored inline and
 // no heap allocation will be performed.
@@ -708,6 +708,16 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 //
 template<typename T, typename Allocator = internal::sequence_default_allocator<T>>
 using short_sequence = sequence<T, Allocator, true>;
+
+// A chars is an alias for a short-size optimized character sequence.
+//
+// You can think of chars as either an abbreviation of "char sequence",
+// or as a plural of char. Both make sense!
+//
+// Character sequences that fit in 15 bytes or less will be stored inline
+// without performing a heap allocation. Large sequences are stored on the
+// heap, and support update and query operations in parallel.
+using chars = sequence<char, internal::sequence_default_allocator<char>, true>;
 
 // Convert an arbitrary range into a sequence
 template<typename R>

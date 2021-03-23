@@ -204,6 +204,21 @@ TEST(TestSequence, TestConvertFromForwardRange) {
   ASSERT_TRUE(std::equal(std::begin(l), std::end(l), std::begin(s)));
 }
 
+TEST(TestSequence, TestConvertShortFromRandomAccessRange) {
+  auto v = std::vector<int>{1,2,3,4,5};
+  auto s = parlay::to_short_sequence(v);
+  ASSERT_EQ(v.size(), s.size());
+  ASSERT_TRUE(std::equal(std::begin(v), std::end(v), std::begin(s)));
+}
+
+TEST(TestSequence, TestConvertShortFromForwardRange) {
+  auto l = std::list<int>{1,2,3,4,5};
+  auto s = parlay::to_short_sequence(l);
+  ASSERT_EQ(l.size(), s.size());
+  ASSERT_TRUE(std::equal(std::begin(l), std::end(l), std::begin(s)));
+}
+
+
 TEST(TestSequence, TestSwapSmall) {
   auto s1 = parlay::sequence<int>{1,2};
   auto s2 = parlay::sequence<int>{6,7};
