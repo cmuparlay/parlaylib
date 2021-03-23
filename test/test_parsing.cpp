@@ -9,7 +9,7 @@
 #include <parlay/io.h>
 
 TEST(TestParsing, TestCharsToInt) {
-  auto convert = [](int x) { return parlay::chars_to_int(parlay::to_sequence(std::to_string(x))); };
+  auto convert = [](int x) { return parlay::chars_to_int(parlay::to_chars(std::to_string(x))); };
   
   ASSERT_EQ(0, convert(0));
   ASSERT_EQ((std::numeric_limits<int>::min)(), convert((std::numeric_limits<int>::min)()));
@@ -24,7 +24,7 @@ TEST(TestParsing, TestCharsToInt) {
 }
 
 TEST(TestParsing, TestCharsToLong) {
-  auto convert = [](long x) { return parlay::chars_to_long(parlay::to_sequence(std::to_string(x))); };
+  auto convert = [](long x) { return parlay::chars_to_long(parlay::to_chars(std::to_string(x))); };
   
   ASSERT_EQ(0, convert(0));
   ASSERT_EQ((std::numeric_limits<long>::min)(), convert((std::numeric_limits<long>::min)()));
@@ -40,7 +40,7 @@ TEST(TestParsing, TestCharsToLong) {
 
 
 TEST(TestParsing, TestCharsToLongLong) {
-  auto convert = [](long long x) { return parlay::chars_to_long_long(parlay::to_sequence(std::to_string(x))); };
+  auto convert = [](long long x) { return parlay::chars_to_long_long(parlay::to_chars(std::to_string(x))); };
   
   ASSERT_EQ(0, convert(0));
   ASSERT_EQ((std::numeric_limits<long long>::min)(), convert((std::numeric_limits<long long>::min)()));
@@ -55,7 +55,7 @@ TEST(TestParsing, TestCharsToLongLong) {
 }
 
 TEST(TestParsing, TestCharsToUnsignedInt) {
-  auto convert = [](unsigned int x) { return parlay::chars_to_uint(parlay::to_sequence(std::to_string(x))); };
+  auto convert = [](unsigned int x) { return parlay::chars_to_uint(parlay::to_chars(std::to_string(x))); };
   
   ASSERT_EQ(0, convert(0));
   ASSERT_EQ((std::numeric_limits<unsigned int>::min)(), convert((std::numeric_limits<unsigned int>::min)()));
@@ -70,7 +70,7 @@ TEST(TestParsing, TestCharsToUnsignedInt) {
 }
 
 TEST(TestParsing, TestCharsToUnsignedLong) {
-  auto convert = [](unsigned long x) { return parlay::chars_to_ulong(parlay::to_sequence(std::to_string(x))); };
+  auto convert = [](unsigned long x) { return parlay::chars_to_ulong(parlay::to_chars(std::to_string(x))); };
   
   ASSERT_EQ(0, convert(0));
   ASSERT_EQ((std::numeric_limits<unsigned long>::min)(), convert((std::numeric_limits<unsigned long>::min)()));
@@ -86,7 +86,7 @@ TEST(TestParsing, TestCharsToUnsignedLong) {
 
 
 TEST(TestParsing, TestCharsToUnsignedLongLong) {
-  auto convert = [](unsigned long long x) { return parlay::chars_to_ulong_long(parlay::to_sequence(std::to_string(x))); };
+  auto convert = [](unsigned long long x) { return parlay::chars_to_ulong_long(parlay::to_chars(std::to_string(x))); };
   
   ASSERT_EQ(0, convert(0));
   ASSERT_EQ((std::numeric_limits<unsigned long long>::min)(), convert((std::numeric_limits<unsigned long long>::min)()));
@@ -111,7 +111,7 @@ TEST(TestParsing, TestCharsToFloatBig) {
   auto convert_parlay = [](float x) {
     std::stringstream ss;
     ss << std::setprecision(20) << x;
-    return parlay::chars_to_float(parlay::to_sequence(ss.str()));
+    return parlay::chars_to_float(parlay::to_chars(ss.str()));
   };
 
   // Test the corner cases
@@ -153,7 +153,7 @@ TEST(TestParsing, TestCharsToDoubleBig) {
   auto convert_parlay = [](double x) {
     std::stringstream ss;
     ss << std::setprecision(20) << x;
-    return parlay::chars_to_double(parlay::to_sequence(ss.str()));
+    return parlay::chars_to_double(parlay::to_chars(ss.str()));
   };
 
   // Test the corner cases
@@ -195,7 +195,7 @@ TEST(TestParsing, TestCharsToLongDoubleBig) {
   auto convert_parlay = [](long double x) {
     std::stringstream ss;
     ss << std::setprecision(20) << x;
-    return parlay::chars_to_long_double(parlay::to_sequence(ss.str()));
+    return parlay::chars_to_long_double(parlay::to_chars(ss.str()));
   };
 
   // Test the corner cases
@@ -237,7 +237,7 @@ TEST(TestParsing, TestCharsToFloatSmall) {
   auto convert_parlay = [](float x) {
     std::stringstream ss;
     ss << std::setprecision(7) << x;
-    return parlay::chars_to_float(parlay::to_sequence(ss.str()));
+    return parlay::chars_to_float(parlay::to_chars(ss.str()));
   };
 
   // Test the corner cases
@@ -279,7 +279,7 @@ TEST(TestParsing, TestCharsToDoubleSmall) {
   auto convert_parlay = [](double x) {
     std::stringstream ss;
     ss << std::setprecision(14) << x;
-    auto res = parlay::chars_to_double(parlay::to_sequence(ss.str()));
+    auto res = parlay::chars_to_double(parlay::to_chars(ss.str()));
     return res;
   };
 
@@ -324,7 +324,7 @@ TEST(TestParsing, TestCharsToLongDoubleSmall) {
   auto convert_parlay = [](long double x) {
     std::stringstream ss;
     ss << std::setprecision(14) << x;
-    auto res = parlay::chars_to_long_double(parlay::to_sequence(ss.str()));
+    auto res = parlay::chars_to_long_double(parlay::to_chars(ss.str()));
     return res;
   };
 

@@ -201,13 +201,13 @@ TEST(TestFormatting, TestSequenceNonChar) {
   }
 }
 
-TEST(TestFormatting, TestSequenceChar) {
-  auto s = parlay::to_sequence(std::string("The small brown fox jumped over the lazy dog"));
+TEST(TestFormatting, TestString) {
+  auto s = std::string("The small brown fox jumped over the lazy dog");
   auto seq = parlay::to_chars(s);
   ASSERT_EQ(std::string_view(seq.data(), seq.size()), std::string_view(s.data(), s.size()));
 
   // Check the rvalue overload
-  auto seq2 = parlay::to_chars(parlay::to_sequence(s));
+  auto seq2 = parlay::to_chars(s);
   ASSERT_EQ(std::string_view(seq2.data(), seq2.size()), std::string_view(s.data(), s.size()));
 }
 
