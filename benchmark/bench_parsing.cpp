@@ -25,11 +25,11 @@ template<> double input<double>() { return std::acos(-1.0); }
 template<> long double input<long double>() { return std::acos((long double)-1.0); }
 
 template<typename T>
-parlay::sequence<char> sinput(size_t p = 15) {
+parlay::chars sinput(size_t p = 15) {
   std::stringstream ss;
   ss << std::setprecision(p);
   ss << input<T>();
-  return parlay::to_sequence(ss.str());
+  return parlay::to_chars(ss.str());
 }
 
 template<typename T>

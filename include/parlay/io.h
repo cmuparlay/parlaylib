@@ -13,9 +13,13 @@
 #include <string>
 #include <utility>
 
+#include "monoid.h"
+#include "parallel.h"
 #include "primitives.h"
+#include "range.h"
 #include "sequence.h"
 #include "slice.h"
+#include "utilities.h"
 
 namespace parlay {
 
