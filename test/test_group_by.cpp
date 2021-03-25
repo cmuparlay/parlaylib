@@ -32,6 +32,23 @@ TEST(TestGroupBy, TestGroupByKeySorted) {
   ASSERT_EQ(grouped[2].second.size(), 3);
 }
 
+TEST(TestGroupBy, TestGroupByKeySortedLarge) {
+  auto s = parlay::tabulate(100000, [](unsigned long long i) -> unsigned long long {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  auto key_vals = parlay::delayed_map(s, [](auto x) { return std::make_pair(x % 2, x); } );
+  auto result = parlay::group_by_key_sorted(key_vals);
+
+  ASSERT_EQ(result.size(), 2);
+
+  ASSERT_EQ(result[0].first, 0);
+  ASSERT_EQ(result[1].first, 1);
+
+  auto num_even = std::count_if(std::begin(s), std::end(s), [](auto x) { return x % 2 == 0; });
+  ASSERT_EQ(result[0].second.size(), num_even);
+  ASSERT_EQ(result[1].second.size(), 100000 - num_even);
+}
+
 TEST(TestGroupBy, TestReduceByKey) {
   std::vector<std::pair<int, int>> a = {
       {3,35},
@@ -127,6 +144,29 @@ TEST(TestGroupBy, TestGroupByKey) {
   ASSERT_EQ(results[3].size(), 3);
 }
 
+TEST(TestGroupBy, TestGroupByKeyLarge) {
+  auto s = parlay::tabulate(100000, [](unsigned long long i) -> unsigned long long {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  auto key_vals = parlay::delayed_map(s, [](auto x) { return std::make_pair(x % 2, x); } );
+  auto result = parlay::group_by_key(key_vals);
+
+  ASSERT_EQ(result.size(), 2);
+
+  std::map<unsigned long long, parlay::sequence<unsigned long long>> results;
+
+  for (const auto& r : result) {
+    results.insert(r);
+  }
+
+  ASSERT_EQ(results.count(0), 1);
+  ASSERT_EQ(results.count(1), 1);
+
+  auto num_even = std::count_if(std::begin(s), std::end(s), [](auto x) { return x % 2 == 0; });
+  ASSERT_EQ(results[0].size(), num_even);
+  ASSERT_EQ(results[1].size(), 100000 - num_even);
+}
+
 TEST(TestGroupBy, TestCountByKey) {
   std::vector<int> a = {
       3,
@@ -157,6 +197,28 @@ TEST(TestGroupBy, TestCountByKey) {
   ASSERT_EQ(results[1], 3);
   ASSERT_EQ(results[2], 5);
   ASSERT_EQ(results[3], 3);
+}
+
+TEST(TestGroupBy, TestCountByKeyLarge) {
+  auto s = parlay::tabulate(100000, [](unsigned long long i) -> unsigned long long {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  auto result = parlay::count_by_key(parlay::map(s, [](auto x) { return x % 2; }));
+
+  ASSERT_EQ(result.size(), 2);
+
+  std::map<unsigned long long, size_t> results;
+
+  for (const auto& r : result) {
+    results.insert(r);
+  }
+
+  ASSERT_EQ(results.count(0), 1);
+  ASSERT_EQ(results.count(1), 1);
+
+  auto num_even = std::count_if(std::begin(s), std::end(s), [](auto x) { return x % 2 == 0; });
+  ASSERT_EQ(results[0], num_even);
+  ASSERT_EQ(results[1], 100000 - num_even);
 }
 
 TEST(TestGroupBy, TestRemoveDuplicates) {

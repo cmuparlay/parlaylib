@@ -237,7 +237,7 @@ auto remove_duplicates_by_index(R const &A, Integer_t num_buckets) {
 
 template <typename Integer_t, PARLAY_RANGE_TYPE R>
 auto group_by_index(R const &A, Integer_t num_buckets) {
-  if (A.size() > num_buckets*num_buckets) {
+  if (A.size() > static_cast<size_t>(num_buckets)*num_buckets) {
     auto keys = delayed_map(A, [] (auto const &kv) {return kv.first;});
     auto vals = delayed_map(A, [] (auto const &kv) {return kv.second;});
     return internal::group_by_small_int(make_slice(vals), make_slice(keys), num_buckets);

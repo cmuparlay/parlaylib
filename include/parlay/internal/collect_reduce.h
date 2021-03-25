@@ -103,7 +103,8 @@ struct get_bucket {
     // insert sample into hash table with one less than the
     // count of how many times appears (since it starts with -1)
     for (size_t i = 0; i < num_samples; i++) {
-      const key_type& s = hasheq.get_key(A[hash64(i) % n]);
+      const auto& a = A[hash64(i) % n];
+      const auto& s = hasheq.get_key(a);
       size_t idx = hasheq.hash(s) & table_mask;
       while (1) {
         if (hash_table_count[idx].second == -1) {
