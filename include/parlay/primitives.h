@@ -83,7 +83,7 @@ auto reduce(const R& r, Monoid&& m) {
 template<PARLAY_RANGE_TYPE R>
 auto reduce(const R& r) {
   using value_type = range_value_type_t<R>;
-  return reduce(r, addm<value_type>());
+  return parlay::reduce(r, addm<value_type>());
 }
 
 /* ---------------------- Scans --------------------- */
@@ -820,10 +820,10 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
 // where spaces are define by the unary predicate is_space. By default, is_space
 // correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
 template <PARLAY_RANGE_TYPE Range, typename UnaryPred = decltype(is_whitespace)>
-sequence<sequence<char>> tokens(const Range& R, UnaryPred is_space = is_whitespace) {
+sequence<parlay::chars> tokens(const Range& R, UnaryPred is_space = is_whitespace) {
   if (parlay::size(R) < 2000)
-    return map_tokens_old(R, [] (auto x) { return to_sequence(x); }, is_space);
-  return map_tokens(R, [] (auto x) { return to_sequence(x); }, is_space);
+    return map_tokens_old(R, [] (auto x) { return to_short_sequence(x); }, is_space);
+  return map_tokens(R, [] (auto x) { return to_short_sequence(x); }, is_space);
 }
 
 // Partitions R into contiguous subsequences, by marking the last
@@ -836,7 +836,7 @@ sequence<sequence<char>> tokens(const Range& R, UnaryPred is_space = is_whitespa
 template <PARLAY_RANGE_TYPE Range, PARLAY_RANGE_TYPE BoolRange>
 auto split_at(const Range& R, const BoolRange& flags) {
   static_assert(std::is_convertible_v<range_value_type_t<BoolRange>, bool>);
-  return map_split_at(R, flags, [] (auto x) {return to_sequence(x);});
+  return map_split_at(R, flags, [] (auto x) {return to_short_sequence(x);});
 }
 
 // Like split_at, but applies the given function f to each of the

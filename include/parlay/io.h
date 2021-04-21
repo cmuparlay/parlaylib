@@ -274,18 +274,18 @@ inline long double chars_to_long_double(const chars& s) {
 // Flatten a sequence of character sequences into a character sequence.
 // This overload is preferred over the usual one which returns an ordinary
 // (non-small-size-optimized) sequence
-auto flatten(const sequence<chars>& r) {
-  auto offsets = sequence<size_t>::from_function(parlay::size(r),
-                                                 [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
-  size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
-  auto res = chars::uninitialized(len);
-  parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
-    parallel_for(0, parlay::size(it[i]),
-                 [&](size_t j) { assign_uninitialized(res[offsets[i] + j], it[i][j]); }
-    );
-  });
-  return res;
-}
+// auto flatten(const sequence<chars>& r) {
+//   auto offsets = sequence<size_t>::from_function(parlay::size(r),
+//                                                  [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
+//   size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
+//   auto res = chars::uninitialized(len);
+//   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
+//     parallel_for(0, parlay::size(it[i]),
+//                  [&](size_t j) { assign_uninitialized(res[offsets[i] + j], it[i][j]); }
+//     );
+//   });
+//   return res;
+// }
 
 // Still a work in progress. TODO: Improve these?
 

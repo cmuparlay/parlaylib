@@ -61,7 +61,7 @@ using sequence_default_allocator = std::allocator<T>;
 //  Allocator:  an allocator for type T
 //  EnableSSO:  true to enable small-size optimization
 //
-template<typename T, typename Allocator = internal::sequence_default_allocator<T>, bool EnableSSO = false>
+template<typename T, typename Allocator = internal::sequence_default_allocator<T>, bool EnableSSO = std::is_same<T, char>::value>
 class sequence : protected sequence_internal::sequence_base<T, Allocator, EnableSSO> {
 
   // Ensure that T is not const or volatile
