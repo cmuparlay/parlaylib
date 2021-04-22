@@ -29,7 +29,7 @@ auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
   return tabulate(parlay::size(r), [&f, it = std::begin(r)](size_t i) {
-     return f(it[i]); }, 0);
+     return f(it[i]); }, granularity);
 }
 
 // Return a delayed sequence consisting of the elements
