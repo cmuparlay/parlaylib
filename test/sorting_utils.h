@@ -49,7 +49,8 @@ struct UncopyableThing {
 // circumvented by memcpying objects around.
 struct SelfReferentialThing {
   int x;
-  
+
+  SelfReferentialThing() : x(0), me(this) { }
   SelfReferentialThing(int _x) : x(_x), me(this) { }
   
   SelfReferentialThing(const SelfReferentialThing& other) : x(other.x), me(this) {}
@@ -73,5 +74,14 @@ struct SelfReferentialThing {
  private:
   SelfReferentialThing* me;
 };
+
+namespace std {
+  template<>
+  struct hash<SelfReferentialThing> {
+    size_t operator()(const SelfReferentialThing& thing) const {
+      return std::hash<int>{}(thing.x);
+    }
+  };
+}
 
 #endif  // PARLAY_TEST_SORTING_UTILS

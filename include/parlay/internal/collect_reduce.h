@@ -189,7 +189,7 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
   get_bucket<hasheq> gb(A, hasheq{helper}, bits);
 
   sequence<T> B = sequence<T>::uninitialized(n);
-  sequence<T> Tmp = sequence<T>::uninitialized(n);
+  auto Tmp = uninitialized_sequence<T>(n);
 
   // first partition into blocks based on hash using a counting sort
   sequence<size_t> block_offsets;
@@ -234,7 +234,8 @@ auto seq_collect_reduce_sparse(Slice A, Helper const &helper) {
 
   // hash into buckets
   for (size_t j = 0; j < A.size(); j++) {
-    key_type const &key = helper.get_key(A[j]);
+    const auto& aj = A[j];
+    const auto& key = helper.get_key(aj);
     size_t k = ((size_t) helper.hash(key)) % table_size;
     while (flags[k] && !helper.equal(helper.get_key(table[k]), key))
       k = (k + 1 == table_size) ? 0 : k + 1;

@@ -23,6 +23,10 @@
 #include "../type_traits.h"      // IWYU pragma: keep  // for is_trivially_relocatable
 #include "../utilities.h"
 
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+#include "debug_uninitialized.h"
+#endif
+
 namespace parlay {
 namespace sequence_internal {
 
@@ -524,6 +528,17 @@ struct sequence_base {
         size_t new_capacity = (std::max)(desired, (15 * current + 9) / 10);
         auto alloc = get_raw_allocator();
         capacitated_buffer new_buffer(new_capacity, alloc);
+
+        // If uninitialized debugging is enabled, mark the new memory as uninitialized
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+        if constexpr (std::is_same_v<value_type, internal::UninitializedTracker>) {
+          auto buffer = new_buffer.data();
+          parallel_for(0, new_buffer.get_capacity(), [&](size_t i) {
+            buffer[i].initialized = false;
+            PARLAY_ASSERT_UNINITIALIZED(buffer[i]);
+          });
+        }
+#endif
 
         // Move initialize the new buffer with the
         // contents of the old buffer

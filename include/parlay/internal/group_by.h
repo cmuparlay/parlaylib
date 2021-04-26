@@ -143,7 +143,7 @@ template <typename sum_type = size_t,
     PARLAY_RANGE_TYPE R,
     typename Hash = std::hash<range_value_type_t<R>>,
     typename Equal = std::equal_to<range_value_type_t<R>>>
-auto count_by_key(R &&A, Hash hash = {}, Equal equal = {}) {
+auto histogram_by_key(R &&A, Hash hash = {}, Equal equal = {}) {
   auto helper = count_by_key_helper<range_value_type_t<R>,sum_type,Hash,Equal>{hash,equal};
   return internal::collect_reduce_sparse(std::forward<R>(A), helper);
 }
@@ -204,7 +204,7 @@ auto reduce_by_index(R const &A, size_t num_buckets, const Monoid& monoid = {}) 
 // of each interger value. The range num_buckets must be specified
 // and it is an error if any integers is out of the range [0:num_buckets).
 template <typename Integer_t, PARLAY_RANGE_TYPE R>
-auto histogram(R const &A, Integer_t num_buckets) {
+auto histogram_by_index(R const &A, Integer_t num_buckets) {
   struct helper {
     using key_type = range_value_type_t<R>;
     using val_type = Integer_t;
@@ -220,7 +220,7 @@ auto histogram(R const &A, Integer_t num_buckets) {
 }
 
 template <typename Integer_t, PARLAY_RANGE_TYPE R>
-auto remove_duplicates_by_index(R const &A, Integer_t num_buckets) {
+auto remove_duplicate_integers(R const &A, Integer_t max_value) {
   struct helper {
     using key_type = range_value_type_t<R>;
     using val_type = bool;
@@ -231,8 +231,8 @@ auto remove_duplicates_by_index(R const &A, Integer_t num_buckets) {
     static void combine(val_type& d, slice<key_type*,key_type*>) {
       d = true;}
   };
-  auto flags = internal::collect_reduce(A, helper(), num_buckets);
-  return pack(iota<Integer_t>(num_buckets), flags);
+  auto flags = internal::collect_reduce(A, helper(), max_value);
+  return pack(iota<Integer_t>(max_value), flags);
 }
 
 template <typename Integer_t, PARLAY_RANGE_TYPE R>

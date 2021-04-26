@@ -226,39 +226,35 @@ auto group_by_small_int(slice<InIterator, InIterator> In,
   t.next("first loop");
 
   auto total_counts = sequence<size_t>::uninitialized(num_buckets + 1);
-  parallel_for(0, num_buckets,
-               [&](size_t i) {
-                 size_t v = 0;
-                 for (size_t j = 0; j < num_blocks; j++)
-                   v += counts[j * num_buckets + i];
-                 total_counts[i] = v;
-               },
-               1 + 1024 / num_blocks);
+  parallel_for(0, num_buckets, [&](size_t i) {
+    size_t v = 0;
+    for (size_t j = 0; j < num_blocks; j++)
+      v += counts[j * num_buckets + i];
+    total_counts[i] = v;
+  }, 1 + 1024 / num_blocks);
   total_counts[num_buckets] = 0;
 
   auto dest_offsets = sequence<T*>::uninitialized(num_blocks * num_buckets);
-  auto results = map(total_counts, [] (size_t cnt) {
-			    return sequence<T>::uninitialized(cnt);});
-  parallel_for(0, num_buckets,
-               [&](size_t i) {
-		 auto v = results[i].begin();
-                 for (size_t j = 0; j < num_blocks; j++) {
-                   dest_offsets[j * num_buckets + i] = v;
-                   v += counts[j * num_buckets + i];
-                 }
-               },
-               1 + 1024 / num_blocks);
-  
+  auto results = map(total_counts, [](size_t cnt) { return sequence<T>::uninitialized(cnt); });
+
+  parallel_for(0, num_buckets, [&](size_t i) {
+    auto v = results[i].begin();
+    for (size_t j = 0; j < num_blocks; j++) {
+      dest_offsets[j * num_buckets + i] = v;
+      v += counts[j * num_buckets + i];
+    }
+  }, 1 + 1024 / num_blocks);
+
   parallel_for(0, num_blocks, [&] (size_t i) {
-      size_t start = (std::min)(i * block_size, n);
-      size_t end = (std::min)(start + block_size, n);
-      seq_write_<uninitialized_copy_tag>(In.cut(start, end), Keys.cut(start, end),
-					 dest_offsets.begin() + i * num_buckets,
-					 num_buckets);
-    }, 1);
+    size_t start = (std::min)(i * block_size, n);
+    size_t end = (std::min)(start + block_size, n);
+    seq_write_<uninitialized_copy_tag>(In.cut(start, end), Keys.cut(start, end),
+         dest_offsets.begin() + i * num_buckets,
+         num_buckets);
+  }, 1);
   t.next("last loop");
 
-  return std::move(results);
+  return results;
 }
 
 // If skip_if_in_one and returned flag is true, then the Input was alread
