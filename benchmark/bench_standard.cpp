@@ -246,7 +246,7 @@ static void bench_histogram(benchmark::State& state) {
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
   
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::histogram(in, (T) n));
+    RUN_AND_CLEAR(parlay::histogram_by_index(in, (T) n));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -258,7 +258,7 @@ static void bench_histogram_same(benchmark::State& state) {
   parlay::sequence<T> in(n, (T) 10311);
  
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::histogram(in, (T) n));
+    RUN_AND_CLEAR(parlay::histogram_by_index(in, (T) n));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -271,7 +271,7 @@ static void bench_histogram_few(benchmark::State& state) {
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%256;});
   
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::histogram(in, (T) 256));
+    RUN_AND_CLEAR(parlay::histogram_by_index(in, (T) 256));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -474,7 +474,7 @@ static void bench_reduce_by_index(benchmark::State& state) {
 }
 
 template<typename T>
-static void bench_remove_duplicates_by_index(benchmark::State& state) {
+static void bench_remove_duplicate_integers(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   T num_buckets = n;
@@ -482,7 +482,7 @@ static void bench_remove_duplicates_by_index(benchmark::State& state) {
       return r.ith_rand(i) % num_buckets;});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::remove_duplicates_by_index(S, num_buckets));
+    RUN_AND_CLEAR(parlay::remove_duplicate_integers(S, num_buckets));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -504,21 +504,21 @@ static void bench_reduce_by_key(benchmark::State& state) {
 }
 
 template<typename T>
-static void bench_count_by_key(benchmark::State& state) {
+static void bench_histogram_by_key(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   auto S = parlay::tabulate(n, [&] (size_t i) -> T {
       return r.ith_rand(i) % (n/2);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::count_by_key<T>(S));
+    RUN_AND_CLEAR(parlay::histogram_by_key<T>(S));
   }
 
   REPORT_STATS(n, 0, 0);
 }
 
 template<>
-void bench_count_by_key<parlay::sequence<char>>(benchmark::State& state) {
+void bench_histogram_by_key<parlay::sequence<char>>(benchmark::State& state) {
   using T = parlay::sequence<char>;
   size_t n = state.range(0);
   ngram_table words;
@@ -526,7 +526,7 @@ void bench_count_by_key<parlay::sequence<char>>(benchmark::State& state) {
   parlay::sequence<T> Tmp;
   for (auto _ : state) {
     COPY_NO_TIME(Tmp, S);
-    RUN_AND_CLEAR(parlay::count_by_key(std::move(Tmp)));
+    RUN_AND_CLEAR(parlay::histogram_by_key(std::move(Tmp)));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -677,14 +677,14 @@ BENCH(histogram_same, unsigned int, 100000000);
 BENCH(histogram_few, unsigned int, 100000000);
 BENCH(reduce_by_index_256, unsigned int, 100000000);
 BENCH(reduce_by_index, unsigned int, 100000000);
-BENCH(remove_duplicates_by_index, unsigned int, 100000000);
+BENCH(remove_duplicate_integers, unsigned int, 100000000);
 BENCH(group_by_index_256, unsigned int, 100000000);
 BENCH(group_by_index, unsigned int, 100000000);
 BENCH(reduce_by_key, unsigned long, 100000000);
-BENCH(count_by_key, unsigned long, 100000000);
+BENCH(histogram_by_key, unsigned long, 100000000);
 BENCH(remove_duplicates, unsigned long, 100000000);
 BENCH(group_by_key, unsigned long, 100000000);
 BENCH(group_by_key_sorted, unsigned long, 100000000);
-BENCH(count_by_key, parlay::sequence<char>, 100000000);
+BENCH(histogram_by_key, parlay::sequence<char>, 100000000);
 BENCH(remove_duplicates, parlay::sequence<char>, 100000000);
 BENCH(group_by_key, parlay::sequence<char>, 100000000);

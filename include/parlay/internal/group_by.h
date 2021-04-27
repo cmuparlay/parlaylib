@@ -1,12 +1,21 @@
 #ifndef PARLAY_INTERNAL_GROUP_BY_H_
 #define PARLAY_INTERNAL_GROUP_BY_H_
 
+#include <cstdlib>
+
+#include <functional>
+#include <utility>
+
+#include "../monoid.h"
+#include "../primitives.h"
 #include "../range.h"
 #include "../sequence.h"
-#include "../primitives.h"
+#include "../slice.h"
+#include "../utilities.h"
 
+#include "block_delayed.h"
 #include "collect_reduce.h"
-#include "get_time.h"
+#include "counting_sort.h"
 
 namespace parlay {
 

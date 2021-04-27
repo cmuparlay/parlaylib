@@ -1,16 +1,24 @@
 #ifndef PARLAY_COLLECT_REDUCE_H_
 #define PARLAY_COLLECT_REDUCE_H_
 
-#include <cmath>
+#include <cassert>
 #include <cstdio>
 
+#include <algorithm>
+#include <string>
+#include <type_traits>
+#include <utility>
+
+#include "../parallel.h"
+#include "../sequence.h"
+#include "../slice.h"
+#include "../utilities.h"
+
+#include "counting_sort.h"
+#include "sequence_ops.h"
 #include "integer_sort.h"
 #include "uninitialized_sequence.h"
 #include "get_time.h"
-
-#include "../utilities.h"
-#include "../primitives.h"
-#include "../delayed_sequence.h"
 
 namespace parlay {
 namespace internal {

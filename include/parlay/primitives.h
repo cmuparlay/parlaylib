@@ -725,6 +725,42 @@ bool inline is_whitespace(unsigned char c) {
   return std::isspace(c);
 }
 
+namespace internal {
+template<PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
+auto map_tokens_old(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
+  // internal::timer t("map tokens");
+  using f_return_type = decltype(f(make_slice(r)));
+
+  auto S = make_slice(r);
+  size_t n = S.size();
+
+  if (n == 0) {
+    if constexpr (std::is_same_v<f_return_type, void>) {
+      return;
+    } else {
+      return sequence<f_return_type>();
+    }
+  }
+
+  // sequence<long> Locations = pack_index<long>(Flags);
+  sequence<long> Locations = block_delayed::filter(iota<long>(n + 1), [&](size_t i) {
+    return ((i == 0) ? !is_space(S[0]) : (i == n) ? !is_space(S[n - 1]) : is_space(S[i - 1]) != is_space(S[i]));
+  });
+
+  // If f does not return anything, just apply f
+  // to each token and don't return anything
+  if constexpr (std::is_same_v<f_return_type, void>) {
+    parallel_for(0, Locations.size() / 2, [&](size_t i) { f(S.cut(Locations[2 * i], Locations[2 * i + 1])); });
+  }
+  // If f does return something, apply f to each token
+  // and return a sequence of the resulting values
+  else {
+    auto x = tabulate(Locations.size() / 2, [&](size_t i) { return f(S.cut(Locations[2 * i], Locations[2 * i + 1])); });
+    return x;
+  }
+}
+}
+
 // Apply the given function f to each token of the given range.
 //
 // The tokens are the longest contiguous subsequences of non space characters.
@@ -734,45 +770,6 @@ bool inline is_whitespace(unsigned char c) {
 // If f has no return value (i.e. void), this function returns nothing. Otherwise,
 // this function returns a sequence consisting of the returned values of f for
 // each token.
-template <PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
-auto map_tokens_old(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
-  //internal::timer t("map tokens");
-  using f_return_type = decltype(f(make_slice(r)));
-
-  auto S = make_slice(r);
-  size_t n = S.size();
-
-  if (n == 0) {
-    if constexpr (std::is_same_v<f_return_type, void>) {
-      return;
-    }
-    else {
-      return sequence<f_return_type>();
-    }
-  }
-  
-  //sequence<long> Locations = pack_index<long>(Flags);
-  sequence<long> Locations = block_delayed::filter(iota<long>(n+1), [&] (size_t i) {
-      return ((i==0) ? !is_space(S[0]) :
-	      (i==n) ? !is_space(S[n-1]) :
-	      is_space(S[i-1]) != is_space(S[i]));});
-  
-  // If f does not return anything, just apply f
-  // to each token and don't return anything
-  if constexpr (std::is_same_v<f_return_type, void>) {
-    parallel_for(0, Locations.size()/2, [&](size_t i) {
-      f(S.cut(Locations[2*i], Locations[2*i+1]));
-    });
-  }
-  // If f does return something, apply f to each token 
-  // and return a sequence of the resulting values
-  else {
-    auto x = tabulate(Locations.size()/2, [&] (size_t i) {
-      return f(S.cut(Locations[2*i], Locations[2*i+1]));});
-    return x;
-  }
-}
-
 template<PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
 auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   using f_return_type = decltype(f(make_slice(r)));
@@ -821,8 +818,9 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
 // correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
 template <PARLAY_RANGE_TYPE Range, typename UnaryPred = decltype(is_whitespace)>
 sequence<parlay::chars> tokens(const Range& R, UnaryPred is_space = is_whitespace) {
+  static_assert(std::is_convertible_v<range_value_type_t<Range>, char>);
   if (parlay::size(R) < 2000)
-    return map_tokens_old(R, [] (auto x) { return to_short_sequence(x); }, is_space);
+    return internal::map_tokens_old(R, [] (auto x) { return to_short_sequence(x); }, is_space);
   return map_tokens(R, [] (auto x) { return to_short_sequence(x); }, is_space);
 }
 
@@ -836,7 +834,12 @@ sequence<parlay::chars> tokens(const Range& R, UnaryPred is_space = is_whitespac
 template <PARLAY_RANGE_TYPE Range, PARLAY_RANGE_TYPE BoolRange>
 auto split_at(const Range& R, const BoolRange& flags) {
   static_assert(std::is_convertible_v<range_value_type_t<BoolRange>, bool>);
-  return map_split_at(R, flags, [] (auto x) {return to_short_sequence(x);});
+  if constexpr (std::is_same<range_value_type_t<Range>, char>::value) {
+    return map_split_at(R, flags, [](auto x) { return to_short_sequence(x); });
+  }
+  else {
+    return map_split_at(R, flags, [](auto x) { return to_sequence(x); });
+  }
 }
 
 // Like split_at, but applies the given function f to each of the
@@ -880,7 +883,6 @@ auto append (const R1& s1, const R2& s2) {
 
 }  // namespace parlay
 
-#include "internal/collect_reduce.h"      // IWYU pragma: export
 #include "internal/group_by.h"            // IWYU pragma: export
 
 #endif  // PARLAY_PRIMITIVES_H_
