@@ -53,7 +53,7 @@ TEST_P(TestGroupByP, TestGroupByKeySortedLarge) {
   ASSERT_LE(result.size(), num_buckets);
 
   for (size_t i = 0; i < result.size(); i++) {
-    if (i > 0) ASSERT_LT(result[i-1], result[i]);
+    if (i > 0) { ASSERT_LT(result[i-1], result[i]); }
     size_t bucket = result[i].first;
     auto num = std::count_if(std::begin(s), std::end(s),
                              [num_buckets, bucket](auto x) { return x % num_buckets == bucket; });
@@ -88,7 +88,7 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonContiguous) {
   ASSERT_LE(result.size(), num_buckets);
 
   for (size_t i = 0; i < result.size(); i++) {
-    if (i > 0) ASSERT_LT(result[i-1], result[i]);
+    if (i > 0) { ASSERT_LT(result[i-1], result[i]); }
     size_t bucket = result[i].first;
     auto num = std::count_if(std::begin(s), std::end(s),
                              [num_buckets, bucket](auto x) { return x % num_buckets == bucket; });
@@ -124,7 +124,7 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonTrivial) {
   ASSERT_LE(result.size(), num_buckets);
 
   for (size_t i = 0; i < result.size(); i++) {
-    if (i > 0) ASSERT_LT(result[i-1], result[i]);
+    if (i > 0) { ASSERT_LT(result[i-1], result[i]); }
     size_t bucket = std::stoull(result[i].first);
     auto num = std::count_if(std::begin(s), std::end(s),
                              [num_buckets, bucket](auto x) { return std::stoull(x) % num_buckets == bucket; });
@@ -154,7 +154,7 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonRelocatable) {
   ASSERT_LE(result.size(), num_buckets);
 
   for (size_t i = 0; i < result.size(); i++) {
-    if (i > 0) ASSERT_LT(result[i-1], result[i]);
+    if (i > 0) { ASSERT_LT(result[i-1], result[i]); }
     size_t bucket = result[i].first;
     auto num = std::count_if(std::begin(s), std::end(s),
                              [num_buckets, bucket](auto x) { return x.x % num_buckets == bucket; });

@@ -1,6 +1,10 @@
-#include <vector>
-using std::cout;
-using std::endl;
+#include <cstddef>
+#include <iterator>
+
+#include "../sequence.h"
+#include "../utilities.h"
+
+#include "uninitialized_sequence.h"
 
 namespace parlay {
 namespace stream_delayed {
@@ -163,5 +167,5 @@ auto filter_map(const SeqIn &In, F f, G g) {
   return result;
 }
 
-}
-}
+}  // namespace stream_delayed
+}  // namespace parlay

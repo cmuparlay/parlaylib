@@ -19,6 +19,13 @@
 
 namespace parlay {
 
+// Clang gives false positives for unused type
+// aliases inside the nested helper structs
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-local-typedef"
+#endif
+
 template <PARLAY_RANGE_TYPE Range, typename Comp>
 auto group_by_key_sorted(const Range& S, const Comp& less) {
   using KV = range_value_type_t<Range>;
@@ -269,6 +276,10 @@ auto group_by_index(R const &A, Integer_t num_buckets) {
   }
 }
 
-}
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
+}  // namespace parlay
 
 #endif  // PARLAY_INTERNAL_GROUP_BY_H_

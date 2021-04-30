@@ -1,17 +1,29 @@
-#pragma once
+#ifndef PARLAY_INTERNAL_BLOCK_DELAYED_H_
+#define PARLAY_INTERNAL_BLOCK_DELAYED_H_
 
-#include "../sequence.h"
-#include "uninitialized_sequence.h"
+#include <cassert>
+#include <cstddef>
+
+#include <algorithm>
+#include <iterator>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+
 #include "../delayed_sequence.h"
+#include "../monoid.h"
+#include "../parallel.h"
+#include "../sequence.h"
+#include "../slice.h"
+
+#include "get_time.h"
 #include "sequence_ops.h"
 #include "stream_delayed.h"
-#include "get_time.h"
-
-using std::cout;
-using std::endl;
 
 namespace parlay {
 namespace block_delayed {
+
 static size_t _block_size = 2000;
 
 // takes nested forward iterators and flattens them into a single forward iterator
@@ -259,5 +271,8 @@ template <typename Seq, typename F>
 auto filter(Seq const &A, F const &f) {
   return block_delayed::filter_map(A, f, [] (auto x) {return x;});
 }
-}
-}
+
+}  // namespace block_delayed
+}  // namespace parlay
+
+#endif  // PARLAY_INTERNAL_BLOCK_DELAYED_H_
