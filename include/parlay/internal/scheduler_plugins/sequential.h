@@ -16,7 +16,7 @@ inline void set_num_workers(int) { ; }
 
 template <class F>
 inline void parallel_for(size_t start, size_t end, F f,
-                         size_t, bool) {
+                         long, bool) {
   for (size_t i=start; i<end; i++) {
     f(i);
   }

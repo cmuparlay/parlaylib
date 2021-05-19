@@ -36,6 +36,8 @@ class file_map {
     const char* begin() const { return begin_p; }
     const char* end() const {return end_p; }
 
+    size_t size() const { return end() - begin(); }
+
     explicit file_map(const std::string& filename) {
       
       struct stat sb;

@@ -25,7 +25,7 @@ inline size_t worker_id();
 //      if 0 (default) then the scheduler will decide
 //    conservative uses a safer scheduler
 template <typename F>
-inline void parallel_for(size_t start, size_t end, F f, size_t granularity = 0,
+inline void parallel_for(size_t start, size_t end, F f, long granularity = 0,
                          bool conservative = false);
 
 // runs the thunks left and right in parallel.
@@ -91,10 +91,10 @@ inline size_t worker_id() {
 
 template <class F>
 inline void parallel_for(size_t start, size_t end, F f,
-                         size_t granularity,
+                         long granularity,
 			 bool conservative) {
   if (end > start)
-    internal::get_default_scheduler().parfor(start, end, f, granularity, conservative);
+    internal::get_default_scheduler().parfor(start, end, f, (size_t) granularity, conservative);
 }
 
 template <typename Lf, typename Rf>

@@ -23,6 +23,10 @@
 #include "../type_traits.h"      // IWYU pragma: keep  // for is_trivially_relocatable
 #include "../utilities.h"
 
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+#include "debug_uninitialized.h"
+#endif
+
 namespace parlay {
 namespace sequence_internal {
 
@@ -150,10 +154,14 @@ struct sequence_base {
     // must contain trivial types, a sequence can always be swapped
     // by swapping raw bytes.
     void swap(storage_impl& other) {
-      // Swap raw bytes
+      // Swap raw bytes. Every linter complains about this so
+      // we need a lot of warning suppressions, unfortunately
       std::byte tmp[sizeof(*this)];
+      // cppcheck-suppress memsetClass
       std::memcpy(std::addressof(tmp), static_cast<void*>(this), sizeof(*this));    // NOLINT
+      // cppcheck-suppress memsetClass
       std::memcpy(static_cast<void*>(this), &other, sizeof(*this));                 // NOLINT
+      // cppcheck-suppress memsetClass
       std::memcpy(static_cast<void*>(std::addressof(other)), &tmp, sizeof(*this));  // NOLINT
     }
 
@@ -164,11 +172,12 @@ struct sequence_base {
     // Assumes that this sequence is empty. Callers
     // should call clear() before calling this function.
     void move_from(storage_impl&& other) {
-      // Since small sequences contain trivial types,
-      // moving them just means copying their raw bytes,
-      // and zeroing out the old sequence. For large
-      // sequences, this will copy their buffer pointer
-      // and size.
+      // Since small sequences contain trivial types, moving
+      // them just means copying their raw bytes, and zeroing
+      // out the old sequence. For large sequences, this will
+      // copy their buffer pointer and size.
+
+      // cppcheck-suppress memsetClass
       std::memcpy(static_cast<void*>(this), &other, sizeof(*this));  // NOLINT
 
       other.set_to_empty_representation();
@@ -197,11 +206,36 @@ struct sequence_base {
       set_to_empty_representation();
     }
 
+    // Free the buffer without destroying the elements
+    // of the sequence. This is intended for use after
+    // the contents of the sequence are relocated
+    void clear_without_destruction() {
+      // Small sequences can only hold trivial
+      // types, so no destruction is necessary
+      if (!is_small()) {
+        auto alloc = get_raw_allocator();
+        _data.long_mode.buffer.free_buffer(alloc);
+      }
+
+      set_to_empty_representation();
+    }
+
+// GCC is unhappy with memsetting the object to zero
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
+#endif
+
     // A zero-byte-filled sequence always corresponds
     // to an empty sequence, whether small or large
     void set_to_empty_representation() {
+      // cppcheck-suppress memsetClass
       std::memset(this, 0, sizeof(*this));  // NOLINT
     }
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 // GCC gives a lot of false positive diagnoses for
 // "maybe uninitialized" variables inside long_seq
@@ -362,6 +396,7 @@ struct sequence_base {
       const value_type* data() const { return elements.data(); }
     };
 
+
     // Store either a short or a long sequence. By default, we
     // store an empty short sequence, which can be represented
     // by a zero-initialized object.
@@ -374,7 +409,7 @@ struct sequence_base {
       ~_data_impl(){};
 
       union {
-        short_seq short_mode;
+        typename std::conditional<use_sso, short_seq, void*>::type short_mode;
         long_seq long_mode;
       }
 #if defined(__GNUC__)
@@ -510,6 +545,17 @@ struct sequence_base {
         size_t new_capacity = (std::max)(desired, (15 * current + 9) / 10);
         auto alloc = get_raw_allocator();
         capacitated_buffer new_buffer(new_capacity, alloc);
+
+        // If uninitialized debugging is enabled, mark the new memory as uninitialized
+#ifdef PARLAY_DEBUG_UNINITIALIZED
+        if constexpr (std::is_same_v<value_type, internal::UninitializedTracker>) {
+          auto buffer = new_buffer.data();
+          parallel_for(0, new_buffer.get_capacity(), [&](size_t i) {
+            buffer[i].initialized = false;
+            PARLAY_ASSERT_UNINITIALIZED(buffer[i]);
+          });
+        }
+#endif
 
         // Move initialize the new buffer with the
         // contents of the old buffer

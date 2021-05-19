@@ -7,6 +7,8 @@
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
+#include <parlay/io.h>
+#include "trigram_words.h"
 
 using benchmark::Counter;
 
@@ -216,7 +218,7 @@ static void bench_count_sort(benchmark::State& state) {
   size_t mask = num_buckets - 1;
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i);});
   auto get_key = [&] (const T& t) {return t & mask;};
-  auto keys = parlay::delayed_seq<size_t>(n, get_key);
+  auto keys = parlay::delayed_map(in, get_key);
 
   for (auto _ : state) {
     RUN_AND_CLEAR(parlay::internal::count_sort(parlay::make_slice(in), keys, num_buckets));
@@ -244,7 +246,7 @@ static void bench_histogram(benchmark::State& state) {
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
   
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::histogram(in, (T) n));
+    RUN_AND_CLEAR(parlay::histogram_by_index(in, (T) n));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -256,7 +258,7 @@ static void bench_histogram_same(benchmark::State& state) {
   parlay::sequence<T> in(n, (T) 10311);
  
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::histogram(in, (T) n));
+    RUN_AND_CLEAR(parlay::histogram_by_index(in, (T) n));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -269,7 +271,7 @@ static void bench_histogram_few(benchmark::State& state) {
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%256;});
   
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::histogram(in, (T) 256));
+    RUN_AND_CLEAR(parlay::histogram_by_index(in, (T) 256));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -335,6 +337,22 @@ static void bench_sort(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
   auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
+
+  while (state.KeepRunningBatch(10)) {
+    for (int i = 0; i < 10; i++) {
+      RUN_AND_CLEAR(parlay::internal::sample_sort(parlay::make_slice(in), std::less<T>()));
+    }
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<>
+void bench_sort<parlay::sequence<char>>(benchmark::State& state) {
+  using T = parlay::sequence<char>;
+  size_t n = state.range(0);
+  ngram_table words;
+  auto in = parlay::tabulate(n, [&] (size_t i) -> T {return words.word(i);});
 
   while (state.KeepRunningBatch(10)) {
     for (int i = 0; i < 10; i++) {
@@ -416,7 +434,7 @@ static void bench_quicksort(benchmark::State& state) {
   while (state.KeepRunningBatch(10)) {
     for (int i = 0; i < 10; i++) {
       COPY_NO_TIME(out, in);
-      parlay::internal::p_quicksort_inplace(make_slice(in), std::less<T>());
+      parlay::internal::p_quicksort_inplace(make_slice(out), std::less<T>());
     }
   }
 
@@ -424,18 +442,198 @@ static void bench_quicksort(benchmark::State& state) {
 }
 
 template<typename T>
-static void bench_collect_reduce(benchmark::State& state) {
+static void bench_reduce_by_index_256(benchmark::State& state) {
   size_t n = state.range(0);
   using par = std::pair<T,T>;
   parlay::random r(0);
   size_t num_buckets = (1<<8);
   auto S = parlay::tabulate(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i) % num_buckets, 1);});
-  auto get_key = [&] (const auto& a) {return a.first;};
-  auto get_val = [&] (const auto& a) {return a.first;};
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::internal::collect_reduce(S, get_key, get_val, parlay::addm<T>(), num_buckets));
+    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::addm<T>()));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_reduce_by_index(benchmark::State& state) {
+  size_t n = state.range(0);
+  using par = std::pair<T,T>;
+  parlay::random r(0);
+  size_t num_buckets = n;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % num_buckets, 1);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::addm<T>()));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_remove_duplicate_integers(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  T num_buckets = n;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> T {
+      return r.ith_rand(i) % num_buckets;});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::remove_duplicate_integers(S, num_buckets));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_reduce_by_key(benchmark::State& state) {
+  size_t n = state.range(0);
+  using par = std::pair<T,T>;
+  parlay::random r(0);
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par((T) r.ith_rand(i) % (n/2), (T) 1);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::reduce_by_key(S, parlay::addm<T>())); 
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_histogram_by_key(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  auto S = parlay::tabulate(n, [&] (size_t i) -> T {
+      return r.ith_rand(i) % (n/2);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::histogram_by_key<T>(S));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<>
+void bench_histogram_by_key<parlay::sequence<char>>(benchmark::State& state) {
+  using T = parlay::sequence<char>;
+  size_t n = state.range(0);
+  ngram_table words;
+  auto S = parlay::tabulate(n, [&] (size_t i) {return words.word(i);});
+  parlay::sequence<T> Tmp;
+  for (auto _ : state) {
+    COPY_NO_TIME(Tmp, S);
+    RUN_AND_CLEAR(parlay::histogram_by_key(std::move(Tmp)));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_remove_duplicates(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  auto S = parlay::tabulate(n, [&] (size_t i) -> T {
+      return r.ith_rand(i) % (n/2);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::remove_duplicates(S)); 
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<>
+void bench_remove_duplicates<parlay::sequence<char>>(benchmark::State& state) {
+  using T = parlay::sequence<char>;
+  size_t n = state.range(0);
+  ngram_table words;
+  auto S = parlay::tabulate(n, [&] (size_t i) {return words.word(i);});
+  parlay::sequence<T> Tmp;
+  for (auto _ : state) {
+    COPY_NO_TIME(Tmp, S);
+    RUN_AND_CLEAR(parlay::remove_duplicates(std::move(Tmp)));
+  }
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_group_by_key(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % (n/20), i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_key(S)); 
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<>
+void bench_group_by_key<parlay::sequence<char>>(benchmark::State& state) {
+  using T = parlay::sequence<char>;
+  using par = std::pair<T,size_t>;
+  size_t n = state.range(0);
+  ngram_table words;
+  auto S = parlay::tabulate(n, [&] (size_t i) {
+      return par(words.word(i), i);});
+  parlay::sequence<par> Tmp;
+  for (auto _ : state) {
+    COPY_NO_TIME(Tmp, S);
+    RUN_AND_CLEAR(parlay::group_by_key(std::move(Tmp)));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_group_by_key_sorted(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % (n/20), i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_key_sorted(S));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_group_by_index(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+  T num_buckets = (n/20);
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % num_buckets, i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_index(S, num_buckets));
+  }
+
+  REPORT_STATS(n, 0, 0);
+}
+
+template<typename T>
+static void bench_group_by_index_256(benchmark::State& state) {
+  size_t n = state.range(0);
+  parlay::random r(0);
+  using par = std::pair<T,T>;
+  T num_buckets = 256;
+  auto S = parlay::tabulate(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % num_buckets, i);});
+
+  for (auto _ : state) {
+    RUN_AND_CLEAR(parlay::group_by_index(S, num_buckets));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -455,26 +653,38 @@ BENCH(scan_add, long, 100000000);
 BENCH(pack, long, 100000000);
 BENCH(gather, long, 100000000);
 BENCH(scatter, long, 100000000);
+BENCH(scatter, int, 100000000);
 BENCH(write_add, long, 100000000);
 BENCH(write_min, long, 100000000);
+BENCH(count_sort, long, 100000000, 4);
 BENCH(count_sort, long, 100000000, 8);
-BENCH(random_shuffle, long, 100000000);
-BENCH(histogram, unsigned int, 100000000);
-BENCH(histogram_same, unsigned int, 100000000);
-BENCH(histogram_few, unsigned int, 100000000);
 BENCH(integer_sort, unsigned int, 100000000);
 BENCH(integer_sort_pair, unsigned int, 100000000);
 BENCH(integer_sort_128, __int128, 100000000);
 BENCH(sort, unsigned int, 100000000);
 BENCH(sort, long, 100000000);
 BENCH(sort, __int128, 100000000);
+BENCH(sort, parlay::sequence<char>, 100000000);
 BENCH(sort_inplace, unsigned int, 100000000);
 BENCH(sort_inplace, long, 100000000);
 BENCH(sort_inplace, __int128, 100000000);
 BENCH(merge, long, 100000000);
-BENCH(scatter, int, 100000000);
 BENCH(merge_sort, long, 100000000);
-BENCH(count_sort, long, 100000000, 2);
-BENCH(split3, long, 100000000);
 BENCH(quicksort, long, 100000000);
-BENCH(collect_reduce, unsigned int, 100000000);
+BENCH(random_shuffle, long, 100000000);
+BENCH(histogram, unsigned int, 100000000);
+BENCH(histogram_same, unsigned int, 100000000);
+BENCH(histogram_few, unsigned int, 100000000);
+BENCH(reduce_by_index_256, unsigned int, 100000000);
+BENCH(reduce_by_index, unsigned int, 100000000);
+BENCH(remove_duplicate_integers, unsigned int, 100000000);
+BENCH(group_by_index_256, unsigned int, 100000000);
+BENCH(group_by_index, unsigned int, 100000000);
+BENCH(reduce_by_key, unsigned long, 100000000);
+BENCH(histogram_by_key, unsigned long, 100000000);
+BENCH(remove_duplicates, unsigned long, 100000000);
+BENCH(group_by_key, unsigned long, 100000000);
+BENCH(group_by_key_sorted, unsigned long, 100000000);
+BENCH(histogram_by_key, parlay::sequence<char>, 100000000);
+BENCH(remove_duplicates, parlay::sequence<char>, 100000000);
+BENCH(group_by_key, parlay::sequence<char>, 100000000);

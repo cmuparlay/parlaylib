@@ -27,9 +27,9 @@ auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
 // Return a sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto map(R&& r, UnaryOp&& f) {
+auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
   return tabulate(parlay::size(r), [&f, it = std::begin(r)](size_t i) {
-    return f(it[i]); });
+     return f(it[i]); }, granularity);
 }
 
 // Return a delayed sequence consisting of the elements
@@ -64,6 +64,13 @@ auto dmap(R&& r, UnaryOp&& f) {
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto delayed_map(R&& r, UnaryOp&& f) {
   return dmap(std::forward<R>(r), std::forward<UnaryOp>(f));
+}
+
+template<PARLAY_RANGE_TYPE R, typename UnaryOp>
+auto delayed_map(R &r, UnaryOp&& f) {
+  size_t n = parlay::size(r);
+  return delayed_tabulate(n, [ri = std::begin(r), f = std::forward<UnaryOp>(f) ]
+      (size_t i) { return f(ri[i]); });
 }
 
 template <typename T>
@@ -336,7 +343,7 @@ auto pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
   return pack(delayed_seq<Idx_Type>(Fl.size(), identity), Fl, fl);
 }
 
-template <typename InIterator, typename OutIterator, typename Char_Seq>
+template <typename assignment_tag, typename InIterator, typename OutIterator, typename Char_Seq>
 std::pair<size_t, size_t> split_three(slice<InIterator, InIterator> In,
                                       slice<OutIterator, OutIterator> Out,
                                       Char_Seq const &Fl, flags fl = no_flag) {
@@ -369,47 +376,47 @@ std::pair<size_t, size_t> split_three(slice<InIterator, InIterator> In,
                size_t c2 = m0 + m1 + (s - Sums0[i] - Sums1[i]);
                for (size_t j = s; j < e; j++) {
                  if (Fl[j] == 0)
-                   Out[c0++] = In[j];
+                   assign_dispatch(Out[c0++], In[j], assignment_tag());
                  else if (Fl[j] == 1)
-                   Out[c1++] = In[j];
-                 else
-                   Out[c2++] = In[j];
+		   assign_dispatch(Out[c1++], In[j], assignment_tag());
+		 else
+		   assign_dispatch(Out[c2++], In[j], assignment_tag());
                }
              },
              fl);
   return std::make_pair(m0, m1);
 }
 
-template <typename In_Seq, typename Bool_Seq>
-auto split_two(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
-    -> std::pair<sequence<typename In_Seq::value_type>, size_t> {
-  using T = typename In_Seq::value_type;
-  size_t n = In.size();
-  size_t l = num_blocks(n, _block_size);
-  sequence<size_t> Sums(l);
-  sliced_for(n, _block_size,
-             [&](size_t i, size_t s, size_t e) {
-               size_t c = 0;
-               for (size_t j = s; j < e; j++) c += (Fl[j] == false);
-               Sums[i] = c;
-             },
-             fl);
-  size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
-  sequence<T> Out = sequence<T>::uninitialized(n);
-  sliced_for(n, _block_size,
-             [&](size_t i, size_t s, size_t e) {
-               size_t c0 = Sums[i];
-               size_t c1 = s + (m - c0);
-               for (size_t j = s; j < e; j++) {
-                 if (Fl[j] == false)
-                   assign_uninitialized(Out[c0++], In[j]);
-                 else
-                   assign_uninitialized(Out[c1++], In[j]);
-               }
-             },
-             fl);
-  return std::make_pair(std::move(Out), m);
-}
+// template <typename In_Seq, typename Bool_Seq>
+// auto split_two(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
+//     -> std::pair<sequence<typename In_Seq::value_type>, size_t> {
+//   using T = typename In_Seq::value_type;
+//   size_t n = In.size();
+//   size_t l = num_blocks(n, _block_size);
+//   sequence<size_t> Sums(l);
+//   sliced_for(n, _block_size,
+//              [&](size_t i, size_t s, size_t e) {
+//                size_t c = 0;
+//                for (size_t j = s; j < e; j++) c += (Fl[j] == false);
+//                Sums[i] = c;
+//              },
+//              fl);
+//   size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
+//   sequence<T> Out = sequence<T>::uninitialized(n);
+//   sliced_for(n, _block_size,
+//              [&](size_t i, size_t s, size_t e) {
+//                size_t c0 = Sums[i];
+//                size_t c1 = s + (m - c0);
+//                for (size_t j = s; j < e; j++) {
+//                  if (Fl[j] == false)
+//                    assign_uninitialized(Out[c0++], In[j]);
+//                  else
+//                    assign_uninitialized(Out[c1++], In[j]);
+//                }
+//              },
+//              fl);
+//   return std::make_pair(std::move(Out), m);
+// }
 
 }  // namespace internal
 }  // namespace parlay

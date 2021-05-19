@@ -15,11 +15,16 @@
 
 #include <initializer_list>
 #include <iterator>
+#include <functional>
 #include <limits>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
+
+// Falsely suggested for std::hash
+// IWYU pragma: no_include <string_view>
+// IWYU pragma: no_include <system_error>
 
 #include "alloc.h"
 #include "parallel.h"
@@ -56,7 +61,7 @@ using sequence_default_allocator = std::allocator<T>;
 //  Allocator:  an allocator for type T
 //  EnableSSO:  true to enable small-size optimization
 //
-template<typename T, typename Allocator = internal::sequence_default_allocator<T>, bool EnableSSO = false>
+template<typename T, typename Allocator = internal::sequence_default_allocator<T>, bool EnableSSO = std::is_same<T, char>::value>
 class sequence : protected sequence_internal::sequence_base<T, Allocator, EnableSSO> {
 
   // Ensure that T is not const or volatile
@@ -324,7 +329,15 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     storage.set_size(size() - 1);
   }
 
+  // if all elements have been relocated out of this sequence then don't
+  // destroy them (it would not only be inefficient, but incorrect).
+  // Note that this is all or none: i.e. they better all be relocated for
+  // this function, or none for the standard destructor or clear().
+  // It is not a member function, so as to discourage its use by naive users.
+  friend void clear_relocated(sequence& S) { S.storage.clear_without_destruction(); }
+
   void clear() { storage.clear(); }
+
 
   void resize(size_t new_size, const value_type& v = value_type()) {
     auto current = size();
@@ -682,7 +695,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   }
 };
 
-// A small_sequence is a dynamic array supporting parallel modification operations
+// A short_sequence is a dynamic array supporting parallel modification operations
 // that may also perform small-size optimization. For sequences of trivial types
 // whose elements fit in 15 bytes or less, the sequence will be stored inline and
 // no heap allocation will be performed.
@@ -695,6 +708,16 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 //
 template<typename T, typename Allocator = internal::sequence_default_allocator<T>>
 using short_sequence = sequence<T, Allocator, true>;
+
+// A chars is an alias for a short-size optimized character sequence.
+//
+// You can think of chars as either an abbreviation of "char sequence",
+// or as a plural of char. Both make sense!
+//
+// Character sequences that fit in 15 bytes or less will be stored inline
+// without performing a heap allocation. Large sequences are stored on the
+// heap, and support update and query operations in parallel.
+using chars = sequence<char, internal::sequence_default_allocator<char>, true>;
 
 // Convert an arbitrary range into a sequence
 template<typename R>
@@ -725,11 +748,24 @@ struct is_trivially_relocatable<sequence<T, Alloc, EnableSSO>>
 namespace std {
 
 // exchange the values of a and b
-template<typename T, bool EnableSSO, typename Allocator>
+template<typename T, typename Allocator, bool EnableSSO>
 inline void swap(parlay::sequence<T, Allocator, EnableSSO>& a, parlay::sequence<T, Allocator, EnableSSO>& b) {
   a.swap(b);
 }
 
+
+
+// exchange the values of a and b
+template<typename T, typename Allocator, bool EnableSSO>
+struct hash<parlay::sequence<T, Allocator, EnableSSO>> {
+  std::size_t operator()(parlay::sequence<T, Allocator, EnableSSO> const& s) const noexcept {
+    size_t hash = 5381;
+      for (size_t i = 0; i < s.size(); i++) {
+        hash = ((hash << 5) + hash) + std::hash<T>{}(s[i]);
+      }
+      return hash;
+  }
+};
 
 }  // namespace std
 

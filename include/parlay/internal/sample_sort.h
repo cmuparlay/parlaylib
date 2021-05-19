@@ -67,8 +67,9 @@ void get_bucket_counts(slice<InIterator, InIterator> sA,
 template <typename Iterator, typename Compare>
 void seq_sort_inplace(slice<Iterator, Iterator> A, const Compare& less, bool stable) {
   using value_type = typename slice<Iterator, Iterator>::value_type;
-  if (((sizeof(value_type) > 8) || std::is_pointer<value_type>::value) && !stable)
-    quicksort(A.begin(), A.size(), less);
+  if (((sizeof(value_type) > 8) || std::is_pointer<value_type>::value))
+    if (!stable) quicksort(A.begin(), A.size(), less);
+    else bucket_sort(A, less, true); //merge_sort_inplace(A, less);
   else
     bucket_sort(A, less, stable);
 }

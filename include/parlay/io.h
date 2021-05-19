@@ -28,7 +28,7 @@ namespace parlay {
 //    if start past end of file then returns an empty string.
 // If null_terminate is true, a null terminator (an extra '0' character)
 // is be appended to the sequence.
-inline sequence<char> chars_from_file(const std::string& filename,
+inline chars chars_from_file(const std::string& filename,
            bool null_terminate=false, size_t start=0, size_t end=0) {
   std::ifstream file (filename, std::ios::in | std::ios::binary | std::ios::ate);
   assert(file.is_open());
@@ -38,7 +38,7 @@ inline sequence<char> chars_from_file(const std::string& filename,
   else end = (std::min)(end,length);
   size_t n = end - start;
   file.seekg (start, std::ios::beg);
-  auto chars = sequence<char>::uninitialized(n + null_terminate);
+  auto chars = chars::uninitialized(n + null_terminate);
   file.read (chars.data(), n);
   file.close();
   if (null_terminate) {
@@ -48,19 +48,19 @@ inline sequence<char> chars_from_file(const std::string& filename,
 }
 
 // Writes a character sequence to a stream
-inline void chars_to_stream(const sequence<char>& S, std::ostream& os) {
+inline void chars_to_stream(const chars& S, std::ostream& os) {
   os.write(S.data(), S.size());
 }
 
 // Writes a character sequence to a file, returns 0 if successful
-inline void chars_to_file(const sequence<char>& S, const std::string& filename) {
+inline void chars_to_file(const chars& S, const std::string& filename) {
   std::ofstream file_stream (filename, std::ios::out | std::ios::binary);
   assert(file_stream.is_open());
   chars_to_stream(S, file_stream);
 }
 
 // Writes a character sequence to a stream
-inline std::ostream& operator<<(std::ostream& os, const sequence<char>& s) {
+inline std::ostream& operator<<(std::ostream& os, const chars& s) {
   chars_to_stream(s, os);
   return os;
 }
@@ -143,7 +143,7 @@ _Integer chars_to_int_t(slice<It, It> str) {
 // divide or multiple exactly.  Otherwise we fall back
 // to std::stod / std::stof / std::stold.
 template<typename _Float, size_t _max_len, int64_t _max_exp, int64_t _max_man, typename _FallbackF>
-_Float chars_to_float_t(const sequence<char>& s, _FallbackF fallback) {
+_Float chars_to_float_t(const chars& s, _FallbackF fallback) {
 
   static const _Float pow_ten[] = {
     _Float{1e0},  _Float{1e1},  _Float{1e2},  _Float{1e3},  _Float{1e4},
@@ -238,26 +238,26 @@ _Float chars_to_float_t(const sequence<char>& s, _FallbackF fallback) {
 
 }
 
-inline int chars_to_int(const sequence<char>& s) { return internal::chars_to_int_t<int>(make_slice(s)); }
-inline long chars_to_long(const sequence<char>& s) { return internal::chars_to_int_t<long>(make_slice(s)); }
-inline long long chars_to_long_long(const sequence<char>& s) { return internal::chars_to_int_t<long long>(make_slice(s)); }
+inline int chars_to_int(const chars& s) { return internal::chars_to_int_t<int>(make_slice(s)); }
+inline long chars_to_long(const chars& s) { return internal::chars_to_int_t<long>(make_slice(s)); }
+inline long long chars_to_long_long(const chars& s) { return internal::chars_to_int_t<long long>(make_slice(s)); }
 
-inline unsigned int chars_to_uint(const sequence<char>& s) { return internal::chars_to_int_t<unsigned int>(make_slice(s)); }
-inline unsigned long chars_to_ulong(const sequence<char>& s) { return internal::chars_to_int_t<unsigned long>(make_slice(s)); }
-inline unsigned long long chars_to_ulong_long(const sequence<char>& s) { return internal::chars_to_int_t<unsigned long long>(make_slice(s)); }
+inline unsigned int chars_to_uint(const chars& s) { return internal::chars_to_int_t<unsigned int>(make_slice(s)); }
+inline unsigned long chars_to_ulong(const chars& s) { return internal::chars_to_int_t<unsigned long>(make_slice(s)); }
+inline unsigned long long chars_to_ulong_long(const chars& s) { return internal::chars_to_int_t<unsigned long long>(make_slice(s)); }
 
 
-inline float chars_to_float(const sequence<char>& s) {
+inline float chars_to_float(const chars& s) {
   return internal::chars_to_float_t<float, 10, 10, 24>(s, [](const auto& str) {
     return std::stof(std::string(std::begin(str), std::end(str))); });
 }
 
-inline double chars_to_double(const sequence<char>& s) {
+inline double chars_to_double(const chars& s) {
   return internal::chars_to_float_t<double, 18, 22, 53>(s, [](const auto& str) {
     return std::stod(std::string(std::begin(str), std::end(str))); });
 }
 
-inline long double chars_to_long_double(const sequence<char>& s) {
+inline long double chars_to_long_double(const chars& s) {
   return internal::chars_to_float_t<long double, 18, 22, 53>(s, [](const auto& str) {
     return std::stold(std::string(std::begin(str), std::end(str))); });
 }
@@ -267,61 +267,77 @@ inline long double chars_to_long_double(const sequence<char>& s) {
 //                                Formatting
 // ----------------------------------------------------------------------------
 
+// Flatten a sequence of character sequences into a character sequence.
+// This overload is preferred over the usual one which returns an ordinary
+// (non-small-size-optimized) sequence
+// auto flatten(const sequence<chars>& r) {
+//   auto offsets = sequence<size_t>::from_function(parlay::size(r),
+//                                                  [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
+//   size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
+//   auto res = chars::uninitialized(len);
+//   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
+//     parallel_for(0, parlay::size(it[i]),
+//                  [&](size_t j) { assign_uninitialized(res[offsets[i] + j], it[i][j]); }
+//     );
+//   });
+//   return res;
+// }
+
 // Still a work in progress. TODO: Improve these?
 
-inline sequence<char> to_chars(char c) {
-  return sequence<char>(1, c);
+inline chars to_chars(char c) {
+  return chars(1, c);
 }
 
-inline sequence<char> to_chars(bool v) {
+inline chars to_chars(bool v) {
   return to_chars(v ? '1' : '0');
 }
 
-inline sequence<char> to_chars(long v) {
+inline chars to_chars(long v) {
   constexpr int max_len = 21;
   char s[max_len + 1];
   int l = std::snprintf(s, max_len, "%ld", v);
-  return sequence<char>(s, s + (std::min)(max_len - 1, l));
+  return chars(s, s + (std::min)(max_len - 1, l));
 }
 
-inline sequence<char> to_chars(int v) {
+inline chars to_chars(int v) {
   return to_chars((long) v);
 };
 
-inline sequence<char> to_chars(unsigned long v) {
+inline chars to_chars(unsigned long v) {
   constexpr int max_len = 21;
   char s[max_len + 1];
   int l = std::snprintf(s, max_len, "%lu", v);
-  return sequence<char>(s, s + (std::min)(max_len - 1, l));
+  return chars(s, s + (std::min)(max_len - 1, l));
 }
 
-inline sequence<char> to_chars(unsigned int v) {
+inline chars to_chars(unsigned int v) {
   return to_chars((unsigned long) v);
 };
 
-inline sequence<char> to_chars(double v) {
+inline chars to_chars(double v) {
   constexpr int max_len = 20;
   char s[max_len + 1];
   int l = std::snprintf(s, max_len, "%.11le", v);
-  return sequence<char>(s, s + (std::min)(max_len - 1, l));
+  return chars(s, s + (std::min)(max_len - 1, l));
 }
 
-inline sequence<char> to_chars(float v) {
+inline chars to_chars(float v) {
   return to_chars((double) v);
 };
 
-inline sequence<char> to_chars(const std::string& s) {
-  return tabulate(s.size(), [&](size_t i) -> char { return s[i]; });
+inline chars to_chars(const std::string& s) {
+  return chars::from_function(s.size(), [&](size_t i) -> char { return s[i]; });
 }
 
-inline sequence<char> to_chars(const char* s) {
+inline chars to_chars(const char* s) {
   size_t l = std::strlen(s);
-  return tabulate(l, [&](size_t i) -> char { return s[i]; });
+  return chars::from_function(l, [&](size_t i) -> char { return s[i]; });
 }
 
 template<typename A, typename B>
-sequence<char> to_chars(const std::pair<A, B>& P) {
-  sequence<sequence<char>> s = {
+chars to_chars(const std::pair<A, B>& P) {
+  sequence<chars> s = {
       to_chars('('), to_chars(P.first),
       to_chars(std::string(", ")),
       to_chars(P.second), to_chars(')')};
@@ -329,7 +345,7 @@ sequence<char> to_chars(const std::pair<A, B>& P) {
 }
 
 template<typename T>
-sequence<char> to_chars(const slice<T, T>& A) {
+chars to_chars(const slice<T, T>& A) {
   auto n = A.size();
   if (n == 0) return to_chars(std::string("[]"));
   auto separator = to_chars(std::string(", "));
@@ -342,15 +358,15 @@ sequence<char> to_chars(const slice<T, T>& A) {
 }
 
 template<class T>
-sequence<char> to_chars(const sequence<T>& A) {
+chars to_chars(const sequence<T>& A) {
   return to_chars(make_slice(A));
 }
 
-inline sequence<char> to_chars(const sequence<char>& s) {
+inline chars to_chars(const chars& s) {
   return s;
 }
 
-inline sequence<char> to_chars(sequence<char>&& s) {
+inline chars to_chars(chars&& s) {
   return std::move(s);
 }
 

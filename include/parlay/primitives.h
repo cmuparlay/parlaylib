@@ -12,12 +12,13 @@
 #include <type_traits>
 #include <utility>
 
-#include "internal/collect_reduce.h"
 #include "internal/integer_sort.h"
 #include "internal/merge.h"
 #include "internal/merge_sort.h"
 #include "internal/sequence_ops.h"     // IWYU pragma: export
 #include "internal/sample_sort.h"
+
+#include "internal/block_delayed.h"
 
 #include "delayed_sequence.h"
 #include "monoid.h"
@@ -32,8 +33,6 @@ namespace parlay {
 /* -------------------- Map and Tabulate -------------------- */
 // Pull all of these from internal/sequence_ops.h
 
-// Return a sequence consisting of the elements
-//   f(0), f(1), ... f(n)
 using internal::tabulate;
 
 // Return a sequence consisting of the elements
@@ -55,6 +54,7 @@ using internal::dmap;
 // the delayed sequence will hold a reference to it, so
 // r must remain alive as long as the delayed sequence.
 using internal::delayed_map;
+
 
 /* -------------------- Copying -------------------- */
 
@@ -83,7 +83,7 @@ auto reduce(const R& r, Monoid&& m) {
 template<PARLAY_RANGE_TYPE R>
 auto reduce(const R& r) {
   using value_type = range_value_type_t<R>;
-  return reduce(r, addm<value_type>());
+  return parlay::reduce(r, addm<value_type>());
 }
 
 /* ---------------------- Scans --------------------- */
@@ -203,11 +203,12 @@ auto merge(const R1& r1, const R2& r2) {
 
 /* ----------------------- Histograms --------------------- */
 
+// Now in internal::collect_reduce.h
 // Compute a histogram of the values of A, with m buckets.
-template<PARLAY_RANGE_TYPE R, typename Integer_>
-auto histogram(const R& A, Integer_ m) {
-  return internal::histogram(make_slice(A), m);
-}
+// template<PARLAY_RANGE_TYPE R, typename Integer_>
+//  auto histogram(const R& A, Integer_ m) {
+//   return internal::histogram(make_slice(A), m);
+//}
 
 /* -------------------- General Sorting -------------------- */
 
@@ -299,23 +300,22 @@ namespace internal {
 
 template <typename IntegerPred>
 size_t count_if_index(size_t n, IntegerPred p) {
-  auto BS =
-      delayed_seq<size_t>(n, [&](size_t i) -> size_t { return p(i); });
-  size_t r = internal::reduce(make_slice(BS), addm<size_t>());
-  return r;
+  auto BS = delayed_tabulate(n, [&](size_t i) -> size_t {
+      return (bool) p(i); });
+  return reduce(make_slice(BS));
 }
 
 template <typename IntegerPred>
 size_t find_if_index(size_t n, IntegerPred p, size_t granularity = 1000) {
   size_t i;
-  for (i = 0; i < std::min(granularity, n); i++)
+  for (i = 0; i < (std::min)(granularity, n); i++)
     if (p(i)) return i;
   if (i == n) return n;
   size_t start = granularity;
   size_t block_size = 2 * granularity;
   std::atomic<size_t> result(n);
   while (start < n) {
-    size_t end = std::min(n, start + block_size);
+    size_t end = (std::min)(n, start + block_size);
     parallel_for(start, end,
                  [&](size_t j) {
                    if (p(j)) write_min(&result, j, std::less<size_t>());
@@ -352,10 +352,9 @@ size_t count_if(const R& r, UnaryPredicate p) {
 }
 
 template <PARLAY_RANGE_TYPE R, class T>
-size_t count(const R& r, T const &value) {
+size_t count(const R& r, const T& value) {
   return internal::count_if_index(parlay::size(r),
-    [&value, it = std::begin(r)](size_t i)
-      { return it[i] == value; });
+     [&] (size_t i) { return r[i] == value; });
 }
 
 /* -------------------- Boolean searching -------------------- */
@@ -498,7 +497,7 @@ bool equal(const R1& r1, const R2& r2) {
 
 template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2, class Compare>
 bool lexicographical_compare(const R1& r1, const R2& r2, Compare less) {
-  size_t m = std::min(parlay::size(r1), parlay::size(r2));
+  size_t m = (std::min)(parlay::size(r1), parlay::size(r2));
   size_t i = internal::find_if_index(m,
     [&less, it1 = std::begin(r1), it2 = std::begin(r2)](size_t i)
       { return less(it1[i], it2[i]) || less(it2[i], it1[i]); });
@@ -506,11 +505,28 @@ bool lexicographical_compare(const R1& r1, const R2& r2, Compare less) {
     : (parlay::size(r1) < parlay::size(r2));
 }
 
+template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
+inline bool lexicographical_compare(const R1& r1, const R2& r2) {
+  return lexicographical_compare(r1, r2, std::less{});}
+
+template <typename T>
+inline bool operator<(const sequence<T> &a, 
+		      const sequence<T> &b) {
+  if (a.size() > 1000) 
+    return lexicographical_compare(a, b);
+  auto sa = a.begin();
+  auto sb = b.begin();
+  auto ea = sa + (std::min)(a.size(),b.size());
+  while (sa < ea && *sa == *sb) {sa++; sb++;}
+  return sa == ea ? (a.size() < b.size()) : *sa < *sb;
+};
+
+
 /* -------------------- Remove duplicates -------------------- */
 
 template <PARLAY_RANGE_TYPE R, typename BinaryPredicate>
 auto unique(const R& r, BinaryPredicate eq) {
-  auto b = delayed_seq<bool>(
+  auto b = tabulate(
     parlay::size(r), [&eq, it = std::begin(r)](size_t i)
       { return (i == 0) || !eq(it[i], it[i - 1]); });
   return pack(r, b);
@@ -663,18 +679,42 @@ auto iota(Index n) {
 template <PARLAY_RANGE_TYPE R>
 auto flatten(const R& r) {
   using T = range_value_type_t<range_value_type_t<R>>;
-  auto offsets = sequence<size_t>::from_function(parlay::size(r),
+  auto offsets = tabulate(parlay::size(r),
     [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
   size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
   auto res = sequence<T>::uninitialized(len);
   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
-    parallel_for(0, parlay::size(it[i]),
-      [&](size_t j) { assign_uninitialized(res[offsets[i] + j], it[i][j]); }
-     );
+      auto dit = std::begin(res)+offsets[i];
+      auto sit = std::begin(it[i]);
+      parallel_for(0, parlay::size(it[i]), [=] (size_t j) {
+	  assign_uninitialized(*(dit+j), *(sit+j)); },
+	1000);
   });
   return res;
 }
 
+// Guy :: should be merged with previous definition 
+// this one does a move in the assign_uninitialized.
+// If there was a way to clear a sequence withoud destructor 
+//    then could relocate to the destination, saving a bunch of writes
+template <typename T>
+auto flatten(sequence<sequence<T>>&& r) {
+  auto offsets = tabulate(parlay::size(r),
+    [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
+  size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
+  auto res = sequence<T>::uninitialized(len);
+  parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
+      auto dit = std::begin(res)+offsets[i];
+      auto sit = std::begin(it[i]);
+      parallel_for(0, parlay::size(it[i]), [=] (size_t j) {
+					     //assign_uninitialized(*(dit+j), std::move(*(sit+j))); },
+					     uninitialized_relocate((dit+j), (sit+j)); },
+	1000);
+      clear_relocated(it[i]);
+  });
+  r.clear();
+  return res;
+}
 
 /* -------------------- Tokens and split -------------------- */
 
@@ -684,19 +724,10 @@ bool inline is_whitespace(unsigned char c) {
   return std::isspace(c);
 }
 
-// Apply the given function f to each token of the given range.
-//
-// This is essentially equivalent to parlay::map(parlay::tokens(
-//
-// The tokens are the longest contiguous subsequences of non space characters.
-// where spaces are define by the unary predicate is_space. By default, is_space
-// correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
-//
-// If f has no return value (i.e. void), this function returns nothing. Otherwise,
-// this function returns a sequence consisting of the returned values of f for
-// each token.
-template <PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
-auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
+namespace internal {
+template<PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
+auto map_tokens_old(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
+  // internal::timer t("map tokens");
   using f_return_type = decltype(f(make_slice(r)));
 
   auto S = make_slice(r);
@@ -705,35 +736,78 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
   if (n == 0) {
     if constexpr (std::is_same_v<f_return_type, void>) {
       return;
-    }
-    else {
+    } else {
       return sequence<f_return_type>();
     }
   }
-  
-  auto Flags = sequence<bool>::uninitialized(n+1);
 
-  parallel_for(1, n, [&] (long i) {
-    Flags[i] = is_space(S[i-1]) != is_space(S[i]);
-  }, 10000);
-    
-  Flags[0] = !is_space(S[0]);
-  Flags[n] = !is_space(S[n-1]);
+  // sequence<long> Locations = pack_index<long>(Flags);
+  sequence<long> Locations = block_delayed::filter(iota<long>(n + 1), [&](size_t i) {
+    return ((i == 0) ? !is_space(S[0]) : (i == n) ? !is_space(S[n - 1]) : is_space(S[i - 1]) != is_space(S[i]));
+  });
 
-  sequence<long> Locations = internal::pack_index<long>(Flags);
-  
   // If f does not return anything, just apply f
   // to each token and don't return anything
   if constexpr (std::is_same_v<f_return_type, void>) {
-    parallel_for(0, Locations.size()/2, [&](size_t i) {
-      f(S.cut(Locations[2*i], Locations[2*i+1]));
-    });
+    parallel_for(0, Locations.size() / 2, [&](size_t i) { f(S.cut(Locations[2 * i], Locations[2 * i + 1])); });
   }
-  // If f does return something, apply f to each token 
+  // If f does return something, apply f to each token
   // and return a sequence of the resulting values
   else {
-    return tabulate(Locations.size()/2, [&] (size_t i) {
-      return f(S.cut(Locations[2*i], Locations[2*i+1]));});
+    auto x = tabulate(Locations.size() / 2, [&](size_t i) { return f(S.cut(Locations[2 * i], Locations[2 * i + 1])); });
+    return x;
+  }
+}
+}
+
+// Apply the given function f to each token of the given range.
+//
+// The tokens are the longest contiguous subsequences of non space characters.
+// where spaces are define by the unary predicate is_space. By default, is_space
+// correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
+//
+// If f has no return value (i.e. void), this function returns nothing. Otherwise,
+// this function returns a sequence consisting of the returned values of f for
+// each token.
+template<PARLAY_RANGE_TYPE R, typename UnaryOp, typename UnaryPred = decltype(is_whitespace)>
+auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
+  using f_return_type = decltype(f(make_slice(r)));
+  auto A = make_slice(r);
+  using ipair = std::pair<long, long>;
+  size_t n = A.size();
+
+  if (n == 0) {
+    if constexpr (std::is_same_v<f_return_type, void>)
+      return;
+    else
+      return sequence<f_return_type>();
+  }
+
+  auto is_start = [&](size_t i) { return ((i == 0) || is_space(A[i - 1])) && (i != n) && !(is_space(A[i])); };
+  auto is_end = [&](size_t i) { return ((i == n) || (is_space(A[i]))) && (i != 0) && !is_space(A[i - 1]); };
+  // associative combining function
+  // first = # of starts, second = index of last start
+  auto g = [](ipair a, ipair b) { return (b.first == 0) ? a : ipair(a.first + b.first, b.second); };
+
+  auto in = delayed_tabulate(n + 1, [&](size_t i) -> ipair { return is_start(i) ? ipair(1, i) : ipair(0, 0); });
+  auto [offsets, sum] = block_delayed::scan(in, make_monoid(g, ipair(0, 0)));
+
+  auto idxs = iota(n + 1);
+  auto z = block_delayed::zip(offsets, idxs);
+
+  auto start = r.begin();
+
+  if constexpr (std::is_same_v<f_return_type, void>)
+    block_delayed::apply(z, [&](auto x) {
+      if (is_end(x.second)) f(make_slice(x.first.second + start, x.second + start));
+    });
+  else {
+    auto result = sequence<f_return_type>::uninitialized(sum.first);
+    block_delayed::apply(z, [&](auto x) {
+      if (is_end(x.second))
+        assign_uninitialized(result[x.first.first - 1], f(make_slice(start + x.first.second, start + x.second)));
+    });
+    return result;
   }
 }
 
@@ -742,8 +816,11 @@ auto map_tokens(R&& r, UnaryOp f, UnaryPred is_space = is_whitespace) {
 // where spaces are define by the unary predicate is_space. By default, is_space
 // correponds to std::isspace, which is true for ' ', '\f', '\n', '\r'. '\t'. '\v'
 template <PARLAY_RANGE_TYPE Range, typename UnaryPred = decltype(is_whitespace)>
-sequence<sequence<char>> tokens(const Range& R, UnaryPred is_space = is_whitespace) {
-  return map_tokens(R, [] (auto x) { return to_sequence(x); }, is_space);
+sequence<parlay::chars> tokens(const Range& R, UnaryPred is_space = is_whitespace) {
+  static_assert(std::is_convertible_v<range_value_type_t<Range>, char>);
+  if (parlay::size(R) < 2000)
+    return internal::map_tokens_old(R, [] (auto x) { return to_short_sequence(x); }, is_space);
+  return map_tokens(R, [] (auto x) { return to_short_sequence(x); }, is_space);
 }
 
 // Partitions R into contiguous subsequences, by marking the last
@@ -756,7 +833,12 @@ sequence<sequence<char>> tokens(const Range& R, UnaryPred is_space = is_whitespa
 template <PARLAY_RANGE_TYPE Range, PARLAY_RANGE_TYPE BoolRange>
 auto split_at(const Range& R, const BoolRange& flags) {
   static_assert(std::is_convertible_v<range_value_type_t<BoolRange>, bool>);
-  return map_split_at(R, flags, [] (auto x) {return to_sequence(x);});
+  if constexpr (std::is_same<range_value_type_t<Range>, char>::value) {
+    return map_split_at(R, flags, [](auto x) { return to_short_sequence(x); });
+  }
+  else {
+    return map_split_at(R, flags, [](auto x) { return to_sequence(x); });
+  }
 }
 
 // Like split_at, but applies the given function f to each of the
@@ -799,5 +881,7 @@ auto append (const R1& s1, const R2& s2) {
 }
 
 }  // namespace parlay
+
+#include "internal/group_by.h"            // IWYU pragma: export
 
 #endif  // PARLAY_PRIMITIVES_H_

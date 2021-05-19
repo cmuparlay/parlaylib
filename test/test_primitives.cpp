@@ -256,11 +256,11 @@ TEST(TestPrimitives, TestFilterInto) {
   }
 }
 
-TEST(TestPrimitives, TestHistogram) {
+TEST(TestPrimitives, TestHistogramByIndex) {
   auto s = parlay::tabulate(100000, [](long long i) -> long long {
     return (50021 * i + 61) % (1 << 20);
   });
-  auto hist = parlay::histogram(s, 1 << 20);
+  auto hist = parlay::histogram_by_index(s, 1 << 20);
   ASSERT_EQ(hist.size(), 1 << 20);
   auto cnts = parlay::sequence<size_t>(1 << 20, 0);
   for (auto x : s) {

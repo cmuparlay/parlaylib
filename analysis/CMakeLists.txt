@@ -6,8 +6,12 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}
     ${PARLAY_INCLUDE_DIR}/parlay
   FILES
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/block_delayed.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/collect_reduce.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/file_map.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/group_by.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/sequence_base.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/stream_delayed.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/work_stealing_job.h
     ${PARLAY_INCLUDE_DIR}/parlay/alloc.h
     ${PARLAY_INCLUDE_DIR}/parlay/delayed_sequence.h

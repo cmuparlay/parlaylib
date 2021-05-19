@@ -103,3 +103,43 @@ TEST(TestUninitializedMemory, TestIntegerSortInPlace) {
   parlay::internal::integer_sort_inplace(make_slice(s), [](auto s) { return s.x; });
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
+
+TEST(TestUninitializedMemory, TestGroupByKey) {
+  auto s = parlay::tabulate(10000000, [](size_t i) -> parlay::internal::UninitializedTracker {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  size_t num_buckets = 100;
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
+  auto result = parlay::group_by_key(key_vals);
+  ASSERT_LE(result.size(), num_buckets);
+}
+
+TEST(TestUninitializedMemory, TestGroupByKeyMove) {
+  auto s = parlay::tabulate(10000000, [](size_t i) -> parlay::internal::UninitializedTracker {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  size_t num_buckets = 100;
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
+  auto result = parlay::group_by_key(std::move(key_vals));
+  ASSERT_LE(result.size(), num_buckets);
+}
+
+TEST(TestUninitializedMemory, TestGroupByIndex) {
+  auto s = parlay::tabulate(100000, [](size_t i) -> parlay::internal::UninitializedTracker {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  size_t num_buckets = 1000;
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
+  auto result = parlay::group_by_index(key_vals, num_buckets);
+  ASSERT_EQ(result.size(), num_buckets);
+}
+
+TEST(TestUninitializedMemory, TestGroupByIndexSmall) {
+  auto s = parlay::tabulate(10000000, [](size_t i) -> parlay::internal::UninitializedTracker {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  size_t num_buckets = 100;
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
+  auto result = parlay::group_by_index(key_vals, num_buckets);
+  ASSERT_EQ(result.size(), num_buckets+1);  // Why are there num_buckets+1 buckets??
+}

@@ -60,7 +60,7 @@ struct Deque {
     std::atomic<Job*> job;
   };
 
-  static constexpr int q_size = 200;
+  static constexpr int q_size = 1000;
   std::atomic<qidx> bot;
   std::atomic<age_t> age;
   std::array<padded_job, q_size> deq;
