@@ -27,7 +27,7 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 
-#define TRIGRAM_FILE "trigrams.txt"
+#define TRIGRAM_FILE PARLAY_BENCHMARK_DIRECTORY "trigrams.txt"
 
 struct ngram_table {
   int len;

@@ -8,7 +8,7 @@ function(add_benchmark NAME)
   add_executable(bench_${NAME} bench_${NAME}.cpp)
   target_link_libraries(bench_${NAME} PRIVATE parlay benchmark_main)
   target_compile_options(bench_${NAME} PRIVATE -Wall -Wextra -Wfatal-errors -march=native)
-
+  target_compile_definitions(bench_${NAME} PRIVATE -DPARLAY_BENCHMARK_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIRECTORY}")
   if(PARLAY_BENCHMARK_NUMACTL_TARGETS)
     add_custom_target(numactl_bench_${NAME}
       COMMAND ${NUMA_COMMAND} ${CMAKE_CURRENT_BINARY_DIR}/bench_${NAME} --benchmark_counters_tabular=true
