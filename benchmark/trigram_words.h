@@ -27,7 +27,7 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 
-#define TRIGRAM_FILE PARLAY_BENCHMARK_DIRECTORY "trigrams.txt"
+#define TRIGRAM_FILE PARLAY_BENCHMARK_DIRECTORY "/trigrams.txt"
 
 struct ngram_table {
   int len;
@@ -50,7 +50,7 @@ struct ngram_table {
   ngram_table() {
     std::ifstream ifile(TRIGRAM_FILE);
     if (!ifile.is_open()) {
-      std::cout << "ngram_table: Unable to open trigram file" << std::endl;
+      std::cout << "ngram_table: Unable to open trigram file: " << TRIGRAM_FILE << std::endl;
       abort();
     } else {
       int i=0;
