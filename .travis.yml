@@ -27,7 +27,7 @@ addons:
     - libc++-10-dev
     - libc++abi-10-dev
   homebrew:
-    update: false
+    update: true
     packages:
     - gcc@9
 
