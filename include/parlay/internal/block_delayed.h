@@ -82,8 +82,8 @@ template <typename>
 struct is_delayed_base : std::false_type {};
 template <typename IDS>
 struct is_delayed_base<block_delayed_sequence<IDS>> : std::true_type {};
-template <typename T, typename F>
-struct is_delayed_base<parlay::delayed_sequence<T,F>> : std::true_type {};
+template <typename T, typename V, typename F>
+struct is_delayed_base<parlay::delayed_sequence<T,V,F>> : std::true_type {};
 template<typename T>
 struct is_delayed : is_delayed_base<std::remove_cv_t<T>> {};
 

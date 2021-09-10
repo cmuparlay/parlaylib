@@ -26,16 +26,26 @@
 
 namespace parlay {
 
-template<typename T, typename F>
+template<typename T, typename V, typename F>
 class delayed_sequence;
 
 // Factory function that can infer the type of the function
-template <typename T, typename F>
-delayed_sequence<T, F> delayed_seq (size_t, F);
+template <typename T, typename V, typename F>
+delayed_sequence<T, V, F> delayed_seq (size_t, F);
 
 // A delayed sequence is an iterator range that generates its
 // elements on demand.
-template<typename T, typename F>
+//
+// T is the reference_type of the sequence, i.e. the type returned
+// by the delayed sequence. V is the value_type of the sequence.
+// Often, these are the same, particularly when the delayed
+// sequence returns a value anyway. They should differ if the
+// delayed sequence is going to return a reference, or a type
+// with reference-semantics (e.g., a tuple of references), in
+// which case value_type should be a type with corresponding value
+// semantics.
+//
+template<typename T, typename V, typename F>
 class delayed_sequence {
  public:
   
@@ -46,9 +56,9 @@ class delayed_sequence {
   // a reference type, but rather, it refers to the type returned
   // by dereferencing the iterator. For a delayed sequence, this
   // could be a value type since elements are generated on demand.
-  using value_type = T;
+  using value_type = V;
   using reference = T;
-  using const_reference = T;
+  using const_reference = const T;
   class iterator;
   using const_iterator = iterator;
   using reverse_iterator = std::reverse_iterator<iterator>;
@@ -64,12 +74,12 @@ class delayed_sequence {
 
     // Iterator traits
     using iterator_category = std::random_access_iterator_tag;
-    using value_type = T;
+    using value_type = V;
     using difference_type = std::ptrdiff_t;
     using pointer = typename std::add_pointer<T>::type;
     using reference = T;
 
-    friend class delayed_sequence<T, F>;
+    friend class delayed_sequence<T, V, F>;
 
     // ----- Requirements for vanilla iterator ----
 
@@ -92,7 +102,7 @@ class delayed_sequence {
 #pragma warning(disable: 4267) // conversion from 'size_t' to *, possible loss of data
 #endif
 
-    // Dereference by value
+    // Dereference
     T operator*() const { return parent->f(index); }
 
 #ifdef _MSC_VER
@@ -190,7 +200,7 @@ class delayed_sequence {
     iterator(const delayed_sequence* _parent, size_t _index)
       : parent(_parent), index(_index) { }
    
-    const delayed_sequence<T, F>* parent;
+    const delayed_sequence<T, V, F>* parent;
     size_t index;
   };
   
@@ -208,10 +218,10 @@ class delayed_sequence {
     : first(_first), last(_last), f(std::move(_f)) { }
     
   // Default copy & move, constructor and assignment
-  delayed_sequence(const delayed_sequence<T, F>&) = default;
-  delayed_sequence(delayed_sequence<T, F>&&) = default;                           // NOLINT: A default move constructor is noexcept whenever possible
-  delayed_sequence<T, F>& operator=(const delayed_sequence<T, F>&) = default;
-  delayed_sequence<T, F>& operator=(delayed_sequence<T, F>&&) = default;          // NOLINT: A default move assignment is noexcept whenever possible
+  delayed_sequence(const delayed_sequence<T, V, F>&) = default;
+  delayed_sequence(delayed_sequence<T, V, F>&&) = default;                          // NOLINT: A default move constructor is noexcept whenever possible
+  delayed_sequence<T, V, F>& operator=(const delayed_sequence<T, V, F>&) = default;
+  delayed_sequence<T, V, F>& operator=(delayed_sequence<T, V, F>&&) = default;      // NOLINT: A default move assignment is noexcept whenever possible
 
   // ---------------- Iterator Pairs --------------------
 
@@ -277,7 +287,7 @@ class delayed_sequence {
   }
   
   // Swap this with another delayed sequence
-  void swap(delayed_sequence<T, F>& other) {
+  void swap(delayed_sequence<T, V, F>& other) {
     std::swap(*this, other);
   }
   
@@ -287,9 +297,9 @@ class delayed_sequence {
 };
 
 // Factory function that can infer the type of the function
-template <typename T, typename F>
-delayed_sequence<T, F> delayed_seq (size_t n, F f) {
-  return delayed_sequence<T, F>(n, std::move(f));
+template <typename T, typename V = T, typename F>
+delayed_sequence<T, V, F> delayed_seq (size_t n, F f) {
+  return delayed_sequence<T, V, F>(n, std::move(f));
 }
 
 }  // namespace parlay

@@ -8,13 +8,12 @@
 //
 // Includes:
 //  - priority_tag
-//  - is_contiguous_iterator / is_random_access_iterator
 //  - is_trivial_allocator
 //  - is_trivially_relocatable / is_nothrow_relocatable
 //
 
-#ifndef PARLAY_TYPE_TRAITS_H
-#define PARLAY_TYPE_TRAITS_H
+#ifndef PARLAY_TYPE_TRAITS_H_
+#define PARLAY_TYPE_TRAITS_H_
 
 #include <cstddef>
 
@@ -41,33 +40,6 @@ struct priority_tag : priority_tag<K-1> {};
 template<>
 struct priority_tag<0> {};
 
-/*  --------------------- Contiguous iterators -----------------------
-    An iterator is a contiguous iterator if it points to memory that
-    is contiguous. More specifically, it means that given an iterator
-    a, and an index n such that a+n is a valid, dereferencable iterator,
-    then *(a + n) is equivalent to *(std::addressof(*a) + n).
-
-    C++20 will introduce a concept for detecting contiguous iterators.
-    Until then, we just do the conservative thing and deduce that any
-    iterators represented as pointers are contiguous.
-
-    We also supply a convenient trait for checking whether an iterator
-    is a random access iterator. This can be done using current C++,
-    but is too verbose to type frequently, so we shorten it here.
-*/
-
-template<typename It>
-struct is_contiguous_iterator : std::is_pointer<It> {};
-
-template<typename It>
-inline constexpr bool is_contiguous_iterator_v = is_contiguous_iterator<It>::value;
-
-template<typename It>
-struct is_random_access_iterator : std::bool_constant<
-    std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It>::iterator_category>> {};
-
-template<typename It>
-inline constexpr bool is_random_access_iterator_v = is_random_access_iterator<It>::value;
 
 /*  ----------------- Trivial allocators. ---------------------
     Allocator-aware containers and algorithms need to know whether
@@ -102,21 +74,21 @@ inline constexpr bool is_random_access_iterator_v = is_random_access_iterator<It
 
 namespace internal {
 
-  // Detect the existence of the .destroy method of the type Alloc
-  template<typename Alloc, typename T>
-  auto trivial_allocator(Alloc& a, T *p, priority_tag<2>)
-    -> decltype(void(a.destroy(p)), std::false_type());
+// Detect the existence of the .destroy method of the type Alloc
+template<typename Alloc, typename T>
+auto trivial_allocator(Alloc& a, T* p, priority_tag<2>)
+  -> decltype(void(a.destroy(p)), std::false_type());
 
-  // Detect the existence of the .construct method of the type Alloc
-  template<typename Alloc, typename T>
-  auto trivial_allocator(Alloc& a, T *p, priority_tag<1>)
-    -> decltype(void(a.construct(p, std::declval<T&&>())), std::false_type());
+// Detect the existence of the .construct method of the type Alloc
+template<typename Alloc, typename T>
+auto trivial_allocator(Alloc& a, T* p, priority_tag<1>)
+  -> decltype(void(a.construct(p, std::declval<T&&>())), std::false_type());
 
-  // By default, if no .construct or .destroy methods are found, assume
-  // that the allocator is trivial
-  template<typename Alloc, typename T>
-  auto trivial_allocator(Alloc& a, T* p, priority_tag<0>)
-    -> std::true_type;
+// By default, if no .construct or .destroy methods are found, assume
+// that the allocator is trivial
+template<typename Alloc, typename T>
+auto trivial_allocator(Alloc& a, T* p, priority_tag<0>)
+  -> std::true_type;
 
 }  // namespace internal
 
@@ -186,4 +158,4 @@ struct is_trivially_relocatable<std::pair<T1,T2>> :
 
 }  // namespace parlay
 
-#endif //PARLAY_TYPE_TRAITS_H
+#endif //PARLAY_TYPE_TRAITS_H_

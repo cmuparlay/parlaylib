@@ -19,7 +19,7 @@ template<typename UnaryOp>
 auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
   return sequence<typename std::remove_reference<
                   typename std::remove_cv<
-                  decltype(f(0))
+                  decltype(f((size_t)0))
                   >::type>::type>::
     from_function(n, f, granularity);
 }
@@ -37,21 +37,15 @@ auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
 template<typename F>
 auto delayed_tabulate(size_t n, F&& f) {
   using T = decltype(f(n));
-  return delayed_seq<T, F>(n, std::forward<F>(f));
+  return delayed_seq<T, T, F>(n, std::forward<F>(f));
 }
 
-template <class F>
-auto dseq (size_t n, F f) -> delayed_sequence<decltype(f(0)),F> {
-  using T = decltype(f(0));
-  return delayed_sequence<T,F>(n,f);
-}
-
-// Deprecated. Renamed to delayed_map.
-template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto dmap(R&& r, UnaryOp&& f) {
-  size_t n = parlay::size(r);
-  return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
-      (size_t i) { return f(std::begin(r)[i]); });
+// Return a delayed sequence consisting of the elements
+//   f(0), f(1), ... f(n)
+template<typename T, typename V = T, typename F>
+auto delayed_tabulate(size_t n, F&& f) {
+  static_assert(std::is_convertible_v<decltype(f(n)), T>);
+  return delayed_seq<T, V, F>(n, std::forward<F>(f));
 }
 
 // Return a delayed sequence consisting of the elements
@@ -63,7 +57,9 @@ auto dmap(R&& r, UnaryOp&& f) {
 // r must remain alive as long as the delayed sequence.
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto delayed_map(R&& r, UnaryOp&& f) {
-  return dmap(std::forward<R>(r), std::forward<UnaryOp>(f));
+  size_t n = parlay::size(r);
+  return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
+      (size_t i) -> decltype(auto) { return f(std::begin(r)[i]); });
 }
 
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
@@ -71,6 +67,19 @@ auto delayed_map(R &r, UnaryOp&& f) {
   size_t n = parlay::size(r);
   return delayed_tabulate(n, [ri = std::begin(r), f = std::forward<UnaryOp>(f) ]
       (size_t i) { return f(ri[i]); });
+}
+
+// Deprecated. Use delayed_tabulate
+template <class F>
+auto dseq (size_t n, F f) {
+  using T = decltype(f(0));
+  return delayed_sequence<T,T,F>(n,f);
+}
+
+// Deprecated. Use delayed_map.
+template<PARLAY_RANGE_TYPE R, typename UnaryOp>
+auto dmap(R&& r, UnaryOp&& f) {
+  return delayed_map(std::forward<R>(r), std::forward<UnaryOp>(f));
 }
 
 template <typename T>

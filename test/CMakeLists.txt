@@ -11,6 +11,11 @@ add_dtests(NAME test_delayed_sequence FILES test_delayed_sequence.cpp LIBS parla
 add_dtests(NAME test_sequence FILES test_sequence.cpp LIBS parlay)
 add_dtests(NAME test_hash_table FILES test_hash_table.cpp LIBS parlay)
 
+# ------------------------------ Delayed sequences -------------------------------
+
+add_dtests(NAME test_delayed_map FILES test_delayed_map.cpp LIBS parlay)
+add_dtests(NAME test_delayed_zip FILES test_delayed_zip.cpp LIBS parlay)
+
 # ----------------------------- Sorting Algorithms ------------------------------
 
 add_dtests(NAME test_merge_sort FILES test_merge_sort.cpp LIBS parlay)

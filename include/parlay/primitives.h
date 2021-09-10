@@ -671,7 +671,7 @@ auto remove(const R& r, const T& v) {
 
 template <typename Index>
 auto iota(Index n) {
-  return delayed_seq<Index>(n, [&](size_t i) -> Index { return i; });
+  return delayed_seq<Index, Index>(n, [&](size_t i) -> Index { return i; });
 }
 
 /* -------------------- Flatten -------------------- */

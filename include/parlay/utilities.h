@@ -181,6 +181,53 @@ inline size_t granularity(size_t n) {
   return (n > 100) ? static_cast<size_t>(ceil(pow(n, 0.5))) : 100;
 }
 
+/*  A copyable_function_wrapper allows an object to store a function (e.g., a lambda,
+    or any callable object) as a member while still being default copy-assignable.
+    As long as the function type is copy constructible (which it needs to be in
+    order to event initialize the member), this wrapper will be copy assignable.
+ */
+template<typename F>
+struct copyable_function_wrapper {
+
+  /* implicit */ copyable_function_wrapper(F _f) : f(std::move(_f)) {}
+
+  copyable_function_wrapper(const copyable_function_wrapper&) = default;
+  copyable_function_wrapper(copyable_function_wrapper&&)
+    noexcept(std::is_nothrow_move_constructible_v<F>) = default;
+
+  copyable_function_wrapper& operator=(const copyable_function_wrapper& other) {
+    if constexpr (std::is_copy_assignable_v<F>) {
+      f = other.f;
+    }
+    else {
+      f.~F();
+      new (std::addressof(f)) F(other.f);
+    }
+    return *this;
+  }
+
+  copyable_function_wrapper& operator=(copyable_function_wrapper&& other)
+    noexcept(std::is_nothrow_move_assignable_v<F> && std::is_nothrow_move_constructible_v<F>) {
+    if constexpr (std::is_move_assignable_v<F>) {
+      f = std::move(other.f);
+    }
+    else {
+      f.~F();
+      new (std::addressof(f)) F(std::move(other.f));
+    }
+    return *this;
+  }
+
+  template<typename... Args>
+  decltype(auto) operator()(Args&&... args) const {
+    return std::invoke(f, std::forward<Args>(args)...);
+  }
+
+  ~copyable_function_wrapper() = default;
+
+  F f;
+};
+
 /* Relocation (a.k.a. "destructive move")
 
    The relocation of object a into memory b is equivalent to a move
