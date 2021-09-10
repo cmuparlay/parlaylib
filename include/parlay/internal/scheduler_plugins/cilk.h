@@ -1,5 +1,6 @@
 #ifndef PARLAY_INTERNAL_SCHEDULER_PLUGINS_CILK_HPP_
 #define PARLAY_INTERNAL_SCHEDULER_PLUGINS_CILK_HPP_
+#if defined(PARLAY_CILK)
 
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
@@ -37,5 +38,6 @@ inline void parallel_for(size_t start, size_t end, F f,
 
 }  // namespace parlay
 
+#endif
 #endif  // PARLAY_INTERNAL_SCHEDULER_PLUGINS_CILK_HPP_
 

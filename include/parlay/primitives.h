@@ -507,7 +507,7 @@ bool lexicographical_compare(const R1& r1, const R2& r2, Compare less) {
 
 template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
 inline bool lexicographical_compare(const R1& r1, const R2& r2) {
-  return lexicographical_compare(r1, r2, std::less{});}
+  return lexicographical_compare(r1, r2, std::less<>{});}
 
 template <typename T>
 inline bool operator<(const sequence<T> &a, 

@@ -1,5 +1,8 @@
 #ifndef PARLAY_INTERNAL_SCHEDULER_PLUGINS_SEQUENTIAL_HPP_
 #define PARLAY_INTERNAL_SCHEDULER_PLUGINS_SEQUENTIAL_HPP_
+#if defined(PARLAY_SEQUENTIAL)
+
+#include <stddef.h>
 
 namespace parlay {
 
@@ -33,5 +36,6 @@ inline void par_do(Lf left, Rf right, bool) {
 
 }  // namespace parlay
 
+#endif
 #endif  // PARLAY_INTERNAL_SCHEDULER_PLUGINS_SEQUENTIAL_HPP_
 

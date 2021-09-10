@@ -1,5 +1,6 @@
 #ifndef PARLAY_INTERNAL_SCHEDULER_PLUGINS_TBB_HPP_
 #define PARLAY_INTERNAL_SCHEDULER_PLUGINS_TBB_HPP_
+#if defined(PARLAY_TBB)
 
 #include <cstddef>
 
@@ -42,5 +43,6 @@ inline void par_do(Lf left, Rf right, bool) {
 
 }  // namespace parlay
 
+#endif
 #endif  // PARLAY_INTERNAL_SCHEDULER_PLUGINS_TBB_HPP_
 
