@@ -34,6 +34,7 @@ struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, blo
     using reference = reference;
     using value_type = value_type;
     using difference_type = std::ptrdiff_t;
+    using pointer = void;
 
     decltype(auto) operator*() const { return (parent->op)(*it); }
 

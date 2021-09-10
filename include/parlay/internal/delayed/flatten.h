@@ -15,7 +15,8 @@ namespace parlay {
 namespace internal {
 namespace delayed {
 
-template<typename UnderlyingView, typename UnaryPredicate>
+template<typename UnderlyingView, typename UnaryPredicate
+    std::enable_if_t<std::is_reference_v<range_reference_type_t<UnderlyingView>>, int = 0>
 struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView, block_delayed_flatten_t<UnderlyingView, UnaryPredicate>> {
 
   using base = block_iterable_view_base<UnderlyingView, block_delayed_filter_t<UnderlyingView, UnaryPredicate>>;
@@ -36,6 +37,7 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
     using reference = reference;
     using value_type = value_type;
     using difference_type = std::ptrdiff_t;
+    using pointer = void;
 
     decltype(auto) operator*() const { return (parent->op)(*it); }
 
@@ -65,6 +67,13 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
   [[nodiscard]] size_t size() const { return get_view().size(); }
 
    private:
+
+};
+
+template<typename UnderlyingView, typename UnaryPredicate,
+         std::enable_if_t<!std::is_reference_v<range_reference_type_t<UnderlyingView>>, int = 0>
+struct block_delayed_flatten_prvalues_t : public block_iterable_view_base<UnderlyingView, block_delayed_flatten_t<UnderlyingView, UnaryPredicate>> {
+
 
 };
 

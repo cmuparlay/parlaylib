@@ -92,6 +92,7 @@ struct block_iterable_view_base {
     using reference = typename std::iterator_traits<block_iterator>::reference;
     using value_type = typename std::iterator_traits<block_iterator>::value_type;
     using difference_type = std::ptrdiff_t;
+    using pointer = void;
 
     iterator(const ParentBidView* _parent, size_t _block_id, block_iterator _it) :
         parent(_parent), block_id(_block_id), it(_it) { }
