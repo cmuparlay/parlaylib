@@ -808,7 +808,17 @@ template<parlay::Range R, typename Key>
 void integer_sort_inplace(R&& in, Key&& key)
 ```
 
-**integer_sort** works just like sort, except that it is specialized to sort integer keys, and is significantly faster than ordinary sort. It can be used to sort ranges of integers, or ranges of arbitrary types if a unary operator is provided that can produce an integer key for any given element,
+```c++
+template<parlay::Range R, typename Key>
+auto stable_integer_sort(const R& in, Key&& key)
+```
+
+```c++
+template<parlay::Range R, typename Key>
+void stable_integer_sort_inplace(R&& in, Key&& key)
+```
+
+**integer_sort** works just like sort, except that it is specialized to sort integer keys, and is significantly faster than ordinary sort. It can be used to sort ranges of integers, or ranges of arbitrary types if a unary operator is provided that can produce an integer key for any given element. **stable_integer_sort** and **stable_integer_sort_inplace** are guaranteed to maintain the relative order between elements with equal keys.
 
 ### For each
 

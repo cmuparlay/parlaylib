@@ -466,6 +466,15 @@ TEST(TestPrimitives, TestIntegerSortCustomKey) {
   ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
 }
 
+TEST(TestPrimitives, TestStableIntegerSort) {
+  auto s = parlay::tabulate(1000000, [](unsigned int i) {
+    return std::make_pair(i % 10, i);
+  });
+  auto sorted = parlay::stable_integer_sort(s, [](const auto& p) { return p.first; });
+  ASSERT_EQ(sorted.size(), s.size());
+  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
+}
+
 TEST(TestPrimitives, TestIntegerSortInplaceCustomKey) {
   auto s = parlay::tabulate(100000, [](unsigned int i) -> UnstablePair {
     UnstablePair x;
@@ -483,6 +492,15 @@ TEST(TestPrimitives, TestIntegerSortInplaceCustomKey) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
+TEST(TestPrimitives, TestStableIntegerSortInplace) {
+  auto s = parlay::tabulate(1000000, [](unsigned int i) {
+    return std::make_pair(i % 10, i);
+  });
+  parlay::stable_integer_sort_inplace(s, [](const auto& p) { return p.first; });
+  ASSERT_EQ(s.size(), 1000000);
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
+}
+
 TEST(TestPrimitives, TestIntegerSortInplaceUncopyable) {
   auto s = parlay::tabulate(100000, [](unsigned int i) -> UncopyableThing {
     return UncopyableThing(100000-i);
@@ -497,6 +515,20 @@ TEST(TestPrimitives, TestIntegerSortInplaceUncopyable) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s))); 
 }
 
+TEST(TestPrimitives, TestStableIntegerSortInplaceUncopyable) {
+  auto s = parlay::tabulate(100000, [](unsigned int i) -> UncopyableThing {
+    return UncopyableThing(100000-i);
+  });
+  auto s2 = parlay::tabulate(100000, [](unsigned int i) -> UncopyableThing {
+    return UncopyableThing(100000-i);
+  });
+  ASSERT_EQ(s, s2);
+  parlay::stable_integer_sort_inplace(s, [](const auto& a) -> unsigned int { return a.x; });
+  std::sort(std::begin(s2), std::end(s2));
+  ASSERT_EQ(s, s2);
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
+}
+
 TEST(TestPrimitives, TestIntegerSortInplaceNonContiguous) {
   auto ss = parlay::tabulate(100000, [](unsigned long long i) {
     return (50021 * i + 61) % (1 << 20);
@@ -507,6 +539,19 @@ TEST(TestPrimitives, TestIntegerSortInplaceNonContiguous) {
   parlay::integer_sort_inplace(s);
   std::sort(std::begin(s2), std::end(s2));
   ASSERT_EQ(s, s2); 
+  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
+}
+
+TEST(TestPrimitives, TestStableIntegerSortInplaceNonContiguous) {
+  auto ss = parlay::tabulate(100000, [](unsigned long long i) {
+    return (50021 * i + 61) % (1 << 20);
+  });
+  auto s = std::deque<unsigned long long>(ss.begin(), ss.end());
+  auto s2 = s;
+  ASSERT_EQ(s, s2);
+  parlay::stable_integer_sort_inplace(s, [](auto x) { return x; });
+  std::sort(std::begin(s2), std::end(s2));
+  ASSERT_EQ(s, s2);
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
