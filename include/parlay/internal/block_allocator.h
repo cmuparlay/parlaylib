@@ -127,7 +127,7 @@ public:
 		  size_t max_blocks_ = 0) : thread_count(num_workers()) {
     // Each block needs to be at least large enough to hold the struct
     // representing a free block.
-    block_size = std::max(block_size, sizeof(block));
+    block_size = std::max<size_t>(block_size, sizeof(block));
 
     blocks_allocated.store(0);
     block_size_ = block_size;
