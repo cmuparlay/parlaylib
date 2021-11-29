@@ -141,7 +141,8 @@ void apply(const Seq &a, F f) {
 
 template <typename Seq1, typename Seq2, typename F>
 void zip_apply(const Seq1 &s1, const Seq2 &s2, F f) {
-  for (auto i1 = s1.begin(), i2 = s2.begin(); i1 != s1.end(); ++i1, ++i2)
+  auto i1 = s1.begin();
+  for (auto i2 = s2.begin(); i1 != s1.end(); ++i1, ++i2)
     f(*i1,*i2);
 }
 
