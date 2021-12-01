@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <iterator>
+#include <type_traits>
 
 #include "../sequence.h"
 #include "../utilities.h"

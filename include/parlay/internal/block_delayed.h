@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <new>
 #include <string>
 #include <tuple>
 #include <type_traits>

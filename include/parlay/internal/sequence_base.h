@@ -220,8 +220,8 @@ struct sequence_base {
       set_to_empty_representation();
     }
 
-// GCC is unhappy with memsetting the object to zero
-#if defined(__GNUC__) && !defined(__clang__)
+// GCC-8+ is unhappy with memsetting the object to zero
+#if defined(__GNUC__) && __GNUC__ >= 8 && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wclass-memaccess"
 #endif
@@ -233,7 +233,7 @@ struct sequence_base {
       std::memset(this, 0, sizeof(*this));  // NOLINT
     }
 
-#if defined(__GNUC__) && !defined(__clang__)
+#if defined(__GNUC__) && __GNUC__ >= 8 && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 

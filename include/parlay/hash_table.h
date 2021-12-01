@@ -15,7 +15,6 @@
 #include "utilities.h"
 #include "primitives.h"
 
-#include "internal/sequence_ops.h"
 
 namespace parlay {
 
