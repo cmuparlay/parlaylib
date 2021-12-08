@@ -28,8 +28,8 @@ auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
-  return tabulate(parlay::size(r), [&f, it = std::begin(r)](size_t i) {
-     return f(it[i]); }, granularity);
+  return tabulate(parlay::size(r), [&f, it = std::begin(r)]
+      (size_t i) -> decltype(auto) { return f(it[i]); }, granularity);
 }
 
 // Return a delayed sequence consisting of the elements
@@ -55,7 +55,8 @@ auto delayed_tabulate(size_t n, F&& f) {
 // ownership of it by moving it. If r is a reference,
 // the delayed sequence will hold a reference to it, so
 // r must remain alive as long as the delayed sequence.
-template<PARLAY_RANGE_TYPE R, typename UnaryOp>
+template<PARLAY_RANGE_TYPE R, typename UnaryOp,
+    std::enable_if_t<std::is_rvalue_reference_v<R&&>, int> = 0>
 auto delayed_map(R&& r, UnaryOp&& f) {
   size_t n = parlay::size(r);
   return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
@@ -63,10 +64,10 @@ auto delayed_map(R&& r, UnaryOp&& f) {
 }
 
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto delayed_map(R &r, UnaryOp&& f) {
+auto delayed_map(R& r, UnaryOp&& f) {
   size_t n = parlay::size(r);
   return delayed_tabulate(n, [ri = std::begin(r), f = std::forward<UnaryOp>(f) ]
-      (size_t i) { return f(ri[i]); });
+      (size_t i) -> decltype(auto) { return f(ri[i]); });
 }
 
 // Deprecated. Use delayed_tabulate
