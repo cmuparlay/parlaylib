@@ -355,10 +355,10 @@ auto integer_sort(slice<Iterator, Iterator> In,
 // The last element contains the size of the input.
 template <typename Tint = size_t, typename Iterator, typename Get_Key>
 sequence<Tint> get_counts(slice<Iterator, Iterator> In, Get_Key const &g, size_t num_buckets) {
-  if (In.size() == 0) {
+  size_t n = In.size();
+  if (n == 0) {
     return {};
   }
-  size_t n = In.size();
   sequence<Tint> starts(num_buckets, (Tint)0);
   sequence<Tint> ends(num_buckets, (Tint)0);
   parallel_for(0, n - 1, [&](size_t i) {
