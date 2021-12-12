@@ -15,6 +15,16 @@ namespace parlay {
   struct is_trivially_relocatable<std::unique_ptr<T>> : public std::true_type { };
 }
 
+TEST(TestIntegerSort, TestIntegerSortEmptyInput) {
+  auto s = parlay::sequence<int>(0);
+  const auto [sorted, counts] = parlay::internal::integer_sort_with_counts(
+    make_slice(s),
+    [](const int x) { return x; },
+    1);
+  EXPECT_EQ(sorted.size(), 0);
+  EXPECT_EQ(counts.size(), 0);
+}
+
 TEST(TestIntegerSort, TestIntegerSortInplaceUniquePtr) {
   auto s = parlay::tabulate(100000, [](long long int i) {
     return std::make_unique<long long int>((50021 * i + 61) % (1 << 20));
