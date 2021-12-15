@@ -20,18 +20,6 @@ environment:
     
     - job_name: WSL Clang
 
-    - job_name: Cygwin GCC
-      CYG_ROOT: C:\cygwin_parlay
-      CYG_BASH: C:\cygwin_parlay\bin\bash
-      CYG_MIRROR: http://mirrors.kernel.org/sourceware/cygwin/
-      CYG_PACKAGES: git,make,gcc-core,gcc-g++,cmake,clang,libiconv-devel,cygwin32-libiconv-1.14-2
-    
-    - job_name: Cygwin Clang
-      CYG_ROOT: C:\cygwin_parlay
-      CYG_BASH: C:\cygwin_parlay\bin\bash
-      CYG_MIRROR: http://mirrors.kernel.org/sourceware/cygwin/
-      CYG_PACKAGES: git,make,gcc-core,gcc-g++,cmake,clang,libiconv-devel,cygwin32-libiconv-1.14-2
-
 
 for:
   -
