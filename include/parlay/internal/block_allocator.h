@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cmath>
 
+#include <algorithm>
 #include <atomic>
 #include <optional>
 
@@ -124,6 +125,10 @@ public:
 		  size_t reserved_blocks = 0, 
 		  size_t list_length_ = 0, 
 		  size_t max_blocks_ = 0) : thread_count(num_workers()) {
+    // Each block needs to be at least large enough to hold the struct
+    // representing a free block.
+    block_size = std::max<size_t>(block_size, sizeof(block));
+
     blocks_allocated.store(0);
     block_size_ = block_size;
     if (list_length_ == 0)

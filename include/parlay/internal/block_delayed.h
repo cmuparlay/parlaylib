@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <new>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -39,8 +40,10 @@ struct flatten_iterator {
   in_iter_t in_iter;
   out_iter_t out_iter;
   flatten_iterator& operator++() {
+    //std::cout << (*out_iter).end() - (*out_iter).begin() << std::endl;
     ++in_iter;
-    if (in_iter == (*out_iter).end()) {// if at end of inner range
+    while (in_iter == (*out_iter).end()) {// if at end of inner range
+      //std::cout << "moving to next outer" << std::endl;
       ++out_iter;                      // move to next outer
       in_iter = (*out_iter).begin();   // and set inner to start
     }
@@ -48,7 +51,9 @@ struct flatten_iterator {
   }
   value_type operator*() const {return *in_iter;}
   flatten_iterator(in_iter_t in_iter, out_iter_t out_iter) :
-      in_iter(in_iter), out_iter(out_iter) {}
+      in_iter(in_iter), out_iter(out_iter) {
+    //std::cout << "in flatten init: " << (*out_iter).end() - (*out_iter).begin() << std::endl;
+  }
   flatten_iterator(out_iter_t out_iter) :
       in_iter((*out_iter).begin()), out_iter(out_iter) {}
 };
@@ -68,8 +73,8 @@ struct block_delayed_sequence {
       : sub_ranges(std::move(sub_ranges_)),
         rng(stream_delayed::forward_delayed_sequence(flatten_iterator(sub_ranges.begin()),n)) {}
 
-  parlay::sequence<IDS> sub_ranges;
-  range_type rng;
+  parlay::sequence<IDS> sub_ranges; // to iterate over each block
+  range_type rng;  // to iterate over the whole sequence
 };
 
 static inline std::pair<size_t,size_t> num_blocks_and_size(size_t n) {
@@ -200,6 +205,12 @@ auto map(block_delayed_sequence<IDS> const &A, F const &f) {
   return block_delayed_sequence(std::move(results), A.size());
 }
 
+template <typename Seq, typename F,
+	  typename std::enable_if_t<!is_delayed<Seq>::value, int> = 0>
+auto map(Seq const &A, F const &f) {
+  return internal::map(A, f);
+}
+
 template <typename Seq,
     typename std::enable_if_t<is_delayed<Seq>::value, int> = 0>
 auto force(Seq A) {
@@ -207,7 +218,7 @@ auto force(Seq A) {
   using T = decltype(*(A.begin()));
   auto idx = parlay::delayed_seq<size_t>(n, [] (size_t i) {return i;});
   auto r = parlay::sequence<T>::uninitialized(n);
-  auto f = [&] (size_t i, T a) {r[i] = a;};
+  auto f = [&] (size_t i, T a) {new (&r[i]) T(a);};
   block_delayed::zip_apply(idx, A, f);
   return r;
 }
@@ -270,6 +281,33 @@ auto filter_map(Seq A, F const &f, G const &g) {
 template <typename Seq, typename F>
 auto filter(Seq const &A, F const &f) {
   return block_delayed::filter_map(A, f, [] (auto x) {return x;});
+}
+
+template <typename Seq, typename F, typename G>
+auto filter_op(Seq A, F const &f, G const &g) {
+  internal::timer t("new filter", false);
+  using T = decltype(g(*(A.begin())));
+  auto iters = make_iterators(A);
+  auto num_blocks = iters.size();
+  //if (num_blocks == 1)
+  //  return stream_delayed::filter_map(iters[0], f, g);
+  auto seqs = internal::tabulate(num_blocks, [&] (size_t i) -> parlay::sequence<T> {
+    return stream_delayed::filter_map(iters[i], f, g);}, 1);
+  t.next("tabulate");
+  auto y = flatten(seqs);
+  //std::cout << "filter_op: " << A.size() << ", " << y.size() << std::endl;
+  return std::pair(std::move(y), std::move(seqs));
+}
+
+template <typename Seq, typename F>
+auto filter_op2(Seq A, F const &f) {
+  using T = typename std::remove_reference<decltype(f(*(A.begin())).value())>::type;
+  auto iters = make_iterators(A);
+  auto num_blocks = iters.size();
+  auto seqs = internal::tabulate(num_blocks, [&] (size_t i) -> parlay::sequence<T> {
+      return stream_delayed::filter_op(iters[i], f);}, 1);
+  auto y = flatten(seqs);
+  return std::pair(std::move(y), std::move(seqs));
 }
 
 }  // namespace block_delayed

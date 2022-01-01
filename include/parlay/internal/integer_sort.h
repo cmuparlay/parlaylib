@@ -356,6 +356,9 @@ auto integer_sort(slice<Iterator, Iterator> In,
 template <typename Tint = size_t, typename Iterator, typename Get_Key>
 sequence<Tint> get_counts(slice<Iterator, Iterator> In, Get_Key const &g, size_t num_buckets) {
   size_t n = In.size();
+  if (n == 0) {
+    return {};
+  }
   sequence<Tint> starts(num_buckets, (Tint)0);
   sequence<Tint> ends(num_buckets, (Tint)0);
   parallel_for(0, n - 1, [&](size_t i) {
@@ -371,6 +374,10 @@ sequence<Tint> get_counts(slice<Iterator, Iterator> In, Get_Key const &g, size_t
 
 template <typename Tint = size_t, typename Iterator, typename Get_Key>
 auto integer_sort_with_counts(slice<Iterator, Iterator> In, Get_Key const &g, size_t num_buckets) {
+  using T = typename slice<Iterator, Iterator>::value_type;
+  if (In.size() == 0) {
+    return std::make_pair(parlay::sequence<T>{}, parlay::sequence<Tint>{});
+  }
   assert(num_buckets > 0);
   size_t bits = log2_up(num_buckets);
   auto R = integer_sort(In, g, bits);

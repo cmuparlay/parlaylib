@@ -21,7 +21,7 @@ TEST(TestCountingSort, TestCountingSort) {
   });
   auto keys = parlay::delayed_tabulate(100000, [&](size_t i) { return s[i]; });
 
-  auto[sorted, offsets] = parlay::internal::count_sort(parlay::make_slice(s), keys, num_buckets);
+  auto sorted = parlay::internal::count_sort(parlay::make_slice(s), keys, num_buckets).first;
   ASSERT_EQ(s.size(), sorted.size());
   std::sort(std::begin(s), std::end(s));
   ASSERT_EQ(s, sorted);
@@ -37,7 +37,7 @@ TEST(TestCountingSort, TestCountingSortUnstable) {
   });
   auto keys = parlay::delayed_tabulate(100000, [&](size_t i) { return s[i].x; });
 
-  auto[sorted, offsets] = parlay::internal::count_sort(parlay::make_slice(s), keys, num_buckets);
+  auto sorted = parlay::internal::count_sort(parlay::make_slice(s), keys, num_buckets).first;
   ASSERT_EQ(s.size(), sorted.size());
   std::stable_sort(std::begin(s), std::end(s));
   ASSERT_EQ(s, sorted);

@@ -1,7 +1,7 @@
 
 # ParlayLib - A Toolkit for Programming Parallel Algorithms on Shared-Memory Multicore Machines
 
-[![Build Status](https://travis-ci.com/cmuparlay/parlaylib.svg?branch=master)](https://travis-ci.com/github/cmuparlay/parlaylib)
+[![Build status](https://github.com/cmuparlay/parlaylib/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/cmuparlay/parlaylib/actions)
 [![Build status](https://ci.appveyor.com/api/projects/status/2458wr1nbcusxhqb/branch/master?svg=true)](https://ci.appveyor.com/project/DanielLiamAnderson/parlaylib/branch/master)
 [![codecov](https://codecov.io/gh/cmuparlay/parlaylib/branch/master/graph/badge.svg)](https://codecov.io/gh/cmuparlay/parlaylib)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -122,7 +122,8 @@ If you are interested in contributing to Parlay, the following pages describe us
 If you're already using Cilk, OpenMP, or Thread Building Blocks, and just want to use Parlay's algorithms without its parallel scheduler, that is easy to do. When building your program, simply add the appropriate compile definition as below.
 
 ```
--DPARLAY_CILK
+-DPARLAY_CILKPLUS
+-DPARLAY_OPENCILK
 -DPARLAY_OPENMP
 -DPARLAY_TBB
 ```
@@ -809,7 +810,17 @@ template<parlay::Range R, typename Key>
 void integer_sort_inplace(R&& in, Key&& key)
 ```
 
-**integer_sort** works just like sort, except that it is specialized to sort integer keys, and is significantly faster than ordinary sort. It can be used to sort ranges of integers, or ranges of arbitrary types if a unary operator is provided that can produce an integer key for any given element,
+```c++
+template<parlay::Range R, typename Key>
+auto stable_integer_sort(const R& in, Key&& key)
+```
+
+```c++
+template<parlay::Range R, typename Key>
+void stable_integer_sort_inplace(R&& in, Key&& key)
+```
+
+**integer_sort** works just like sort, except that it is specialized to sort integer keys, and is significantly faster than ordinary sort. It can be used to sort ranges of integers, or ranges of arbitrary types if a unary operator is provided that can produce an integer key for any given element. **stable_integer_sort** and **stable_integer_sort_inplace** are guaranteed to maintain the relative order between elements with equal keys.
 
 ### For each
 

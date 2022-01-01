@@ -1,5 +1,7 @@
-#ifndef PARLAY_INTERNAL_SCHEDULER_PLUGINS_CILK_HPP_
-#define PARLAY_INTERNAL_SCHEDULER_PLUGINS_CILK_HPP_
+#ifndef PARLAY_INTERNAL_SCHEDULER_PLUGINS_OPENCILK_H_
+#define PARLAY_INTERNAL_SCHEDULER_PLUGINS_OPENCILK_H_
+
+#include <cstddef>
 
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
@@ -21,10 +23,10 @@ inline void par_do(Lf left, Rf right, bool) {
 template <typename F>
 inline void parallel_for(size_t start, size_t end, F f,
                          long granularity,
-			 bool) {
+                         bool) {
   if (granularity == 0)
     cilk_for(size_t i=start; i<end; i++) f(i);
-  else if ((end - start) <= granularity)
+  else if ((end - start) <= static_cast<size_t>(granularity))
     for (size_t i=start; i < end; i++) f(i);
   else {
     size_t n = end-start;
@@ -37,5 +39,5 @@ inline void parallel_for(size_t start, size_t end, F f,
 
 }  // namespace parlay
 
-#endif  // PARLAY_INTERNAL_SCHEDULER_PLUGINS_CILK_HPP_
+#endif  // PARLAY_INTERNAL_SCHEDULER_PLUGINS_OPENCILK_H_
 

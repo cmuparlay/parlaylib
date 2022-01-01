@@ -1,5 +1,6 @@
 #ifndef PARLAY_INTERNAL_SCHEDULER_PLUGINS_OMP_H_
 #define PARLAY_INTERNAL_SCHEDULER_PLUGINS_OMP_H_
+#if defined(PARLAY_OPENMP)
 
 #include <omp.h>
 
@@ -41,5 +42,6 @@ inline void par_do(Lf left, Rf right, bool) {
 
 }  // namespace parlay
 
+#endif
 #endif  // PARLAY_INTERNAL_SCHEDULER_PLUGINS_OMP_H_
 

@@ -264,8 +264,6 @@ void stable_sort_inplace(R&& in) {
 
 /* -------------------- Integer Sorting -------------------- */
 
-// Note: There is currently no stable integer sort.
-
 template<PARLAY_RANGE_TYPE R>
 auto integer_sort(const R& in) {
   static_assert(std::is_integral_v<std::remove_reference_t<decltype(*in.begin())>>);
@@ -289,6 +287,20 @@ void integer_sort_inplace(R&& in) {
 
 template<PARLAY_RANGE_TYPE R, typename Key>
 void integer_sort_inplace(R&& in, Key&& key) {
+  static_assert(std::is_integral_v<std::remove_reference_t<decltype(key(*in.begin()))>>);
+  static_assert(std::is_unsigned_v<std::remove_reference_t<decltype(key(*in.begin()))>>);
+  internal::integer_sort_inplace(make_slice(in), std::forward<Key>(key));
+}
+
+template<PARLAY_RANGE_TYPE R, typename Key>
+auto stable_integer_sort(const R& in, Key&& key) {
+  static_assert(std::is_integral_v<std::remove_reference_t<decltype(key(*in.begin()))>>);
+  static_assert(std::is_unsigned_v<std::remove_reference_t<decltype(key(*in.begin()))>>);
+  return internal::integer_sort(make_slice(in), std::forward<Key>(key));
+}
+
+template<PARLAY_RANGE_TYPE R, typename Key>
+void stable_integer_sort_inplace(R&& in, Key&& key) {
   static_assert(std::is_integral_v<std::remove_reference_t<decltype(key(*in.begin()))>>);
   static_assert(std::is_unsigned_v<std::remove_reference_t<decltype(key(*in.begin()))>>);
   internal::integer_sort_inplace(make_slice(in), std::forward<Key>(key));
@@ -507,7 +519,7 @@ bool lexicographical_compare(const R1& r1, const R2& r2, Compare less) {
 
 template <PARLAY_RANGE_TYPE R1, PARLAY_RANGE_TYPE R2>
 inline bool lexicographical_compare(const R1& r1, const R2& r2) {
-  return lexicographical_compare(r1, r2, std::less{});}
+  return lexicographical_compare(r1, r2, std::less<>{});}
 
 template <typename T>
 inline bool operator<(const sequence<T> &a, 

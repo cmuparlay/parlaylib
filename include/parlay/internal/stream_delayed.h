@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <iterator>
+#include <type_traits>
 
 #include "../sequence.h"
 #include "../utilities.h"
@@ -141,7 +142,8 @@ void apply(const Seq &a, F f) {
 
 template <typename Seq1, typename Seq2, typename F>
 void zip_apply(const Seq1 &s1, const Seq2 &s2, F f) {
-  for (auto i1 = s1.begin(), i2 = s2.begin(); i1 != s1.end(); ++i1, ++i2)
+  auto i1 = s1.begin();
+  for (auto i2 = s2.begin(); i1 != s1.end(); ++i1, ++i2)
     f(*i1,*i2);
 }
 
@@ -157,6 +159,27 @@ auto filter_map(const SeqIn &In, F f, G g) {
     auto val = *s;
     if (f(val)) {
       *out_iter = g(val);
+      ++out_iter;
+    }
+  }
+  size_t m = out_iter - tmp_out.begin();
+  auto result = parlay::sequence<T>::uninitialized(m);
+  for (size_t i=0; i < m; i++)
+    assign_uninitialized(result[i], std::move(tmp_out[i]));
+  return result;
+}
+
+  // allocates own temporary space, returns just filtered sequence
+template <typename SeqIn, typename F>
+auto filter_op(const SeqIn &In, F f) {
+  size_t n = In.size();
+  using T = typename std::remove_reference<decltype(f(*(In.begin())).value())>::type;
+  auto tmp_out = parlay::internal::uninitialized_sequence<T>(n);
+  auto out_iter = tmp_out.begin();
+  for (auto s = In.begin(); s != In.end(); ++s) {
+    auto opt_val = f(*s);
+    if (opt_val) {
+      *out_iter = opt_val.value();
       ++out_iter;
     }
   }

@@ -32,7 +32,7 @@ private:
   }
 
   double diff(time_t t1, time_t t2) {
-    return (t1-t2).count()/10e8;
+    return std::chrono::duration_cast<std::chrono::microseconds>(t1 - t2).count() / 1000000.0;
   }
 public:
 

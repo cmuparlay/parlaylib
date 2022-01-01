@@ -18,6 +18,7 @@ include(GoogleTest)
 # --------------------------------------------------------------------
 
 # Option to enable the sanitizer-instrumented tests
+option(BUILD_ONLY_SANITIZED   "Build only the sanitized tests"      OFF)
 option(BUILD_ASAN_TESTS       "Build tests instrumented with ASAN"  OFF)
 option(BUILD_UBSAN_TESTS      "Build tests instrumented with UBSAN" OFF)
 option(BUILD_TSAN_TESTS       "Build tests instrumented with TSAN"  OFF)
@@ -240,7 +241,9 @@ function(add_dtests)
   set(NO_SANITIZE ${CONFIGURE_ADD_DTESTS_NO_SANITIZE})
 
   # Vanilla test -- no instrumentation
-  add_dtest("${TESTNAME}" "${TESTFILES}" "" "nosan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
+  if(NOT BUILD_ONLY_SANITIZED)
+    add_dtest("${TESTNAME}" "${TESTFILES}" "" "nosan" gtest_main "${TESTLIBS}" "${TESTFLAGS}")
+  endif()
 
   # Test with ASAN (AddressSanitizer)
   if(BUILD_ASAN_TESTS AND NOT NO_SANITIZE)

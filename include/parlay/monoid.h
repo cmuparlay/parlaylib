@@ -114,7 +114,7 @@ struct xorm {
 template <class TT>
 struct minmaxm {
   using T = std::pair<TT, TT>;
-  minmaxm() : identity(T(highest<T>(), lowest<T>())) {}
+  minmaxm() : identity(T(highest<TT>(), lowest<TT>())) {}
   T identity;
   static T f(T a, T b) {
     return T((std::min)(a.first, b.first), (std::max)(a.second, b.second));

@@ -61,7 +61,7 @@ auto group_by_key_sorted(const Range& S, const Comp& less) {
 
 template <PARLAY_RANGE_TYPE Range>
 auto group_by_key_sorted(const Range& S) {
-  return group_by_key_sorted(S, std::less{});
+  return group_by_key_sorted(S, std::less<>{});
 }
 
 

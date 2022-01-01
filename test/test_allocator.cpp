@@ -40,6 +40,17 @@ TEST(TestAllocator, TestTypeAllocator) {
   vector_allocator::free(mem);
 }
 
+// Checks that type_allocator allocates small blocks successfully.
+TEST(TestAllocator, TestTypeAllocatorForSmallSizes) {
+  using char_allocator = parlay::type_allocator<char>;
+  char* a = char_allocator::alloc();
+  *a = 'A';
+  char* b = char_allocator::alloc();
+  *b = 'B';
+  char_allocator::free(a);
+  char_allocator::free(b);
+}
+
 struct alignas(256) StrangeAlignedStruct {
   int x;
 };
