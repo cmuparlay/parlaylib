@@ -233,7 +233,7 @@ inline constexpr bool is_block_iterable_range_v = is_block_iterable_range<Range>
 
 // Return the size (number of elements) of the range r
 template<typename T>
-auto size(const T& r) {
+auto size(T&& r) {
   if constexpr (is_random_access_range_v<T>) {
     return std::end(r) - std::begin(r);
   }

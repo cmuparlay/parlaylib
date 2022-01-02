@@ -3,29 +3,28 @@
 #define PARLAY_DELAYED_VIEWS_H_
 
 #include <algorithm>
+#include <memory>
 
+#include "parallel.h"
 #include "range.h"
+#include "sequence.h"
 
 #include "internal/sequence_ops.h"
 
 #include "internal/delayed/common.h"
+#include "internal/delayed/flatten.h"
 #include "internal/delayed/map.h"
 
 namespace parlay {
 namespace delayed {
 
-template<typename UnderlyingView, typename UnaryOperator,
-    std::enable_if_t<is_random_access_range_v<UnderlyingView>, int> = 0>
-auto map(UnderlyingView&& v, UnaryOperator f) {
-  return parlay::internal::delayed_map(std::forward<UnderlyingView>(v), std::move(f));
-}
+using ::parlay::internal::delayed::to_sequence;
 
-template<typename UnderlyingView, typename UnaryOperator,
-    std::enable_if_t<!is_random_access_range_v<UnderlyingView> &&
-        parlay::is_block_iterable_range_v<UnderlyingView>, int> = 0>
-auto map(UnderlyingView&& v, UnaryOperator f) {
-  return parlay::internal::delayed::block_delayed_map_t<UnderlyingView, UnaryOperator>
-      (std::forward<UnderlyingView>(v), std::move(f));
+using ::parlay::internal::delayed::map;
+
+template<typename UnderlyingView>
+auto flatten(UnderlyingView&& v) {
+  return parlay::internal::delayed::block_delayed_flatten_t<UnderlyingView>(std::forward<UnderlyingView>(v), {});
 }
 
 template<typename... UnderlyingViews,

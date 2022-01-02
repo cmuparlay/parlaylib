@@ -44,8 +44,8 @@ struct block_delayed_filter_t : public block_iterable_view_base<UnderlyingView, 
     bool operator==(const block_iterator& other) const { return it == other.it; }
     bool operator!=(const block_iterator& other) const { return it != other.it; }
 
-     private:
-    friend struct block_delayed_map_t<UnderlyingView,UnaryOperator>;
+   private:
+    friend struct block_delayed_map_t<UnderlyingView, UnaryOperator>;
     block_iterator(underlying_block_iterator_type _it, const block_delayed_map_t* _parent) : it(_it), parent(_parent) {}
 
     underlying_block_iterator_type it;

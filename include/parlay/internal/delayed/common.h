@@ -18,11 +18,15 @@ static constexpr size_t block_size = 2000;
 //            Block-iterable interface for random-access ranges
 // ----------------------------------------------------------------------------
 
+size_t num_blocks_from_size(size_t n) {
+  return 1 + (n - 1) / block_size;
+}
+
 template<typename Range,
          std::enable_if_t<is_random_access_range_v<Range>, int> = 0>
 size_t num_blocks(Range&& r) {
   auto n = parlay::size(r);
-  return 1 + (n - 1) / block_size;
+  return num_blocks_from_size(n);
 }
 
 template<typename Range,
@@ -79,7 +83,7 @@ auto end_block(Range&& r, size_t i) {
 //
 // Template arguments:
 //  UnderlyingView: the type of the underlying view that is being transformed
-//  ParentBidView: the type of the parent view class
+//  ParentBidView: the type of the parent view class (i.e., the class that is deriving from this one - CRTP style)
 template<typename UnderlyingView, typename ParentBidView>
 struct block_iterable_view_base {
  public:
@@ -100,10 +104,10 @@ struct block_iterable_view_base {
     decltype(auto) operator*() const { return *it; }
 
     iterator& operator++() {
+      assert(block_id < parent->get_num_blocks());
       ++it;
       while (it == parent->get_end_block(block_id)) {
         block_id++;
-        if (block_id == parent->get_num_blocks()) break;
         it = parent->get_begin_block(block_id);
       }
       return *this;
@@ -111,8 +115,8 @@ struct block_iterable_view_base {
 
     iterator operator++(int) { iterator i = *this; ++i; return i; }
 
-    bool operator==(const iterator& other) { return block_id == other.block_id && it == other.it; }
-    bool operator!=(const iterator& other) { return block_id != other.block_id || it != other.it; }
+    bool operator==(const iterator& other) const { return block_id == other.block_id && it == other.it; }
+    bool operator!=(const iterator& other) const { return block_id != other.block_id || it != other.it; }
 
    private:
     const ParentBidView* parent;
@@ -121,7 +125,7 @@ struct block_iterable_view_base {
   };
 
   auto begin() const { return iterator(parent(), 0, parent()->get_begin_block(0)); }
-  auto end() const { return iterator(parent(), parent()->get_num_blocks(), parent()->get_end_block(parent()->get_num_blocks())); }
+  auto end() const { return iterator(parent(), parent()->get_num_blocks(), parent()->get_begin_block(parent()->get_num_blocks())); }
 
  protected:
   explicit block_iterable_view_base(UnderlyingView&& v) : view_m(static_cast<UnderlyingView&&>(v)) { }
@@ -141,15 +145,41 @@ struct block_iterable_view_base {
 };
 
 // ----------------------------------------------------------------------------
+//            Conversion of block-iterables to regular sequences
+// ----------------------------------------------------------------------------
+
+template<typename UnderlyingView,
+    std::enable_if_t<is_random_access_range_v<UnderlyingView>, int> = 0>
+auto to_sequence(UnderlyingView&& v) {
+  return parlay::to_sequence(std::forward<UnderlyingView>(v));
+}
+
+template<typename UnderlyingView,
+    std::enable_if_t<!is_random_access_range_v<UnderlyingView> &&
+    parlay::is_block_iterable_range_v<UnderlyingView>, int> = 0>
+auto to_sequence(UnderlyingView&& v) {
+  auto sz = parlay::size(v);
+  auto out = parlay::sequence<range_value_type_t<UnderlyingView>>::uninitialized(sz);
+  parallel_for(0, parlay::internal::delayed::num_blocks(v), [&](size_t i) {
+    std::uninitialized_copy(parlay::internal::delayed::begin_block(v, i), parlay::internal::delayed::end_block(v, i),
+                            out.begin() + i * parlay::internal::delayed::block_size);
+  });
+  return out;
+}
+
+// ----------------------------------------------------------------------------
 //   Pretend that a random-access range is only block-iterable (for testing)
 // ----------------------------------------------------------------------------
 
 // Wrap a random access range in an interface that makes it look like a plain
 // block-iterable delayed range
-template<typename Range>
-struct block_iterable_wrapper_t : public block_iterable_view_base<Range, block_iterable_wrapper_t<Range>> {
-  using base = block_iterable_view_base<Range, block_iterable_wrapper_t<Range>>;
+template<typename UnderlyingRange>
+struct block_iterable_wrapper_t : public block_iterable_view_base<UnderlyingRange, block_iterable_wrapper_t<UnderlyingRange>> {
+  using base = block_iterable_view_base<UnderlyingRange, block_iterable_wrapper_t<UnderlyingRange>>;
   using base::get_view;
+
+  using reference = range_reference_type_t<UnderlyingRange>;
+  using value_type = range_value_type_t<UnderlyingRange>;
 
   template<typename U>
   block_iterable_wrapper_t(U&& v, std::true_type) : base(std::forward<U>(v)) {}

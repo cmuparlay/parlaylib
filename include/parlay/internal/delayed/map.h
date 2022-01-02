@@ -46,7 +46,7 @@ struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, blo
 
    private:
     friend struct block_delayed_map_t<UnderlyingView,UnaryOperator>;
-    block_iterator(underlying_block_iterator_type _it, const block_delayed_map_t* _parent) : it(_it), parent(_parent) {}
+    block_iterator(underlying_block_iterator_type it_, const block_delayed_map_t* parent_) : it(it_), parent(parent_) {}
 
     underlying_block_iterator_type it;
     const block_delayed_map_t* parent;
@@ -66,6 +66,20 @@ struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, blo
  private:
   copyable_function_wrapper<UnaryOperator> op;
 };
+
+template<typename UnderlyingView, typename UnaryOperator,
+    std::enable_if_t<is_random_access_range_v<UnderlyingView>, int> = 0>
+auto map(UnderlyingView&& v, UnaryOperator f) {
+  return parlay::internal::delayed_map(std::forward<UnderlyingView>(v), std::move(f));
+}
+
+template<typename UnderlyingView, typename UnaryOperator,
+    std::enable_if_t<!is_random_access_range_v<UnderlyingView> &&
+    parlay::is_block_iterable_range_v<UnderlyingView>, int> = 0>
+auto map(UnderlyingView&& v, UnaryOperator f) {
+  return parlay::internal::delayed::block_delayed_map_t<UnderlyingView, UnaryOperator>
+      (std::forward<UnderlyingView>(v), std::move(f));
+}
 
 }  // namespace delayed
 }  // namespace internal
