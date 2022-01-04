@@ -81,8 +81,8 @@ template<typename UnderlyingView>
 struct block_iterable_view_base_data {
   explicit block_iterable_view_base_data(UnderlyingView&& v) : view_m(static_cast<UnderlyingView&&>(v)) { }
 
-  UnderlyingView& get_view() { return view_m; }
-  const UnderlyingView& get_view() const { return view_m; }
+  UnderlyingView& base_view() { return view_m; }
+  const UnderlyingView& base_view() const { return view_m; }
 
  private:
   using view_member = std::conditional_t<std::is_lvalue_reference_v<UnderlyingView>,
@@ -125,8 +125,9 @@ struct block_iterable_view_base : public block_iterable_view_base_data<Underlyin
  protected:
   block_iterable_view_base() = default;
 
-  explicit block_iterable_view_base(UnderlyingView&& v)
-    : block_iterable_view_base_data<UnderlyingView>(static_cast<UnderlyingView&&>(v)) { }
+  template<typename... UV>
+  explicit block_iterable_view_base(UV&&... v)
+    : block_iterable_view_base_data<UnderlyingView>(std::forward<UV>(v)...) { }
 
  private:
 
@@ -185,7 +186,7 @@ auto to_sequence(UnderlyingView&& v) {
 template<typename UnderlyingRange>
 struct block_iterable_wrapper_t : public block_iterable_view_base<UnderlyingRange, block_iterable_wrapper_t<UnderlyingRange>> {
   using base = block_iterable_view_base<UnderlyingRange, block_iterable_wrapper_t<UnderlyingRange>>;
-  using base::get_view;
+  using base::base_view;
 
   using reference = range_reference_type_t<UnderlyingRange>;
   using value_type = range_value_type_t<UnderlyingRange>;
@@ -193,10 +194,10 @@ struct block_iterable_wrapper_t : public block_iterable_view_base<UnderlyingRang
   template<typename U>
   block_iterable_wrapper_t(U&& v, std::true_type) : base(std::forward<U>(v)) {}
 
-  [[nodiscard]] size_t size() const { return parlay::size(get_view()); }
-  auto get_num_blocks() const { return num_blocks(get_view()); }
-  auto get_begin_block(size_t i) const { return begin_block(get_view(), i); }
-  auto get_end_block(size_t i) const { return end_block(get_view(), i); }
+  [[nodiscard]] size_t size() const { return parlay::size(base_view()); }
+  auto get_num_blocks() const { return num_blocks(base_view()); }
+  auto get_begin_block(size_t i) const { return begin_block(base_view(), i); }
+  auto get_end_block(size_t i) const { return end_block(base_view(), i); }
 };
 
 template<typename T>

@@ -19,7 +19,7 @@ template<typename UnderlyingView, typename UnaryOperator>
 struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, block_delayed_map_t<UnderlyingView, UnaryOperator>> {
 
   using base = block_iterable_view_base<UnderlyingView, block_delayed_map_t<UnderlyingView, UnaryOperator>>;
-  using base::get_view;
+  using base::base_view;
 
   using underlying_block_iterator_type = range_block_iterator_type_t<UnderlyingView>;
 
@@ -53,12 +53,12 @@ struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, blo
   };
 
   // Returns the number of blocks
-  auto get_num_blocks() const { return num_blocks(get_view()); }
+  auto get_num_blocks() const { return num_blocks(base_view()); }
 
   // Return an iterator pointing to the beginning of block i
-  auto get_begin_block(size_t i) const { return block_iterator(begin_block(get_view(), i), this); }
+  auto get_begin_block(size_t i) const { return block_iterator(begin_block(base_view(), i), this); }
 
-  [[nodiscard]] size_t size() const { return get_view().size(); }
+  [[nodiscard]] size_t size() const { return base_view().size(); }
 
  private:
   copyable_function_wrapper<UnaryOperator> op;

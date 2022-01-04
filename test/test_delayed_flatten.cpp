@@ -6,6 +6,30 @@
 
 #include <parlay/delayed_views.h>
 
+TEST(TestDelayedFlatten, TestRadFlattenEmpty) {
+  const parlay::sequence<parlay::sequence<int>> seq;
+  auto f = parlay::delayed::flatten(seq);
+
+  ASSERT_EQ(f.size(), 0);
+  ASSERT_EQ(f.begin(), f.end());
+
+  auto s = parlay::delayed::to_sequence(f);
+  ASSERT_EQ(s.size(), 0);
+}
+
+TEST(TestDelayedFlatten, TestRadFlattenAllEmpty) {
+  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(100000, [](size_t) {
+    return parlay::sequence<int>{};
+  });
+  auto f = parlay::delayed::flatten(seq);
+
+  ASSERT_EQ(f.size(), 0);
+  ASSERT_EQ(f.begin(), f.end());
+
+  auto s = parlay::delayed::to_sequence(f);
+  ASSERT_EQ(s.size(), 0);
+}
+
 TEST(TestDelayedFlatten, TestRadFlattenTiny) {
 
   const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(10, [](size_t) {
@@ -31,6 +55,24 @@ TEST(TestDelayedFlatten, TestRadFlattenBalanced) {
   });
 
   auto f = parlay::delayed::flatten(seq);
+
+  ASSERT_EQ(f.size(), 25000000);
+
+  auto it = f.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, i % 5000);
+    ++it;
+  }
+  ASSERT_EQ(it, f.end());
+}
+
+TEST(TestDelayedFlatten, TestRadFlattenBalancedMove) {
+
+  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
+    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  });
+
+  auto f = parlay::delayed::flatten(std::move(seq));
 
   ASSERT_EQ(f.size(), 25000000);
 
@@ -170,11 +212,27 @@ TEST(TestDelayedFlatten, TestRadFlattenManySmallWithEmpty) {
   ASSERT_EQ(it, f.end());
 }
 
+TEST(TestDelayedFlatten, TestRadFlattenTemporaries) {
+  auto seq = parlay::delayed_tabulate(5000, [](size_t) { return parlay::iota(5000); });
+
+  auto f = parlay::delayed::flatten(seq);
+
+  ASSERT_EQ(f.size(), 25000000);
+
+  auto it = f.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, i % 5000);
+    ++it;
+  }
+  ASSERT_EQ(it, f.end());
+}
+
 TEST(TestDelayedFlatten, TestBidFlattenTiny) {
 
-  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(10, [](size_t) {
+  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(10, [](size_t) {
     return parlay::tabulate(10, [](size_t i) -> int { return i; });
   });
+  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
