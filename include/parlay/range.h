@@ -227,6 +227,25 @@ struct is_block_iterable_range : public std::bool_constant<
 template<typename Range>
 inline constexpr bool is_block_iterable_range_v = is_block_iterable_range<Range>::value;
 
+template<typename Range, typename Enable = void>
+struct range_block_iterator_type;
+
+template<typename Range>
+struct range_block_iterator_type<Range, std::enable_if_t<is_random_access_range_v<Range>>> : range_iterator_type<Range> {};
+
+template<typename Range>
+struct range_block_iterator_type<Range, std::enable_if_t<!is_random_access_range_v<Range> &&
+                                                          is_block_iterable_range_v<Range>>> {
+  using type = typename Range::block_iterator;
+};
+
+// Returns the type of the block iterator for a given block-iterable range
+//
+// If the range is a random-access range, this is just its regular iterator type,
+// otherwise, it is equal to the member type ::block_iterator of the Range.
+template<typename Range>
+using range_block_iterator_type_t = typename range_block_iterator_type<Range>::type;
+
 /*  --------------------- Range operations -----------------------
     size(r) -> size_t : returns the size of a range
 */

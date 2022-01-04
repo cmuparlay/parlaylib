@@ -22,10 +22,9 @@ using ::parlay::internal::delayed::to_sequence;
 
 using ::parlay::internal::delayed::map;
 
-template<typename UnderlyingView>
-auto flatten(UnderlyingView&& v) {
-  return parlay::internal::delayed::block_delayed_flatten_t<UnderlyingView>(std::forward<UnderlyingView>(v), {});
-}
+using ::parlay::internal::delayed::flatten;
+
+
 
 template<typename... UnderlyingViews,
     std::enable_if_t<(is_random_access_range_v<UnderlyingViews> && ...), int> = 0>

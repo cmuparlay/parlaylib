@@ -18,13 +18,103 @@ namespace internal {
 namespace delayed {
 
 template<typename UnderlyingView,
-    std::enable_if_t<std::is_reference_v<range_reference_type_t<UnderlyingView>>, int> = 0>
+    std::enable_if_t<is_random_access_range_v<UnderlyingView> &&
+                     std::is_reference_v<range_reference_type_t<UnderlyingView>>, int> = 0>
+struct block_delayed_flatten_random_access_t : public block_iterable_view_base<UnderlyingView, block_delayed_flatten_random_access_t<UnderlyingView>> {
+
+  using base = block_iterable_view_base<UnderlyingView, block_delayed_flatten_random_access_t<UnderlyingView>>;
+  using base::get_view;
+
+  using outer_iterator_type = range_iterator_type_t<UnderlyingView>;
+  using inner_iterator_type = range_iterator_type_t<range_reference_type_t<UnderlyingView>>;
+
+  using value_type = range_value_type_t<range_reference_type_t<UnderlyingView>>;
+  using reference = range_reference_type_t<range_reference_type_t<UnderlyingView>>;
+
+  template<typename UV>
+  block_delayed_flatten_random_access_t(UV&& v, int) : base(std::forward<UV>(v)) {
+    //                             ^
+    // Extra int parameter is used to ensure that this template doesn't
+    // accidentally take over the job of the copy constructor.
+
+
+    // Compute "input offsets", which are, for each element in the input (outer)
+    // sequence, the position of its first element in the output sequence
+    auto offsets = parlay::internal::map(v, [](const auto& r) -> size_t { return parlay::size(r); });
+    n_elements = parlay::internal::scan_inplace(make_slice(offsets), addm<size_t>{});
+
+    n_blocks = num_blocks_from_size(n_elements);
+    external_starts = sequence<outer_iterator_type>::uninitialized(n_blocks+1);
+    internal_starts = sequence<inner_iterator_type>::uninitialized(n_blocks+1);
+
+    parlay::parallel_for(n_blocks, [&](size_t i) {
+      size_t start = i * block_size;
+      auto j = std::distance(std::begin(offsets), std::upper_bound(std::begin(offsets), std::end(offsets), start)) - 1;
+      auto external_it = std::begin(get_view()) + j;
+      auto internal_it = std::begin(*external_it);
+      std::advance(internal_it, (start - offsets[j]));
+      assign_uninitialized(external_starts[i], external_it);
+      assign_uninitialized(internal_starts[i], internal_it);
+    });
+  }
+
+  struct block_iterator {
+    using iterator_category = std::forward_iterator_tag;
+    using reference = reference;
+    using value_type = value_type;
+    using difference_type = std::ptrdiff_t;
+    using pointer = void;
+
+    decltype(auto) operator*() const { return *inner_it; }
+
+    block_iterator& operator++() {
+      ++inner_it;
+
+      while (inner_it == std::end(*outer_it)) {          // while loop instead of if in case of empty inner sequences
+        ++outer_it;
+        inner_it = std::begin(*outer_it);
+      }
+      return *this;
+    }
+
+    block_iterator operator++(int) const { block_iterator ip = *this; ++ip; return ip; }
+
+    bool operator==(const block_iterator& other) const { return inner_it == other.inner_it; }
+    bool operator!=(const block_iterator& other) const { return inner_it != other.inner_it; }
+
+     private:
+    friend struct block_delayed_flatten_random_access_t<UnderlyingView>;
+    block_iterator(outer_iterator_type outer_it_, inner_iterator_type inner_it_)
+        : outer_it(outer_it_), inner_it(inner_it_) {}
+
+    size_t block_id;
+    outer_iterator_type outer_it;
+    inner_iterator_type inner_it;
+  };
+
+  // Returns the number of blocks
+  auto get_num_blocks() const { return n_blocks; }
+
+  // Return an iterator pointing to the beginning of block i
+  auto get_begin_block(size_t i) const { return block_iterator(external_starts[i], internal_starts[i]); }
+
+  [[nodiscard]] size_t size() const { return n_elements; }
+
+ private:
+  size_t n_blocks, n_elements;
+  sequence<outer_iterator_type> external_starts;
+  sequence<inner_iterator_type> internal_starts;
+};
+
+template<typename UnderlyingView,
+    std::enable_if_t<is_block_iterable_range_v<UnderlyingView> &&
+                     std::is_reference_v<range_reference_type_t<UnderlyingView>>, int> = 0>
 struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView, block_delayed_flatten_t<UnderlyingView>> {
 
   using base = block_iterable_view_base<UnderlyingView, block_delayed_flatten_t<UnderlyingView>>;
   using base::get_view;
 
-  using underlying_block_iterator_type = decltype(begin_block(std::declval<UnderlyingView&>(), 0));
+  using underlying_block_iterator_type = range_block_iterator_type_t<UnderlyingView>;
   using internal_iterator_type = range_iterator_type_t<range_reference_type_t<UnderlyingView>>;
 
   using value_type = range_value_type_t<range_reference_type_t<UnderlyingView>>;
@@ -32,9 +122,9 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
 
   template<typename UV>
   block_delayed_flatten_t(UV&& v, int) : base(std::forward<UV>(v)) {
-    // Extra int parameter is used to ensure that the template doesn't accidentally take
-    // over the job of the copy constructor, since that would make an attempted copy
-    // into a nested flatten instead.
+    //                             ^
+    // Extra int parameter is used to ensure that this template doesn't
+    // accidentally take over the job of the copy constructor.
 
     // Note that the input in general is a block-iterable sequence of ranges. The "flattening"
     // that we have to perform is therefore essentially a three-level flattening, since we have
@@ -54,12 +144,13 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
     //
     // To further complicate things, the output is a block-iterable sequence!
 
-    auto n_input_blocks = num_blocks(v);
-    auto n_input_elements = parlay::size(v);
+    size_t n_input_blocks = num_blocks(get_view());
+    size_t n_input_elements = parlay::size(get_view());
 
     // Compute "input offsets", which are, for each element in the input (outer)
     // sequence, the position of its first element in the output sequence
-    auto input_offsets = parlay::internal::delayed::to_sequence(parlay::internal::delayed::map(v, [](const auto& r) { return parlay::size(r); }));
+    auto input_offsets = parlay::internal::delayed::to_sequence(
+        parlay::internal::delayed::map(get_view(), [](const auto& r) -> size_t { return parlay::size(r); }));
     n_elements = parlay::internal::scan_inplace(make_slice(input_offsets), addm<size_t>{});
 
     n_blocks = num_blocks_from_size(n_elements);
@@ -86,22 +177,23 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
     // find the locations at which the blocks of the output sequence begin.
     parallel_for(0, n_input_blocks, [&](size_t i) {
       size_t block_start = i * block_size, block_end = std::min((i + 1) * block_size, input_offsets.size());
-      size_t t = std::distance(std::begin(out_block_offsets),
+      size_t out_block_id = std::distance(std::begin(out_block_offsets),
                        std::lower_bound(std::begin(out_block_offsets), std::end(out_block_offsets), block_start));
 
-      size_t outer_idx = out_block_offsets[t];
-      auto outer_it = begin_block(v, i);
+      size_t outer_idx = out_block_offsets[out_block_id];
+      auto outer_it = begin_block(get_view(), i);
 
       if (outer_idx < block_end) {
         std::advance(outer_it, outer_idx - block_start);
 
-        for (; outer_it != end_block(v, i) && t < out_block_offsets.size() && out_block_offsets[t] < block_end;
-               outer_it++, outer_idx++, t++) {
-          for (; t < out_block_offsets.size() && out_block_offsets[t] == outer_idx; t++) {
-            assign_uninitialized(external_starts[t], outer_it);
+        for (; outer_it != end_block(get_view(), i) && out_block_id < out_block_offsets.size() && out_block_offsets[out_block_id] < block_end;
+               outer_it++, outer_idx++) {
+          for (; out_block_id < out_block_offsets.size() && out_block_offsets[out_block_id] == outer_idx;
+               out_block_id++) {
+            assign_uninitialized(external_starts[out_block_id], outer_it);
             auto inner_it = std::begin(*outer_it);
-            std::advance(inner_it, input_offsets[outer_idx] - t * block_size);
-            assign_uninitialized(internal_starts[t], inner_it);
+            std::advance(inner_it, out_block_id * block_size - input_offsets[outer_idx]);
+            assign_uninitialized(internal_starts[out_block_id], inner_it);
           }
 
           // Write down the final element of the input since we use its end as the end sentinel
@@ -112,7 +204,7 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
         }
       }
 
-      // If we didn't find it earlier, write down the final element of
+      // If we didn'out_block_id find it earlier, write down the final element of
       // the input since we use its end as the end sentinel
       if (i == n_input_blocks - 1 && outer_idx < n_input_elements - 1) {
         std::advance(outer_it, (n_input_elements - 1) - outer_idx);
@@ -146,7 +238,6 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
       return *this;
     }
 
-
     block_iterator operator++(int) const { block_iterator ip = *this; ++ip; return ip; }
 
     bool operator==(const block_iterator& other) const { return inner_it == other.inner_it; }
@@ -154,7 +245,7 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
 
    private:
     friend struct block_delayed_flatten_t<UnderlyingView>;
-    block_iterator(size_t block_id_, underlying_block_iterator_type outer_it_, const internal_iterator_type inner_it_,
+    block_iterator(size_t block_id_, underlying_block_iterator_type outer_it_, internal_iterator_type inner_it_,
                    std::remove_reference_t<UnderlyingView>* parent_)
         : block_id(block_id_), outer_it(outer_it_), inner_it(inner_it_), parent(parent_) {}
 
@@ -168,10 +259,8 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
   auto get_num_blocks() const { return n_blocks; }
 
   // Return an iterator pointing to the beginning of block i
+  auto get_begin_block(size_t i) { return block_iterator(block_starts[i], external_starts[i], internal_starts[i], &get_view()); }
   auto get_begin_block(size_t i) const { return block_iterator(block_starts[i], external_starts[i], internal_starts[i], &get_view()); }
-
-  // Return the sentinel denoting the end of block i
-  auto get_end_block(size_t i) const { return block_iterator(block_starts[i+1], external_starts[i+1], internal_starts[i+1], &get_view()); }
 
   [[nodiscard]] size_t size() const { return n_elements; }
 
@@ -183,10 +272,40 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
 };
 
 template<typename UnderlyingView>
-struct block_delayed_flatten_copy_t : public block_iterable_view_base<UnderlyingView, block_delayed_flatten_copy_t<UnderlyingView>> {
+struct block_delayed_flatten_copy_t : public block_iterable_view_base<void, block_delayed_flatten_copy_t<UnderlyingView>> {
+
+  using base = block_iterable_view_base<UnderlyingView, block_delayed_flatten_copy_t<UnderlyingView>>;
+  using base::get_view;
+
+  using value_type = range_value_type_t<range_reference_type_t<UnderlyingView>>;
+  using reference = range_reference_type_t<range_value_type_t<UnderlyingView>>;
+
+  template<typename UV>
+  block_delayed_flatten_copy_t(UV&& v, int) : base(), data(parlay::internal::delayed::to_sequence(std::forward<UV>(v))) {
+
+  }
+
+ private:
+  using inner_sequence_type = range_value_type_t<UnderlyingView>;
 
 
+  const sequence<inner_sequence_type> data;
 };
+
+template<typename UnderlyingView,
+    std::enable_if_t<is_random_access_range_v<UnderlyingView> &&
+                     std::is_reference_v<range_reference_type_t<UnderlyingView>>, int> = 0>
+auto flatten(UnderlyingView&& v) {
+  return parlay::internal::delayed::block_delayed_flatten_t<UnderlyingView>(std::forward<UnderlyingView>(v), 0);
+}
+
+template<typename UnderlyingView,
+    std::enable_if_t<!is_random_access_range_v<UnderlyingView> &&
+                      is_block_iterable_range_v<UnderlyingView> &&
+                      std::is_reference_v<range_reference_type_t<UnderlyingView>, int>> = 0>
+auto flatten(UnderlyingView&& v) {
+  return parlay::internal::delayed::block_delayed_flatten_t<UnderlyingView>(std::forward<UnderlyingView>(v), 0);
+}
 
 }  // namespace delayed
 }  // namespace internal

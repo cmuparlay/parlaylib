@@ -464,7 +464,11 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 #pragma warning(pop)
 #endif
 
-   private:
+  std::vector<T> to_vector() const {
+    return {begin(), end()};
+  }
+
+ private:
   struct _uninitialized_tag {};
   struct _from_function_tag {};
 
@@ -719,15 +723,43 @@ using short_sequence = sequence<T, Allocator, true>;
 // heap, and support update and query operations in parallel.
 using chars = sequence<char, internal::sequence_default_allocator<char>, true>;
 
-// Convert an arbitrary range into a sequence
+// Convert an arbitrary range into a sequence.
+//
+// The value type is deduced from the value type of the range, and the
+// default allocator is used.
 template<typename R>
 inline auto to_sequence(R&& r) -> sequence<range_value_type_t<R>> {
+  static_assert(is_random_access_range_v<R> || !is_block_iterable_range_v<R>,
+      "You called parlay::to_sequence on a delayed (block-iterable) range. You probably meant to call parlay::delayed::to_sequence");
   return {std::begin(r), std::end(r)};
 }
 
 // Convert an arbitrary range into a (short) sequence
+//
+// The value type is deduced from the value type of the range, and the
+// default allocator is used.
 template<typename R>
 inline auto to_short_sequence(R&& r) -> short_sequence<range_value_type_t<R>> {
+  static_assert(is_random_access_range_v<R> || !is_block_iterable_range_v<R>,
+      "You called parlay::to_sequence on a delayed (block-iterable) range. You probably meant to call parlay::delayed::to_sequence");
+  return {std::begin(r), std::end(r)};
+}
+
+// Convert an arbitrary range into a sequence of type T, and optionally
+// specify the allocator to use for the sequence.
+template<typename T, typename Alloc = internal::sequence_default_allocator<T>, typename R>
+inline auto to_sequence(R&& r) -> sequence<T, Alloc> {
+  static_assert(is_random_access_range_v<R> || !is_block_iterable_range_v<R>,
+      "You called parlay::to_sequence on a delayed (block-iterable) range. You probably meant to call parlay::delayed::to_sequence");
+  return {std::begin(r), std::end(r)};
+}
+
+// Convert an arbitrary range into a (short) sequence of type T, and optionally
+// specify the allocator to use for the sequence.
+template<typename T, typename Alloc = internal::sequence_default_allocator<T>, typename R>
+inline auto to_short_sequence(R&& r) -> short_sequence<T, Alloc> {
+  static_assert(is_random_access_range_v<R> || !is_block_iterable_range_v<R>,
+      "You called parlay::to_sequence on a delayed (block-iterable) range. You probably meant to call parlay::delayed::to_sequence");
   return {std::begin(r), std::end(r)};
 }
 
@@ -753,9 +785,7 @@ inline void swap(parlay::sequence<T, Allocator, EnableSSO>& a, parlay::sequence<
   a.swap(b);
 }
 
-
-
-// exchange the values of a and b
+// compute a suitable hash value for a sequence
 template<typename T, typename Allocator, bool EnableSSO>
 struct hash<parlay::sequence<T, Allocator, EnableSSO>> {
   std::size_t operator()(parlay::sequence<T, Allocator, EnableSSO> const& s) const noexcept {

@@ -21,7 +21,7 @@ struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, blo
   using base = block_iterable_view_base<UnderlyingView, block_delayed_map_t<UnderlyingView, UnaryOperator>>;
   using base::get_view;
 
-  using underlying_block_iterator_type = decltype(begin_block(std::declval<UnderlyingView&>(), 0));
+  using underlying_block_iterator_type = range_block_iterator_type_t<UnderlyingView>;
 
   using reference = std::invoke_result_t<UnaryOperator, range_reference_type_t<UnderlyingView>>;
   using value_type = std::remove_cv_t<std::remove_reference_t<reference>>;
@@ -58,9 +58,6 @@ struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, blo
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) const { return block_iterator(begin_block(get_view(), i), this); }
 
-  // Return the sentinel denoting the end of block i
-  auto get_end_block(size_t i) const { return block_iterator(end_block(get_view(), i), this); }
-
   [[nodiscard]] size_t size() const { return get_view().size(); }
 
  private:
@@ -75,7 +72,7 @@ auto map(UnderlyingView&& v, UnaryOperator f) {
 
 template<typename UnderlyingView, typename UnaryOperator,
     std::enable_if_t<!is_random_access_range_v<UnderlyingView> &&
-    parlay::is_block_iterable_range_v<UnderlyingView>, int> = 0>
+                      is_block_iterable_range_v<UnderlyingView>, int> = 0>
 auto map(UnderlyingView&& v, UnaryOperator f) {
   return parlay::internal::delayed::block_delayed_map_t<UnderlyingView, UnaryOperator>
       (std::forward<UnderlyingView>(v), std::move(f));
