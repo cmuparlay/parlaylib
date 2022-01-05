@@ -19,7 +19,7 @@ static constexpr size_t block_size = 2000;
 // ----------------------------------------------------------------------------
 
 size_t num_blocks_from_size(size_t n) {
-  return 1 + (n - 1) / block_size;
+  return (n == 0) ? 0 : (1 + (n - 1) / block_size);
 }
 
 template<typename Range,

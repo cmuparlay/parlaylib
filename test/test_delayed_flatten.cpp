@@ -6,12 +6,17 @@
 
 #include <parlay/delayed_views.h>
 
+// ---------------------------------------------------------------------------------------
+//                                     RAD VERSION
+// ---------------------------------------------------------------------------------------
+
 TEST(TestDelayedFlatten, TestRadFlattenEmpty) {
   const parlay::sequence<parlay::sequence<int>> seq;
   auto f = parlay::delayed::flatten(seq);
 
   ASSERT_EQ(f.size(), 0);
   ASSERT_EQ(f.begin(), f.end());
+  ASSERT_EQ(f.get_num_blocks(), 0);
 
   auto s = parlay::delayed::to_sequence(f);
   ASSERT_EQ(s.size(), 0);
@@ -25,6 +30,7 @@ TEST(TestDelayedFlatten, TestRadFlattenAllEmpty) {
 
   ASSERT_EQ(f.size(), 0);
   ASSERT_EQ(f.begin(), f.end());
+  ASSERT_EQ(f.get_num_blocks(), 0);
 
   auto s = parlay::delayed::to_sequence(f);
   ASSERT_EQ(s.size(), 0);
@@ -66,7 +72,7 @@ TEST(TestDelayedFlatten, TestRadFlattenBalanced) {
   ASSERT_EQ(it, f.end());
 }
 
-TEST(TestDelayedFlatten, TestRadFlattenBalancedMove) {
+TEST(TestDelayedFlatten, TestRadFlattenBalancedOwning) {
 
   const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
     return parlay::tabulate(5000, [](size_t i) -> int { return i; });
@@ -225,6 +231,46 @@ TEST(TestDelayedFlatten, TestRadFlattenTemporaries) {
     ++it;
   }
   ASSERT_EQ(it, f.end());
+
+  auto s = parlay::delayed::to_sequence(f);
+  ASSERT_EQ(s.size(), f.size());
+  for (size_t i = 0; i < s.size(); i++) {
+    ASSERT_EQ(s[i], i % 5000);
+  }
+}
+
+// ---------------------------------------------------------------------------------------
+//                                     BID VERSION
+// ---------------------------------------------------------------------------------------
+
+TEST(TestDelayedFlatten, TestBidFlattenEmpty) {
+  const parlay::sequence<parlay::sequence<int>> x;
+  auto seq = parlay::internal::delayed::block_iterable_wrapper(x);
+
+  auto f = parlay::delayed::flatten(seq);
+
+  ASSERT_EQ(f.size(), 0);
+  ASSERT_EQ(f.begin(), f.end());
+  ASSERT_EQ(f.get_num_blocks(), 0);
+
+  auto s = parlay::delayed::to_sequence(f);
+  ASSERT_EQ(s.size(), 0);
+}
+
+TEST(TestDelayedFlatten, TestBidFlattenAllEmpty) {
+  const parlay::sequence<parlay::sequence<int>> x = parlay::tabulate(100000, [](size_t) {
+    return parlay::sequence<int>{};
+  });
+  auto seq = parlay::internal::delayed::block_iterable_wrapper(x);
+
+  auto f = parlay::delayed::flatten(seq);
+
+  ASSERT_EQ(f.size(), 0);
+  ASSERT_EQ(f.begin(), f.end());
+  ASSERT_EQ(f.get_num_blocks(), 0);
+
+  auto s = parlay::delayed::to_sequence(f);
+  ASSERT_EQ(s.size(), 0);
 }
 
 TEST(TestDelayedFlatten, TestBidFlattenTiny) {
@@ -246,7 +292,7 @@ TEST(TestDelayedFlatten, TestBidFlattenTiny) {
   ASSERT_EQ(it, f.end());
 }
 
-TEST(TestDelayedFlatten, TestBidFlattenBalancedRef) {
+TEST(TestDelayedFlatten, TestBidFlattenBalanced) {
 
   const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t) {
     return parlay::tabulate(5000, [](size_t i) -> int { return i; });
@@ -265,7 +311,7 @@ TEST(TestDelayedFlatten, TestBidFlattenBalancedRef) {
   ASSERT_EQ(it, f.end());
 }
 
-TEST(TestDelayedFlatten, TestBidFlattenBalancedMove) {
+TEST(TestDelayedFlatten, TestBidFlattenBalancedOwning) {
 
   parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t) {
     return parlay::tabulate(5000, [](size_t i) -> int { return i; });
@@ -417,4 +463,26 @@ TEST(TestDelayedFlatten, TestBidFlattenManySmallWithEmpty) {
     ++it;
   }
   ASSERT_EQ(it, f.end());
+}
+
+TEST(TestDelayedFlatten, TestBidFlattenTemporaries) {
+  auto x = parlay::delayed_tabulate(5000, [](size_t) { return parlay::iota(5000); });
+  auto seq = parlay::internal::delayed::block_iterable_wrapper(x);
+
+  auto f = parlay::delayed::flatten(seq);
+
+  ASSERT_EQ(f.size(), 25000000);
+
+  auto it = f.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, i % 5000);
+    ++it;
+  }
+  ASSERT_EQ(it, f.end());
+
+  auto s = parlay::delayed::to_sequence(f);
+  ASSERT_EQ(s.size(), f.size());
+  for (size_t i = 0; i < s.size(); i++) {
+    ASSERT_EQ(s[i], i % 5000);
+  }
 }

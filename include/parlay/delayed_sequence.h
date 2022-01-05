@@ -125,6 +125,12 @@ class delayed_sequence {
       return index != other.index;
     }
 
+    // ---- Requirements for forward iterator ----
+
+    // Value-initialized (default constructed) iterators should
+    // compare equal, but should not be dereferenced or incremented
+    iterator() : parent(nullptr), index(0) {}
+
     // ---- Requirements for bidirectional iterator ----
 
     iterator& operator--() {

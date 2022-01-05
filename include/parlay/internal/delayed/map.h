@@ -46,6 +46,8 @@ struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, blo
 
    private:
     friend struct block_delayed_map_t<UnderlyingView,UnaryOperator>;
+
+    block_iterator() : it{}, parent(nullptr) {}
     block_iterator(underlying_block_iterator_type it_, const block_delayed_map_t* parent_) : it(it_), parent(parent_) {}
 
     underlying_block_iterator_type it;
