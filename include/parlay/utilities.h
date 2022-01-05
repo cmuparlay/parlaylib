@@ -17,6 +17,7 @@
 #include <utility>
 
 #include "parallel.h"
+#include "range.h"
 #include "type_traits.h"
 
 #include "internal/debug_uninitialized.h"
@@ -64,19 +65,19 @@ const flags fl_conservative = 8;
 const flags fl_inplace = 16;
 
 template <typename T>
-inline void assign_uninitialized(T& a, const T& b) {
+inline void assign_uninitialized(T& a, const type_identity_t<T>& b) {
   PARLAY_ASSERT_UNINITIALIZED(a);
   new (static_cast<T*>(std::addressof(a))) T(b);
 }
 
 template <typename T>
-inline auto assign_uninitialized(T& a, T&& b) -> typename std::enable_if_t<std::is_rvalue_reference_v<T&&>> {
+inline auto assign_uninitialized(T& a, type_identity_t<T>&& b) {
   PARLAY_ASSERT_UNINITIALIZED(a);
-  new (static_cast<T*>(std::addressof(a))) T(std::move(b));  // NOLINT: b is guaranteed to be an rvalue reference
+  new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
 
 template <typename T>
-inline void move_uninitialized(T& a, T& b) {
+inline void move_uninitialized(T& a, type_identity_t<T>& b) {
   PARLAY_ASSERT_UNINITIALIZED(a);
   new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
@@ -222,6 +223,9 @@ struct copyable_function_wrapper {
   decltype(auto) operator()(Args&&... args) const {
     return std::invoke(f, std::forward<Args>(args)...);
   }
+
+  F* get() { return std::addressof(f); }
+  const F* get() const { return std::addressof(f); }
 
   ~copyable_function_wrapper() = default;
 

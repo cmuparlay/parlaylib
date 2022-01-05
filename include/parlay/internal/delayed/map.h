@@ -36,7 +36,7 @@ struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, blo
     using difference_type = std::ptrdiff_t;
     using pointer = void;
 
-    decltype(auto) operator*() const { return (parent->op)(*it); }
+    decltype(auto) operator*() const { return (*op)(*it); }
 
     block_iterator& operator++() { ++it; return *this; }
     block_iterator operator++(int) const { block_iterator ip = *this; ++ip; return ip; }
@@ -47,18 +47,21 @@ struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, blo
    private:
     friend struct block_delayed_map_t<UnderlyingView,UnaryOperator>;
 
-    block_iterator() : it{}, parent(nullptr) {}
-    block_iterator(underlying_block_iterator_type it_, const block_delayed_map_t* parent_) : it(it_), parent(parent_) {}
+    block_iterator() : it{}, op(nullptr) {}
+    block_iterator(underlying_block_iterator_type it_, const UnaryOperator* op_) : it(it_), op(op_) {}
 
     underlying_block_iterator_type it;
-    const block_delayed_map_t* parent;
+    const UnaryOperator* op;
   };
+
+  using const_block_iterator = block_iterator;
 
   // Returns the number of blocks
   auto get_num_blocks() const { return num_blocks(base_view()); }
 
   // Return an iterator pointing to the beginning of block i
-  auto get_begin_block(size_t i) const { return block_iterator(begin_block(base_view(), i), this); }
+  auto get_begin_block(size_t i) { return block_iterator(begin_block(base_view(), i), op.get()); }
+  auto get_begin_block(size_t i) const { return block_iterator(begin_block(base_view(), i), op.get()); }
 
   [[nodiscard]] size_t size() const { return base_view().size(); }
 

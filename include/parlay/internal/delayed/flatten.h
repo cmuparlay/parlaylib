@@ -20,7 +20,8 @@ namespace delayed {
 template<typename UnderlyingView,
     std::enable_if_t<is_random_access_range_v<UnderlyingView> &&
                      std::is_reference_v<range_reference_type_t<UnderlyingView>>, int> = 0>
-struct block_delayed_flatten_random_access_t : public block_iterable_view_base<UnderlyingView, block_delayed_flatten_random_access_t<UnderlyingView>> {
+struct block_delayed_flatten_random_access_t :
+    public block_iterable_view_base<UnderlyingView, block_delayed_flatten_random_access_t<UnderlyingView>> {
 
   using base = block_iterable_view_base<UnderlyingView, block_delayed_flatten_random_access_t<UnderlyingView>>;
   using base::base_view;
@@ -56,26 +57,36 @@ struct block_delayed_flatten_random_access_t : public block_iterable_view_base<U
       assign_uninitialized(inner_starts[i], internal_it);
     });
 
-    // Sentinel for the end iterator
+    // Sentinel for the end iterator. The inner sentinel is value-initialized, which
+    // is safe because it will never be compared against any other iterator unless
+    // outer_it = end(base_view()), in which case, the other is also value-initialized
     assign_uninitialized(outer_starts[n_blocks], std::end(base_view()));
-    assign_uninitialized(inner_starts[n_blocks], inner_iterator_type{});
+    assign_uninitialized(inner_starts[n_blocks], {});
   }
 
-  struct block_iterator {
+  template<bool Const>
+  struct block_iterator_t {
     using iterator_category = std::forward_iterator_tag;
     using reference = reference;
     using value_type = value_type;
     using difference_type = std::ptrdiff_t;
     using pointer = void;
 
+    // If the iterator is const, we should take a const pointer to the base view
+    using base_view_type = std::conditional_t<Const,
+        typename std::add_const_t<std::remove_reference_t<UnderlyingView>>,
+        typename std::remove_reference_t<UnderlyingView>>;
+
+    using base_view_ptr = std::add_pointer_t<base_view_type>;
+
     decltype(auto) operator*() const { return *inner_it; }
 
-    block_iterator& operator++() {
+    block_iterator_t& operator++() {
       ++inner_it;
 
       while (inner_it == std::end(*outer_it)) {          // while loop instead of if in case of empty inner sequences
         if (++outer_it == std::end(*base_view)) {
-          inner_it = {};                                  // A value-initialized iterator is the sentinel for the end
+          inner_it = {};
           return *this;
         }
         inner_it = std::begin(*outer_it);
@@ -83,29 +94,32 @@ struct block_delayed_flatten_random_access_t : public block_iterable_view_base<U
       return *this;
     }
 
-    block_iterator operator++(int) const { block_iterator ip = *this; ++ip; return ip; }
+    block_iterator_t operator++(int) const { block_iterator_t ip = *this; ++ip; return ip; }
 
-    bool operator==(const block_iterator& other) const { return inner_it == other.inner_it; }
-    bool operator!=(const block_iterator& other) const { return inner_it != other.inner_it; }
+    bool operator==(const block_iterator_t& other) const { return outer_it == other.outer_it && inner_it == other.inner_it; }
+    bool operator!=(const block_iterator_t& other) const { return outer_it != other.outer_it || inner_it != other.inner_it; }
 
    private:
     friend struct block_delayed_flatten_random_access_t<UnderlyingView>;
 
-    block_iterator() : outer_it{}, inner_it{}, base_view(nullptr) {}
-    block_iterator(outer_iterator_type outer_it_, inner_iterator_type inner_it_, std::remove_reference_t<UnderlyingView>* base_view_)
+    block_iterator_t() : outer_it{}, inner_it{}, base_view(nullptr) {}
+    block_iterator_t(outer_iterator_type outer_it_, inner_iterator_type inner_it_, base_view_ptr base_view_)
         : outer_it(outer_it_), inner_it(inner_it_), base_view(base_view_) {}
 
     outer_iterator_type outer_it;
     inner_iterator_type inner_it;
-    std::remove_reference_t<UnderlyingView>* base_view;
+    base_view_ptr base_view;
   };
+
+  using block_iterator = block_iterator_t<false>;
+  using const_block_iterator = block_iterator_t<true>;
 
   // Returns the number of blocks
   auto get_num_blocks() const { return n_blocks; }
 
   // Return an iterator pointing to the beginning of block i
-  auto get_begin_block(size_t i) { return block_iterator(outer_starts[i], inner_starts[i], &base_view()); }
-  auto get_begin_block(size_t i) const { return block_iterator(outer_starts[i], inner_starts[i], &base_view()); }
+  auto get_begin_block(size_t i) { return block_iterator(outer_starts[i], inner_starts[i], std::addressof(base_view())); }
+  auto get_begin_block(size_t i) const { return const_block_iterator(outer_starts[i], inner_starts[i], std::addressof(base_view())); }
 
   [[nodiscard]] size_t size() const { return n_elements; }
 
@@ -206,8 +220,8 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
 
     // Sentinel for the end iterator
     assign_uninitialized(block_starts[n_blocks], n_input_blocks);
-    assign_uninitialized(outer_starts[n_blocks], outer_iterator_type{});
-    assign_uninitialized(inner_starts[n_blocks], inner_iterator_type{});
+    assign_uninitialized(outer_starts[n_blocks], std::end(base_view()));
+    assign_uninitialized(inner_starts[n_blocks], {});
   }
 
   struct block_iterator {
@@ -227,8 +241,7 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
         ++outer_it;
         while (outer_it == end_block(*base_view, block_id)) {
           if (++block_id == num_blocks(*base_view)) {
-            outer_it = {};                               // value-initialized iterators are sentinels that correspond
-            inner_it = {};                               // to the end of the sequence
+            inner_it = {};
             return *this;
           }
           outer_it = begin_block(*base_view, block_id);
@@ -240,8 +253,10 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
 
     block_iterator operator++(int) const { block_iterator ip = *this; ++ip; return ip; }
 
-    bool operator==(const block_iterator& other) const { return inner_it == other.inner_it; }
-    bool operator!=(const block_iterator& other) const { return inner_it != other.inner_it; }
+    // Note: No need to compare block_ids here since the outer iterators come from a
+    // block-iterable sequence, in which all of the blocks share a common iterator
+    bool operator==(const block_iterator& other) const { return outer_it == other.outer_it && inner_it == other.inner_it; }
+    bool operator!=(const block_iterator& other) const { return outer_it != other.outer_it || inner_it != other.inner_it; }
 
    private:
     friend struct block_delayed_flatten_t<UnderlyingView>;
@@ -277,7 +292,7 @@ struct block_delayed_flatten_t : public block_iterable_view_base<UnderlyingView,
 // If we want to flatten a range of temporaries, we can not use the previous
 // algorithms because they keeps references into the ranges, which will dangle.
 //
-// This version therefore of flatten just eagerly copies the sequence and
+// This version of flatten therefore just eagerly copies the sequence and
 // then wraps it around the random-access reference version of flatten.
 template<typename UnderlyingView>
 struct block_delayed_flatten_copy_t : public block_iterable_view_base<void, block_delayed_flatten_copy_t<UnderlyingView>> {

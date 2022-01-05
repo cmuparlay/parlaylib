@@ -24,6 +24,17 @@
 
 namespace parlay {
 
+// Provides the member type T
+template<typename T>
+struct type_identity {
+  using type = T;
+};
+
+// Equal to the type T, i.e., the identity transformation
+template<typename T>
+using type_identity_t = typename type_identity<T>::type;
+
+
 /*  --------------------- Priority tags. -------------------------
     Priority tags are an easy way to force template resolution to
     pick the "best" option in the presence of multiple valid

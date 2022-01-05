@@ -13,8 +13,13 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/internal/sequence_base.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/stream_delayed.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/work_stealing_job.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/common.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/flatten.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/map.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/zip.h
     ${PARLAY_INCLUDE_DIR}/parlay/alloc.h
     ${PARLAY_INCLUDE_DIR}/parlay/delayed_sequence.h
+    ${PARLAY_INCLUDE_DIR}/parlay/delayed_views.h
     ${PARLAY_INCLUDE_DIR}/parlay/hash_table.h
     ${PARLAY_INCLUDE_DIR}/parlay/io.h
     ${PARLAY_INCLUDE_DIR}/parlay/monoid.h

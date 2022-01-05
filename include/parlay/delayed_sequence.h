@@ -24,6 +24,8 @@
 #include <string>
 #include <type_traits>
 
+#include "utilities.h"
+
 namespace parlay {
 
 template<typename T, typename V, typename F>
@@ -299,7 +301,7 @@ class delayed_sequence {
   
  private:
   size_t first, last;
-  F f;
+  copyable_function_wrapper<F> f;
 };
 
 // Factory function that can infer the type of the function
