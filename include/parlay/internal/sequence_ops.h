@@ -37,12 +37,13 @@ auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
 template<typename F>
 auto delayed_tabulate(size_t n, F&& f) {
   using T = decltype(f(n));
-  return delayed_seq<T, T, F>(n, std::forward<F>(f));
+  using V = std::remove_reference_t<T>;
+  return delayed_seq<T, V, F>(n, std::forward<F>(f));
 }
 
 // Return a delayed sequence consisting of the elements
 //   f(0), f(1), ... f(n)
-template<typename T, typename V = T, typename F>
+template<typename T, typename V = std::remove_reference_t<T>, typename F>
 auto delayed_tabulate(size_t n, F&& f) {
   static_assert(std::is_convertible_v<decltype(f(n)), T>);
   return delayed_seq<T, V, F>(n, std::forward<F>(f));

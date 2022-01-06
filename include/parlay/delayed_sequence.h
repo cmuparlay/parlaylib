@@ -115,8 +115,9 @@ class delayed_sequence {
 
     iterator operator++(int) {
       assert(index < parent->last);
+      auto tmp = *this;
       index++;
-      return *this;
+      return tmp;
     }
 
     bool operator==(const iterator& other) const {
@@ -143,8 +144,9 @@ class delayed_sequence {
 
     iterator operator--(int) {
       assert(index > parent->first);
+      auto tmp = *this;
       index--;
-      return *this;
+      return tmp;
     }
 
     // ---- Requirements for random access iterator ----
@@ -305,7 +307,7 @@ class delayed_sequence {
 };
 
 // Factory function that can infer the type of the function
-template <typename T, typename V = T, typename F>
+template <typename T, typename V = std::remove_reference_t<T>, typename F>
 delayed_sequence<T, V, F> delayed_seq (size_t n, F f) {
   return delayed_sequence<T, V, F>(n, std::move(f));
 }
