@@ -24,12 +24,12 @@ struct block_delayed_map_t :
   using base = block_iterable_view_base<UnderlyingView, block_delayed_map_t<UnderlyingView, UnaryOperator>>;
   using base::base_view;
 
-  using base_view_type = std::remove_reference_t<UnderlyingView>;
+  using non_const_base_view_type = std::remove_reference_t<UnderlyingView>;
   using const_base_view_type = std::add_const_t<std::remove_reference_t<UnderlyingView>>;
 
  public:
-  static_assert(std::is_invocable_v<std::add_const_t<UnaryOperator>, range_reference_type_t<base_view_type>>);
-  using reference = std::invoke_result_t<UnaryOperator, range_reference_type_t<base_view_type>>;
+  static_assert(std::is_invocable_v<std::add_const_t<UnaryOperator>, range_reference_type_t<non_const_base_view_type>>);
+  using reference = std::invoke_result_t<UnaryOperator, range_reference_type_t<non_const_base_view_type>>;
   using value_type = std::remove_cv_t<std::remove_reference_t<reference>>;
 
   // True if the supplied function is still invocable if the argument comes from
@@ -46,13 +46,13 @@ struct block_delayed_map_t :
   struct iterator_t {
    private:
     using parent_type = block_delayed_map_t<UnderlyingView, UnaryOperator>;
-    using view_type = std::conditional_t<Const, const_base_view_type, base_view_type>;
-    using base_iterator_type = range_iterator_type_t<view_type>;
+    using base_view_type = std::conditional_t<Const, const_base_view_type, non_const_base_view_type>;
+    using base_iterator_type = range_iterator_type_t<base_view_type>;
 
    public:
-    static_assert(std::is_invocable_v<std::add_const_t<UnaryOperator>, range_reference_type_t<view_type>>);
+    static_assert(std::is_invocable_v<std::add_const_t<UnaryOperator>, range_reference_type_t<base_view_type>>);
     using iterator_category = std::forward_iterator_tag;
-    using reference = std::invoke_result_t<UnaryOperator, range_reference_type_t<view_type>>;
+    using reference = std::invoke_result_t<UnaryOperator, range_reference_type_t<base_view_type>>;
     using value_type = std::remove_cv_t<std::remove_reference_t<reference>>;
     using difference_type = std::ptrdiff_t;
     using pointer = void;
@@ -60,7 +60,7 @@ struct block_delayed_map_t :
     decltype(auto) operator*() const { return (*op)(*it); }
 
     iterator_t& operator++() { ++it; return *this; }
-    iterator_t operator++(int) const { iterator_t ip = *this; ++ip; return ip; }
+    iterator_t operator++(int) { auto tmp = *this; ++(*this); return tmp; }
 
     friend bool operator==(const iterator_t& x, const iterator_t& y) { return x.it == y.it; }
     friend bool operator!=(const iterator_t& x, const iterator_t& y) { return x.it != y.it; }
@@ -76,8 +76,8 @@ struct block_delayed_map_t :
   };
 
   // If the function is not const invocable, just use a non-const iterator as the
-  // const iterator and hope that the user never calls a function where it matters.
-  // If they try to do something that requires constness, it will fail anyway.
+  // const iterator and hope that the user never calls a const-qualified function.
+  // If they do, it will fail anyway.
   using iterator = iterator_t<false>;
   using const_iterator = std::conditional_t<const_invocable, iterator_t<true>, iterator_t<false>>;
 

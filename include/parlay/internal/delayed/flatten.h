@@ -88,18 +88,17 @@ struct block_delayed_flatten_t :
                   std::lower_bound(std::begin(out_block_offsets), std::end(out_block_offsets), block_start));
 
         size_t outer_idx = out_block_offsets[out_block_id];
-        auto outer_it = begin_block(base_view(), i);
-
         if (outer_idx < block_end) {
+          auto outer_it = begin_block(base_view(), i);
           std::advance(outer_it, outer_idx - block_start);
 
           for (; outer_it != end_block(base_view(), i) && out_block_id < out_block_offsets.size() &&
-                 out_block_offsets[out_block_id] < block_end; outer_it++, outer_idx++) {
+                 out_block_offsets[out_block_id] < block_end; ++outer_it, ++outer_idx) {
             for (; out_block_id < out_block_offsets.size() && out_block_offsets[out_block_id] == outer_idx;
-                   out_block_id++) {
-              assign_uninitialized(outer_starts[out_block_id], outer_it);
+                   ++out_block_id) {
               auto inner_it = std::begin(*outer_it);
               std::advance(inner_it, out_block_id * block_size - offsets[outer_idx]);
+              assign_uninitialized(outer_starts[out_block_id], outer_it);
               assign_uninitialized(inner_starts[out_block_id], inner_it);
             }
           }
@@ -150,7 +149,7 @@ struct block_delayed_flatten_t :
       return *this;
     }
 
-    iterator_t operator++(int) const { iterator_t ip = *this; ++ip; return ip; }
+    iterator_t operator++(int) { auto tmp = *this; ++(*this); return tmp; }
 
     friend bool operator==(const iterator_t& x, const iterator_t& y) {
       return x.outer_it == y.outer_it && x.inner_it == y.inner_it;

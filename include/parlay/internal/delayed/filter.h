@@ -40,7 +40,7 @@ struct block_delayed_filter_t : public block_iterable_view_base<UnderlyingView, 
     decltype(auto) operator*() const { return (parent->op)(*it); }
 
     block_iterator& operator++() { ++it; return *this; }
-    block_iterator operator++(int) const { block_iterator ip = *this; ++ip; return ip; }
+    block_iterator operator++(int) { auto tmp = *this; ++(*this); return tmp; }
 
     bool operator==(const block_iterator& other) const { return it == other.it; }
     bool operator!=(const block_iterator& other) const { return it != other.it; }

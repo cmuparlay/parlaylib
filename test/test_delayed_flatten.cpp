@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 
+#include <numeric>
 #include <type_traits>
 #include <vector>
 
@@ -46,7 +47,7 @@ static_assert(std::is_move_assignable_v<decltype(parlay::delayed::flatten(std::d
 // ---------------------------------------------------------------------------------------
 //                                     RAD VERSION
 // ---------------------------------------------------------------------------------------
-/*
+
 TEST(TestDelayedFlatten, TestRadFlattenEmpty) {
   const parlay::sequence<parlay::sequence<int>> seq;
   auto f = parlay::delayed::flatten(seq);
@@ -492,13 +493,17 @@ TEST(TestDelayedFlatten, TestBidFlattenUnevenLast) {
   }
   ASSERT_EQ(it, f.end());
 }
-*/
 
 TEST(TestDelayedFlatten, TestBidFlattenToSeq) {
 
-  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t) {
-    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
-  });
+  std::vector<std::vector<int>> ss(5000);
+  for (size_t i = 0; i < 5000; i++) {
+    ss[i] = std::vector<int>(5000);
+    std::iota(std::begin(ss[i]), std::end(ss[i]), i * 5000);
+  }
+
+  const auto s = ss;
+
   auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
@@ -507,10 +512,10 @@ TEST(TestDelayedFlatten, TestBidFlattenToSeq) {
 
   auto seqd = parlay::delayed::to_sequence(f);
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(seqd[i], i % 5000);
+    ASSERT_EQ(seqd[i], i);
   }
 }
-/*
+
 TEST(TestDelayedFlatten, TestBidFlattenManySmall) {
 
   const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(50000, [](size_t) {
@@ -663,4 +668,3 @@ TEST(TestDelayedFlatten, TestBidFlattenRvalueReferences) {
     }
   }
 }
-*/

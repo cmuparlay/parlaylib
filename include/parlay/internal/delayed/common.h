@@ -214,7 +214,7 @@ struct block_iterable_wrapper_t : public block_iterable_view_base<UnderlyingRang
     decltype(auto) operator*() const { return *it; }
 
     iterator_t& operator++() { ++it; return *this; }
-    iterator_t operator++(int) const { iterator_t ip = *this; ++ip; return ip; }
+    iterator_t operator++(int) { auto tmp = *this; ++(*this); return tmp; }
 
     friend bool operator==(const iterator_t& x, const iterator_t& y) { return x.it == y.it; }
     friend bool operator!=(const iterator_t& x, const iterator_t& y) { return x.it != y.it; }
