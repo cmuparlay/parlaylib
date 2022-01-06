@@ -30,6 +30,11 @@ static_assert(std::is_move_assignable_v<decltype(parlay::delayed::map(std::declv
 static_assert(std::is_move_constructible_v<decltype(parlay::delayed::map(std::declval<bdsi&>(), Op{}))>);
 static_assert(std::is_move_assignable_v<decltype(parlay::delayed::map(std::declval<bdsi&>(), Op{}))>);
 
+
+// ---------------------------------------------------------------------------------------
+//                                     RAD VERSION
+// ---------------------------------------------------------------------------------------
+
 TEST(TestDelayedMap, TestRadMapSimple) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(100001));
 
@@ -82,6 +87,32 @@ TEST(TestDelayedMap, TestRadMapReference) {
   }
 }
 
+TEST(TestDelayedMap, TestRadMapMoveRvalueRef) {
+  parlay::sequence<std::vector<int>> s = {
+      {0,1,2},
+      {3,4,5},
+      {6,7,8}
+  };
+
+  // Map the contents of s to rvalue references => they should be moved into the copy
+  auto m = parlay::delayed::map(s, [](std::vector<int>& x) -> std::vector<int>&& { return std::move(x); });
+  auto seq = parlay::delayed::to_sequence<std::vector<int>>(m);
+
+  ASSERT_EQ(seq.size(), 3);
+  ASSERT_EQ(seq[0].size(), 3);
+  ASSERT_EQ(seq[1].size(), 3);
+  ASSERT_EQ(seq[2].size(), 3);
+
+  // If the input was moved from, it will now be empty
+  ASSERT_TRUE(s[0].empty());
+  ASSERT_TRUE(s[1].empty());
+  ASSERT_TRUE(s[2].empty());
+}
+
+// ---------------------------------------------------------------------------------------
+//                                     BID VERSION
+// ---------------------------------------------------------------------------------------
+
 TEST(TestDelayedMap, TestBidMapSimpleRef) {
   const auto bid = parlay::internal::delayed::block_iterable_wrapper(parlay::iota(100001));
 
@@ -91,6 +122,20 @@ TEST(TestDelayedMap, TestBidMapSimpleRef) {
   for (auto x : m) {
     ASSERT_EQ(i+1, x);
     i++;
+  }
+}
+
+TEST(TestDelayedMap, TestBidMapToSeq) {
+  const auto bid = parlay::internal::delayed::block_iterable_wrapper(parlay::iota(100001));
+
+  const auto m = parlay::delayed::map(bid, [](int x) { return x + 1; });
+  ASSERT_EQ(m.size(), bid.size());
+
+  auto s = parlay::delayed::to_sequence(m);
+  ASSERT_EQ(s.size(), m.size());
+
+  for (size_t i = 0; i < s.size(); i++) {
+    ASSERT_EQ(s[i], i+1);
   }
 }
 
@@ -145,28 +190,6 @@ TEST(TestDelayedMap, TestBidMapSimpleRefRef) {
     ASSERT_EQ(a[i], x);
     i++;
   }
-}
-
-TEST(TestDelayedMap, TestRadMapMoveRvalueRef) {
-  parlay::sequence<std::vector<int>> s = {
-      {0,1,2},
-      {3,4,5},
-      {6,7,8}
-  };
-
-  // Map the contents of s to rvalue references => they should be moved into the copy
-  auto m = parlay::delayed::map(s, [](std::vector<int>& x) -> std::vector<int>&& { return std::move(x); });
-  auto seq = parlay::delayed::to_sequence<std::vector<int>>(m);
-
-  ASSERT_EQ(seq.size(), 3);
-  ASSERT_EQ(seq[0].size(), 3);
-  ASSERT_EQ(seq[1].size(), 3);
-  ASSERT_EQ(seq[2].size(), 3);
-
-  // If the input was moved from, it will now be empty
-  ASSERT_TRUE(s[0].empty());
-  ASSERT_TRUE(s[1].empty());
-  ASSERT_TRUE(s[2].empty());
 }
 
 TEST(TestDelayedMap, TestBidMapMoveRvalueRef) {

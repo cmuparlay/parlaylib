@@ -554,8 +554,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     auto n = std::distance(first, last);
     storage.initialize_capacity(n);
     auto buffer = storage.data();
-    parallel_for(
-        0, n, [&](size_t i) { storage.initialize_explicit(buffer + i, first[i]); }, copy_granularity(n));
+    parallel_for(0, n, [&](size_t i) { storage.initialize_explicit(buffer + i, first[i]); }, copy_granularity(n));
     storage.set_size(n);
   }
 

@@ -212,14 +212,14 @@ namespace internal {
 //
 //  size() const -> size_t
 //  get_num_blocks() const -> size_t
-//  get_begin_block(size_t) -> block_iterator
-//  get_end_block(size_t) -> block_iterator
-//  get_begin_block(size_t) const -> const_block_iterator
-//  get_end_block(size_t) const -> const_block_iterator
+//  get_begin_block(size_t) -> iterator
+//  get_end_block(size_t) -> iterator
+//  get_begin_block(size_t) const -> const_iterator
+//  get_end_block(size_t) const -> const_iterator
 //
-// where block_iterator and const_block_iterator is the common iterator type for the range
-// when it is non-const or const respectively. block_iterator and const_block_iterator may
-// be the same if that is semantically appropriate
+// where iterator and const_iterator is the common iterator type for the range when
+// it is non-const or const respectively. iterator and const_iterator may be the same
+// if that is semantically appropriate
 template<typename, typename = std::void_t<>>
 struct has_block_iterable_interface : public std::false_type {};
 
@@ -227,6 +227,7 @@ template<typename T>
 struct has_block_iterable_interface<T, std::void_t<
   std::enable_if_t<std::is_convertible_v<decltype(std::declval<T&>().size()), size_t>>,
   std::enable_if_t<std::is_convertible_v<decltype(std::declval<T&>().get_num_blocks()), size_t>>,
+  std::enable_if_t<std::is_same_v<decltype(std::declval<T&>().get_begin_block((size_t)0)), range_iterator_type_t<T&>>>,
   std::enable_if_t<std::is_same_v<decltype(std::declval<T&>().get_begin_block((size_t)0)), decltype(std::declval<T&>().get_end_block((size_t)0))>>,
   std::enable_if_t<std::is_same_v<decltype(std::declval<const T&>().get_begin_block((size_t)0)), decltype(std::declval<const T&>().get_end_block((size_t)0))>>,
   decltype(std::declval<T&>().get_begin_block((size_t)0) == std::declval<T&>().get_end_block((size_t)0)),
@@ -251,15 +252,6 @@ struct is_block_iterable_range : public std::bool_constant<
 // true if the range Range is block iterable
 template<typename Range>
 inline constexpr bool is_block_iterable_range_v = is_block_iterable_range<Range>::value;
-
-template<typename Range>
-struct range_block_iterator_type {
-  using type = decltype(std::declval<Range&>().get_begin_block((size_t)0));
-};
-
-// Returns the type of the block iterator for a given block-iterable range
-template<typename Range>
-using range_block_iterator_type_t = typename range_block_iterator_type<Range>::type;
 
 /*  --------------------- Range operations -----------------------
     size(r) -> size_t : returns the size of a range

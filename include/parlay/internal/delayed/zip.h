@@ -21,7 +21,7 @@ auto zip(UnderlyingViews&&... vs) {
   using value_type = std::tuple<range_value_type_t<UnderlyingViews>...>;
   using reference_type = std::tuple<range_reference_type_t<UnderlyingViews>...>;
 
-  auto size = std::min({parlay::size(vs)...});
+  auto size = (std::min)({parlay::size(vs)...});
   return parlay::internal::delayed_tabulate<reference_type, value_type>(size,
     [views = std::tuple<UnderlyingViews...>(std::forward<UnderlyingViews>(vs)...)](size_t i) {
       return std::apply([i](auto&&... views) { return reference_type(std::begin(views)[i]...); }, views);

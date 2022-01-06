@@ -16,52 +16,77 @@ namespace internal {
 namespace delayed {
 
 template<typename UnderlyingView, typename UnaryOperator>
-struct block_delayed_map_t : public block_iterable_view_base<UnderlyingView, block_delayed_map_t<UnderlyingView, UnaryOperator>> {
+struct block_delayed_map_t :
+    public block_iterable_view_base<UnderlyingView, block_delayed_map_t<UnderlyingView, UnaryOperator>> {
 
+ private:
+  static_assert(is_block_iterable_range_v<UnderlyingView>);
   using base = block_iterable_view_base<UnderlyingView, block_delayed_map_t<UnderlyingView, UnaryOperator>>;
   using base::base_view;
 
-  using underlying_block_iterator_type = range_block_iterator_type_t<UnderlyingView>;
+  using base_view_type = std::remove_reference_t<UnderlyingView>;
+  using const_base_view_type = std::add_const_t<std::remove_reference_t<UnderlyingView>>;
 
-  using reference = std::invoke_result_t<UnaryOperator, range_reference_type_t<UnderlyingView>>;
+ public:
+  static_assert(std::is_invocable_v<std::add_const_t<UnaryOperator>, range_reference_type_t<base_view_type>>);
+  using reference = std::invoke_result_t<UnaryOperator, range_reference_type_t<base_view_type>>;
   using value_type = std::remove_cv_t<std::remove_reference_t<reference>>;
+
+  // True if the supplied function is still invocable if the argument comes from
+  // a const-qualified version of the input. For example, a function that takes
+  // its argument as (const int& x) is invocable from a const input, but a function
+  // whose argument is (int& x) would not be.
+  constexpr static inline bool const_invocable = std::is_invocable_v<std::add_const_t<UnaryOperator>,
+      range_reference_type_t<const_base_view_type>>;
 
   template<typename UV>
   block_delayed_map_t(UV&& v, UnaryOperator f) : base(std::forward<UV>(v)), op(std::move(f)) {}
 
-  struct block_iterator {
+  template<bool Const>
+  struct iterator_t {
+   private:
+    using parent_type = block_delayed_map_t<UnderlyingView, UnaryOperator>;
+    using view_type = std::conditional_t<Const, const_base_view_type, base_view_type>;
+    using base_iterator_type = range_iterator_type_t<view_type>;
+
+   public:
+    static_assert(std::is_invocable_v<std::add_const_t<UnaryOperator>, range_reference_type_t<view_type>>);
     using iterator_category = std::forward_iterator_tag;
-    using reference = reference;
-    using value_type = value_type;
+    using reference = std::invoke_result_t<UnaryOperator, range_reference_type_t<view_type>>;
+    using value_type = std::remove_cv_t<std::remove_reference_t<reference>>;
     using difference_type = std::ptrdiff_t;
     using pointer = void;
 
     decltype(auto) operator*() const { return (*op)(*it); }
 
-    block_iterator& operator++() { ++it; return *this; }
-    block_iterator operator++(int) const { block_iterator ip = *this; ++ip; return ip; }
+    iterator_t& operator++() { ++it; return *this; }
+    iterator_t operator++(int) const { iterator_t ip = *this; ++ip; return ip; }
 
-    bool operator==(const block_iterator& other) const { return it == other.it; }
-    bool operator!=(const block_iterator& other) const { return it != other.it; }
+    friend bool operator==(const iterator_t& x, const iterator_t& y) { return x.it == y.it; }
+    friend bool operator!=(const iterator_t& x, const iterator_t& y) { return x.it != y.it; }
 
    private:
-    friend struct block_delayed_map_t<UnderlyingView,UnaryOperator>;
+    friend parent_type;
 
-    block_iterator() : it{}, op(nullptr) {}
-    block_iterator(underlying_block_iterator_type it_, const UnaryOperator* op_) : it(it_), op(op_) {}
+    iterator_t() : it{}, op(nullptr) {}
+    iterator_t(base_iterator_type it_, const UnaryOperator* op_) : it(it_), op(op_) {}
 
-    underlying_block_iterator_type it;
+    base_iterator_type it;
     const UnaryOperator* op;
   };
 
-  using const_block_iterator = block_iterator;
+  // If the function is not const invocable, just use a non-const iterator as the
+  // const iterator and hope that the user never calls a function where it matters.
+  // If they try to do something that requires constness, it will fail anyway.
+  using iterator = iterator_t<false>;
+  using const_iterator = std::conditional_t<const_invocable, iterator_t<true>, iterator_t<false>>;
 
   // Returns the number of blocks
   auto get_num_blocks() const { return num_blocks(base_view()); }
 
   // Return an iterator pointing to the beginning of block i
-  auto get_begin_block(size_t i) { return block_iterator(begin_block(base_view(), i), op.get()); }
-  auto get_begin_block(size_t i) const { return block_iterator(begin_block(base_view(), i), op.get()); }
+  auto get_begin_block(size_t i) { return iterator(begin_block(base_view(), i), op.get()); }
+  auto get_begin_block(size_t i) const { return const_iterator(begin_block(base_view(), i), op.get()); }
 
   [[nodiscard]] size_t size() const { return base_view().size(); }
 

@@ -43,11 +43,10 @@ static_assert(std::is_move_constructible_v<decltype(parlay::delayed::flatten(std
 static_assert(std::is_move_assignable_v<decltype(parlay::delayed::flatten(std::declval<bdssi&>()))>);
 
 
-
 // ---------------------------------------------------------------------------------------
 //                                     RAD VERSION
 // ---------------------------------------------------------------------------------------
-
+/*
 TEST(TestDelayedFlatten, TestRadFlattenEmpty) {
   const parlay::sequence<parlay::sequence<int>> seq;
   auto f = parlay::delayed::flatten(seq);
@@ -113,6 +112,24 @@ TEST(TestDelayedFlatten, TestRadFlattenBalanced) {
 TEST(TestDelayedFlatten, TestRadFlattenConst) {
 
   const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
+    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  });
+
+  const auto f = parlay::delayed::flatten(seq);
+
+  ASSERT_EQ(f.size(), 25000000);
+
+  auto it = f.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, i % 5000);
+    ++it;
+  }
+  ASSERT_EQ(it, f.end());
+}
+
+TEST(TestDelayedFlatten, TestRadFlattenConstAndNonConst) {
+
+  parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
     return parlay::tabulate(5000, [](size_t i) -> int { return i; });
   });
 
@@ -273,6 +290,7 @@ TEST(TestDelayedFlatten, TestRadFlattenManySmallWithEmpty) {
   }
   ASSERT_EQ(it, f.end());
 }
+
 
 TEST(TestDelayedFlatten, TestRadFlattenTemporaries) {
   auto seq = parlay::delayed_tabulate(5000, [](size_t) { return parlay::iota(5000); });
@@ -474,6 +492,7 @@ TEST(TestDelayedFlatten, TestBidFlattenUnevenLast) {
   }
   ASSERT_EQ(it, f.end());
 }
+*/
 
 TEST(TestDelayedFlatten, TestBidFlattenToSeq) {
 
@@ -491,7 +510,7 @@ TEST(TestDelayedFlatten, TestBidFlattenToSeq) {
     ASSERT_EQ(seqd[i], i % 5000);
   }
 }
-
+/*
 TEST(TestDelayedFlatten, TestBidFlattenManySmall) {
 
   const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(50000, [](size_t) {
@@ -644,3 +663,4 @@ TEST(TestDelayedFlatten, TestBidFlattenRvalueReferences) {
     }
   }
 }
+*/

@@ -17,12 +17,13 @@ namespace delayed {
 
 template<typename UnderlyingView, typename UnaryPredicate>
 struct block_delayed_filter_t : public block_iterable_view_base<UnderlyingView, block_delayed_filter_t<UnderlyingView, UnaryPredicate>> {
-
+ private:
   using base = block_iterable_view_base<UnderlyingView, block_delayed_filter_t<UnderlyingView, UnaryPredicate>>;
   using base::get_view;
 
   using underlying_block_iterator_type = decltype(begin_block(std::declval<UnderlyingView&>(), 0));
 
+ public:
   using value_type = range_value_type_t<UnderlyingView>;
   using reference = range_reference_type_t<UnderlyingView>;
 
