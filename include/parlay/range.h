@@ -24,8 +24,11 @@
 #ifndef PARLAY_RANGE_H_
 #define PARLAY_RANGE_H_
 
+#include <cstddef>
+
 #include <iterator>       // IWYU pragma: keep
 #include <type_traits>
+#include <utility>
 
 #ifdef __cpp_concepts
 

@@ -5,19 +5,19 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 
 #include <algorithm>
 #include <atomic>
 #include <iterator>
+#include <functional>
 #include <memory>
 #include <new>
 #include <type_traits>
 #include <utility>
 
 #include "parallel.h"
-#include "range.h"
+#include "range.h"           // IWYU pragma: keep
 #include "type_traits.h"
 
 #include "internal/debug_uninitialized.h"
@@ -312,9 +312,7 @@ inline void uninitialized_relocate_n_a(It1 to, It2 from, size_t n, Alloc& alloc)
   constexpr bool trivially_relocatable = is_trivially_relocatable_v<T>;
   constexpr bool trivial_alloc = is_trivial_allocator_v<Alloc, T>;
   constexpr bool contiguous = is_contiguous_iterator_v<It1> && is_contiguous_iterator_v<It2>;
-  constexpr bool random_access =
-      std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It1>::iterator_category> &&
-      std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It2>::iterator_category>;
+  constexpr bool random_access = is_random_access_iterator_v<It1> && is_random_access_iterator_v<It2>;
 
   // The most efficient scenario -- The objects are trivially relocatable, the allocator
   // has no special behaviour, and the iterators point to contiguous memory so we can
@@ -419,25 +417,25 @@ struct uninitialized_relocate_tag {};
 
 // Move dispatch -- move val into dest
 template<typename T>
-void assign_dispatch(T& dest, T& val, move_assign_tag) {
+void assign_dispatch(T& dest, type_identity_t<T>& val, move_assign_tag) {
   dest = std::move(val);
 }
 
 // Copy dispatch -- copy val into dest
 template<typename T>
-void assign_dispatch(T& dest, const T& val, copy_assign_tag) {
+void assign_dispatch(T& dest, const type_identity_t<T>& val, copy_assign_tag) {
   dest = val;
 }
 
 // Uninitialized move dispatch -- move construct dest with val
 template<typename T>
-void assign_dispatch(T& dest, T& val, uninitialized_move_tag) {
+void assign_dispatch(T& dest, type_identity_t<T>& val, uninitialized_move_tag) {
   assign_uninitialized(dest, std::move(val));
 }
 
 // Uninitialized copy dispatch -- copy initialize dest with val
 template<typename T>
-void assign_dispatch(T& dest, const T& val, uninitialized_copy_tag) {
+void assign_dispatch(T& dest, const type_identity_t<T>& val, uninitialized_copy_tag) {
   assign_uninitialized(dest, val);
 }
 

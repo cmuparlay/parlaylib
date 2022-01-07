@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <iterator>
 #include <type_traits>
+#include <utility>
 
 #include "../sequence.h"
 #include "../utilities.h"
@@ -68,8 +69,16 @@ struct forward_delayed_sequence {
 template <typename Seq1, typename Seq2, typename F>
 auto zip_with(Seq1 &S1, Seq2 &S2, F f) {
   struct iter {
+
+// Clang incorrectly warns that these type aliases are unused
+#if defined(__clang__) && __has_warning("-Wunused-local-typedef")
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-local-typedef"
     using iter1_t = decltype(S1.begin());
     using iter2_t = decltype(S2.begin());
+#pragma clang diagnostic pop
+#endif
+
     using value_type = decltype(f(*(S1.begin()),*(S2.begin())));
     F g;
     iter1_t iter1;

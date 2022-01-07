@@ -5,6 +5,7 @@
 #include "internal/delayed/common.h"
 #include "internal/delayed/flatten.h"
 #include "internal/delayed/map.h"
+#include "internal/delayed/scan.h"
 #include "internal/delayed/zip.h"
 
 namespace parlay {
@@ -16,10 +17,11 @@ using ::parlay::internal::delayed::map;
 
 using ::parlay::internal::delayed::flatten;
 
+using ::parlay::internal::delayed::zip;
 
+using ::parlay::internal::delayed::scan;
 
-
-
+using ::parlay::internal::delayed::scan_inclusive;
 
 }
 }

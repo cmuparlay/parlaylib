@@ -1,11 +1,17 @@
 #ifndef PARLAY_INTERNAL_DELAYED_COMMON_H
 #define PARLAY_INTERNAL_DELAYED_COMMON_H
 
+#include <cstddef>
+
+#include <algorithm>
 #include <iterator>
+#include <functional>
+#include <utility>
 #include <type_traits>
 
+#include "../../parallel.h"
 #include "../../range.h"
-#include "../../type_traits.h"
+#include "../../sequence.h"
 
 namespace parlay {
 namespace internal {
@@ -34,9 +40,10 @@ template<typename Range,
 auto begin_block(Range&& r, size_t i) {
   size_t n = parlay::size(r);
 
-  // Note: For convenience, we require begin_block(n_blocks) to be valid
-  // and point to the end iterator of the sequence, since this means that
-  // we always satisfy that end_block(r, i) == begin_block(r, i+1).
+  // Note: For the interface requirements of a block-iterable sequence,
+  // we require begin_block(n_blocks) to be valid and point to the end
+  // iterator of the sequence, since this means that we always satisfy
+  // end_block(r, i) == begin_block(r, i+1).
   auto start = (std::min)(i * block_size, n);
   return std::begin(r) + start;
 }

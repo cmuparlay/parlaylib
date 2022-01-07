@@ -1,10 +1,13 @@
 #ifndef PARLAY_INTERNAL_DELAYED_MAP_H_
 #define PARLAY_INTERNAL_DELAYED_MAP_H_
 
+#include <cstddef>
+
+#include <iterator>
 #include <type_traits>
+#include <utility>
 
 #include "../../range.h"
-#include "../../type_traits.h"
 #include "../../utilities.h"
 
 #include "../sequence_ops.h"
@@ -24,8 +27,8 @@ struct block_delayed_map_t :
   using base = block_iterable_view_base<UnderlyingView, block_delayed_map_t<UnderlyingView, UnaryOperator>>;
   using base::base_view;
 
-  using non_const_base_view_type = std::remove_reference_t<UnderlyingView>;
-  using const_base_view_type = std::add_const_t<std::remove_reference_t<UnderlyingView>>;
+  using const_base_view_type     = std::add_const_t<std::remove_reference_t<UnderlyingView>>;
+  using non_const_base_view_type =                  std::remove_reference_t<UnderlyingView>;
 
  public:
   static_assert(std::is_invocable_v<std::add_const_t<UnaryOperator>, range_reference_type_t<non_const_base_view_type>>);
@@ -45,7 +48,9 @@ struct block_delayed_map_t :
   template<bool Const>
   struct iterator_t {
    private:
-    using parent_type = block_delayed_map_t<UnderlyingView, UnaryOperator>;
+    using parent_type = std::conditional_t<Const,
+        typename std::add_const_t<block_delayed_map_t<UnderlyingView, UnaryOperator>>,
+                                  block_delayed_map_t<UnderlyingView, UnaryOperator>>;
     using base_view_type = std::conditional_t<Const, const_base_view_type, non_const_base_view_type>;
     using base_iterator_type = range_iterator_type_t<base_view_type>;
 

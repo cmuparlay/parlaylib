@@ -21,6 +21,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 // Falsely suggested for std::hash
 // IWYU pragma: no_include <string_view>

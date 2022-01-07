@@ -1,11 +1,18 @@
 #ifndef PARLAY_INTERNAL_DELAYED_FILTER_H_
 #define PARLAY_INTERNAL_DELAYED_FILTER_H_
 
+#include <cstddef>
+
+#include <algorithm>
+#include <iterator>
 #include <type_traits>
+#include <utility>
 
 #include "../../monoid.h"
+#include "../../parallel.h"
 #include "../../range.h"
-#include "../../type_traits.h"
+#include "../../sequence.h"
+#include "../../slice.h"
 #include "../../utilities.h"
 
 #include "../sequence_ops.h"
@@ -70,7 +77,7 @@ struct block_delayed_flatten_t :
     // so instead it linearly searches them within each block. To be efficient, it
     // does not do a new linear search for each element since this could take up to
     // quadratic work, but instead it can start from where the previous search ended
-    else {
+    else if (n_elements > 0) {
 
       // Compute "output block offsets", which are, for each block in the output sequence,
       // the index of the element in the input sequence that contains the block's first element
@@ -116,10 +123,12 @@ struct block_delayed_flatten_t :
   template<bool Const>
   struct iterator_t {
    private:
-    using parent_type = block_delayed_flatten_t<UnderlyingView>;
+    using parent_type = std::conditional_t<Const,
+        typename std::add_const_t<block_delayed_flatten_t<UnderlyingView>>,
+                                  block_delayed_flatten_t<UnderlyingView>>;
     using base_view_type = std::conditional_t<Const,
         typename std::add_const_t<std::remove_reference_t<UnderlyingView>>,
-        typename std::remove_reference_t<UnderlyingView>>;
+        typename                  std::remove_reference_t<UnderlyingView>>;
     using outer_iterator_type = range_iterator_type_t<base_view_type>;
     using inner_iterator_type = range_iterator_type_t<range_reference_type_t<base_view_type>>;
     using base_view_ptr = std::add_pointer_t<base_view_type>;

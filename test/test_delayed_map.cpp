@@ -1,7 +1,5 @@
 #include "gtest/gtest.h"
 
-#include <string>
-
 #include <parlay/delayed_sequence.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
@@ -47,7 +45,7 @@ TEST(TestDelayedMap, TestRadMapSimple) {
   }
 }
 
-TEST(TestDelayedMap, TestRadMapMove) {
+TEST(TestDelayedMap, TestRadMapOwning) {
   parlay::sequence<int> a = parlay::to_sequence(parlay::iota(100001));
 
   auto m = parlay::delayed::map(std::move(a), [](int x) { return x + 1; });

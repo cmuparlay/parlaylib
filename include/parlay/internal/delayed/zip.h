@@ -2,7 +2,10 @@
 #ifndef PARLAY_INTERNAL_DELAYED_ZIP_H
 #define PARLAY_INTERNAL_DELAYED_ZIP_H
 
+#include <cstddef>
+
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 #include "common.h"
