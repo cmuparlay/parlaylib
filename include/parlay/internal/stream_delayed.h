@@ -1,7 +1,7 @@
 #include <cstddef>
 #include <iterator>
 #include <type_traits>
-#include <utility>
+#include <utility>        // IWYU pragma: keep
 
 #include "../sequence.h"
 #include "../utilities.h"

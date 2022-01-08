@@ -16,7 +16,7 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/common.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/flatten.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/map.h
-    ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/zip.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/scan.h
     ${PARLAY_INCLUDE_DIR}/parlay/alloc.h
     ${PARLAY_INCLUDE_DIR}/parlay/delayed_sequence.h
     ${PARLAY_INCLUDE_DIR}/parlay/delayed_views.h

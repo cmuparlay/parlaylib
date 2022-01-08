@@ -19,7 +19,8 @@ template<typename UnaryOp>
 auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
   static_assert(std::is_invocable_v<UnaryOp, size_t>);
   static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, size_t>>);
-  return sequence<typename std::decay_t<std::invoke_result_t<UnaryOp, size_t>>>>
+  static_assert(!std::is_array_v<std::invoke_result_t<UnaryOp, size_t>>);
+  return sequence<typename std::decay_t<std::invoke_result_t<UnaryOp, size_t>>>
     ::from_function(n, std::forward<UnaryOp>(f), granularity);
 }
 

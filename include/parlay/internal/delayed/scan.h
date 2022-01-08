@@ -2,6 +2,9 @@
 #ifndef PARLAY_INTERNAL_DELAYED_SCAN_H
 #define PARLAY_INTERNAL_DELAYED_SCAN_H
 
+#include <cstddef>
+
+#include <iterator>
 #include <functional>
 #include <type_traits>
 #include <utility>
@@ -11,8 +14,11 @@
 #include "../sequence_ops.h"
 
 #include "../../monoid.h"
+#include "../../parallel.h"
 #include "../../range.h"
+#include "../../sequence.h"
 #include "../../slice.h"
+#include "../../utilities.h"
 
 namespace parlay {
 namespace internal {

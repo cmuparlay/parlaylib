@@ -65,16 +65,10 @@ using sequence_default_allocator = std::allocator<T>;
 template<typename T, typename Allocator = internal::sequence_default_allocator<T>, bool EnableSSO = std::is_same<T, char>::value>
 class sequence : protected sequence_internal::sequence_base<T, Allocator, EnableSSO> {
 
-  // Ensure that T is not const or volatile
-  static_assert(std::is_same_v<typename std::remove_cv_t<T>, T>,
-                "sequences must have a non-const, non-volatile value_type");
-
-  // Ensure that T is not an array type, reference, or function type
-  static_assert(std::is_same_v<typename std::decay_t<T>, T>,
-                "sequences must not have an array, reference, or function value_type");
-
-  // Ensure that T is not a void type
+  static_assert(std::is_same_v<typename std::remove_cv_t<T>, T>, "sequences must have a non-const, non-volatile value_type");
+  static_assert(std::is_same_v<typename std::decay_t<T>, T>, "sequences must not have an array, reference, or function value_type");
   static_assert(!std::is_void_v<T>, "sequences must not have a void value_type");
+  static_assert(std::is_destructible_v<T>, "sequences must have a destructible value_type");
 
  public:
 
