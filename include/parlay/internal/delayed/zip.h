@@ -18,6 +18,9 @@ namespace parlay {
 namespace internal {
 namespace delayed {
 
+// Note: Fold expressions are bugged in MSVC until version 19.27, so the following
+// fails to compile on earlier versions :(
+
 template<typename... UnderlyingViews,
     std::enable_if_t<(is_random_access_range_v<UnderlyingViews> && ...), int> = 0>
 auto zip(UnderlyingViews&&... vs) {

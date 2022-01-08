@@ -57,7 +57,7 @@ template<typename T, typename V, typename F>
 auto delayed_tabulate(size_t n, F f) {
   static_assert(std::is_invocable_v<F, size_t>);
   static_assert(std::is_convertible_v<std::invoke_result_t<F, size_t>, T>);
-  static_assert(std::is_convertible_v<T, V>);
+  static_assert(!std::is_copy_constructible_v<V> || std::is_convertible_v<T, V>);
   return delayed_sequence<T, V, F>(n, std::move(f));
 }
 
