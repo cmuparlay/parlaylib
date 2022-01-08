@@ -190,7 +190,7 @@ inline size_t granularity(size_t n) {
 template<typename F>
 struct copyable_function_wrapper {
 
-  /* implicit */ copyable_function_wrapper(F _f) : f(std::move(_f)) {}
+  explicit copyable_function_wrapper(F _f) : f(std::move(_f)) {}
 
   copyable_function_wrapper(const copyable_function_wrapper&) = default;
   copyable_function_wrapper(copyable_function_wrapper&&)

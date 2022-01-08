@@ -71,13 +71,19 @@ auto zip_with(Seq1 &S1, Seq2 &S2, F f) {
   struct iter {
 
 // Clang incorrectly warns that these type aliases are unused
-#if defined(__clang__) && __has_warning("-Wunused-local-typedef")
+#if defined(__clang__)
+#if __has_warning("-Wunused-local-typedef")
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-local-typedef"
+#endif  // __has_warning("-Wunused-local-typedef")
+#endif  // __clang__
     using iter1_t = decltype(S1.begin());
     using iter2_t = decltype(S2.begin());
+#if defined(__clang__)
+#if __has_warning("-Wunused-local-typedef")
 #pragma clang diagnostic pop
-#endif
+#endif  // __has_warning("-Wunused-local-typedef")
+#endif  // __clang__
 
     using value_type = decltype(f(*(S1.begin()),*(S2.begin())));
     F g;

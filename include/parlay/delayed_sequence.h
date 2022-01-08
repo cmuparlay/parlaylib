@@ -2,15 +2,21 @@
 // that generate their elements on demand. Their memory
 // requirement is therefore at most that of the function
 // object that generates the range. Unlike most common
-// iterators, dereferencing them results in a value type,
-// not a reference. Consequently, they are immutable, and
-// their iterators are always const iterators.
+// iterators, dereferencing them can possibly result in
+// a prvalue (temporary) rather than a reference.
 //
-// A delayed sequence is defined by a range of indices
-// and a function object. Example:
+// A delayed sequence is defined by a maximum index and a
+// function object. The recommended way to construct
+// a delayed sequence is by using the delayed_tabulate
+// function. Example:
 //
-// auto s = parlay::delayed_seq<int>(0, 1000,
+// auto s = parlay::delayed_tabulate(1000,
 //            [](size_t i) { return i*i; });
+//
+// By default, the reference type of the delayed sequence
+// is the return type of the function T, and the value type
+// is std::remove_reference_t<T>. These can be customized
+// by providing template arguments to delayed_tabulate.
 //
 
 #ifndef PARLAY_DELAYED_SEQUENCE_H_
@@ -32,16 +38,18 @@ template<typename T, typename V, typename F>
 class delayed_sequence;
 
 // Factory function that can infer the type of the function
-template <typename T, typename V, typename F>
-delayed_sequence<T, V, F> delayed_seq (size_t, F);
+//
+// Deprecated. Prefer to use delayed_tabulate instead.
+template <typename T, typename F>
+delayed_sequence<T, std::remove_reference_t<T>, F> delayed_seq (size_t, F);
 
 // A delayed sequence is an iterator range that generates its
 // elements on demand.
 //
 // T is the reference_type of the sequence, i.e. the type returned
 // by the delayed sequence. V is the value_type of the sequence.
-// Often, these are the same, particularly when the delayed
-// sequence returns a value anyway. They should differ if the
+// Often, these are the same, e.g., when the delayed sequence
+// returns a prvalue (temporary). They should differ if the
 // delayed sequence is going to return a reference, or a type
 // with reference-semantics (e.g., a tuple of references), in
 // which case value_type should be a type with corresponding value
@@ -60,7 +68,7 @@ class delayed_sequence {
   // could be a value type since elements are generated on demand.
   using value_type = V;
   using reference = T;
-  using const_reference = const T;
+  using const_reference = std::add_const_t<T>;
   class iterator;
   using const_iterator = iterator;
   using reverse_iterator = std::reverse_iterator<iterator>;
@@ -307,9 +315,11 @@ class delayed_sequence {
 };
 
 // Factory function that can infer the type of the function
-template <typename T, typename V = std::remove_reference_t<T>, typename F>
-delayed_sequence<T, V, F> delayed_seq (size_t n, F f) {
-  return delayed_sequence<T, V, F>(n, std::move(f));
+//
+// Deprecated. Prefer to use delayed_tabulate instead.
+template <typename T, typename F>
+delayed_sequence<T, std::remove_reference_t<T>, F> delayed_seq (size_t n, F f) {
+  return delayed_sequence<T, std::remove_reference_t<T>, F>(n, std::move(f));
 }
 
 }  // namespace parlay

@@ -17,10 +17,10 @@ namespace internal {
 //   f(0), f(1), ... f(n)
 template<typename UnaryOp>
 auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
-  return sequence<typename std::remove_reference<
-                  typename std::remove_cv<
+  return sequence<typename std::remove_reference_t<
+                  typename std::remove_cv_t<
                   decltype(f((size_t)0))
-                  >::type>::type>::
+                  >>>::
     from_function(n, f, granularity);
 }
 
@@ -35,18 +35,30 @@ auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
 // Return a delayed sequence consisting of the elements
 //   f(0), f(1), ... f(n)
 template<typename F>
-auto delayed_tabulate(size_t n, F&& f) {
-  using T = decltype(f(n));
+auto delayed_tabulate(size_t n, F f) {
+  static_assert(std::is_invocable_v<F, size_t>);
+  using T = std::invoke_result_t<F, size_t>;
   using V = std::remove_reference_t<T>;
-  return delayed_seq<T, V, F>(n, std::forward<F>(f));
+  return delayed_sequence<T, V, F>(n, std::move(f));
 }
 
 // Return a delayed sequence consisting of the elements
 //   f(0), f(1), ... f(n)
-template<typename T, typename V = std::remove_reference_t<T>, typename F>
-auto delayed_tabulate(size_t n, F&& f) {
-  static_assert(std::is_convertible_v<decltype(f(n)), T>);
-  return delayed_seq<T, V, F>(n, std::forward<F>(f));
+template<typename T, typename F>
+auto delayed_tabulate(size_t n, F f) {
+  static_assert(std::is_invocable_v<F, size_t>);
+  static_assert(std::is_convertible_v<std::invoke_result_t<F, size_t>, T>);
+  return delayed_sequence<T, std::remove_reference_t<T>, F>(n, std::move(f));
+}
+
+// Return a delayed sequence consisting of the elements
+//   f(0), f(1), ... f(n)
+template<typename T, typename V, typename F>
+auto delayed_tabulate(size_t n, F f) {
+  static_assert(std::is_invocable_v<F, size_t>);
+  static_assert(std::is_convertible_v<std::invoke_result_t<F, size_t>, T>);
+  static_assert(std::is_convertible_v<T, V>);
+  return delayed_sequence<T, V, F>(n, std::move(f));
 }
 
 // Return a delayed sequence consisting of the elements
@@ -313,8 +325,7 @@ auto filter_map(In_Seq const &In, F f, G g) {
 
 template <typename In_Seq, typename F>
 auto filter(In_Seq const &In, F f) -> sequence<typename In_Seq::value_type> {
-  using T = typename In_Seq::value_type;
-  auto identity = [&] (T x) -> T {return x;}; // no longer needed in c++20
+  auto identity = [&] (auto&& x) { return std::forward<decltype(x)>(x); }; // no longer needed in c++20
   return filter_map(In, f, identity);
 }
 
@@ -351,7 +362,7 @@ size_t filter_out(In_Seq const &In, Out_Seq Out, F f, flags) {
 template <typename Idx_Type, typename Bool_Seq>
 auto pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
   auto identity = [](size_t i) -> Idx_Type { return static_cast<Idx_Type>(i); };
-  return pack(delayed_seq<Idx_Type>(Fl.size(), identity), Fl, fl);
+  return pack(delayed_tabulate(Fl.size(), identity), Fl, fl);
 }
 
 template <typename assignment_tag, typename InIterator, typename OutIterator, typename Char_Seq>
