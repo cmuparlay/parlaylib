@@ -172,10 +172,11 @@ struct block_delayed_flatten_t :
     /* implicit */ iterator_t(const iterator_t<false>& other)
         : outer_it(other.outer_it), inner_it(other.inner_it), base_view(other.base_view) {}
 
+    iterator_t() : outer_it{}, inner_it{}, base_view(nullptr) {}
+
    private:
     friend parent_type;
 
-    iterator_t() : outer_it{}, inner_it{}, base_view(nullptr) {}
     iterator_t(outer_iterator_type outer_it_, inner_iterator_type inner_it_, base_view_ptr base_view_)
         : outer_it(outer_it_), inner_it(inner_it_), base_view(base_view_) {}
 

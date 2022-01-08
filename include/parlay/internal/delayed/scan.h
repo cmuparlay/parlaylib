@@ -115,10 +115,15 @@ struct block_delayed_scan_t :
     friend bool operator==(const iterator_t& x, const iterator_t& y) { return x.it == y.it; }
     friend bool operator!=(const iterator_t& x, const iterator_t& y) { return x.it != y.it; }
 
+    // Conversion from non-const iterator to const iterator
+    /* implicit */ iterator_t(const iterator_t<false>& other)
+        : value(other.value), it(other.it), parent(other.parent) {}
+
+    iterator_t() : value{}, it{}, parent(nullptr) {}
+
    private:
     friend parent_type;
 
-    iterator_t() : value{}, it{}, parent(nullptr) {}
     iterator_t(T value_, base_iterator_type it_, parent_ptr parent_)
         : value(std::move(value_)), it(it_), parent(parent_) {}
 

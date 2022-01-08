@@ -8,6 +8,10 @@
 
 #include <parlay/delayed_views.h>
 
+// ---------------------------------------------------------------------------------------
+//                                     RAD VERSION
+// ---------------------------------------------------------------------------------------
+
 TEST(TestDelayedZip, TestRadZipSimple) {
   parlay::sequence<int> a = {1,2,3,4,5,6,7,8,9,10};
   parlay::sequence<int> b = {2,3,4,5,6,7,8,9,10,11};
@@ -15,6 +19,18 @@ TEST(TestDelayedZip, TestRadZipSimple) {
 
   auto zipped = parlay::delayed::zip(a,b);
   ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    ASSERT_EQ(y, x+1);
+  }
+}
+
+TEST(TestDelayedZip, TestRadZipDiffSize) {
+  parlay::sequence<int> a = {1,2,3,4,5,6,7,8,9,10};
+  parlay::sequence<int> b = {2,3,4,5,6};
+
+  auto zipped = parlay::delayed::zip(a,b);
+  ASSERT_EQ(zipped.size(), b.size());
 
   for (auto [x,y] : zipped) {
     ASSERT_EQ(y, x+1);
@@ -118,5 +134,38 @@ TEST(TestDelayedZip, TestRadZipWithDelayedUncopyable) {
 
   for (auto [x,y] : zipped) {
     ASSERT_EQ(x, *y);
+  }
+}
+
+// ---------------------------------------------------------------------------------------
+//                                     BID VERSION
+// ---------------------------------------------------------------------------------------
+
+TEST(TestDelayedZip, TestBidZipSimple) {
+  auto a = parlay::internal::delayed::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+1; }));
+  auto b = parlay::internal::delayed::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+2; }));
+  ASSERT_EQ(a.size(), b.size());
+
+  auto zipped = parlay::delayed::zip(a,b);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    ASSERT_EQ(y, x+1);
+  }
+}
+
+TEST(TestDelayedZip, TestBidZipToSeq) {
+  auto a = parlay::internal::delayed::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+1; }));
+  auto b = parlay::internal::delayed::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+2; }));
+  ASSERT_EQ(a.size(), b.size());
+
+  auto zipped = parlay::delayed::zip(a,b);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  auto s = parlay::delayed::to_sequence(zipped);
+  ASSERT_EQ(s.size(), zipped.size());
+
+  for (size_t i = 0; i < s.size(); i++) {
+    ASSERT_EQ(s[i], std::make_tuple(i+1, i+2));
   }
 }

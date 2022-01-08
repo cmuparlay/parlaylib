@@ -70,10 +70,14 @@ struct block_delayed_map_t :
     friend bool operator==(const iterator_t& x, const iterator_t& y) { return x.it == y.it; }
     friend bool operator!=(const iterator_t& x, const iterator_t& y) { return x.it != y.it; }
 
+    // Conversion from non-const iterator to const iterator
+    /* implicit */ iterator_t(const iterator_t<false>& other) : it(other.it), op(other.op) {}
+
+    iterator_t() : it{}, op(nullptr) {}
+
    private:
     friend parent_type;
 
-    iterator_t() : it{}, op(nullptr) {}
     iterator_t(base_iterator_type it_, const UnaryOperator* op_) : it(it_), op(op_) {}
 
     base_iterator_type it;

@@ -20,13 +20,13 @@ namespace delayed {
 // Default block size to use for block-iterable sequences
 static constexpr size_t block_size = 2000;
 
-// ----------------------------------------------------------------------------
-//            Block-iterable interface for random-access ranges
-// ----------------------------------------------------------------------------
-
 size_t num_blocks_from_size(size_t n) {
   return (n == 0) ? 0 : (1 + (n - 1) / block_size);
 }
+
+// ----------------------------------------------------------------------------
+//            Block-iterable interface for random-access ranges
+// ----------------------------------------------------------------------------
 
 template<typename Range,
          std::enable_if_t<is_random_access_range_v<Range>, int> = 0>
@@ -79,10 +79,35 @@ auto end_block(Range&& r, size_t i) {
   return r.get_end_block(i);
 }
 
+// ----------------------------------------------------------------------------
+//                      Reference wrapper overloads
+// ----------------------------------------------------------------------------
+
+template<typename Range>
+auto begin_block(std::reference_wrapper<Range>&& r, size_t i) {
+  return begin_block(r.get(), i);
+}
+
+template<typename Range>
+auto end_block(std::reference_wrapper<Range>&& r, size_t i) {
+  return end_block(r.get(), i);
+}
 
 // ----------------------------------------------------------------------------
 //                          Base class for BID views
 // ----------------------------------------------------------------------------
+
+// Given a view over which we want to perform a delayed operation, we either
+// want to store a reference to it, or a copy. If the input view is provided
+// as an lvalue reference, we will keep a reference, but we will do so inside
+// a reference wrapper to ensure that it is copy-assignable.
+//
+// If the input view is a prvalue or rvalue reference, we take ownership of it
+// and keep it as a value member.
+template<typename T>
+using view_storage_type = std::conditional_t<std::is_lvalue_reference_v<T>,
+    std::reference_wrapper<std::remove_reference_t<T>>,
+                           std::remove_reference_t<T>>;
 
 template<typename UnderlyingView>
 struct block_iterable_view_base_data {
@@ -92,11 +117,7 @@ struct block_iterable_view_base_data {
   const UnderlyingView& base_view() const { return view_m; }
 
  private:
-  using view_member = std::conditional_t<std::is_lvalue_reference_v<UnderlyingView>,
-      std::reference_wrapper<std::remove_reference_t<UnderlyingView>>,
-      UnderlyingView>;
-
-  view_member view_m;
+  view_storage_type<UnderlyingView> view_m;
 };
 
 template<>
@@ -229,10 +250,10 @@ struct block_iterable_wrapper_t : public block_iterable_view_base<UnderlyingRang
     // Conversion from non-const iterator to const iterator
     /* implicit */ iterator_t(const iterator_t<false>& other) : it(other.it) {}
 
+    iterator_t() : it{} {}
+
    private:
     friend parent_type;
-
-    iterator_t() : it{} {}
     explicit iterator_t(base_iterator_type it_) : it(it_) {}
 
     base_iterator_type it;
