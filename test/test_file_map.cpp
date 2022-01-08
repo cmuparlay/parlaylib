@@ -4,7 +4,6 @@
 #include <numeric>
 #include <vector>
 
-
 #include <parlay/io.h>
 
 TEST(TestFileMap, TestConstruction) {

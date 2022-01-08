@@ -53,7 +53,7 @@ template<typename Range,
 auto end_block(Range&& r, size_t i) {
   size_t n = parlay::size(r);
   size_t start = i * block_size;
-  size_t end = std::min(start + block_size, n);
+  size_t end = (std::min)(start + block_size, n);
   return std::begin(r) + end;
 }
 

@@ -17,17 +17,18 @@ namespace internal {
 //   f(0), f(1), ... f(n)
 template<typename UnaryOp>
 auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
-  return sequence<typename std::remove_reference_t<
-                  typename std::remove_cv_t<
-                  decltype(f((size_t)0))
-                  >>>::
-    from_function(n, f, granularity);
+  static_assert(std::is_invocable_v<UnaryOp, size_t>);
+  static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, size_t>>);
+  return sequence<typename std::decay_t<std::invoke_result_t<UnaryOp, size_t>>>>
+    ::from_function(n, std::forward<UnaryOp>(f), granularity);
 }
 
 // Return a sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
 template<PARLAY_RANGE_TYPE R, typename UnaryOp>
 auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
+  static_assert(std::is_invocable_v<UnaryOp, range_reference_type_t<R>>);
+  static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, range_reference_type_t<R>>>);
   return tabulate(parlay::size(r), [&f, it = std::begin(r)]
       (size_t i) -> decltype(auto) { return f(it[i]); }, granularity);
 }
@@ -57,7 +58,7 @@ template<typename T, typename V, typename F>
 auto delayed_tabulate(size_t n, F f) {
   static_assert(std::is_invocable_v<F, size_t>);
   static_assert(std::is_convertible_v<std::invoke_result_t<F, size_t>, T>);
-  static_assert(!std::is_copy_constructible_v<V> || std::is_convertible_v<T, V>);
+  static_assert(std::is_convertible_v<T, V> || !std::is_copy_constructible_v<V> || !std::is_copy_assignable_v<V>);
   return delayed_sequence<T, V, F>(n, std::move(f));
 }
 

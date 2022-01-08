@@ -90,7 +90,7 @@ struct block_delayed_flatten_t :
       // For each block in the input sequence, iterate it (sequentially since we have to), and
       // find the locations at which the blocks of the output sequence begin.
       parallel_for(0, num_blocks(base_view()), [&](size_t i) {
-        size_t block_start = i * block_size, block_end = std::min((i + 1) * block_size, offsets.size());
+        size_t block_start = i * block_size, block_end = (std::min)((i + 1) * block_size, offsets.size());
         size_t out_block_id = std::distance(std::begin(out_block_offsets),
                   std::lower_bound(std::begin(out_block_offsets), std::end(out_block_offsets), block_start));
 

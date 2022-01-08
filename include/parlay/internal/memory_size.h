@@ -8,7 +8,17 @@
 #pragma once
 
 #if defined(_WIN32)
+
+#ifndef NOMINMAX
+#define PARLAY_DEFINED_NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <Windows.h>
+
+#ifdef PARLAY_DEFINED_NOMINMAX
+#undef NOMINMAX
+#endif
 
 #elif defined(__unix__) || defined(__unix) || defined(unix) || \
     (defined(__APPLE__) && defined(__MACH__))
