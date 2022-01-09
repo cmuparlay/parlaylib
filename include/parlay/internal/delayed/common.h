@@ -141,14 +141,15 @@ struct block_iterable_view_base_data<void> { };
 template<typename UnderlyingView, typename ParentBidView>
 struct block_iterable_view_base : public block_iterable_view_base_data<UnderlyingView> {
  public:
-  auto get_end_block(size_t i) { return parent()->get_begin_block(i+1); }
-  auto get_end_block(size_t i) const { return parent()->get_begin_block(i+1); }
+  //auto get_end_block(size_t i) { return parent()->get_begin_block(i+1); }
+  //auto get_end_block(size_t i) const { return parent()->get_begin_block(i+1); }
 
-  auto begin() { return parent()->get_begin_block(0); }
-  auto end() { return parent()->get_begin_block(parent()->get_num_blocks()); }
+  //auto begin() { return parent()->get_begin_block(0); }
+  //auto end() { return parent()->get_begin_block(parent()->get_num_blocks()); }
 
-  auto begin() const { return parent()->get_begin_block(0); }
-  auto end() const { return parent()->get_begin_block(parent()->get_num_blocks()); }
+  //auto begin() const { return parent()->get_begin_block(0); }
+
+  //auto end() const { return parent()->get_begin_block(parent()->get_num_blocks()); }
 
  protected:
   block_iterable_view_base() = default;
@@ -205,77 +206,6 @@ auto to_sequence(UnderlyingView&& v) {
   return out;
 }
 
-// ----------------------------------------------------------------------------
-//   Pretend that a random-access range is only block-iterable (for testing)
-// ----------------------------------------------------------------------------
-
-// Wrap a random access range in an interface that makes it look like a plain
-// block-iterable delayed range
-template<typename UnderlyingRange>
-struct block_iterable_wrapper_t : public block_iterable_view_base<UnderlyingRange, block_iterable_wrapper_t<UnderlyingRange>> {
-  using base = block_iterable_view_base<UnderlyingRange, block_iterable_wrapper_t<UnderlyingRange>>;
-  using base::base_view;
-
-  using reference = range_reference_type_t<UnderlyingRange>;
-  using value_type = range_value_type_t<UnderlyingRange>;
-
-  // We need to wrap the internal iterator which might be random-access and make
-  // it look like a non-random access iterator, so that we force the block-iterable
-  // versions of the functions to be used.
-
-  template<bool Const>
-  struct iterator_t {
-   private:
-    using parent_type = block_iterable_wrapper_t<UnderlyingRange>;
-    using base_view_type = std::conditional_t<Const,
-            std::add_const_t<std::remove_reference_t<UnderlyingRange>>,
-            std::remove_reference_t<UnderlyingRange>>;
-    using base_iterator_type = range_iterator_type_t<base_view_type>;
-
-   public:
-    using iterator_category = std::forward_iterator_tag;
-    using reference = range_reference_type_t<base_view_type>;
-    using value_type = range_value_type_t<base_view_type>;
-    using difference_type = std::ptrdiff_t;
-    using pointer = void;
-
-    decltype(auto) operator*() const { return *it; }
-
-    iterator_t& operator++() { ++it; return *this; }
-    iterator_t operator++(int) { auto tmp = *this; ++(*this); return tmp; }
-
-    friend bool operator==(const iterator_t& x, const iterator_t& y) { return x.it == y.it; }
-    friend bool operator!=(const iterator_t& x, const iterator_t& y) { return x.it != y.it; }
-
-    // Conversion from non-const iterator to const iterator
-    /* implicit */ iterator_t(const iterator_t<false>& other) : it(other.it) {}
-
-    iterator_t() : it{} {}
-
-   private:
-    friend parent_type;
-    explicit iterator_t(base_iterator_type it_) : it(it_) {}
-
-    base_iterator_type it;
-  };
-
-  using iterator = iterator_t<false>;
-  using const_iterator = iterator_t<true>;
-
-  template<typename U>
-  block_iterable_wrapper_t(U&& v, std::true_type) : base(std::forward<U>(v)) {}
-
-  [[nodiscard]] size_t size() const { return parlay::size(base_view()); }
-  auto get_num_blocks() const { return num_blocks(base_view()); }
-
-  auto get_begin_block(size_t i) { return iterator(begin_block(base_view(), i)); }
-  auto get_begin_block(size_t i) const { return const_iterator(begin_block(base_view(), i)); }
-};
-
-template<typename T>
-auto block_iterable_wrapper(T&& t) {
-  return block_iterable_wrapper_t<T>(std::forward<T>(t), {});
-}
 
 }  // namespace delayed
 }  // namespace internal

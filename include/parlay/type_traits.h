@@ -35,6 +35,16 @@ struct type_identity {
 template<typename T>
 using type_identity_t = typename type_identity<T>::type;
 
+// Provides the member type std::add_const_t<T> if Const is
+// true, otherwise provides the member type T
+template<bool Const, typename T>
+struct maybe_const {
+  using type = std::conditional_t<Const, std::add_const_t<T>, T>;
+};
+
+// Adds const to the given type if Const is true
+template<bool Const, typename T>
+using maybe_const_t = typename maybe_const<Const, T>::type;
 
 /*  --------------------- Priority tags. -------------------------
     Priority tags are an easy way to force template resolution to

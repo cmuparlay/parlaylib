@@ -8,6 +8,8 @@
 
 #include <parlay/delayed_views.h>
 
+#include "range_utils.h"
+
 // ---------------------------------------------------------------------------------------
 //                                     RAD VERSION
 // ---------------------------------------------------------------------------------------
@@ -142,8 +144,8 @@ TEST(TestDelayedZip, TestRadZipWithDelayedUncopyable) {
 // ---------------------------------------------------------------------------------------
 
 TEST(TestDelayedZip, TestBidZipSimple) {
-  auto a = parlay::internal::delayed::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+1; }));
-  auto b = parlay::internal::delayed::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+2; }));
+  auto a = parlay::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+1; }));
+  auto b = parlay::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+2; }));
   ASSERT_EQ(a.size(), b.size());
 
   auto zipped = parlay::delayed::zip(a,b);
@@ -155,8 +157,8 @@ TEST(TestDelayedZip, TestBidZipSimple) {
 }
 
 TEST(TestDelayedZip, TestBidZipToSeq) {
-  auto a = parlay::internal::delayed::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+1; }));
-  auto b = parlay::internal::delayed::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+2; }));
+  auto a = parlay::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+1; }));
+  auto b = parlay::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+2; }));
   ASSERT_EQ(a.size(), b.size());
 
   auto zipped = parlay::delayed::zip(a,b);

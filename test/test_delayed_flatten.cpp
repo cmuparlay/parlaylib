@@ -11,6 +11,8 @@
 
 #include <parlay/delayed_views.h>
 
+#include "range_utils.h"
+
 // Check that flattened ranges are copyable and movable
 using ssi = parlay::sequence<parlay::sequence<int>>;
 static_assert(std::is_copy_constructible_v<decltype(parlay::delayed::flatten(std::declval<ssi>()))>);
@@ -33,7 +35,7 @@ static_assert(std::is_move_assignable_v<decltype(parlay::delayed::flatten(std::d
 static_assert(std::is_move_constructible_v<decltype(parlay::delayed::flatten(std::declval<dssi&>()))>);
 static_assert(std::is_move_assignable_v<decltype(parlay::delayed::flatten(std::declval<dssi&>()))>);
 
-using bdssi = decltype(parlay::internal::delayed::block_iterable_wrapper(std::declval<ssi>()));
+using bdssi = decltype(parlay::block_iterable_wrapper(std::declval<ssi>()));
 static_assert(std::is_copy_constructible_v<decltype(parlay::delayed::flatten(std::declval<bdssi>()))>);
 static_assert(std::is_copy_assignable_v<decltype(parlay::delayed::flatten(std::declval<bdssi>()))>);
 static_assert(std::is_copy_constructible_v<decltype(parlay::delayed::flatten(std::declval<bdssi&>()))>);
@@ -352,7 +354,7 @@ TEST(TestDelayedFlatten, TestRadFlattenRvalueReferences) {
 
 TEST(TestDelayedFlatten, TestBidFlattenEmpty) {
   const parlay::sequence<parlay::sequence<int>> x;
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(x);
+  auto seq = parlay::block_iterable_wrapper(x);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -368,7 +370,7 @@ TEST(TestDelayedFlatten, TestBidFlattenAllEmpty) {
   const parlay::sequence<parlay::sequence<int>> x = parlay::tabulate(100000, [](size_t) {
     return parlay::sequence<int>{};
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(x);
+  auto seq = parlay::block_iterable_wrapper(x);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -385,7 +387,7 @@ TEST(TestDelayedFlatten, TestBidFlattenTiny) {
   const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(10, [](size_t) {
     return parlay::tabulate(10, [](size_t i) -> int { return i; });
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -404,7 +406,7 @@ TEST(TestDelayedFlatten, TestBidFlattenConst) {
   const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(500, [](size_t) {
     return parlay::tabulate(500, [](size_t i) -> int { return i; });
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   const auto f = parlay::delayed::flatten(seq);
 
@@ -423,7 +425,7 @@ TEST(TestDelayedFlatten, TestBidFlattenNonConstAndConst) {
   parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(500, [](size_t) {
     return parlay::tabulate(500, [](size_t i) -> int { return i; });
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   const auto f = parlay::delayed::flatten(seq);
 
@@ -442,7 +444,7 @@ TEST(TestDelayedFlatten, TestBidFlattenBalanced) {
   const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t) {
     return parlay::tabulate(5000, [](size_t i) -> int { return i; });
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -461,7 +463,7 @@ TEST(TestDelayedFlatten, TestBidFlattenBalancedOwning) {
   parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t) {
     return parlay::tabulate(5000, [](size_t i) -> int { return i; });
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(std::move(s));
+  auto seq = parlay::block_iterable_wrapper(std::move(s));
 
   auto f = parlay::delayed::flatten(std::move(seq));
 
@@ -480,7 +482,7 @@ TEST(TestDelayedFlatten, TestBidFlattenUnevenLast) {
   const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(4001, [](size_t) {
     return parlay::tabulate(4001, [](size_t i) -> int { return i; });
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -504,7 +506,7 @@ TEST(TestDelayedFlatten, TestBidFlattenToSeq) {
 
   const auto s = ss;
 
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -521,7 +523,7 @@ TEST(TestDelayedFlatten, TestBidFlattenManySmall) {
   const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(50000, [](size_t) {
     return parlay::tabulate(500, [](size_t i) -> int { return i; });
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -540,7 +542,7 @@ TEST(TestDelayedFlatten, TestBidFlattenFewLarge) {
   const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(500, [](size_t) {
     return parlay::tabulate(50000, [](size_t i) -> int { return i; });
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -559,7 +561,7 @@ TEST(TestDelayedFlatten, TestBidFlattenMutable) {
   parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t) {
     return parlay::tabulate(5000, [](size_t i) -> int { return i; });
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -581,7 +583,7 @@ TEST(TestDelayedFlatten, TestBidFlattenWithEmpty) {
     if (i % 3 == 2) return parlay::tabulate(5000, [](size_t i) -> int { return i; });
     else return parlay::sequence<int>{};
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -601,7 +603,7 @@ TEST(TestDelayedFlatten, TestBidFlattenManySmallWithEmpty) {
     if (i % 10 == 9) return parlay::tabulate(500, [](size_t i) -> int { return i; });
     else return parlay::sequence<int>{};
   });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(s);
+  auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -617,7 +619,7 @@ TEST(TestDelayedFlatten, TestBidFlattenManySmallWithEmpty) {
 
 TEST(TestDelayedFlatten, TestBidFlattenTemporaries) {
   auto x = parlay::delayed_tabulate(5000, [](size_t) { return parlay::iota(5000); });
-  auto seq = parlay::internal::delayed::block_iterable_wrapper(x);
+  auto seq = parlay::block_iterable_wrapper(x);
 
   auto f = parlay::delayed::flatten(seq);
 
@@ -650,7 +652,7 @@ TEST(TestDelayedFlatten, TestBidFlattenRvalueReferences) {
     });
   });
 
-  auto f = parlay::delayed::flatten(parlay::internal::delayed::block_iterable_wrapper(d));
+  auto f = parlay::delayed::flatten(parlay::block_iterable_wrapper(d));
   static_assert(std::is_same_v<parlay::range_reference_type_t<decltype(f)>, std::vector<int>&&>);
   ASSERT_EQ(f.size(), 9);
 

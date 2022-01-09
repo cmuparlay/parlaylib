@@ -23,24 +23,17 @@ struct block_delayed_map_t :
     public block_iterable_view_base<UnderlyingView, block_delayed_map_t<UnderlyingView, UnaryOperator>> {
 
  private:
-  static_assert(is_block_iterable_range_v<UnderlyingView>);
-  using base = block_iterable_view_base<UnderlyingView, block_delayed_map_t<UnderlyingView, UnaryOperator>>;
+  using base = block_iterable_view_base<UnderlyingView, block_delayed_map_t>;
   using base::base_view;
 
-  using const_base_view_type     = std::add_const_t<std::remove_reference_t<UnderlyingView>>;
-  using non_const_base_view_type =                  std::remove_reference_t<UnderlyingView>;
+  static_assert(is_block_iterable_range_v<UnderlyingView>);
+  static_assert(!std::is_reference_v<UnaryOperator>);
+  static_assert(std::is_invocable_v<UnaryOperator&, range_reference_type_t<UnderlyingView>>);
 
  public:
-  static_assert(std::is_invocable_v<std::add_const_t<UnaryOperator>, range_reference_type_t<non_const_base_view_type>>);
-  using reference = std::invoke_result_t<UnaryOperator, range_reference_type_t<non_const_base_view_type>>;
-  using value_type = std::remove_cv_t<std::remove_reference_t<reference>>;
 
-  // True if the supplied function is still invocable if the argument comes from
-  // a const-qualified version of the input. For example, a function that takes
-  // its argument as (const int& x) is invocable from a const input, but a function
-  // whose argument is (int& x) would not be.
-  constexpr static inline bool const_invocable = std::is_invocable_v<std::add_const_t<UnaryOperator>,
-      range_reference_type_t<const_base_view_type>>;
+  using reference = std::invoke_result_t<UnaryOperator&, range_reference_type_t<UnderlyingView>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<reference>>;
 
   template<typename UV>
   block_delayed_map_t(UV&& v, UnaryOperator f) : base(std::forward<UV>(v)), op(std::move(f)) {}
@@ -48,14 +41,13 @@ struct block_delayed_map_t :
   template<bool Const>
   struct iterator_t {
    private:
-    using parent_type = std::conditional_t<Const,
-        typename std::add_const_t<block_delayed_map_t<UnderlyingView, UnaryOperator>>,
-                                  block_delayed_map_t<UnderlyingView, UnaryOperator>>;
-    using base_view_type = std::conditional_t<Const, const_base_view_type, non_const_base_view_type>;
+    using parent_type = maybe_const_t<Const, block_delayed_map_t>;
+    using base_view_type = maybe_const_t<Const, std::remove_reference_t<UnderlyingView>>;
     using base_iterator_type = range_iterator_type_t<base_view_type>;
+    using f_type = maybe_const_t<Const, UnaryOperator>;
 
    public:
-    static_assert(std::is_invocable_v<std::add_const_t<UnaryOperator>, range_reference_type_t<base_view_type>>);
+    static_assert(std::is_invocable_v<f_type&, range_reference_type_t<base_view_type>>);
     using iterator_category = std::forward_iterator_tag;
     using reference = std::invoke_result_t<UnaryOperator, range_reference_type_t<base_view_type>>;
     using value_type = std::remove_cv_t<std::remove_reference_t<reference>>;
@@ -78,26 +70,44 @@ struct block_delayed_map_t :
    private:
     friend parent_type;
 
-    iterator_t(base_iterator_type it_, const UnaryOperator* op_) : it(it_), op(op_) {}
+    iterator_t(base_iterator_type it_, f_type* op_) : it(it_), op(op_) {}
 
     base_iterator_type it;
-    const UnaryOperator* op;
+    f_type* op;
   };
 
-  // If the function is not const invocable, just use a non-const iterator as the
-  // const iterator and hope that the user never calls a const-qualified function.
-  // If they do, it will fail anyway.
   using iterator = iterator_t<false>;
-  using const_iterator = std::conditional_t<const_invocable, iterator_t<true>, iterator_t<false>>;
+  using const_iterator = iterator_t<true>;
+
+  constexpr static inline bool const_invocable = std::is_invocable_v<std::add_const_t<UnaryOperator>&,
+      range_reference_type_t<std::add_const_t<std::remove_reference_t<UnderlyingView>>>>;
+
+  // Disable the const-qualified overloads if the function is not able to be invoked
+  // when the input is const, since their existence will cause errors otherwise
+#define PARLAY_NOCONST                                                            \
+  template<typename UV = UnderlyingView, typename = std::enable_if_t<             \
+     std::is_invocable_v<const UnaryOperator&, range_reference_type_t<            \
+      std::add_const_t<std::remove_reference_t<UV>>>>, UV>>
 
   // Returns the number of blocks
   auto get_num_blocks() const { return num_blocks(base_view()); }
 
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return iterator(begin_block(base_view(), i), op.get()); }
-  auto get_begin_block(size_t i) const { return const_iterator(begin_block(base_view(), i), op.get()); }
+  PARLAY_NOCONST auto get_begin_block(size_t i) const { return const_iterator(begin_block(base_view(), i), op.get()); }
+
+  auto get_end_block(size_t i) { return get_begin_block(i+1); }
+  PARLAY_NOCONST auto get_end_block(size_t i) const { return get_begin_block(i+1); }
+
+  auto begin() { return get_begin_block(0); }
+  PARLAY_NOCONST auto begin() const { return get_begin_block(0); }
+
+  auto end() { return get_begin_block(get_num_blocks()); }
+  PARLAY_NOCONST auto end() const { return get_begin_block(get_num_blocks()); }
 
   [[nodiscard]] size_t size() const { return base_view().size(); }
+
+#undef PARLAY_NOCONST
 
  private:
   copyable_function_wrapper<UnaryOperator> op;

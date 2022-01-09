@@ -10,6 +10,8 @@
 
 #include <parlay/delayed_views.h>
 
+#include "range_utils.h"
+
 // Check that scanned ranges are copyable and movable
 using si = parlay::sequence<int>;
 static_assert(std::is_copy_constructible_v<decltype(parlay::delayed::scan(std::declval<si>()))>);
@@ -30,7 +32,7 @@ static_assert(std::is_move_assignable_v<decltype(parlay::delayed::scan_inclusive
 static_assert(std::is_move_constructible_v<decltype(parlay::delayed::scan_inclusive(std::declval<si&>()))>);
 static_assert(std::is_move_assignable_v<decltype(parlay::delayed::scan_inclusive(std::declval<si&>()))>);
 
-using bdsi = decltype(parlay::internal::delayed::block_iterable_wrapper(std::declval<si>()));
+using bdsi = decltype(parlay::block_iterable_wrapper(std::declval<si>()));
 static_assert(std::is_copy_constructible_v<decltype(parlay::delayed::scan(std::declval<bdsi>()))>);
 static_assert(std::is_copy_assignable_v<decltype(parlay::delayed::scan(std::declval<bdsi>()))>);
 static_assert(std::is_copy_constructible_v<decltype(parlay::delayed::scan(std::declval<bdsi&>()))>);
@@ -56,7 +58,7 @@ static_assert(std::is_move_assignable_v<decltype(parlay::delayed::scan_inclusive
 
 TEST(TestDelayedScan, TestScanEmpty) {
   const parlay::sequence<int> a;
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto [m, total] = parlay::delayed::scan(bid);
 
   ASSERT_EQ(m.size(), a.size());
@@ -69,7 +71,7 @@ TEST(TestDelayedScan, TestScanEmpty) {
 
 TEST(TestDelayedScan, TestScanSimple) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(60001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto [m, total] = parlay::delayed::scan(bid);
 
   ASSERT_EQ(m.size(), a.size());
@@ -87,7 +89,7 @@ TEST(TestDelayedScan, TestScanSimple) {
 
 TEST(TestDelayedScan, TestScanToSeq) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(60001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto [m, total] = parlay::delayed::scan(bid);
 
   ASSERT_EQ(m.size(), a.size());
@@ -105,7 +107,7 @@ TEST(TestDelayedScan, TestScanToSeq) {
 
 TEST(TestDelayedScan, TestScanSimpleOwning) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(60001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(parlay::iota(60001));
+  const auto bid = parlay::block_iterable_wrapper(parlay::iota(60001));
   auto [m, total] = parlay::delayed::scan(bid);
 
   ASSERT_EQ(m.size(), a.size());
@@ -123,7 +125,7 @@ TEST(TestDelayedScan, TestScanSimpleOwning) {
 
 TEST(TestDelayedScan, TestScanConstRef) {
   parlay::sequence<int> a = parlay::to_sequence(parlay::iota(60001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto [m, total] = parlay::delayed::scan(bid);
 
   ASSERT_EQ(m.size(), a.size());
@@ -141,7 +143,7 @@ TEST(TestDelayedScan, TestScanConstRef) {
 
 TEST(TestDelayedScan, TestScanInclusiveEmpty) {
   const parlay::sequence<int> a;
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto m = parlay::delayed::scan_inclusive(bid);
 
   ASSERT_EQ(m.size(), a.size());
@@ -153,7 +155,7 @@ TEST(TestDelayedScan, TestScanInclusiveEmpty) {
 
 TEST(TestDelayedScan, TestScanInclusiveSimple) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(60001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto m = parlay::delayed::scan_inclusive(bid);
 
   ASSERT_EQ(m.size(), a.size());
@@ -170,7 +172,7 @@ TEST(TestDelayedScan, TestScanInclusiveSimple) {
 
 TEST(TestDelayedScan, TestScanInclusiveToSeq) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(60001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto m = parlay::delayed::scan_inclusive(bid);
 
   ASSERT_EQ(m.size(), a.size());
@@ -187,7 +189,7 @@ TEST(TestDelayedScan, TestScanInclusiveToSeq) {
 
 TEST(TestDelayedScan, TestScanInclusiveSimpleOwning) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(60001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(parlay::iota(60001));
+  const auto bid = parlay::block_iterable_wrapper(parlay::iota(60001));
   auto m = parlay::delayed::scan_inclusive(bid);
 
   ASSERT_EQ(m.size(), a.size());
@@ -204,7 +206,7 @@ TEST(TestDelayedScan, TestScanInclusiveSimpleOwning) {
 
 TEST(TestDelayedScan, TestScanInclusiveConstRef) {
   parlay::sequence<int> a = parlay::to_sequence(parlay::iota(60001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto m = parlay::delayed::scan_inclusive(bid);
 
   ASSERT_EQ(m.size(), a.size());
@@ -221,7 +223,7 @@ TEST(TestDelayedScan, TestScanInclusiveConstRef) {
 
 TEST(TestDelayedScan, TestScanCustomOp) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(100001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto [m, total] = parlay::delayed::scan(bid, std::bit_xor<>{});
 
   auto actual_total = std::accumulate(std::begin(a), std::end(a), 0, std::bit_xor<>{});
@@ -241,7 +243,7 @@ TEST(TestDelayedScan, TestScanCustomOp) {
 
 TEST(TestDelayedScan, TestScanInclusiveCustomOp) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(100001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto m = parlay::delayed::scan_inclusive(bid, std::bit_xor<>{});
 
   ASSERT_EQ(m.size(), a.size());
@@ -258,7 +260,7 @@ TEST(TestDelayedScan, TestScanInclusiveCustomOp) {
 
 TEST(TestDelayedScan, TestScanCustomIdentity) {
   const parlay::sequence<unsigned int> a = parlay::to_sequence(parlay::iota<unsigned int>(100001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto [m, total] = parlay::delayed::scan(bid, std::multiplies<>{}, 1U);
 
   auto actual_total = std::accumulate(std::begin(a), std::end(a), 1U, std::multiplies<>{});
@@ -278,7 +280,7 @@ TEST(TestDelayedScan, TestScanCustomIdentity) {
 
 TEST(TestDelayedScan, TestScanInclusiveCustomIdentity) {
   const parlay::sequence<unsigned int> a = parlay::to_sequence(parlay::iota<unsigned int>(100001));
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto m = parlay::delayed::scan_inclusive(bid, std::multiplies<>{}, 1U);
 
   ASSERT_EQ(m.size(), a.size());
@@ -336,7 +338,7 @@ TEST(TestDelayedScan, TestScanCustomType) {
     return m;
   });
 
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto [m, total] = parlay::delayed::scan(bid, matrix_add, BasicMatrix<int,3>::zero());
 
   auto actual_total = std::accumulate(std::begin(a), std::end(a), BasicMatrix<int,3>::zero(), matrix_add);
@@ -365,7 +367,7 @@ TEST(TestDelayedScan, TestScanInclusiveCustomType) {
     return m;
   });
 
-  const auto bid = parlay::internal::delayed::block_iterable_wrapper(a);
+  const auto bid = parlay::block_iterable_wrapper(a);
   auto m = parlay::delayed::scan_inclusive(bid, matrix_add, BasicMatrix<int,3>::zero());
 
   ASSERT_EQ(m.size(), a.size());

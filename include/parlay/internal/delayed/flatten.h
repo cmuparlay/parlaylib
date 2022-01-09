@@ -123,12 +123,8 @@ struct block_delayed_flatten_t :
   template<bool Const>
   struct iterator_t {
    private:
-    using parent_type = std::conditional_t<Const,
-        typename std::add_const_t<block_delayed_flatten_t<UnderlyingView>>,
-                                  block_delayed_flatten_t<UnderlyingView>>;
-    using base_view_type = std::conditional_t<Const,
-        typename std::add_const_t<std::remove_reference_t<UnderlyingView>>,
-        typename                  std::remove_reference_t<UnderlyingView>>;
+    using parent_type = maybe_const_t<Const, block_delayed_flatten_t<UnderlyingView>>;
+    using base_view_type = maybe_const_t<Const, std::remove_reference_t<UnderlyingView>>;
     using outer_iterator_type = range_iterator_type_t<base_view_type>;
     using inner_iterator_type = range_iterator_type_t<range_reference_type_t<base_view_type>>;
     using base_view_ptr = std::add_pointer_t<base_view_type>;
@@ -191,9 +187,22 @@ struct block_delayed_flatten_t :
   // Returns the number of blocks
   auto get_num_blocks() const { return n_blocks; }
 
+#define PARLAY_NOCONST
+
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return iterator(outer_starts[i], inner_starts[i], std::addressof(base_view())); }
-  auto get_begin_block(size_t i) const { return const_iterator(outer_starts[i], inner_starts[i], std::addressof(base_view())); }
+  PARLAY_NOCONST auto get_begin_block(size_t i) const { return const_iterator(outer_starts[i], inner_starts[i], std::addressof(base_view())); }
+
+  auto get_end_block(size_t i) { return get_begin_block(i+1); }
+  PARLAY_NOCONST auto get_end_block(size_t i) const { return get_begin_block(i+1); }
+
+  auto begin() { return get_begin_block(0); }
+  PARLAY_NOCONST auto begin() const { return get_begin_block(0); }
+
+  auto end() { return get_begin_block(get_num_blocks()); }
+  PARLAY_NOCONST auto end() const { return get_begin_block(get_num_blocks()); }
+
+#undef PARLAY_NOCONST
 
   [[nodiscard]] size_t size() const { return n_elements; }
 
@@ -232,10 +241,22 @@ struct block_delayed_flatten_copy_t : public block_iterable_view_base<void, bloc
   // Returns the number of blocks
   auto get_num_blocks() const { return flattener.get_num_blocks(); }
 
+#define PARLAY_NOCONST
+
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return flattener.get_begin_block(i); }
-  // Return an iterator pointing to the beginning of block i
-  auto get_begin_block(size_t i) const { return flattener.get_begin_block(i); }
+  PARLAY_NOCONST auto get_begin_block(size_t i) const { return flattener.get_begin_block(i); }
+
+  auto get_end_block(size_t i) { return get_begin_block(i+1); }
+  PARLAY_NOCONST auto get_end_block(size_t i) const { return get_begin_block(i+1); }
+
+  auto begin() { return get_begin_block(0); }
+  PARLAY_NOCONST auto begin() const { return get_begin_block(0); }
+
+  auto end() { return get_begin_block(get_num_blocks()); }
+  PARLAY_NOCONST auto end() const { return get_begin_block(get_num_blocks()); }
+
+#undef PARLAY_NOCONST
 
   [[nodiscard]] size_t size() const { return flattener.size(); }
 
