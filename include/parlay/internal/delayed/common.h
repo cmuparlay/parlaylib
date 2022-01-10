@@ -44,7 +44,7 @@ auto begin_block(Range&& r, size_t i) {
   // we require begin_block(n_blocks) to be valid and point to the end
   // iterator of the sequence, since this means that we always satisfy
   // end_block(r, i) == begin_block(r, i+1).
-  auto start = (std::min)(i * block_size, n);
+  size_t start = (std::min)(i * block_size, n);
   return std::begin(r) + start;
 }
 
@@ -52,8 +52,8 @@ template<typename Range,
          std::enable_if_t<is_random_access_range_v<Range>, int> = 0>
 auto end_block(Range&& r, size_t i) {
   size_t n = parlay::size(r);
-  size_t start = i * block_size;
-  size_t end = (std::min)(start + block_size, n);
+
+  size_t end = (std::min)((i+1) * block_size, n);
   return std::begin(r) + end;
 }
 
@@ -80,20 +80,6 @@ auto end_block(Range&& r, size_t i) {
 }
 
 // ----------------------------------------------------------------------------
-//                      Reference wrapper overloads
-// ----------------------------------------------------------------------------
-
-template<typename Range>
-auto begin_block(std::reference_wrapper<Range>&& r, size_t i) {
-  return begin_block(r.get(), i);
-}
-
-template<typename Range>
-auto end_block(std::reference_wrapper<Range>&& r, size_t i) {
-  return end_block(r.get(), i);
-}
-
-// ----------------------------------------------------------------------------
 //                          Base class for BID views
 // ----------------------------------------------------------------------------
 
@@ -106,8 +92,8 @@ auto end_block(std::reference_wrapper<Range>&& r, size_t i) {
 // and keep it as a value member.
 template<typename T>
 using view_storage_type = std::conditional_t<std::is_lvalue_reference_v<T>,
-    std::reference_wrapper<std::remove_reference_t<T>>,
-                           std::remove_reference_t<T>>;
+                            std::reference_wrapper<std::remove_reference_t<T>>,
+                                                   std::remove_reference_t<T>>;
 
 template<typename UnderlyingView>
 struct block_iterable_view_base_data {
@@ -132,36 +118,17 @@ struct block_iterable_view_base_data<void> { };
 // If the underlying view is void, then no extra data member is stored. This is useful
 // if the view is actually going to move/copy the underlying data and store it itself
 //
-// It also implements begin and end operations so that the entire range can be iterated
-// over by a range-for loop.
-//
 // Template arguments:
 //  UnderlyingView: the type of the underlying view that is being transformed
 //  ParentBidView: the type of the parent view class (i.e., the class that is deriving from this one - CRTP style)
 template<typename UnderlyingView, typename ParentBidView>
 struct block_iterable_view_base : public block_iterable_view_base_data<UnderlyingView> {
- public:
-  //auto get_end_block(size_t i) { return parent()->get_begin_block(i+1); }
-  //auto get_end_block(size_t i) const { return parent()->get_begin_block(i+1); }
-
-  //auto begin() { return parent()->get_begin_block(0); }
-  //auto end() { return parent()->get_begin_block(parent()->get_num_blocks()); }
-
-  //auto begin() const { return parent()->get_begin_block(0); }
-
-  //auto end() const { return parent()->get_begin_block(parent()->get_num_blocks()); }
-
  protected:
   block_iterable_view_base() = default;
 
   template<typename... UV>
   explicit block_iterable_view_base(UV&&... v)
     : block_iterable_view_base_data<UnderlyingView>(std::forward<UV>(v)...) { }
-
- private:
-
-  ParentBidView* parent() { return static_cast<ParentBidView*>(this); }
-  const ParentBidView* parent() const { return static_cast<const ParentBidView*>(this); }
 };
 
 // ----------------------------------------------------------------------------

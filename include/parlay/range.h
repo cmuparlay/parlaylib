@@ -1,24 +1,42 @@
-// Parlay's sequence primitives are applicable to any types
-// that satisfy the parlay::Range concept. This is a close
-// approximation to the C++20 random_access_range and the
-// sized_range concept. In the future, parlay::range will
-// likely become an alias for those concepts.
+// Type traits and concepts for range properties
 //
-// Broadly, a type satisfies parlay::range if it admits
-// random access iterators via std::begin and std::end,
-// and the size of the range can be determined by the
-// expression std::end(t) - std::begin(t).
+// This file defines C++17 "concepts-lite" style traits
+// for detecting properties of ranges, and for determining
+// whether given types are a particular type of range.
 //
-// If compiled with a concepts-supporting compiler, Parlay
-// can check the inputs of all sequence operations against
-// the Range concept. Otherwise, they reduce to regular non-
-// constraining templates. The macros PARLAY_RANGE_TYPE and
-// PARLAY_RANGE can be used for template arguments and for
-// variable declarations respectively. For example:
+// The concept traits do not exhaustively check that all semantic
+// requirements of the concept are satisfied, generally only that
+// some basic indicative subset of their syntactic requirements are.
 //
-// template<PARLAY_RANGE_TYPE R> auto f(R&& r);
+// Range Traits:
+//   range_iterator_type  : the type of a range's iterator, i.e. the type of std::begin(r)
+//   range_sentinel_type  : the type of a range's sentinel, i.e., the type of std::end(r)
+//   range_value_type     : the value type of the contents of a range
+//   range_reference_type : the type obtained by dereferencing a range's iterator
 //
-// PARLAY_RANGE r = std::vector<int>{1,2,3};
+// Iterator Concepts:
+//   is_iterator                : true if the given type is an iterator
+//   is_sentinel_for            : true if the second type is a sentinel for the first (iterator) type
+//   is_contiguous_iterator     : true if the given type is a contiguous iterator
+//   is_random_access_iterator  : true if the given type is a random access iterator
+//   is_bidirectional_iterator  : true if the given type is a bidirectional iterator
+//   is_forward_iterator        : true if the given type is a forward iterator
+//   is_input_iterator          : true if the given type is an input iterator
+//   is_output_iterator         : true if the given type is an output iterator
+//
+// Range Concepts:
+//   is_range                   : true if the given type is a range
+//   is_common_range            : true if the given type is a common range (iterator and sentinel are the same type)
+//   is_contiguous_range        : true if the given type is a contiguous range
+//   is_random_access_range     : true if the given type is a random access range
+//   is_bidirectional_range     : true if the given type is a bidirectional range
+//   is_forward_range           : true if the given type is a forward range
+//   is_input_ranger            : true if the given type is an input range
+//   is_output_range            : true if the given type is an output range
+//   is_block_iterable_range    : true if the given type is a block-iterable range
+//
+// Range Operations:
+//   size : return the size of a range
 //
 
 #ifndef PARLAY_RANGE_H_
@@ -30,68 +48,8 @@
 #include <type_traits>
 #include <utility>
 
-#ifdef __cpp_concepts
-
-namespace parlay {
-
-// A type S is a size sentinal for a type I if given s and i of
-// types S and I, [i, s] is a valid range and (s - i) is a valid
-// expression that denotes the size of the range.
-// When C++20 implementations of the standard library catch up,
-// this can be replaced with the concept:
-//   std::ranges::SizedSentinal
-template<class S, class I>
-concept SizedSentinel =
-  requires(const I& i, const S& s) {
-    i == s; s == i; i != s; s != i;
-    s - i; requires std::is_same_v<decltype(s - i),
-            typename std::iterator_traits<I>::difference_type>;
-    i - s; requires std::is_same_v<decltype(i - s),
-            typename std::iterator_traits<I>::difference_type>;
-};
-
-// An iterator type It is a random access iterator if it supports
-// bidrectionally incremening and decrementing arbitrarily many
-// positions in constant time.
-// For now, we check the iterator_category tag to see whether it
-// is marked as random access.
-// When C++20 implementations of the standard library catch up,
-// this can be replaced with the concept:
-//   std::ranges::RandomAccessIterator.
-template<typename It>
-concept RandomAccessIterator = requires(It) {
-  requires std::is_same<
-    typename std::iterator_traits<It>::iterator_category,
-    std::random_access_iterator_tag
-  >::value;
-};
-
-// A Parlay range is any object that admits an iterator range
-// via std::begin and std::end, such that the iterators are
-// random access iterators. We also require the size of the
-// range to be deducible via std::end(t) - std::begin(t).
-// When C++20 implementations of the standard library catch up,
-// this can be replaced with the concepts
-//   std::ranges::random_access_range && std::ranges::sized_range
-template<typename T>
-concept Range = requires(T&& t) {
-  std::begin(std::forward<T>(t));
-  std::end(std::forward<T>(t));
-  requires RandomAccessIterator<decltype(std::begin(t))>;
-  requires SizedSentinel<decltype(std::end(t)), decltype(std::begin(t))>;
-};
-
-}
-
-#define PARLAY_RANGE_TYPE parlay::Range
-#define PARLAY_RANGE parlay::Range auto
-
-#else
-
 #define PARLAY_RANGE_TYPE typename
 #define PARLAY_RANGE auto
-
-#endif  // __cpp_concepts
 
 namespace parlay {
 
@@ -155,12 +113,33 @@ struct is_iterator : public std::false_type {};
 
 template<typename It_>
 struct is_iterator<It_, std::void_t<
-  typename std::iterator_traits<It_>::iterator_category
+  typename std::iterator_traits<It_>::iterator_category,
+  decltype( ++std::declval<It_&>() ),
+  decltype( *std::declval<It_&>() ),
+  std::enable_if_t< std::is_default_constructible_v<It_> >
 >> : public std::true_type {};
 
 // True if It_ is an iterator type
 template<typename It_>
 inline constexpr bool is_iterator_v = is_iterator<It_>::value;
+
+// Provides the member value true if Sentinel_ is a sentinel type
+// for the iterator type It_
+template<typename It_, typename Sentinel_, typename = std::void_t<>>
+struct is_sentinel_for : public std::false_type {};
+
+template<typename It_, typename Sentinel_>
+struct is_sentinel_for<It_, Sentinel_, std::void_t<
+  std::enable_if_t< is_iterator_v<It_> >,
+  decltype( std::declval<It_>() == std::declval<Sentinel_>() ),
+  decltype( std::declval<It_>() != std::declval<Sentinel_>() ),
+  decltype( std::declval<Sentinel_>() == std::declval<It_>() ),
+  decltype( std::declval<Sentinel_>() != std::declval<It_>() )
+>> : public std::true_type {};
+
+// True if Sentinel_ is a sentinel type for the iterator It_
+template<typename It_, typename Sentinel_>
+inline constexpr bool is_sentinel_for_v = is_sentinel_for<It_, Sentinel_>::value;
 
 // Defines a member constant value true if the iterator type It_ is a contiguous iterator
 template<typename It_>
@@ -176,8 +155,8 @@ struct is_random_access_iterator : public std::false_type {};
 
 template<typename It_>
 struct is_random_access_iterator<It_, std::void_t<
-  std::enable_if_t<is_iterator_v<It_>>,
-  std::enable_if_t<std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It_>::iterator_category>>
+  std::enable_if_t< is_iterator_v<It_> >,
+  std::enable_if_t< std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >
 >> : public std::true_type {};
 
 // true if the iterator type It_ is at least a random-access iterator
@@ -190,8 +169,8 @@ struct is_bidirectional_iterator : public std::false_type {};
 
 template<typename It_>
 struct is_bidirectional_iterator<It_, std::void_t<
-  std::enable_if_t<is_iterator_v<It_>>,
-  std::enable_if_t<std::is_base_of_v<std::bidirectional_iterator_tag, typename std::iterator_traits<It_>::iterator_category>>
+  std::enable_if_t< is_iterator_v<It_> >,
+  std::enable_if_t< std::is_base_of_v<std::bidirectional_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >
 >> : public std::true_type {};
 
 // true if the iterator type It is at least a bidirectional iterator
@@ -204,8 +183,8 @@ struct is_forward_iterator : public std::false_type {};
 
 template<typename It_>
 struct is_forward_iterator<It_, std::void_t<
-  std::enable_if_t<is_iterator_v<It_>>,
-  std::enable_if_t<std::is_base_of_v<std::forward_iterator_tag, typename std::iterator_traits<It_>::iterator_category>>
+  std::enable_if_t< is_iterator_v<It_> >,
+  std::enable_if_t< std::is_base_of_v<std::forward_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >
 >> : public std::true_type {};
 
 // true if the iterator type It_ is at least a forward iterator
@@ -218,8 +197,8 @@ struct is_input_iterator : public std::false_type {};
 
 template<typename It_>
 struct is_input_iterator<It_, std::void_t<
-  std::enable_if_t<is_iterator_v<It_>>,
-  std::enable_if_t<std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<It_>::iterator_category>>
+  std::enable_if_t< is_iterator_v<It_> >,
+  std::enable_if_t< std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >
 >> : public std::true_type {};
 
 // true if the iterator type It_ is at least an input iterator
@@ -232,8 +211,8 @@ struct is_output_iterator : public std::false_type {};
 
 template<typename It_>
 struct is_output_iterator<It_, std::void_t<
-  std::enable_if_t<is_iterator_v<It_>>,
-  std::enable_if_t<std::is_base_of_v<std::output_iterator_tag, typename std::iterator_traits<It_>::iterator_category>>
+  std::enable_if_t< is_iterator_v<It_> >,
+  std::enable_if_t< std::is_base_of_v<std::output_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >
 >> : public std::true_type {};
 
 // true if the iterator type It_ is an output iterator
@@ -242,32 +221,30 @@ inline constexpr bool is_output_iterator_v = is_output_iterator<It_>::value;
 
 //  --------------------- Range concept traits -----------------------
 
-// Provides the member value true if T is a range
+// Provides the member value true if Range_ is a range
 template<typename, typename = std::void_t<>>
 struct is_range : public std::false_type {};
 
 template<typename Range_>
 struct is_range<Range_, std::void_t<
-  decltype(std::begin(std::declval<Range_&>())),
-  decltype(std::end(std::declval<Range_&>())),
-  std::enable_if_t<is_iterator_v<decltype(std::begin(std::declval<Range_&>()))>>,
-  decltype(std::begin(std::declval<Range_&>()) == std::end(std::declval<Range_&>())),
-  decltype(std::begin(std::declval<Range_&>()) != std::end(std::declval<Range_&>()))
+  decltype( std::begin(std::declval<Range_&>()) ),
+  decltype( std::end(std::declval<Range_&>()) ),
+  std::enable_if_t< is_sentinel_for_v<range_iterator_type_t<Range_>, range_sentinel_type_t<Range_>> >
 >> : public std::true_type {};
 
-// True if the given type is a range
+// True if the given type Range_ is a range
 template<typename Range_>
 inline constexpr bool is_range_v = is_range<Range_>::value;
 
-// Provides the member value true if T is a common range, i.e.,
-// a range whose iterator and sentinel types are the same
+// Provides the member value true if Range_ is a common range,
+// i.e., a range whose iterator and sentinel types are the same
 template<typename, typename = std::void_t<>>
 struct is_common_range : public std::false_type {};
 
 template<typename Range_>
 struct is_common_range<Range_, std::void_t<
-  std::enable_if_t<is_range_v<Range_>>,
-  std::enable_if_t<std::is_same_v<range_iterator_type_t<Range_>, range_sentinel_type_t<Range_>>>
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< std::is_same_v<range_iterator_type_t<Range_>, range_sentinel_type_t<Range_>> >
 >> : public std::true_type {};
 
 // True if the given type is a common range, i.e., a range
@@ -281,8 +258,8 @@ struct is_contiguous_range : public std::false_type {};
 
 template<typename Range_>
 struct is_contiguous_range<Range_, std::void_t<
-  std::enable_if_t<is_range_v<Range_>>,
-  std::enable_if_t<is_contiguous_iterator_v<range_iterator_type_t<Range_>>>
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< is_contiguous_iterator_v<range_iterator_type_t<Range_>> >
 >> : public std::true_type {};
 
 // true if the range type Range_ corresponds to a contiguous range
@@ -295,8 +272,8 @@ struct is_random_access_range : public std::false_type {};
 
 template<typename Range_>
 struct is_random_access_range<Range_, std::void_t<
-  std::enable_if_t<is_range_v<Range_>>,
-  std::enable_if_t<is_random_access_iterator_v<range_iterator_type_t<Range_>>>
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< is_random_access_iterator_v<range_iterator_type_t<Range_>> >
 >> : public std::true_type {};
 
 // true if the range type Range_ is a random-access range
@@ -309,8 +286,8 @@ struct is_bidirectional_range : public std::false_type {};
 
 template<typename Range_>
 struct is_bidirectional_range<Range_, std::void_t<
-  std::enable_if_t<is_range_v<Range_>>,
-  std::enable_if_t<is_bidirectional_iterator_v<range_iterator_type_t<Range_>>>
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< is_bidirectional_iterator_v<range_iterator_type_t<Range_>> >
 >> : public std::true_type {};
 
 // true if the range type Range_ is a bidirectional range
@@ -323,8 +300,8 @@ struct is_forward_range : public std::false_type {};
 
 template<typename Range_>
 struct is_forward_range<Range_, std::void_t<
-  std::enable_if_t<is_range_v<Range_>>,
-  std::enable_if_t<is_forward_iterator_v<range_iterator_type_t<Range_>>>
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< is_forward_iterator_v<range_iterator_type_t<Range_>> >
 >> : public std::true_type {};
 
 // true if the range type Range_ is a forward range
@@ -337,8 +314,8 @@ struct is_input_range : public std::false_type {};
 
 template<typename Range_>
 struct is_input_range<Range_, std::void_t<
-  std::enable_if_t<is_range_v<Range_>>,
-  std::enable_if_t<is_input_iterator_v<range_iterator_type_t<Range_>>>
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< is_input_iterator_v<range_iterator_type_t<Range_>> >
 >> : public std::true_type {};
 
 // true if the range type Range_ is an input range
@@ -351,8 +328,8 @@ struct is_output_range : public std::false_type {};
 
 template<typename Range_>
 struct is_output_range<Range_, std::void_t<
-  std::enable_if_t<is_range_v<Range_>>,
-  std::enable_if_t<is_output_iterator_v<range_iterator_type_t<Range_>>>
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< is_output_iterator_v<range_iterator_type_t<Range_>> >
 >> : public std::true_type {};
 
 // true if the range type Range_ is an output range
@@ -381,16 +358,14 @@ struct has_block_iterable_interface : public std::false_type {};
 
 template<typename T>
 struct has_block_iterable_interface<T, std::void_t<
-  std::enable_if_t<std::is_convertible_v<decltype(std::declval<T&>().size()), size_t>>,
-  std::enable_if_t<std::is_convertible_v<decltype(std::declval<T&>().get_num_blocks()), size_t>>,
-  std::enable_if_t<std::is_same_v<decltype(std::declval<T&>().get_begin_block((size_t)0)), range_iterator_type_t<T&>>>,
-  std::enable_if_t<std::is_same_v<decltype(std::declval<T&>().get_end_block((size_t)0)), range_iterator_type_t<T&>>>,
-  std::enable_if_t<std::is_same_v<decltype(std::declval<T&>().get_begin_block((size_t)0)), decltype(std::declval<T&>().get_end_block((size_t)0))>>,
-  decltype(std::declval<T&>().get_begin_block((size_t)0) == std::declval<T&>().get_end_block((size_t)0)),
-  decltype(std::declval<T&>().get_begin_block((size_t)0) != std::declval<T&>().get_end_block((size_t)0))//,
-  //std::enable_if_t<std::is_same_v<decltype(std::declval<const T&>().get_begin_block((size_t)0)), decltype(std::declval<const T&>().get_end_block((size_t)0))>>,
-  //decltype(std::declval<const T&>().get_begin_block((size_t)0) == std::declval<const T&>().get_end_block((size_t)0)),
-  //decltype(std::declval<const T&>().get_begin_block((size_t)0) != std::declval<const T&>().get_end_block((size_t)0))
+  decltype( std::declval<T&>().get_begin_block((size_t)0) ),
+  decltype( std::declval<T&>().get_end_block((size_t)0) ),
+  decltype( std::declval<T&>().size() ),
+  decltype( std::declval<T&>().get_num_blocks() ),
+  std::enable_if_t< std::is_same_v<decltype(std::declval<T&>().get_begin_block((size_t)0)), range_iterator_type_t<T&>> >,
+  std::enable_if_t< std::is_same_v<decltype(std::declval<T&>().get_end_block((size_t)0)), range_iterator_type_t<T&>> >,
+  std::enable_if_t< std::is_convertible_v<decltype(std::declval<T&>().size()), size_t> >,
+  std::enable_if_t< std::is_convertible_v<decltype(std::declval<T&>().get_num_blocks()), size_t> >
 >> : public std::true_type {};
 
 template<typename T>
@@ -407,8 +382,8 @@ struct is_block_iterable_range : public std::false_type {};
 
 template<typename Range_>
 struct is_block_iterable_range<Range_, std::void_t<
-  std::enable_if_t<is_common_range_v<Range_>>,
-  std::enable_if_t<is_random_access_range_v<Range_> || internal::has_block_iterable_interface_v<Range_>>
+  std::enable_if_t< is_common_range_v<Range_> >,
+  std::enable_if_t< is_random_access_range_v<Range_> || internal::has_block_iterable_interface_v<Range_> >
 >> : public std::true_type {};
 
 // true if the range Range_ is block iterable
@@ -421,7 +396,7 @@ inline constexpr bool is_block_iterable_range_v = is_block_iterable_range<Range_
 
 // Return the size (number of elements) of the range r
 template<typename Range_>
-auto size(Range_&& r) {
+size_t size(Range_&& r) {
   if constexpr (is_random_access_range_v<Range_>) {
     return std::end(r) - std::begin(r);
   }
@@ -430,6 +405,6 @@ auto size(Range_&& r) {
   }
 }
 
-}
+}  // namespace parlay
 
 #endif  // PARLAY_RANGE_H_
