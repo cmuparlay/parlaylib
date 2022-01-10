@@ -375,12 +375,13 @@ std::pair<size_t, size_t> split_three(slice<InIterator, InIterator> In,
                size_t c1 = m0 + Sums1[i];
                size_t c2 = m0 + m1 + (s - Sums0[i] - Sums1[i]);
                for (size_t j = s; j < e; j++) {
-                 if (Fl[j] == 0)
+                 if (Fl[j] == 0) {
                    assign_dispatch(Out[c0++], In[j], assignment_tag());
-                 else if (Fl[j] == 1)
-		   assign_dispatch(Out[c1++], In[j], assignment_tag());
-		 else
-		   assign_dispatch(Out[c2++], In[j], assignment_tag());
+                 } else if (Fl[j] == 1) {
+                   assign_dispatch(Out[c1++], In[j], assignment_tag());
+                 } else {
+                   assign_dispatch(Out[c2++], In[j], assignment_tag());
+                 }
                }
              },
              fl);
