@@ -30,7 +30,7 @@
 
 #include <iterator>
 
-#include "range.h"
+#include "range.h"    // IWYU pragma: keep
 
 namespace parlay {
 

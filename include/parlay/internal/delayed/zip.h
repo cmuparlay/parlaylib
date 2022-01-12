@@ -5,6 +5,7 @@
 #include <cstddef>
 
 #include <algorithm>
+#include <iterator>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -21,8 +22,7 @@ namespace delayed {
 
 
 template<typename... UnderlyingViews>
-struct block_delayed_zip_t :
-    public block_iterable_view_base<void, block_delayed_zip_t<UnderlyingViews...>> {
+struct block_delayed_zip_t : public block_iterable_view_base<void, block_delayed_zip_t<UnderlyingViews...>> {
 
  private:
   using base = block_iterable_view_base<void, block_delayed_zip_t<UnderlyingViews...>>;
@@ -47,18 +47,12 @@ struct block_delayed_zip_t :
   template<bool Const>
   struct iterator_t {
    private:
-    using parent_type = std::conditional_t<Const,
-        typename std::add_const_t<block_delayed_zip_t<UnderlyingViews...>>,
-                                  block_delayed_zip_t<UnderlyingViews...>>;
+    using parent_type = maybe_const_t<Const, block_delayed_zip_t<UnderlyingViews...>>;
 
    public:
     using iterator_category = std::forward_iterator_tag;
-    using value_type = std::tuple<range_value_type_t<std::conditional_t<Const,
-        typename std::add_const_t<UnderlyingViews>,
-        UnderlyingViews>>...>;
-    using reference = std::tuple<range_reference_type_t<std::conditional_t<Const,
-        typename std::add_const_t<UnderlyingViews>,
-        UnderlyingViews>>...>;
+    using value_type = std::tuple<range_value_type_t<maybe_const_t<Const, UnderlyingViews>>...>;
+    using reference = std::tuple<range_reference_type_t<maybe_const_t<Const, UnderlyingViews>>...>;
     using difference_type = std::ptrdiff_t;
     using pointer = void;
 
@@ -68,10 +62,6 @@ struct block_delayed_zip_t :
 
     iterator_t& operator++() { index++; std::apply([](auto&... it) { (++it, ...); }, its); return *this; }
     iterator_t operator++(int) { auto tmp = *this; ++(*this); return tmp; }
-
-    // Comparisons only compare the first iterator in the sequence since
-    // they should all be in sync, so a pair of iterators obtained from
-    // the same zip are either all equal or all not equal.
 
     friend bool operator==(const iterator_t& x, const iterator_t& y) {
       return x.index == y.index;
@@ -89,10 +79,11 @@ struct block_delayed_zip_t :
    private:
     friend parent_type;
 
-    iterator_t(size_t index_, range_iterator_type_t<UnderlyingViews>... its_) : index(index_), its(its_...) {}
+    iterator_t(size_t index_, range_iterator_type_t<maybe_const_t<Const, UnderlyingViews>>... its_)
+      : index(index_), its(std::move(its_)...) {}
 
     size_t index;
-    std::tuple<range_iterator_type_t<UnderlyingViews>...> its;
+    std::tuple<range_iterator_type_t<maybe_const_t<Const, UnderlyingViews>>...> its;
   };
 
   using iterator = iterator_t<false>;

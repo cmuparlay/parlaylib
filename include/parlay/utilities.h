@@ -179,7 +179,7 @@ size_t log2_up(T i) {
 }
 
 inline size_t granularity(size_t n) {
-  return (n > 100) ? static_cast<size_t>(ceil(pow(n, 0.5))) : 100;
+  return (n > 100) ? static_cast<size_t>(std::ceil(std::sqrt(n))) : 100;
 }
 
 /*  A copyable_function_wrapper allows an object to store a function (e.g., a lambda,

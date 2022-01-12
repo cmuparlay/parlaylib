@@ -4,7 +4,6 @@
 #include <cstddef>
 
 #include <algorithm>
-#include <iterator>
 #include <functional>
 #include <utility>
 #include <type_traits>
@@ -40,7 +39,6 @@ struct is_range_const_transformable<Range_, UnaryOperator_, std::void_t<
 // even when it is const-qualified
 template<typename UV, typename UO>
 static inline constexpr bool is_range_const_transformable_v = is_range_const_transformable<UV,UO>::value;
-
 
 
 // ----------------------------------------------------------------------------

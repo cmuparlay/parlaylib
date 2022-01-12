@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "../../range.h"
+#include "../../type_traits.h"
 #include "../../utilities.h"
 
 #include "../sequence_ops.h"
@@ -70,7 +71,7 @@ struct block_delayed_map_t :
    private:
     friend parent_type;
 
-    iterator_t(base_iterator_type it_, f_type* op_) : it(it_), op(op_) {}
+    iterator_t(base_iterator_type it_, f_type* op_) : it(std::move(it_)), op(op_) {}
 
     base_iterator_type it;
     f_type* op;

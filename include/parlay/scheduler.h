@@ -39,6 +39,8 @@
 
 #include "internal/work_stealing_job.h"
 
+// IWYU pragma: no_include <bits/this_thread_sleep.h>
+
 namespace parlay {
 
 // Deque from Arora, Blumofe, and Plaxton (SPAA, 1998).

@@ -125,7 +125,7 @@ struct block_delayed_scan_t :
     friend parent_type;
 
     iterator_t(T value_, base_iterator_type it_, parent_ptr parent_)
-        : value(std::move(value_)), it(it_), parent(parent_) {}
+        : value(std::move(value_)), it(std::move(it_)), parent(parent_) {}
 
     T value;
     base_iterator_type it;

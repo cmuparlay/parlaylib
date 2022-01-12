@@ -13,6 +13,7 @@
 #include "../../range.h"
 #include "../../sequence.h"
 #include "../../slice.h"
+#include "../../type_traits.h"
 #include "../../utilities.h"
 
 #include "../sequence_ops.h"
@@ -175,7 +176,7 @@ struct block_delayed_flatten_t :
     friend parent_type;
 
     iterator_t(outer_iterator_type outer_it_, inner_iterator_type inner_it_, base_view_ptr base_view_)
-        : outer_it(outer_it_), inner_it(inner_it_), base_view(base_view_) {}
+        : outer_it(std::move(outer_it_)), inner_it(std::move(inner_it_)), base_view(base_view_) {}
 
     outer_iterator_type outer_it;
     inner_iterator_type inner_it;

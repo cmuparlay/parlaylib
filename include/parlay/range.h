@@ -50,8 +50,11 @@
 
 #include <iterator>       // IWYU pragma: keep
 #include <type_traits>
-#include <utility>
 
+
+// Old macros that we used to use to conditionally
+// insert type constraints if concepts were enabled.
+// Here for backwards compatibility.
 #define PARLAY_RANGE_TYPE typename
 #define PARLAY_RANGE auto
 

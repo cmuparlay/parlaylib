@@ -39,7 +39,7 @@ TEST(TestDelayedZip, TestRadZipDiffSize) {
   }
 }
 
-TEST(TestDelayedZip, TestRadZipReference) {
+TEST(TestDelayedZip, TestRadZipMutable) {
   parlay::sequence<int> a = {1,2,3,4,5,6,7,8,9,10};
   parlay::sequence<int> b = {2,3,4,5,6,7,8,9,10,11};
   ASSERT_EQ(a.size(), b.size());
@@ -115,7 +115,7 @@ TEST(TestDelayedZip, TestRadZipWithDelayed) {
   }
 }
 
-TEST(TestDelayedZip, TestRadZipWithTemporary) {
+TEST(TestDelayedZip, TestRadZipWithTemporaryRange) {
   parlay::sequence<int> a = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
   auto zipped = parlay::delayed::zip(a, parlay::delayed_tabulate(a.size(), [](size_t x) -> int { return x + 1; }));
@@ -169,12 +169,64 @@ TEST(TestDelayedZip, TestBidZipSimple) {
   }
 }
 
+
+TEST(TestDelayedZip, TestBidZipDiffSize) {
+  auto a = parlay::block_iterable_wrapper(parlay::to_sequence(parlay::iota(100000)));
+  auto b = parlay::to_sequence(parlay::iota(50000));
+  auto c = parlay::to_sequence(parlay::iota(25000));
+
+  auto zipped = parlay::delayed::zip(a,b,c);
+  static_assert(!parlay::is_random_access_range_v<decltype(zipped)>);
+  ASSERT_EQ(zipped.size(), c.size());
+
+  for (auto [x,y,z] : zipped) {
+    ASSERT_EQ(y, x);
+    ASSERT_EQ(y, z);
+  }
+}
+
+TEST(TestDelayedZip, TestBidZipMutable) {
+  auto a = parlay::to_sequence(parlay::iota<int>(50000));
+  auto b = parlay::to_sequence(parlay::iota<int>(50000));
+  ASSERT_EQ(a.size(), b.size());
+
+  auto zipped = parlay::delayed::zip(parlay::block_iterable_wrapper(a),b);
+  static_assert(!parlay::is_random_access_range_v<decltype(zipped)>);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    x--;
+    y++;
+  }
+
+  for (size_t i = 0; i < a.size(); i++) {
+    ASSERT_EQ(a[i] + 2, b[i]);
+  }
+}
+
+TEST(TestDelayedZip, TestBidZipStrings) {
+  auto a = parlay::to_sequence(parlay::iota<int>(10000));
+  auto b = parlay::map(a, [](auto x) { return std::string(50, ' ') + std::to_string(x); });  // Pad to make strings not SSO
+  ASSERT_EQ(a.size(), b.size());
+
+  auto zipped = parlay::delayed::zip(parlay::block_iterable_wrapper(a),b);
+  static_assert(!parlay::is_random_access_range_v<decltype(zipped)>);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    ASSERT_EQ(std::string(50, ' ') + std::to_string(x), y);
+    ASSERT_EQ(x, std::stoi(y));
+  }
+}
+
+
 TEST(TestDelayedZip, TestBidZipToSeq) {
   auto a = parlay::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+1; }));
   auto b = parlay::block_iterable_wrapper(parlay::tabulate(50000, [](size_t i) { return i+2; }));
   ASSERT_EQ(a.size(), b.size());
 
   auto zipped = parlay::delayed::zip(a,b);
+  static_assert(!parlay::is_random_access_range_v<decltype(zipped)>);
   ASSERT_EQ(zipped.size(), a.size());
 
   auto s = parlay::delayed::to_sequence(zipped);
@@ -182,6 +234,80 @@ TEST(TestDelayedZip, TestBidZipToSeq) {
 
   for (size_t i = 0; i < s.size(); i++) {
     ASSERT_EQ(s[i], std::make_tuple(i+1, i+2));
+  }
+}
+
+TEST(TestDelayedZip, TestBidZipCopyByValue) {
+  parlay::sequence<std::tuple<int,std::string>> res;
+
+  // After this block, b goes out of scope, so if we accidentally
+  // keep references instead of making copies then bad things
+  // will happen!
+  {
+    auto a = parlay::to_sequence(parlay::iota<int>(10000));
+    auto b = parlay::map(a, [](auto x) { return std::string(50, ' ') + std::to_string(x); });
+    auto zipped = parlay::delayed::zip(parlay::block_iterable_wrapper(a),b);
+    static_assert(!parlay::is_random_access_range_v<decltype(zipped)>);
+    res = parlay::delayed::to_sequence(zipped);
+  }
+
+  for (auto [x,y] : res) {
+    ASSERT_EQ(std::string(50, ' ') + std::to_string(x), y);
+    ASSERT_EQ(x, std::stoi(y));
+  }
+}
+
+TEST(TestDelayedZip, TestBidZipUncopyable) {
+  auto a = parlay::to_sequence(parlay::iota<int>(10000));
+  auto b = parlay::map(a, [](int x) { return std::make_unique<int>(x); });
+  ASSERT_EQ(a.size(), b.size());
+
+  auto zipped = parlay::delayed::zip(parlay::block_iterable_wrapper(a),b);
+  static_assert(!parlay::is_random_access_range_v<decltype(zipped)>);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    ASSERT_EQ(x, *y);
+  }
+}
+
+TEST(TestDelayedZip, TestBidZipWithDelayed) {
+  auto a = parlay::block_iterable_wrapper(parlay::to_sequence(parlay::iota<int>(10000)));
+  auto b = parlay::delayed_tabulate(a.size(), [](size_t x) -> int { return x + 1; });
+  ASSERT_EQ(a.size(), b.size());
+
+  auto zipped = parlay::delayed::zip(a,b);
+  static_assert(!parlay::is_random_access_range_v<decltype(zipped)>);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    ASSERT_EQ(x+1, y);
+  }
+}
+
+TEST(TestDelayedZip, TestBidZipWithTemporaryRange) {
+  auto a = parlay::block_iterable_wrapper(parlay::to_sequence(parlay::iota<int>(10000)));
+
+  auto zipped = parlay::delayed::zip(a, parlay::delayed_tabulate(a.size(), [](size_t x) -> int { return x + 1; }));
+  static_assert(!parlay::is_random_access_range_v<decltype(zipped)>);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    ASSERT_EQ(x+1, y);
+  }
+}
+
+TEST(TestDelayedZip, TestBidZipWithDelayedUncopyable) {
+  auto a = parlay::to_sequence(parlay::iota<int>(10000));
+  auto b = parlay::delayed_map(a, [](int x) { return std::make_unique<int>(x); });
+  ASSERT_EQ(a.size(), b.size());
+
+  auto zipped = parlay::delayed::zip(parlay::block_iterable_wrapper(a),b);
+  static_assert(!parlay::is_random_access_range_v<decltype(zipped)>);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    ASSERT_EQ(x, *y);
   }
 }
 
