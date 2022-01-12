@@ -1,7 +1,7 @@
-// Useful reusable stuff for testing sorting functions
+// Useful reusable stuff for testing ranges
 
-#ifndef PARLAY_TEST_SORTING_UTILS
-#define PARLAY_TEST_SORTING_UTILS
+#ifndef PARLAY_TEST_RANGE_UTILS
+#define PARLAY_TEST_RANGE_UTILS
 
 #include <numeric>
 #include <utility>
@@ -107,7 +107,6 @@ struct block_iterable_wrapper_t :
   template<typename UR = const std::remove_reference_t<UnderlyingRange>, std::enable_if_t<parlay::is_range_v<UR>, int> = 0>
   auto end() const { return get_begin_block(get_num_blocks()); }
 
-#undef PARLAY_NOCONST
 };
 
 template<typename T>
@@ -123,6 +122,9 @@ static_assert(parlay::is_block_iterable_range_v<parlay::block_iterable_wrapper_t
 static_assert(parlay::is_block_iterable_range_v<const parlay::block_iterable_wrapper_t<const parlay::sequence<int>>>);
 static_assert(parlay::is_block_iterable_range_v<const parlay::block_iterable_wrapper_t<const parlay::sequence<int>&>>);
 
+// A NonConstRange is a range that has no const-qualified overloads for begin
+// and end, and hence can not be read if it is const. This is useful for testing
+// that algorithms over ranges are careful with const.
 
 struct NonConstRange {
   explicit NonConstRange(size_t n) : v(n) { std::iota(v.begin(), v.end(), 0); }
@@ -150,6 +152,41 @@ static_assert(parlay::is_random_access_range_v<NonConstRange>);
 static_assert(!parlay::is_range_v<const NonConstRange>);
 static_assert(!parlay::is_random_access_range_v<const NonConstRange>);
 
+// A simple matrix class that can be added. Good for testing scan and
+// reduce algorithms on non-trivial input types
+
+template<typename T, size_t N>
+struct BasicMatrix {
+
+  friend bool operator==(const BasicMatrix& A, const BasicMatrix& B) {
+    for (size_t i = 0; i < 3; i++) {
+      for (size_t j = 0; j < 3; j++) {
+        if (A(i, j) != B(i, j)) return false;
+      }
+    }
+    return true;
+  }
+
+  T& operator()(size_t i, size_t j) { return m[i][j]; }
+  const T& operator()(size_t i, size_t j) const { return m[i][j]; }
+
+  BasicMatrix() : m(N, std::vector<T>(N)) {}
+
+  static BasicMatrix zero() { return {}; }
+
+ private:
+  std::vector<std::vector<T>> m;
+};
+
+auto matrix_add(BasicMatrix<int, 3> a, const BasicMatrix<int, 3>& b) {
+  for (size_t i = 0; i < 3; i++) {
+    for (size_t j = 0; j < 3; j++) {
+      a(i, j) += b(i, j);
+    }
+  }
+  return a;
+};
+
 }
 
-#endif  // PARLAY_TEST_SORTING_UTILS
+#endif  // PARLAY_TEST_RANGE_UTILS

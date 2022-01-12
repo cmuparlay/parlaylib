@@ -18,6 +18,7 @@
 #include "../../range.h"
 #include "../../sequence.h"
 #include "../../slice.h"
+#include "../../type_traits.h"
 #include "../../utilities.h"
 
 namespace parlay {
@@ -80,13 +81,9 @@ struct block_delayed_scan_t :
   template<bool Const>
   struct iterator_t {
    private:
-    using parent_type = std::conditional_t<Const,
-        typename std::add_const_t<block_delayed_scan_t<UnderlyingView, Inclusive, BinaryOperator, T>>,
-                                  block_delayed_scan_t<UnderlyingView, Inclusive, BinaryOperator, T>>;
+    using parent_type = maybe_const_t<Const, block_delayed_scan_t<UnderlyingView, Inclusive, BinaryOperator, T>>;
     using parent_ptr = std::add_pointer_t<parent_type>;
-    using base_view_type = std::conditional_t<Const,
-        typename std::add_const_t<std::remove_reference_t<UnderlyingView>>,
-        typename                  std::remove_reference_t<UnderlyingView>>;
+    using base_view_type = maybe_const_t<Const, std::remove_reference_t<UnderlyingView>>;
     using base_iterator_type = range_iterator_type_t<base_view_type>;
 
    public:
@@ -168,9 +165,9 @@ struct block_delayed_scan_t :
 };
 
 template<typename T, typename UnderlyingView, typename BinaryOperator>
-auto scan(UnderlyingView&& v, BinaryOperator f, T initial) {
+auto scan(UnderlyingView&& v, BinaryOperator f, T identity) {
   auto s = block_delayed_scan_t<UnderlyingView, false, BinaryOperator, T>
-      (std::forward<UnderlyingView>(v), std::move(f), std::move(initial));
+      (std::forward<UnderlyingView>(v), std::move(f), std::move(identity));
   return std::make_pair(std::move(s), s.get_total());
 }
 

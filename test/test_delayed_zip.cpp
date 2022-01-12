@@ -6,7 +6,7 @@
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 
-#include <parlay/delayed_views.h>
+#include <parlay/delayed.h>
 
 #include "range_utils.h"
 

@@ -26,8 +26,9 @@ auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
 
 // Return a sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
-template<PARLAY_RANGE_TYPE R, typename UnaryOp>
+template<typename R, typename UnaryOp>
 auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
+  static_assert(is_random_access_range_v<R>);
   static_assert(std::is_invocable_v<UnaryOp, range_reference_type_t<R>>);
   static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, range_reference_type_t<R>>>);
   return tabulate(parlay::size(r), [&f, it = std::begin(r)]
@@ -40,6 +41,7 @@ template<typename F>
 auto delayed_tabulate(size_t n, F f) {
   static_assert(std::is_invocable_v<F, size_t>);
   using T = std::invoke_result_t<F, size_t>;
+  static_assert(!std::is_void_v<T>);
   using V = std::remove_reference_t<T>;
   return delayed_sequence<T, V, F>(n, std::move(f));
 }
@@ -59,7 +61,6 @@ template<typename T, typename V, typename F>
 auto delayed_tabulate(size_t n, F f) {
   static_assert(std::is_invocable_v<F, size_t>);
   static_assert(std::is_convertible_v<std::invoke_result_t<F, size_t>, T>);
-  static_assert(std::is_convertible_v<T, V> || !std::is_copy_constructible_v<V> || !std::is_copy_assignable_v<V>);
   return delayed_sequence<T, V, F>(n, std::move(f));
 }
 
@@ -70,32 +71,40 @@ auto delayed_tabulate(size_t n, F f) {
 // ownership of it by moving it. If r is a reference,
 // the delayed sequence will hold a reference to it, so
 // r must remain alive as long as the delayed sequence.
-template<PARLAY_RANGE_TYPE R, typename UnaryOp,
+template<typename R, typename UnaryOp,
     std::enable_if_t<std::is_rvalue_reference_v<R&&>, int> = 0>
-auto delayed_map(R&& r, UnaryOp&& f) {
+auto delayed_map(R&& r, UnaryOp f) {
+  static_assert(is_random_access_range_v<R>);
+  static_assert(std::is_invocable_v<UnaryOp, range_reference_type_t<R>>);
+  static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, range_reference_type_t<R>>>);
+
   size_t n = parlay::size(r);
-  return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::forward<UnaryOp>(f) ]
+  return delayed_tabulate(n, [ r = std::forward<R>(r), f = std::move(f) ]
       (size_t i) -> decltype(auto) { return f(std::begin(r)[i]); });
 }
 
-template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto delayed_map(R& r, UnaryOp&& f) {
+template<typename R, typename UnaryOp,
+    std::enable_if_t<std::is_lvalue_reference_v<R&&>, int> = 0>
+auto delayed_map(R&& r, UnaryOp f) {
+  static_assert(is_random_access_range_v<R>);
+  static_assert(std::is_invocable_v<UnaryOp, range_reference_type_t<R>>);
+  static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, range_reference_type_t<R>>>);
+
   size_t n = parlay::size(r);
-  return delayed_tabulate(n, [ri = std::begin(r), f = std::forward<UnaryOp>(f) ]
+  return delayed_tabulate(n, [ri = std::begin(r), f = std::move(f) ]
       (size_t i) -> decltype(auto) { return f(ri[i]); });
 }
 
 // Deprecated. Use delayed_tabulate
-template <class F>
+template <typename F>
 auto dseq (size_t n, F f) {
-  using T = decltype(f(0));
-  return delayed_sequence<T,T,F>(n,f);
+  return delayed_tabulate(n, std::move(f));
 }
 
 // Deprecated. Use delayed_map.
-template<PARLAY_RANGE_TYPE R, typename UnaryOp>
-auto dmap(R&& r, UnaryOp&& f) {
-  return delayed_map(std::forward<R>(r), std::forward<UnaryOp>(f));
+template<typename R, typename UnaryOp>
+auto dmap(R&& r, UnaryOp f) {
+  return delayed_map(std::forward<R>(r), std::move(f));
 }
 
 template <typename T>

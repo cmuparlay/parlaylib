@@ -8,9 +8,7 @@
 #include <utility>
 #include <type_traits>
 
-#include "../../parallel.h"
 #include "../../range.h"
-#include "../../sequence.h"
 
 namespace parlay {
 namespace internal {
@@ -158,48 +156,6 @@ struct block_iterable_view_base : public block_iterable_view_base_data<Underlyin
   explicit block_iterable_view_base(UV&&... v)
     : block_iterable_view_base_data<UnderlyingView>(std::forward<UV>(v)...) { }
 };
-
-// ----------------------------------------------------------------------------
-//            Conversion of delayed sequences to regular sequences
-// ----------------------------------------------------------------------------
-
-template<typename UnderlyingView,
-    std::enable_if_t<is_random_access_range_v<UnderlyingView>, int> = 0>
-auto to_sequence(UnderlyingView&& v) {
-  return parlay::to_sequence(std::forward<UnderlyingView>(v));
-}
-
-template<typename T, typename Alloc = parlay::internal::sequence_default_allocator<T>, typename UnderlyingView,
-    std::enable_if_t<is_random_access_range_v<UnderlyingView>, int> = 0>
-auto to_sequence(UnderlyingView&& v) {
-  return parlay::to_sequence<T, Alloc>(std::forward<UnderlyingView>(v));
-}
-
-template<typename UnderlyingView,
-    std::enable_if_t<!is_random_access_range_v<UnderlyingView> &&
-                      is_block_iterable_range_v<UnderlyingView>, int> = 0>
-auto to_sequence(UnderlyingView&& v) {
-  auto sz = parlay::size(v);
-  auto out = parlay::sequence<range_value_type_t<UnderlyingView>>::uninitialized(sz);
-  parallel_for(0, parlay::internal::delayed::num_blocks(v), [&](size_t i) {
-    std::uninitialized_copy(parlay::internal::delayed::begin_block(v, i), parlay::internal::delayed::end_block(v, i),
-                            out.begin() + i * parlay::internal::delayed::block_size);
-  });
-  return out;
-}
-
-template<typename T, typename Alloc = parlay::internal::sequence_default_allocator<T>, typename UnderlyingView,
-    std::enable_if_t<!is_random_access_range_v<UnderlyingView> &&
-                      is_block_iterable_range_v<UnderlyingView>, int> = 0>
-auto to_sequence(UnderlyingView&& v) {
-  auto sz = parlay::size(v);
-  auto out = parlay::sequence<T, Alloc>::uninitialized(sz);
-  parallel_for(0, parlay::internal::delayed::num_blocks(v), [&](size_t i) {
-    std::uninitialized_copy(parlay::internal::delayed::begin_block(v, i), parlay::internal::delayed::end_block(v, i),
-                            out.begin() + i * parlay::internal::delayed::block_size);
-  });
-  return out;
-}
 
 
 }  // namespace delayed

@@ -15,6 +15,7 @@
 #include "../sequence_ops.h"
 
 #include "../../range.h"
+#include "../../type_traits.h"
 
 namespace parlay {
 namespace internal {

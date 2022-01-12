@@ -8,7 +8,7 @@
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 
-#include <parlay/delayed_views.h>
+#include <parlay/delayed.h>
 
 #include "range_utils.h"
 
@@ -67,6 +67,24 @@ TEST(TestDelayedScan, TestScanEmpty) {
 
   auto s = parlay::delayed::to_sequence(m);
   ASSERT_TRUE(s.empty());
+}
+
+TEST(TestDelayedScan, TestScanSmall) {
+  const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(1000));
+  const auto bid = parlay::block_iterable_wrapper(a);
+  auto [m, total] = parlay::delayed::scan(bid);
+
+  ASSERT_EQ(m.size(), a.size());
+  ASSERT_EQ(total, 499500);
+
+  auto it = m.begin();
+  int res = 0;
+  for (size_t i = 0; i < m.size(); i++) {
+    ASSERT_EQ(res, *it);
+    res += a[i];
+    ++it;
+  }
+  ASSERT_EQ(it, m.end());
 }
 
 TEST(TestDelayedScan, TestScanSimple) {
@@ -151,6 +169,23 @@ TEST(TestDelayedScan, TestScanInclusiveEmpty) {
 
   auto s = parlay::delayed::to_sequence(m);
   ASSERT_TRUE(s.empty());
+}
+
+TEST(TestDelayedScan, TestScanInclusiveSmall) {
+  const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(1000));
+  const auto bid = parlay::block_iterable_wrapper(a);
+  auto m = parlay::delayed::scan_inclusive(bid);
+
+  ASSERT_EQ(m.size(), a.size());
+
+  auto it = m.begin();
+  int res = 0;
+  for (size_t i = 0; i < m.size(); i++) {
+    res += a[i];
+    ASSERT_EQ(res, *it);
+    ++it;
+  }
+  ASSERT_EQ(it, m.end());
 }
 
 TEST(TestDelayedScan, TestScanInclusiveSimple) {
@@ -313,41 +348,9 @@ TEST(TestDelayedScan, TestScanInclusiveCustomIdentity) {
   ASSERT_EQ(it, m.end());
 }
 
-template<typename T, size_t N>
-struct BasicMatrix {
-
-  friend bool operator==(const BasicMatrix& A, const BasicMatrix& B) {
-    for (size_t i = 0; i < 3; i++) {
-      for (size_t j = 0; j < 3; j++) {
-        if (A(i, j) != B(i, j)) return false;
-      }
-    }
-    return true;
-  }
-
-  T& operator()(size_t i, size_t j) { return m[i][j]; }
-  const T& operator()(size_t i, size_t j) const { return m[i][j]; }
-
-  BasicMatrix() : m(N, std::vector<T>(N)) {}
-
-  static BasicMatrix zero() { return {}; }
-
- private:
-  std::vector<std::vector<T>> m;
-};
-
-auto matrix_add(BasicMatrix<int, 3> a, const BasicMatrix<int, 3>& b) {
-  for (size_t i = 0; i < 3; i++) {
-    for (size_t j = 0; j < 3; j++) {
-      a(i, j) += b(i, j);
-    }
-  }
-  return a;
-};
-
 TEST(TestDelayedScan, TestScanCustomType) {
   const auto a = parlay::tabulate(50000, [&](size_t i) {
-    BasicMatrix<int, 3> m;
+    parlay::BasicMatrix<int, 3> m;
     for (size_t j = 0; j < 3; j++) {
       for (size_t k = 0; k < 3; k++) {
         m(j, k) = i + j + k;
@@ -357,15 +360,15 @@ TEST(TestDelayedScan, TestScanCustomType) {
   });
 
   const auto bid = parlay::block_iterable_wrapper(a);
-  auto [m, total] = parlay::delayed::scan(bid, matrix_add, BasicMatrix<int,3>::zero());
+  auto [m, total] = parlay::delayed::scan(bid, parlay::matrix_add, parlay::BasicMatrix<int,3>::zero());
 
-  auto actual_total = std::accumulate(std::begin(a), std::end(a), BasicMatrix<int,3>::zero(), matrix_add);
+  auto actual_total = std::accumulate(std::begin(a), std::end(a), parlay::BasicMatrix<int,3>::zero(), parlay::matrix_add);
 
   ASSERT_EQ(m.size(), a.size());
   ASSERT_EQ(total, actual_total);
 
   auto it = m.begin();
-  auto res = BasicMatrix<int,3>::zero();
+  auto res = parlay::BasicMatrix<int,3>::zero();
   for (size_t i = 0; i < m.size(); i++) {
     ASSERT_EQ(res, *it);
     res = matrix_add(std::move(res), a[i]);
@@ -376,7 +379,7 @@ TEST(TestDelayedScan, TestScanCustomType) {
 
 TEST(TestDelayedScan, TestScanInclusiveCustomType) {
   const auto a = parlay::tabulate(50000, [&](size_t i) {
-    BasicMatrix<int, 3> m;
+    parlay::BasicMatrix<int, 3> m;
     for (size_t j = 0; j < 3; j++) {
       for (size_t k = 0; k < 3; k++) {
         m(j, k) = i + j + k;
@@ -386,12 +389,12 @@ TEST(TestDelayedScan, TestScanInclusiveCustomType) {
   });
 
   const auto bid = parlay::block_iterable_wrapper(a);
-  auto m = parlay::delayed::scan_inclusive(bid, matrix_add, BasicMatrix<int,3>::zero());
+  auto m = parlay::delayed::scan_inclusive(bid, parlay::matrix_add, parlay::BasicMatrix<int,3>::zero());
 
   ASSERT_EQ(m.size(), a.size());
 
   auto it = m.begin();
-  auto res = BasicMatrix<int,3>::zero();
+  auto res = parlay::BasicMatrix<int,3>::zero();
   for (size_t i = 0; i < m.size(); i++) {
     res = matrix_add(std::move(res), a[i]);
     ASSERT_EQ(res, *it);

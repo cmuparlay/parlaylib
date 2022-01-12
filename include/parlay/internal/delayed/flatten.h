@@ -20,6 +20,7 @@
 
 #include "common.h"
 #include "map.h"
+#include "terminal.h"
 
 namespace parlay {
 namespace internal {
