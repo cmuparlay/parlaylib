@@ -4,9 +4,13 @@
 // for detecting properties of ranges, and for determining
 // whether given types are a particular type of range.
 //
-// The concept traits do not exhaustively check that all semantic
-// requirements of the concept are satisfied, generally only that
-// some basic indicative subset of their syntactic requirements are.
+// The concept traits do not exhaustively check that all
+// requirements of the concept are satisfied, just most of
+// the ones that are do-able enough in C++17 without
+// going overboard. They should be more than thorough
+// enough to use for SFINAE, and pretty good for sanity
+// checking that an implementation of a container or range
+// adapter has implemented the required features.
 //
 // Range Traits:
 //   range_iterator_type  : the type of a range's iterator, i.e. the type of std::begin(r)
@@ -53,13 +57,31 @@
 
 namespace parlay {
 
+/*  ----------------------------- Iterator traits --------------------------------
+    Type traits that deduce useful types about an iterator.
+
+    iterator_value_type      : the value type of the iterator
+    iterator_reference_type  : the type obtained by dereferencing an iterator
+    iterator_difference_type : a type that can represent the difference between two iterators
+*/
+
+template<typename It_>
+using iterator_value_type_t = typename std::iterator_traits<It_>::value_type;
+
+template<typename It_>
+using iterator_reference_type_t = typename std::iterator_traits<It_>::reference;
+
+template<typename It_>
+using iterator_difference_type_t = typename std::iterator_traits<It_>::difference_type;
+
 /*  ----------------------------- Range traits --------------------------------
     Type traits that deduce useful types about a range.
 
-    range_iterator_type  : the type of a range's iterator, i.e. the type of std::begin(r)
-    range_sentinel_type  : the type of a range's sentinel, i.e., the type of std::end(r)
-    range_value_type     : the value type of the contents of a range
-    range_reference_type : the type obtained by dereferencing a range's iterator
+    range_iterator_type   : the type of a range's iterator, i.e. the type of std::begin(r)
+    range_sentinel_type   : the type of a range's sentinel, i.e., the type of std::end(r)
+    range_value_type      : the value type of the contents of a range
+    range_reference_type  : the type obtained by dereferencing a range's iterator
+    range_difference_type : a type that can represent the difference between two iterators
 */
 
 // Deduce the iterator type of the range type T
@@ -104,6 +126,17 @@ struct range_reference_type {
 template<typename Range_>
 using range_reference_type_t = typename range_reference_type<Range_>::type;
 
+// Deduce the difference type of a range. This is a type that can be used to
+// represent a difference between two iterators
+template<typename Range_>
+struct range_difference_type {
+  using type = typename std::iterator_traits<range_iterator_type_t<Range_>>::difference_type;
+};
+
+// Deduce the difference type of a range. This is a type that can be used to
+//// represent a difference between two iterators
+template<typename Range_>
+using range_difference_type_t = typename range_difference_type<Range_>::type;
 
 //  --------------------- Iterator concept traits -----------------------
 
@@ -116,7 +149,11 @@ struct is_iterator<It_, std::void_t<
   typename std::iterator_traits<It_>::iterator_category,
   decltype( ++std::declval<It_&>() ),
   decltype( *std::declval<It_&>() ),
-  std::enable_if_t< std::is_default_constructible_v<It_> >
+  decltype( std::swap(std::declval<It_&>(), std::declval<It_&>()) ),
+  std::enable_if_t< std::is_same_v<decltype(++std::declval<It_&>()), It_&> >,
+  std::enable_if_t< std::is_copy_constructible_v<It_> >,
+  std::enable_if_t< std::is_copy_assignable_v<It_> >,
+  std::enable_if_t< std::is_destructible_v<It_> >
 >> : public std::true_type {};
 
 // True if It_ is an iterator type
@@ -130,66 +167,19 @@ struct is_sentinel_for : public std::false_type {};
 
 template<typename It_, typename Sentinel_>
 struct is_sentinel_for<It_, Sentinel_, std::void_t<
-  std::enable_if_t< is_iterator_v<It_> >,
   decltype( std::declval<It_>() == std::declval<Sentinel_>() ),
   decltype( std::declval<It_>() != std::declval<Sentinel_>() ),
   decltype( std::declval<Sentinel_>() == std::declval<It_>() ),
-  decltype( std::declval<Sentinel_>() != std::declval<It_>() )
+  decltype( std::declval<Sentinel_>() != std::declval<It_>() ),
+  std::enable_if_t< is_iterator_v<It_> >,
+  std::enable_if_t< std::is_default_constructible_v<Sentinel_> >,
+  std::enable_if_t< std::is_copy_constructible_v<Sentinel_> >,
+  std::enable_if_t< std::is_copy_assignable_v<Sentinel_> >
 >> : public std::true_type {};
 
 // True if Sentinel_ is a sentinel type for the iterator It_
 template<typename It_, typename Sentinel_>
 inline constexpr bool is_sentinel_for_v = is_sentinel_for<It_, Sentinel_>::value;
-
-// Defines a member constant value true if the iterator type It_ is a contiguous iterator
-template<typename It_>
-struct is_contiguous_iterator : public std::is_pointer<It_> {};
-
-// true if the iterator type It_ corresponds to a contiguous iterator type
-template<typename It_>
-inline constexpr bool is_contiguous_iterator_v = is_contiguous_iterator<It_>::value;
-
-// Defines a member constant value true if the iterator It_ is at least a random-access iterator
-template<typename It_, typename = std::void_t<>>
-struct is_random_access_iterator : public std::false_type {};
-
-template<typename It_>
-struct is_random_access_iterator<It_, std::void_t<
-  std::enable_if_t< is_iterator_v<It_> >,
-  std::enable_if_t< std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >
->> : public std::true_type {};
-
-// true if the iterator type It_ is at least a random-access iterator
-template<typename It_>
-inline constexpr bool is_random_access_iterator_v = is_random_access_iterator<It_>::value;
-
-// Defines a member constant value true if the iterator It_ is at least a bidirectional iterator
-template<typename It_, typename = std::void_t<>>
-struct is_bidirectional_iterator : public std::false_type {};
-
-template<typename It_>
-struct is_bidirectional_iterator<It_, std::void_t<
-  std::enable_if_t< is_iterator_v<It_> >,
-  std::enable_if_t< std::is_base_of_v<std::bidirectional_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >
->> : public std::true_type {};
-
-// true if the iterator type It is at least a bidirectional iterator
-template<typename It_>
-inline constexpr bool is_bidirectional_iterator_v = is_bidirectional_iterator<It_>::value;
-
-// Defines a member constant value true if the iterator It_ is at least a forward iterator
-template<typename It_, typename = std::void_t<>>
-struct is_forward_iterator : public std::false_type {};
-
-template<typename It_>
-struct is_forward_iterator<It_, std::void_t<
-  std::enable_if_t< is_iterator_v<It_> >,
-  std::enable_if_t< std::is_base_of_v<std::forward_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >
->> : public std::true_type {};
-
-// true if the iterator type It_ is at least a forward iterator
-template<typename It_>
-inline constexpr bool is_forward_iterator_v = is_forward_iterator<It_>::value;
 
 // Defines a member constant value true if the iterator It_ is at least an input iterator
 template<typename It_, typename = std::void_t<>>
@@ -197,8 +187,12 @@ struct is_input_iterator : public std::false_type {};
 
 template<typename It_>
 struct is_input_iterator<It_, std::void_t<
+  decltype( std::declval<It_&>() == std::declval<It_&>() ),
+  decltype( std::declval<It_&>() != std::declval<It_&>() ),
+  decltype( std::declval<It_&>()++ ),
   std::enable_if_t< is_iterator_v<It_> >,
-  std::enable_if_t< std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >
+  std::enable_if_t< std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >,
+  std::enable_if_t< std::is_same_v<decltype(*std::declval<It_&>()), typename std::iterator_traits<It_>::reference> >
 >> : public std::true_type {};
 
 // true if the iterator type It_ is at least an input iterator
@@ -218,6 +212,74 @@ struct is_output_iterator<It_, std::void_t<
 // true if the iterator type It_ is an output iterator
 template<typename It_>
 inline constexpr bool is_output_iterator_v = is_output_iterator<It_>::value;
+
+// Defines a member constant value true if the iterator It_ is at least a forward iterator
+template<typename It_, typename = std::void_t<>>
+struct is_forward_iterator : public std::false_type {};
+
+template<typename It_>
+struct is_forward_iterator<It_, std::void_t<
+  std::enable_if_t< is_input_iterator_v<It_> >,
+  std::enable_if_t< std::is_base_of_v<std::forward_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >,
+  std::enable_if_t< std::is_default_constructible_v<It_> >,
+  std::enable_if_t< std::is_convertible_v<decltype(std::declval<It_&>()++), const std::remove_reference_t<It_>&> >,
+  std::enable_if_t< std::is_same_v<decltype(*(std::declval<It_&>()++)), typename std::iterator_traits<It_>::reference> >
+>> : public std::true_type {};
+
+// true if the iterator type It_ is at least a forward iterator
+template<typename It_>
+inline constexpr bool is_forward_iterator_v = is_forward_iterator<It_>::value;
+
+// Defines a member constant value true if the iterator It_ is at least a bidirectional iterator
+template<typename It_, typename = std::void_t<>>
+struct is_bidirectional_iterator : public std::false_type {};
+
+template<typename It_>
+struct is_bidirectional_iterator<It_, std::void_t<
+  decltype( --std::declval<It_&>() ),
+  decltype( std::declval<It_&>()-- ),
+  std::enable_if_t< is_forward_iterator_v<It_> >,
+  std::enable_if_t< std::is_base_of_v<std::bidirectional_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >,
+  std::enable_if_t< std::is_convertible_v<decltype(std::declval<It_&>()--), const std::remove_reference_t<It_>&> >,
+  std::enable_if_t< std::is_same_v<decltype(*(std::declval<It_&>()--)), typename std::iterator_traits<It_>::reference> >
+>> : public std::true_type {};
+
+// true if the iterator type It is at least a bidirectional iterator
+template<typename It_>
+inline constexpr bool is_bidirectional_iterator_v = is_bidirectional_iterator<It_>::value;
+
+// Defines a member constant value true if the iterator It_ is at least a random-access iterator
+template<typename It_, typename = std::void_t<>>
+struct is_random_access_iterator : public std::false_type {};
+
+template<typename It_>
+struct is_random_access_iterator<It_, std::void_t<
+  std::enable_if_t< is_bidirectional_iterator_v<It_> >,
+  std::enable_if_t< std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >,
+  std::enable_if_t< std::is_same_v<decltype(std::declval<It_&>() += std::declval<iterator_difference_type_t<It_>>()), It_&> >,
+  std::enable_if_t< std::is_same_v<decltype(std::declval<It_>() + std::declval<iterator_difference_type_t<It_>>()), It_> >,
+  std::enable_if_t< std::is_same_v<decltype(std::declval<It_&>() -= std::declval<iterator_difference_type_t<It_>>()), It_&> >,
+  std::enable_if_t< std::is_same_v<decltype(std::declval<It_>() - std::declval<iterator_difference_type_t<It_>>()), It_> >,
+  std::enable_if_t< std::is_same_v<decltype(std::declval<It_>() - std::declval<It_>()), iterator_difference_type_t<It_>> >,
+  std::enable_if_t< std::is_same_v<decltype(std::declval<It_>()[std::declval<iterator_difference_type_t<It_>>()]), iterator_reference_type_t<It_>> >,
+  std::enable_if_t< std::is_convertible_v<decltype(std::declval<It_>() < std::declval<It_>()), bool> >,
+  std::enable_if_t< std::is_convertible_v<decltype(std::declval<It_>() > std::declval<It_>()), bool> >,
+  std::enable_if_t< std::is_convertible_v<decltype(std::declval<It_>() >= std::declval<It_>()), bool> >,
+  std::enable_if_t< std::is_convertible_v<decltype(std::declval<It_>() <= std::declval<It_>()), bool> >
+>> : public std::true_type {};
+
+// true if the iterator type It_ is at least a random-access iterator
+template<typename It_>
+inline constexpr bool is_random_access_iterator_v = is_random_access_iterator<It_>::value;
+
+// Defines a member constant value true if the iterator type It_ is a contiguous iterator
+template<typename It_>
+struct is_contiguous_iterator : public std::is_pointer<It_> {};
+
+// true if the iterator type It_ corresponds to a contiguous iterator type
+template<typename It_>
+inline constexpr bool is_contiguous_iterator_v = is_contiguous_iterator<It_>::value;
+
 
 //  --------------------- Range concept traits -----------------------
 
@@ -252,62 +314,6 @@ struct is_common_range<Range_, std::void_t<
 template<typename Range_>
 inline constexpr bool is_common_range_v = is_common_range<Range_>::value;
 
-// Defines a member constant value true if the range Range_ is a contiguous range
-template<typename, typename = std::void_t<>>
-struct is_contiguous_range : public std::false_type {};
-
-template<typename Range_>
-struct is_contiguous_range<Range_, std::void_t<
-  std::enable_if_t< is_range_v<Range_> >,
-  std::enable_if_t< is_contiguous_iterator_v<range_iterator_type_t<Range_>> >
->> : public std::true_type {};
-
-// true if the range type Range_ corresponds to a contiguous range
-template<typename Range_>
-inline constexpr bool is_contiguous_range_v = is_contiguous_range<Range_>::value;
-
-// Defines a member constant value true if the range type Range_ is a random-access range
-template<typename, typename = std::void_t<>>
-struct is_random_access_range : public std::false_type {};
-
-template<typename Range_>
-struct is_random_access_range<Range_, std::void_t<
-  std::enable_if_t< is_range_v<Range_> >,
-  std::enable_if_t< is_random_access_iterator_v<range_iterator_type_t<Range_>> >
->> : public std::true_type {};
-
-// true if the range type Range_ is a random-access range
-template<typename Range_>
-inline constexpr bool is_random_access_range_v = is_random_access_range<Range_>::value;
-
-// Defines a member constant value true if the range type Range_ is a bidirectional range
-template<typename, typename = std::void_t<>>
-struct is_bidirectional_range : public std::false_type {};
-
-template<typename Range_>
-struct is_bidirectional_range<Range_, std::void_t<
-  std::enable_if_t< is_range_v<Range_> >,
-  std::enable_if_t< is_bidirectional_iterator_v<range_iterator_type_t<Range_>> >
->> : public std::true_type {};
-
-// true if the range type Range_ is a bidirectional range
-template<typename Range_>
-inline constexpr bool is_bidirectional_range_v = is_bidirectional_range<Range_>::value;
-
-// Defines a member constant value true if the range type Range_ is a forward range
-template<typename, typename = std::void_t<>>
-struct is_forward_range : public std::false_type {};
-
-template<typename Range_>
-struct is_forward_range<Range_, std::void_t<
-  std::enable_if_t< is_range_v<Range_> >,
-  std::enable_if_t< is_forward_iterator_v<range_iterator_type_t<Range_>> >
->> : public std::true_type {};
-
-// true if the range type Range_ is a forward range
-template<typename Range_>
-inline constexpr bool is_forward_range_v = is_forward_range<Range_>::value;
-
 // Defines a member constant value true if the range type Range_ is an input range
 template<typename, typename = std::void_t<>>
 struct is_input_range : public std::false_type {};
@@ -335,6 +341,62 @@ struct is_output_range<Range_, std::void_t<
 // true if the range type Range_ is an output range
 template<typename Range_>
 inline constexpr bool is_output_range_v = is_output_range<Range_>::value;
+
+// Defines a member constant value true if the range type Range_ is a forward range
+template<typename, typename = std::void_t<>>
+struct is_forward_range : public std::false_type {};
+
+template<typename Range_>
+struct is_forward_range<Range_, std::void_t<
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< is_forward_iterator_v<range_iterator_type_t<Range_>> >
+>> : public std::true_type {};
+
+// true if the range type Range_ is a forward range
+template<typename Range_>
+inline constexpr bool is_forward_range_v = is_forward_range<Range_>::value;
+
+// Defines a member constant value true if the range type Range_ is a bidirectional range
+template<typename, typename = std::void_t<>>
+struct is_bidirectional_range : public std::false_type {};
+
+template<typename Range_>
+struct is_bidirectional_range<Range_, std::void_t<
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< is_bidirectional_iterator_v<range_iterator_type_t<Range_>> >
+>> : public std::true_type {};
+
+// true if the range type Range_ is a bidirectional range
+template<typename Range_>
+inline constexpr bool is_bidirectional_range_v = is_bidirectional_range<Range_>::value;
+
+// Defines a member constant value true if the range type Range_ is a random-access range
+template<typename, typename = std::void_t<>>
+struct is_random_access_range : public std::false_type {};
+
+template<typename Range_>
+struct is_random_access_range<Range_, std::void_t<
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< is_random_access_iterator_v<range_iterator_type_t<Range_>> >
+>> : public std::true_type {};
+
+// true if the range type Range_ is a random-access range
+template<typename Range_>
+inline constexpr bool is_random_access_range_v = is_random_access_range<Range_>::value;
+
+// Defines a member constant value true if the range Range_ is a contiguous range
+template<typename, typename = std::void_t<>>
+struct is_contiguous_range : public std::false_type {};
+
+template<typename Range_>
+struct is_contiguous_range<Range_, std::void_t<
+  std::enable_if_t< is_range_v<Range_> >,
+  std::enable_if_t< is_contiguous_iterator_v<range_iterator_type_t<Range_>> >
+>> : public std::true_type {};
+
+// true if the range type Range_ corresponds to a contiguous range
+template<typename Range_>
+inline constexpr bool is_contiguous_range_v = is_contiguous_range<Range_>::value;
 
 namespace internal {
 

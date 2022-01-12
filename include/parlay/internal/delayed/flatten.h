@@ -30,6 +30,7 @@ struct block_delayed_flatten_t :
 
  private:
   static_assert(is_block_iterable_range_v<UnderlyingView>);
+  static_assert(is_forward_range_v<range_reference_type_t<UnderlyingView>>);
   static_assert(std::is_reference_v<range_reference_type_t<UnderlyingView>>);
 
   using base = block_iterable_view_base<UnderlyingView, block_delayed_flatten_t<UnderlyingView>>;
@@ -51,7 +52,7 @@ struct block_delayed_flatten_t :
     // Compute "input offsets", which are, for each element in the input (outer)
     // sequence, the position of its first element in the output sequence
     auto offsets = parlay::internal::delayed::to_sequence(
-        parlay::internal::delayed::map(base_view(), [](const auto& r) -> size_t { return parlay::size(r); }));
+        parlay::internal::delayed::map(base_view(), [](auto&& r) -> size_t { return parlay::size(r); }));
     n_elements = parlay::internal::scan_inplace(make_slice(offsets), addm<size_t>{});
 
     n_blocks = num_blocks_from_size(n_elements);
@@ -187,22 +188,23 @@ struct block_delayed_flatten_t :
   // Returns the number of blocks
   auto get_num_blocks() const { return n_blocks; }
 
-#define PARLAY_NOCONST
-
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return iterator(outer_starts[i], inner_starts[i], std::addressof(base_view())); }
-  PARLAY_NOCONST auto get_begin_block(size_t i) const { return const_iterator(outer_starts[i], inner_starts[i], std::addressof(base_view())); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto get_begin_block(size_t i) const { return const_iterator(outer_starts[i], inner_starts[i], std::addressof(base_view())); }
 
   auto get_end_block(size_t i) { return get_begin_block(i+1); }
-  PARLAY_NOCONST auto get_end_block(size_t i) const { return get_begin_block(i+1); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto get_end_block(size_t i) const { return get_begin_block(i+1); }
 
   auto begin() { return get_begin_block(0); }
-  PARLAY_NOCONST auto begin() const { return get_begin_block(0); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto begin() const { return get_begin_block(0); }
 
   auto end() { return get_begin_block(get_num_blocks()); }
-  PARLAY_NOCONST auto end() const { return get_begin_block(get_num_blocks()); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto end() const { return get_begin_block(get_num_blocks()); }
 
-#undef PARLAY_NOCONST
 
   [[nodiscard]] size_t size() const { return n_elements; }
 
@@ -241,22 +243,24 @@ struct block_delayed_flatten_copy_t : public block_iterable_view_base<void, bloc
   // Returns the number of blocks
   auto get_num_blocks() const { return flattener.get_num_blocks(); }
 
-#define PARLAY_NOCONST
 
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return flattener.get_begin_block(i); }
-  PARLAY_NOCONST auto get_begin_block(size_t i) const { return flattener.get_begin_block(i); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto get_begin_block(size_t i) const { return flattener.get_begin_block(i); }
 
   auto get_end_block(size_t i) { return get_begin_block(i+1); }
-  PARLAY_NOCONST auto get_end_block(size_t i) const { return get_begin_block(i+1); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto get_end_block(size_t i) const { return get_begin_block(i+1); }
 
   auto begin() { return get_begin_block(0); }
-  PARLAY_NOCONST auto begin() const { return get_begin_block(0); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto begin() const { return get_begin_block(0); }
 
   auto end() { return get_begin_block(get_num_blocks()); }
-  PARLAY_NOCONST auto end() const { return get_begin_block(get_num_blocks()); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto end() const { return get_begin_block(get_num_blocks()); }
 
-#undef PARLAY_NOCONST
 
   [[nodiscard]] size_t size() const { return flattener.size(); }
 

@@ -139,6 +139,19 @@ TEST(TestDelayedZip, TestRadZipWithDelayedUncopyable) {
   }
 }
 
+TEST(TestDelayedZip, TestRadZipNoConst) {
+  parlay::NonConstRange a{10};
+  parlay::NonConstRange b{10};
+  ASSERT_EQ(a.size(), b.size());
+
+  auto zipped = parlay::delayed::zip(a,b);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    ASSERT_EQ(y, x);
+  }
+}
+
 // ---------------------------------------------------------------------------------------
 //                                     BID VERSION
 // ---------------------------------------------------------------------------------------
@@ -169,5 +182,19 @@ TEST(TestDelayedZip, TestBidZipToSeq) {
 
   for (size_t i = 0; i < s.size(); i++) {
     ASSERT_EQ(s[i], std::make_tuple(i+1, i+2));
+  }
+}
+
+TEST(TestDelayedZip, TestBidZipNoConst) {
+  auto a = parlay::block_iterable_wrapper(parlay::NonConstRange{10});
+  auto b = parlay::block_iterable_wrapper(parlay::NonConstRange{10});
+
+  ASSERT_EQ(a.size(), b.size());
+
+  auto zipped = parlay::delayed::zip(a,b);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    ASSERT_EQ(y, x);
   }
 }

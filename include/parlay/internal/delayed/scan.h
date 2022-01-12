@@ -144,7 +144,20 @@ struct block_delayed_scan_t :
 
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return iterator(block_sums[i], begin_block(base_view(), i), this); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
   auto get_begin_block(size_t i) const { return const_iterator(block_sums[i], begin_block(base_view(), i), this); }
+
+  auto get_end_block(size_t i) { return get_begin_block(i+1); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto get_end_block(size_t i) const { return get_begin_block(i+1); }
+
+  auto begin() { return get_begin_block(0); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto begin() const { return get_begin_block(0); }
+
+  auto end() { return get_begin_block(get_num_blocks()); }
+  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
+  auto end() const { return get_begin_block(get_num_blocks()); }
 
   [[nodiscard]] size_t size() const { return base_view().size(); }
 

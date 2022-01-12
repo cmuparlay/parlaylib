@@ -17,10 +17,40 @@ namespace parlay {
 namespace internal {
 namespace delayed {
 
+//  --------------------- Useful concept traits -----------------------
+
+// Defines the member value true if, given a Range type Range_, and a unary operator
+// UnaryOperator_ to be applied to each element of the range, the operator can be
+// applied to the range even when it is const-qualified
+//
+// This trait is used to selectively disable const overloads of member functions
+// (e.g., begin and end) when it would be ill-formed to attempt to transform
+// the range when it is const.
+template<typename Range_, typename UnaryOperator_, typename = std::void_t<>>
+struct is_range_const_transformable : std::false_type {};
+
+template<typename Range_, typename UnaryOperator_>
+struct is_range_const_transformable<Range_, UnaryOperator_, std::void_t<
+  std::enable_if_t< is_range_v<std::add_const_t<std::remove_reference_t<Range_>>> >,
+  std::enable_if_t< std::is_invocable_v<const UnaryOperator_&, range_reference_type_t<std::add_const_t<std::remove_reference_t<Range_>>>> >
+>> : std::true_type {};
+
+// True if, given a Range type Range_, and a unary operator UnaryOperator_ to be
+// applied to each element of the range, the operator can be applied to the range
+// even when it is const-qualified
+template<typename UV, typename UO>
+static inline constexpr bool is_range_const_transformable_v = is_range_const_transformable<UV,UO>::value;
+
+
+
+// ----------------------------------------------------------------------------
+//            Block-iterable interface for random-access ranges
+// ----------------------------------------------------------------------------
+
 // Default block size to use for block-iterable sequences
 static constexpr size_t block_size = 2000;
 
-size_t num_blocks_from_size(size_t n) {
+inline constexpr size_t num_blocks_from_size(size_t n) {
   return (n == 0) ? 0 : (1 + (n - 1) / block_size);
 }
 

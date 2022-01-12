@@ -241,6 +241,24 @@ TEST(TestDelayedScan, TestScanCustomOp) {
   ASSERT_EQ(it, m.end());
 }
 
+TEST(TestDelayedScan, TestScanNonConst) {
+  parlay::NonConstRange r(60001);
+  auto bid = parlay::block_iterable_wrapper(r);
+  auto [m, total] = parlay::delayed::scan(bid);
+
+  ASSERT_EQ(m.size(), r.size());
+  ASSERT_EQ(total, 1800030000);
+
+  auto it = m.begin();
+  int res = 0;
+  for (size_t i = 0; i < m.size(); i++) {
+    ASSERT_EQ(res, *it);
+    res += r[i];
+    ++it;
+  }
+  ASSERT_EQ(it, m.end());
+}
+
 TEST(TestDelayedScan, TestScanInclusiveCustomOp) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(100001));
   const auto bid = parlay::block_iterable_wrapper(a);
@@ -376,6 +394,23 @@ TEST(TestDelayedScan, TestScanInclusiveCustomType) {
   auto res = BasicMatrix<int,3>::zero();
   for (size_t i = 0; i < m.size(); i++) {
     res = matrix_add(std::move(res), a[i]);
+    ASSERT_EQ(res, *it);
+    ++it;
+  }
+  ASSERT_EQ(it, m.end());
+}
+
+TEST(TestDelayedScan, TestScanInclusiveNonConst) {
+  parlay::NonConstRange r(60001);
+  auto bid = parlay::block_iterable_wrapper(r);
+  auto m = parlay::delayed::scan_inclusive(bid);
+
+  ASSERT_EQ(m.size(), r.size());
+
+  auto it = m.begin();
+  int res = 0;
+  for (size_t i = 0; i < m.size(); i++) {
+    res += r[i];
     ASSERT_EQ(res, *it);
     ++it;
   }

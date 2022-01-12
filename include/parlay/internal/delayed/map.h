@@ -79,31 +79,32 @@ struct block_delayed_map_t :
   using iterator = iterator_t<false>;
   using const_iterator = iterator_t<true>;
 
-  constexpr static inline bool const_invocable = std::is_invocable_v<std::add_const_t<UnaryOperator>&,
-      range_reference_type_t<std::add_const_t<std::remove_reference_t<UnderlyingView>>>>;
+    // Returns the number of blocks
+  auto get_num_blocks() const { return num_blocks(base_view()); }
 
   // Disable the const-qualified overloads if the function is not able to be invoked
   // when the input is const, since their existence will cause errors otherwise
-#define PARLAY_NOCONST                                                            \
-  template<typename UV = UnderlyingView, typename = std::enable_if_t<             \
-     std::is_invocable_v<const UnaryOperator&, range_reference_type_t<            \
-      std::add_const_t<std::remove_reference_t<UV>>>>, UV>>
-
-  // Returns the number of blocks
-  auto get_num_blocks() const { return num_blocks(base_view()); }
 
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return iterator(begin_block(base_view(), i), op.get()); }
-  PARLAY_NOCONST auto get_begin_block(size_t i) const { return const_iterator(begin_block(base_view(), i), op.get()); }
+
+  template<typename UV = UnderlyingView, std::enable_if_t<is_range_const_transformable_v<UV, UnaryOperator>, int> = 0>
+  auto get_begin_block(size_t i) const { return const_iterator(begin_block(base_view(), i), op.get()); }
 
   auto get_end_block(size_t i) { return get_begin_block(i+1); }
-  PARLAY_NOCONST auto get_end_block(size_t i) const { return get_begin_block(i+1); }
+
+  template<typename UV = UnderlyingView, std::enable_if_t<is_range_const_transformable_v<UV, UnaryOperator>, int> = 0>
+  auto get_end_block(size_t i) const { return get_begin_block(i+1); }
 
   auto begin() { return get_begin_block(0); }
-  PARLAY_NOCONST auto begin() const { return get_begin_block(0); }
+
+  template<typename UV = UnderlyingView, std::enable_if_t<is_range_const_transformable_v<UV, UnaryOperator>, int> = 0>
+  auto begin() const { return get_begin_block(0); }
 
   auto end() { return get_begin_block(get_num_blocks()); }
-  PARLAY_NOCONST auto end() const { return get_begin_block(get_num_blocks()); }
+
+  template<typename UV = UnderlyingView, std::enable_if_t<is_range_const_transformable_v<UV, UnaryOperator>, int> = 0>
+  auto end() const { return get_begin_block(get_num_blocks()); }
 
   [[nodiscard]] size_t size() const { return base_view().size(); }
 

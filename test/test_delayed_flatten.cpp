@@ -348,6 +348,22 @@ TEST(TestDelayedFlatten, TestRadFlattenRvalueReferences) {
   }
 }
 
+TEST(TestDelayedFlatten, TestRadFlattenNoConst) {
+
+  auto seq = parlay::NestedNonConstRange(4001);
+
+  auto f = parlay::delayed::flatten(seq);
+
+  ASSERT_EQ(f.size(), 16008001);
+
+  auto it = f.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, i % 4001);
+    ++it;
+  }
+  ASSERT_EQ(it, f.end());
+}
+
 // ---------------------------------------------------------------------------------------
 //                                     BID VERSION
 // ---------------------------------------------------------------------------------------
@@ -669,4 +685,20 @@ TEST(TestDelayedFlatten, TestBidFlattenRvalueReferences) {
       ASSERT_TRUE(s[i][j].empty());
     }
   }
+}
+
+TEST(TestDelayedFlatten, TestBidFlattenNoConst) {
+  auto x = parlay::NestedNonConstRange(4001);
+  auto seq = parlay::block_iterable_wrapper(x);
+
+  auto f = parlay::delayed::flatten(seq);
+
+  ASSERT_EQ(f.size(), 16008001);
+
+  auto it = f.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, i % 4001);
+    ++it;
+  }
+  ASSERT_EQ(it, f.end());
 }

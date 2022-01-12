@@ -83,25 +83,29 @@ struct block_iterable_wrapper_t :
   template<typename U>
   block_iterable_wrapper_t(U&& v, std::true_type) : base(std::forward<U>(v)) {}
 
+  [[nodiscard]] size_t size() { return parlay::size(base_view()); }
+  template<typename UR = const std::remove_reference_t<UnderlyingRange>, std::enable_if_t<parlay::is_range_v<UR>, int> = 0>
   [[nodiscard]] size_t size() const { return parlay::size(base_view()); }
+
+  auto get_num_blocks() { return internal::delayed::num_blocks(base_view()); }
+  template<typename UR = const std::remove_reference_t<UnderlyingRange>, std::enable_if_t<parlay::is_range_v<UR>, int> = 0>
   auto get_num_blocks() const { return internal::delayed::num_blocks(base_view()); }
 
-  // Disable const overloads if the underlying range does not support const
-#define PARLAY_NOCONST                                                            \
-  template<typename UR = UnderlyingRange, typename = std::enable_if_t<            \
-     parlay::is_range_v<std::add_const_t<std::remove_reference_t<UR>>>, UR>>
-
   auto get_begin_block(size_t i) { return iterator(internal::delayed::begin_block(base_view(), i)); }
-  PARLAY_NOCONST auto get_begin_block(size_t i) const { return const_iterator(internal::delayed::begin_block(base_view(), i)); }
+  template<typename UR = const std::remove_reference_t<UnderlyingRange>, std::enable_if_t<parlay::is_range_v<UR>, int> = 0>
+  auto get_begin_block(size_t i) const { return const_iterator(internal::delayed::begin_block(base_view(), i)); }
 
   auto get_end_block(size_t i) { return get_begin_block(i + 1); }
-  PARLAY_NOCONST auto get_end_block(size_t i) const { return get_begin_block(i + 1); }
+  template<typename UR = const std::remove_reference_t<UnderlyingRange>, std::enable_if_t<parlay::is_range_v<UR>, int> = 0>
+  auto get_end_block(size_t i) const { return get_begin_block(i + 1); }
 
   auto begin() { return get_begin_block(0); }
-  PARLAY_NOCONST auto begin() const { return get_begin_block(0); }
+  template<typename UR = const std::remove_reference_t<UnderlyingRange>, std::enable_if_t<parlay::is_range_v<UR>, int> = 0>
+  auto begin() const { return get_begin_block(0); }
 
   auto end() { return get_begin_block(get_num_blocks()); }
-  PARLAY_NOCONST auto end() const { return get_begin_block(get_num_blocks()); }
+  template<typename UR = const std::remove_reference_t<UnderlyingRange>, std::enable_if_t<parlay::is_range_v<UR>, int> = 0>
+  auto end() const { return get_begin_block(get_num_blocks()); }
 
 #undef PARLAY_NOCONST
 };
@@ -125,7 +129,21 @@ struct NonConstRange {
   auto begin() { return v.begin(); }
   auto end() { return v.end(); }
   auto size() { return v.size(); }
+  decltype(auto) operator[](size_t i) { return v[i]; }
   std::vector<int> v;
+};
+
+struct NestedNonConstRange {
+  explicit NestedNonConstRange(size_t n) : v(n, NonConstRange(n)) {
+    for (auto& r : v) {
+      std::iota(r.begin(), r.end(), 0);
+    }
+  }
+  auto begin() { return v.begin(); }
+  auto end() { return v.end(); }
+  auto size() { return v.size(); }
+  decltype(auto) operator[](size_t i) { return v[i]; }
+  std::vector<NonConstRange> v;
 };
 
 static_assert(parlay::is_random_access_range_v<NonConstRange>);
