@@ -114,13 +114,15 @@ auto reduce(Range&& v, BinaryOperator&& f, T identity) {
   static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, T&&, T&&>, T>);
   static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, R, R>, T>);
 
-  return parlay::internal::reduce(parlay::internal::tabulate(num_blocks(v), [&](size_t i) {
+  auto block_sums = parlay::internal::tabulate(num_blocks(v), [&](size_t i) {
     T result = identity;
     for (auto it = begin_block(v, i); it != end_block(v, i); ++it) {
       result = f(std::move(result), *it);
     }
     return result;
-  }), parlay::make_monoid(std::forward<BinaryOperator>(f), std::move(identity)));
+  });
+  return parlay::internal::reduce(make_slice(block_sums),
+            parlay::make_monoid(std::forward<BinaryOperator>(f), std::move(identity)));
 }
 
 template<typename Range, typename BinaryOperator,

@@ -193,7 +193,7 @@ struct block_delayed_zip_map_t :
     }
 
     // Conversion from non-const iterator to const iterator
-    /* implicit */ /*iterator_t(const iterator_t<false>& other) : index(other.index), its(other.its) {}
+    iterator_t(const iterator_t<false>& other) : index(other.index), its(other.its) {}
 
     iterator_t() : its{} {}
 
