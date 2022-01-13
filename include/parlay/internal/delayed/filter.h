@@ -25,6 +25,9 @@ struct block_delayed_filter_t :
   using base = block_iterable_view_base<UnderlyingView, block_delayed_filter_t<UnderlyingView, UnaryPredicate>>;
   using base::base_view;
 
+  static_assert(is_block_iterable_range_v<UnderlyingView>);
+  static_assert(std::is_invocable_r_v<bool, UnaryPredicate, range_reference_type_t<UnderlyingView>>);
+
   using block_type = sequence<range_iterator_type_t<UnderlyingView>>;
   using block_result_type = sequence<block_type>;
   using flattener_type = block_delayed_flatten_t<block_result_type>;

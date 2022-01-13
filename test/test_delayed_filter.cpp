@@ -57,6 +57,18 @@ TEST(TestDelayedFilter, TestFilterEmpty) {
   ASSERT_EQ(s.size(), 0);
 }
 
+TEST(TestDelayedFilter, TestFilterAll) {
+  const auto seq = parlay::to_sequence(parlay::iota<int>(100000));
+  auto f = parlay::delayed::filter(seq, [](auto x) { return x >= 100000; });
+
+  ASSERT_EQ(f.size(), 0);
+  ASSERT_EQ(f.begin(), f.end());
+  ASSERT_EQ(f.get_num_blocks(), 0);
+
+  auto s = parlay::delayed::to_sequence(f);
+  ASSERT_EQ(s.size(), 0);
+}
+
 TEST(TestDelayedFilter, TestFilterSimple) {
   const auto seq = parlay::to_sequence(parlay::iota<int>(100000));
   auto f = parlay::delayed::filter(seq, [](auto x) { return x % 2 == 0; });

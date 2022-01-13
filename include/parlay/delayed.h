@@ -1,8 +1,9 @@
 
-#ifndef PARLAY_DELAYED_VIEWS_H_
-#define PARLAY_DELAYED_VIEWS_H_
+#ifndef PARLAY_DELAYED_H_
+#define PARLAY_DELAYED_H_
 
 #include "internal/delayed/filter.h"
+#include "internal/delayed/filter_op.h"
 #include "internal/delayed/flatten.h"
 #include "internal/delayed/map.h"
 #include "internal/delayed/scan.h"
@@ -13,6 +14,7 @@ namespace parlay {
 namespace delayed {
 
 using ::parlay::internal::delayed::to_sequence;
+using ::parlay::internal::delayed::reduce;
 
 using ::parlay::internal::delayed::map;
 
@@ -21,14 +23,14 @@ using ::parlay::internal::delayed::flatten;
 using ::parlay::internal::delayed::zip;
 
 using ::parlay::internal::delayed::scan;
-
 using ::parlay::internal::delayed::scan_inclusive;
-
-using ::parlay::internal::delayed::reduce;
 
 using ::parlay::internal::delayed::filter;
 
+using ::parlay::internal::delayed::filter_op;
+using ::parlay::internal::delayed::map_maybe;
+
 }
 }
 
-#endif  // PARLAY_DELAYED_VIEWS_H_
+#endif  // PARLAY_DELAYED_H_

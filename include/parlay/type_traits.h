@@ -46,6 +46,17 @@ struct maybe_const {
 template<bool Const, typename T>
 using maybe_const_t = typename maybe_const<Const, T>::type;
 
+// Provides the member value true if the given type is an instance of std::optional
+template <typename T>
+struct is_optional : std::false_type {};
+
+template <typename T>
+struct is_optional<std::optional<T>> : std::true_type {};
+
+// true if the given type is an instance of std::optional
+template<typename T>
+inline constexpr bool is_optional_v = is_optional<T>::value;
+
 /*  --------------------- Priority tags. -------------------------
     Priority tags are an easy way to force template resolution to
     pick the "best" option in the presence of multiple valid

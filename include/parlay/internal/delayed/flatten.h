@@ -238,18 +238,18 @@ struct block_delayed_flatten_copy_t : public block_iterable_view_base<void, bloc
 
   template<typename UV>
   block_delayed_flatten_copy_t(UV&& v, int) : base(),
-      data(parlay::internal::delayed::to_sequence(std::forward<UV>(v))), flattener(data, 0) {
+      data(parlay::internal::delayed::to_sequence(std::forward<UV>(v))), result(data, 0) {
 
   }
 
   // Returns the number of blocks
-  auto get_num_blocks() const { return flattener.get_num_blocks(); }
+  auto get_num_blocks() const { return result.get_num_blocks(); }
 
   // Return an iterator pointing to the beginning of block i
-  auto get_begin_block(size_t i) { return flattener.get_begin_block(i); }
+  auto get_begin_block(size_t i) { return result.get_begin_block(i); }
 
   template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
-  auto get_begin_block(size_t i) const { return flattener.get_begin_block(i); }
+  auto get_begin_block(size_t i) const { return result.get_begin_block(i); }
 
   auto get_end_block(size_t i) { return get_begin_block(i+1); }
 
@@ -266,11 +266,11 @@ struct block_delayed_flatten_copy_t : public block_iterable_view_base<void, bloc
   template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
   auto end() const { return get_begin_block(get_num_blocks()); }
 
-  [[nodiscard]] size_t size() const { return flattener.size(); }
+  [[nodiscard]] size_t size() const { return result.size(); }
 
  private:
   sequence<inner_sequence_type> data;
-  flattener_type flattener;
+  flattener_type result;
 };
 
 template<typename UnderlyingView,
