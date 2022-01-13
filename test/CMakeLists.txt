@@ -16,6 +16,7 @@ add_dtests(NAME test_hash_table FILES test_hash_table.cpp LIBS parlay)
 add_dtests(NAME test_delayed_map FILES test_delayed_map.cpp LIBS parlay)
 add_dtests(NAME test_delayed_reduce FILES test_delayed_reduce.cpp LIBS parlay)
 add_dtests(NAME test_delayed_scan FILES test_delayed_scan.cpp LIBS parlay)
+add_dtests(NAME test_delayed_filter FILES test_delayed_filter.cpp LIBS parlay)
 add_dtests(NAME test_delayed_flatten FILES test_delayed_flatten.cpp LIBS parlay)
 add_dtests(NAME test_delayed_zip FILES test_delayed_zip.cpp LIBS parlay)
 

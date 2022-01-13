@@ -1,5 +1,5 @@
-#ifndef PARLAY_INTERNAL_DELAYED_FILTER_H_
-#define PARLAY_INTERNAL_DELAYED_FILTER_H_
+#ifndef PARLAY_INTERNAL_DELAYED_FLATTEN_H_
+#define PARLAY_INTERNAL_DELAYED_FLATTEN_H_
 
 #include <cstddef>
 
@@ -245,24 +245,26 @@ struct block_delayed_flatten_copy_t : public block_iterable_view_base<void, bloc
   // Returns the number of blocks
   auto get_num_blocks() const { return flattener.get_num_blocks(); }
 
-
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return flattener.get_begin_block(i); }
+
   template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
   auto get_begin_block(size_t i) const { return flattener.get_begin_block(i); }
 
   auto get_end_block(size_t i) { return get_begin_block(i+1); }
+
   template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
   auto get_end_block(size_t i) const { return get_begin_block(i+1); }
 
   auto begin() { return get_begin_block(0); }
+
   template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
   auto begin() const { return get_begin_block(0); }
 
   auto end() { return get_begin_block(get_num_blocks()); }
+
   template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
   auto end() const { return get_begin_block(get_num_blocks()); }
-
 
   [[nodiscard]] size_t size() const { return flattener.size(); }
 
@@ -287,4 +289,4 @@ auto flatten(UnderlyingView&& v) {
 }  // namespace internal
 }  // namespace parlay
 
-#endif  // PARLAY_INTERNAL_DELAYED_FILTER_H_
+#endif  // PARLAY_INTERNAL_DELAYED_FLATTEN_H_

@@ -106,14 +106,17 @@ struct block_delayed_zip_t : public block_iterable_view_base<void, block_delayed
   }
 
   auto get_end_block(size_t i) { return get_begin_block(i+1); }
+
   template<typename D = int, std::enable_if_t<(is_range_v<const std::remove_reference_t<UnderlyingViews>> && ...), D> = 0>
   auto get_end_block(size_t i) const { return get_begin_block(i+1); }
 
   auto begin() { return get_begin_block(0); }
+
   template<typename D = int, std::enable_if_t<(is_range_v<const std::remove_reference_t<UnderlyingViews>> && ...), D> = 0>
   auto begin() const { return get_begin_block(0); }
 
   auto end() { return get_begin_block(get_num_blocks()); }
+
   template<typename D = int, std::enable_if_t<(is_range_v<const std::remove_reference_t<UnderlyingViews>> && ...), D> = 0>
   auto end() const { return get_begin_block(get_num_blocks()); }
 

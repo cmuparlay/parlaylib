@@ -88,18 +88,22 @@ struct block_delayed_map_t :
 
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return iterator(begin_block(base_view(), i), op.get()); }
+
   template<typename UV = UnderlyingView, std::enable_if_t<is_range_const_transformable_v<UV, UnaryOperator>, int> = 0>
   auto get_begin_block(size_t i) const { return const_iterator(begin_block(base_view(), i), op.get()); }
 
   auto get_end_block(size_t i) { return get_begin_block(i+1); }
+
   template<typename UV = UnderlyingView, std::enable_if_t<is_range_const_transformable_v<UV, UnaryOperator>, int> = 0>
   auto get_end_block(size_t i) const { return get_begin_block(i+1); }
 
   auto begin() { return get_begin_block(0); }
+
   template<typename UV = UnderlyingView, std::enable_if_t<is_range_const_transformable_v<UV, UnaryOperator>, int> = 0>
   auto begin() const { return get_begin_block(0); }
 
   auto end() { return get_begin_block(get_num_blocks()); }
+
   template<typename UV = UnderlyingView, std::enable_if_t<is_range_const_transformable_v<UV, UnaryOperator>, int> = 0>
   auto end() const { return get_begin_block(get_num_blocks()); }
 

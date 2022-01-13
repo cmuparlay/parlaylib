@@ -229,7 +229,7 @@ TEST(TestDelayedMap, TestBidMapMoveRvalueRef) {
 
   // Map the contents of s to rvalue references => they should be moved into the copy
   auto m = parlay::delayed::map(bid, [](std::vector<int>& x) -> std::vector<int>&& { return std::move(x); });
-  //static_assert(std::is_same_v<parlay::range_reference_type_t<decltype((m))>, std::vector<int>&&>);
+  static_assert(std::is_same_v<parlay::range_reference_type_t<decltype((m))>, std::vector<int>&&>);
   static_assert(parlay::is_block_iterable_range_v<decltype((m))>);
   auto seq = parlay::delayed::to_sequence<std::vector<int>>(m);
 

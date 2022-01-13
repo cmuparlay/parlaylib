@@ -38,6 +38,12 @@ struct is_range_const_transformable<Range_, UnaryOperator_, std::void_t<
 template<typename UV, typename UO>
 static inline constexpr bool is_range_const_transformable_v = is_range_const_transformable<UV,UO>::value;
 
+// Helper functional that dereferences an indirectly readable object
+// (iterator/pointer/optional/etc) passed to it
+struct dereference {
+  template<typename IndirectlyReadable>
+  decltype(auto) operator()(IndirectlyReadable&& it) const { return *it; }
+};
 
 // ----------------------------------------------------------------------------
 //            Block-iterable interface for random-access ranges
