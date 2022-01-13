@@ -139,6 +139,31 @@ auto reduce(Range&& v) {
   return reduce(std::forward<Range>(v), std::plus<>{}, range_value_type_t<Range>{});
 }
 
+// ----------------------------------------------------------------------------
+//                              For each / apply
+// ----------------------------------------------------------------------------
+
+template<typename Range,  typename UnaryFunction,
+  std::enable_if_t<is_random_access_range_v<Range>, int> = 0>
+void for_each(Range&& v, UnaryFunction&& f) {
+  static_assert(std::is_invocable_v<UnaryFunction, range_reference_type_t<Range>>);
+  parallel_for(0, size(v), [it = std::begin(v), &f](size_t i) {
+    f(it[i]);
+  });
+}
+
+template<typename Range, typename UnaryFunction,
+  std::enable_if_t<!is_random_access_range_v<Range> &&
+                    is_block_iterable_range_v<Range>, int> = 0>
+void for_each(Range&& v, UnaryFunction&& f) {
+  static_assert(std::is_invocable_v<UnaryFunction, range_reference_type_t<Range>>);
+  parallel_for(0, num_blocks(v), [&](size_t i) {
+    for (auto it = begin_block(v, i); it != end_block(v, i); ++it) {
+      f(*it);
+    }
+  });
+}
+
 }  // namespace delayed
 }  // namespace internal
 }  // namespace parlay

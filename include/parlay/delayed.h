@@ -30,6 +30,8 @@ using ::parlay::internal::delayed::filter;
 using ::parlay::internal::delayed::filter_op;
 using ::parlay::internal::delayed::map_maybe;
 
+using ::parlay::internal::delayed::for_each;
+
 }
 }
 

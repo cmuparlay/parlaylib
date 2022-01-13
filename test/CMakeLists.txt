@@ -19,6 +19,7 @@ add_dtests(NAME test_delayed_scan FILES test_delayed_scan.cpp LIBS parlay)
 add_dtests(NAME test_delayed_filter FILES test_delayed_filter.cpp LIBS parlay)
 add_dtests(NAME test_delayed_filter_op FILES test_delayed_filter_op.cpp LIBS parlay)
 add_dtests(NAME test_delayed_flatten FILES test_delayed_flatten.cpp LIBS parlay)
+add_dtests(NAME test_delayed_for_each FILES test_delayed_for_each.cpp LIBS parlay)
 add_dtests(NAME test_delayed_zip FILES test_delayed_zip.cpp LIBS parlay)
 
 # ----------------------------- Sorting Algorithms ------------------------------
