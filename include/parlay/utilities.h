@@ -16,6 +16,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "portability.h"
 #include "parallel.h"
 #include "range.h"           // IWYU pragma: keep
 #include "type_traits.h"
@@ -182,13 +183,15 @@ inline size_t granularity(size_t n) {
   return (n > 100) ? static_cast<size_t>(std::ceil(std::sqrt(n))) : 100;
 }
 
-/*  A copyable_function_wrapper allows an object to store a function (e.g., a lambda,
-    or any callable object) as a member while still being default copy-assignable.
-    As long as the function type is copy constructible (which it needs to be in
-    order to event initialize the member), this wrapper will be copy assignable.
- */
+//  A copyable_function_wrapper allows an object to store a function (e.g., a lambda,
+//  or any callable object) as a member while still being default copy-assignable.
+//
+//  As long as the function type is copy constructible (which it needs to be in
+//  order to event initialize the member), this wrapper will be copy assignable.
 template<typename F>
 struct copyable_function_wrapper {
+
+  static_assert(std::is_copy_constructible_v<F>);
 
   explicit copyable_function_wrapper(F _f) : f(std::move(_f)) {}
 
@@ -219,18 +222,29 @@ struct copyable_function_wrapper {
     return *this;
   }
 
+  ~copyable_function_wrapper() = default;
+
   template<typename... Args>
-  decltype(auto) operator()(Args&&... args) const {
+  PARLAY_INLINE decltype(auto) operator()(Args&&... args) const noexcept(std::is_nothrow_invocable_v<F, Args...>) {
+    static_assert(std::is_invocable_v<F, Args...>);
     return std::invoke(f, std::forward<Args>(args)...);
+  }
+
+  // Overload the call operator for when the argument is just a size_t. This should in theory make
+  // absolutely no difference compared to the template whatsoever but for some reason it's faster???
+  PARLAY_INLINE decltype(auto) operator()(size_t i) const noexcept(std::is_nothrow_invocable_v<F, size_t>) {
+    static_assert(std::is_invocable_v<F, size_t>);
+    return std::invoke(f, i);
   }
 
   F* get() { return std::addressof(f); }
   const F* get() const { return std::addressof(f); }
 
-  ~copyable_function_wrapper() = default;
-
+ private:
   F f;
 };
+
+
 
 /* Relocation (a.k.a. "destructive move")
 
