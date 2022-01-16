@@ -13,6 +13,14 @@ namespace parlay {
 #define PARLAY_INLINE inline
 #endif
 
+// PARLAY_PACKED: Ask the compiler to pack a struct into less memory by not padding
+#if defined(__GNUC__)
+#define PARLAY_PACKED __attribute__((packed))
+#else
+#define PARLAY_PACKED
+#endif
+
+
 }  // namespace parlay
 
 #endif  // PARLAY_PORTABILITY_H_
