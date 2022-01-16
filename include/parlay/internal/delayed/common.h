@@ -38,15 +38,28 @@ struct is_range_const_transformable<Range_, UnaryOperator_, std::void_t<
 template<typename UV, typename UO>
 static inline constexpr bool is_range_const_transformable_v = is_range_const_transformable<UV,UO>::value;
 
+// Defines the member value true if the given type implements get_begin_block(size_t)
+template<typename T, typename = std::void_t<>>
+struct has_begin_block : public std::false_type {};
+
+template<typename T>
+struct has_begin_block<T, std::void_t<
+  decltype( std::declval<T&>().get_begin_block(std::declval<size_t>()) )
+>> : public std::true_type {};
+
+// True if the given type implements get_begin_block(size_t)
+template<typename T>
+inline constexpr bool has_begin_block_v = has_begin_block<T>::value;
+
 // Helper functional that dereferences an indirectly readable object
 // (iterator/pointer/optional/etc) passed to it
 struct dereference {
   template<typename IndirectlyReadable>
-  decltype(auto) operator()(IndirectlyReadable&& it) const { return *it; }
+  decltype(auto) operator()(IndirectlyReadable&& it) const { return *std::forward<IndirectlyReadable>(it); }
 };
 
 // ----------------------------------------------------------------------------
-//            Block-iterable interface for random-access ranges
+//                        Block-iterable range parameters
 // ----------------------------------------------------------------------------
 
 // Default block size to use for block-iterable sequences
@@ -57,7 +70,7 @@ inline constexpr size_t num_blocks_from_size(size_t n) {
 }
 
 // ----------------------------------------------------------------------------
-//            Block-iterable interface for random-access ranges
+//              Block-iterable interface for random-access ranges
 // ----------------------------------------------------------------------------
 
 template<typename Range,
@@ -143,24 +156,68 @@ struct block_iterable_view_base_data<void> { };
 
 // This base class helps to implement block-iterable delayed views.
 //
-// If the underlying view is a reference type, then it is wrapped in a reference_wrapper
-// so that the resulting view type is still copy-assignable. If the underlying view is
-// not a reference type, then it is just stored as a value member as usual.
+// The parent class must implement get_begin_block(size_t), which, given an index i,
+// returns an iterator to the beginning of block i, and get_num_blocks(), which returns
+// the number of blocks in the range. Note, importantly, that begin_begin_block(n)
+// for n = get_num_blocks() should be valid and return an end iterator for the range.
+//
+// The base class will take care of implementing:
+//
+//  Method            |  Equivalent to
+//  ----------------------------------------------------------
+//  get_end_block(i)  |  get_begin_block(i+1)
+//  begin()           |  get_begin_block(0)
+//  end()             |  get_begin_block(get_num_blocks())
+//
+// If the parent class implements a const overload of get_begin_block, then const
+// overloads of these methods will also be present. Else, they will be disabled.
+//
+// The base class also helps to store the base view. If the underlying (base) view is
+// a reference type, then it is wrapped in a reference_wrapper so that the parent
+// view type is still copy-assignable. If the underlying view is not a reference type,
+// then it is just stored as a value member.
 //
 // If the underlying view is void, then no extra data member is stored. This is useful
-// if the view is actually going to move/copy the underlying data and store it itself
+// if the view is actually going to move/copy the underlying data and store it itself.
 //
 // Template arguments:
 //  UnderlyingView: the type of the underlying view that is being transformed
-//  ParentBidView: the type of the parent view class (i.e., the class that is deriving from this one - CRTP style)
-template<typename UnderlyingView, typename ParentBidView>
+//  Parent: the type of the parent view class (CRTP)
+template<typename UnderlyingView, typename Parent>
 struct block_iterable_view_base : public block_iterable_view_base_data<UnderlyingView> {
+ public:
+
+  // Returns an interator pointing to the end of block i
+  auto get_end_block(size_t i) { return parent()->get_begin_block(i+1); }
+
+  // Returns an interator pointing to the end of block i
+  template<typename P = const Parent, std::enable_if_t<has_begin_block_v<P>, int> = 0>
+  auto get_end_block(size_t i) const { return parent()->get_begin_block(i+1); }
+
+  // Returns an iterator pointing to the first element of the range
+  auto begin() { return parent()->get_begin_block(0); }
+
+  // Returns an iterator pointing to the first element of the range
+  template<typename P = const Parent, std::enable_if_t<has_begin_block_v<P>, int> = 0>
+  auto begin() const { return parent()->get_begin_block(0); }
+
+  // Returns an iterator pointing to the end of the range
+  auto end() { return parent()->get_begin_block(parent()->get_num_blocks()); }
+
+  // Returns an iterator pointing to the end of the range
+  template<typename P = const Parent, std::enable_if_t<has_begin_block_v<P>, int> = 0>
+  auto end() const { return parent()->get_begin_block(parent()->get_num_blocks()); }
+
  protected:
   block_iterable_view_base() = default;
 
   template<typename... UV>
   explicit block_iterable_view_base(UV&&... v)
     : block_iterable_view_base_data<UnderlyingView>(std::forward<UV>(v)...) { }
+
+ private:
+  Parent* parent() { return static_cast<Parent*>(this); }
+  const Parent* parent() const { return static_cast<const Parent*>(this); }
 };
 
 

@@ -77,11 +77,11 @@ TEST(TestDelayedFilterOp, TestFilterOpSimple) {
   auto answer = parlay::map(parlay::iota(50000), [](int x) { return 2*x; });
 
   ASSERT_EQ(f.size(), 50000);
-  ASSERT_TRUE(std::equal(std::begin(f), std::end(f), std::begin(answer)));
+  ASSERT_TRUE(std::equal(f.begin(), f.end(), answer.begin()));
 
   auto s = parlay::delayed::to_sequence(f);
   ASSERT_EQ(s.size(), f.size());
-  ASSERT_TRUE(std::equal(std::begin(s), std::end(s), std::begin(answer)));
+  ASSERT_TRUE(std::equal(s.begin(), s.end(), answer.begin()));
 }
 
 TEST(TestDelayedFilterOp, TestFilterOpConst) {
@@ -91,11 +91,11 @@ TEST(TestDelayedFilterOp, TestFilterOpConst) {
   auto answer = parlay::map(parlay::iota(50000), [](int x) { return 2*x; });
 
   ASSERT_EQ(f.size(), 50000);
-  ASSERT_TRUE(std::equal(std::begin(f), std::end(f), std::begin(answer)));
+  ASSERT_TRUE(std::equal(f.begin(), f.end(), answer.begin()));
 
   auto s = parlay::delayed::to_sequence(f);
   ASSERT_EQ(s.size(), f.size());
-  ASSERT_TRUE(std::equal(std::begin(s), std::end(s), std::begin(answer)));
+  ASSERT_TRUE(std::equal(s.begin(), s.end(), answer.begin()));
 }
 
 TEST(TestDelayedFilterOp, TestFilterOpNonConst) {
@@ -105,11 +105,11 @@ TEST(TestDelayedFilterOp, TestFilterOpNonConst) {
   auto answer = parlay::map(parlay::iota(50000), [](int x) { return 2*x; });
 
   ASSERT_EQ(f.size(), 50000);
-  ASSERT_TRUE(std::equal(std::begin(f), std::end(f), std::begin(answer)));
+  ASSERT_TRUE(std::equal(f.begin(), f.end(), answer.begin()));
 
   auto s = parlay::delayed::to_sequence(f);
   ASSERT_EQ(s.size(), f.size());
-  ASSERT_TRUE(std::equal(std::begin(s), std::end(s), std::begin(answer)));
+  ASSERT_TRUE(std::equal(s.begin(), s.end(), answer.begin()));
 }
 
 TEST(TestDelayedFilterOp, TestFilterOpMutable) {
@@ -119,7 +119,7 @@ TEST(TestDelayedFilterOp, TestFilterOpMutable) {
   auto answer = parlay::map(parlay::iota(50000), [](int x) { return 2*x; });
 
   ASSERT_EQ(f.size(), 50000);
-  ASSERT_TRUE(std::equal(std::begin(f), std::end(f), std::begin(answer)));
+  ASSERT_TRUE(std::equal(f.begin(), f.end(), answer.begin()));
 
   for (int& x : f) {
     x++;
@@ -137,7 +137,7 @@ TEST(TestDelayedFilterOp, TestFilterOpOwningMutable) {
   auto answer = parlay::map(parlay::iota(50000), [](int x) { return 2*x; });
 
   ASSERT_EQ(f.size(), 50000);
-  ASSERT_TRUE(std::equal(std::begin(f), std::end(f), std::begin(answer)));
+  ASSERT_TRUE(std::equal(f.begin(), f.end(), answer.begin()));
 
   for (int& x : f) {
     x++;
@@ -155,11 +155,11 @@ TEST(TestDelayedFilterOp, TestFilterOpTemporaries) {
   auto answer = parlay::map(parlay::iota(50000), [](int x) { return 2*x; });
 
   ASSERT_EQ(f.size(), 50000);
-  ASSERT_TRUE(std::equal(std::begin(f), std::end(f), std::begin(answer)));
+  ASSERT_TRUE(std::equal(f.begin(), f.end(), answer.begin()));
 
   auto s = parlay::delayed::to_sequence(f);
   ASSERT_EQ(s.size(), f.size());
-  ASSERT_TRUE(std::equal(std::begin(s), std::end(s), std::begin(answer)));
+  ASSERT_TRUE(std::equal(s.begin(), s.end(), answer.begin()));
 }
 
 TEST(TestDelayedFilterOp, TestFilterOpNonTrivialTemporaries) {

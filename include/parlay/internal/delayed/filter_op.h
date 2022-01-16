@@ -49,23 +49,17 @@ struct block_delayed_filter_op_t :
 
   }
 
-  // Returns the number of blocks
+  // Returns the number of elements in the resulting range
+  [[nodiscard]] size_t size() const { return result.size(); }
+
+  // Returns the number of blocks in the resulting range
   auto get_num_blocks() const { return result.get_num_blocks(); }
 
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return result.get_begin_block(i); }
+
+  // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) const { return result.get_begin_block(i); }
-
-  auto get_end_block(size_t i) { return get_begin_block(i+1); }
-  auto get_end_block(size_t i) const { return get_begin_block(i+1); }
-
-  auto begin() { return get_begin_block(0); }
-  auto begin() const { return get_begin_block(0); }
-
-  auto end() { return get_begin_block(get_num_blocks()); }
-  auto end() const { return get_begin_block(get_num_blocks()); }
-
-  [[nodiscard]] size_t size() const { return result.size(); }
 
  private:
   template<typename UV, typename UP>

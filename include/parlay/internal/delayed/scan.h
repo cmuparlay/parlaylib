@@ -51,7 +51,7 @@ struct block_delayed_scan_t :
 
   template<typename UV>
   block_delayed_scan_t(UV&& v, BinaryOperator f, T identity)
-      : base(std::forward<UV>(v)), op(std::move(f)), total(identity) {
+      : base(std::forward<UV>(v)), total(identity), op(std::move(f)) {
 
     size_t n_blocks = num_blocks(base_view());
 
@@ -137,36 +137,23 @@ struct block_delayed_scan_t :
   template<typename U = T, typename = std::enable_if_t<!Inclusive, U>>
   auto get_total() const { return total; }
 
-  // Returns the number of blocks
+  // Returns the number of elements in the range
+  [[nodiscard]] size_t size() const { return base_view().size(); }
+
+  // Returns the number of blocks in the range
   auto get_num_blocks() const { return num_blocks(base_view()); }
 
   // Return an iterator pointing to the beginning of block i
   auto get_begin_block(size_t i) { return iterator(block_sums[i], begin_block(base_view(), i), this); }
 
+  // Return an iterator pointing to the beginning of block i
   template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
   auto get_begin_block(size_t i) const { return const_iterator(block_sums[i], begin_block(base_view(), i), this); }
 
-  auto get_end_block(size_t i) { return get_begin_block(i+1); }
-
-  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
-  auto get_end_block(size_t i) const { return get_begin_block(i+1); }
-
-  auto begin() { return get_begin_block(0); }
-
-  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
-  auto begin() const { return get_begin_block(0); }
-
-  auto end() { return get_begin_block(get_num_blocks()); }
-
-  template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
-  auto end() const { return get_begin_block(get_num_blocks()); }
-
-  [[nodiscard]] size_t size() const { return base_view().size(); }
-
  private:
-  copyable_function_wrapper<BinaryOperator> op;
   T total;
   sequence<T> block_sums;
+  copyable_function_wrapper<BinaryOperator> op;
 };
 
 template<typename T, typename UnderlyingView, typename BinaryOperator>
