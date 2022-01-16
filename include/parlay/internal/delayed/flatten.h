@@ -102,7 +102,8 @@ struct block_delayed_flatten_t :
           auto outer_it = begin_block(base_view(), i);
           std::advance(outer_it, outer_idx - block_start);
 
-          for (; outer_it != end_block(base_view(), i) && out_block_id < out_block_offsets.size() &&
+          auto outer_end = end_block(base_view(), i);
+          for (; outer_it != outer_end && out_block_id < out_block_offsets.size() &&
                  out_block_offsets[out_block_id] < block_end; ++outer_it, ++outer_idx) {
             for (; out_block_id < out_block_offsets.size() && out_block_offsets[out_block_id] == outer_idx;
                    ++out_block_id) {

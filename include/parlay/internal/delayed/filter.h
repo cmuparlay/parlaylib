@@ -8,6 +8,7 @@
 #include "../../utilities.h"
 
 #include "../sequence_ops.h"
+#include "../uninitialized_sequence.h"
 
 #include "common.h"
 #include "flatten.h"
@@ -63,14 +64,19 @@ struct block_delayed_filter_t :
 
  private:
   template<typename UV, typename UP>
-  block_result_type filter_blocks(UV&& v, UP&& p) {
-    return parlay::internal::tabulate(num_blocks(v), [&](size_t i) -> block_type {
-      block_type res;
-      for (auto it = begin_block(v, i); it != end_block(v, i); ++it) {
+  auto filter_blocks(UV&& v, UP&& p) {
+    size_t temp_size = (std::min)(parlay::size(v), block_size);
+    return parlay::internal::tabulate(num_blocks(v), [&](size_t i) {
+      parlay::internal::uninitialized_sequence<range_iterator_type_t<UV>> temp(temp_size);
+      size_t n = 0;
+      auto it = begin_block(v, i), end = end_block(v, i);
+      for (; it != end; ++it) {
         if (p(*it)) {
-          res.emplace_back(std::move(it));
+          assign_uninitialized(temp[n++], it);
         }
       }
+      auto res = sequence<range_iterator_type_t<UV>>::uninitialized(n);
+      uninitialized_relocate_n(res.begin(), temp.begin(), n);
       return res;
     });
   }

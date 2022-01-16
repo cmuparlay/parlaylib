@@ -59,7 +59,8 @@ struct block_delayed_scan_t :
       block_sums = parlay::internal::tabulate(n_blocks+1, [&](size_t i) {
         T result = identity;
         if (i == n_blocks) return result;
-        for (auto it = begin_block(base_view(), i); it != end_block(base_view(), i); ++it) {
+        auto it = begin_block(base_view(), i), end = end_block(base_view(), i);
+        for (; it != end; ++it) {
           result = op(std::move(result), *it);
         }
         return result;
