@@ -61,18 +61,22 @@ struct block_delayed_filter_t :
   auto filter_blocks(UV&& v, UP&& p) {
     size_t temp_size = (std::min)(parlay::size(v), block_size);
     return parlay::internal::tabulate(num_blocks(v), [&](size_t i) {
-      parlay::internal::uninitialized_sequence<range_iterator_type_t<UV>> temp(temp_size);
-      size_t n = 0;
-      auto it = begin_block(v, i), end = end_block(v, i);
-      for (; it != end; ++it) {
-        if (p(*it)) {
-          assign_uninitialized(temp[n++], it);
-        }
-      }
-      auto res = sequence<range_iterator_type_t<UV>>::uninitialized(n);
-      uninitialized_relocate_n(res.begin(), temp.begin(), n);
-      return res;
+      return filter_block(begin_block(v, i), end_block(v, i), p, temp_size);
     });
+  }
+
+  template<typename It, typename UP>
+  auto filter_block(It first, It last, UP&& p, size_t size) {
+    parlay::internal::uninitialized_sequence<It> temp(size);
+    size_t n = 0;
+    for (; first != last; ++first) {
+      if (p(*first)) {
+        assign_uninitialized(temp[n++], first);
+      }
+    }
+    auto res = sequence<It>::uninitialized(n);
+    uninitialized_relocate_n(res.begin(), temp.begin(), n);
+    return res;
   }
 
   mapper_type result;

@@ -149,7 +149,7 @@ struct block_delayed_flatten_t :
       ++inner_it;
 
       while (inner_it == std::end(*outer_it)) {          // while loop instead of if in case of empty inner sequences
-        if (++outer_it == std::end(*base_view)) {
+        if (++outer_it == end_base) {
           inner_it = {};
           return *this;
         }
@@ -170,19 +170,19 @@ struct block_delayed_flatten_t :
 
     // Conversion from non-const iterator to const iterator
     /* implicit */ iterator_t(const iterator_t<false>& other)
-        : outer_it(other.outer_it), inner_it(other.inner_it), base_view(other.base_view) {}
+        : outer_it(other.outer_it), inner_it(other.inner_it), end_base(other.end_base) {}
 
-    iterator_t() : outer_it{}, inner_it{}, base_view(nullptr) {}
+    iterator_t() : outer_it{}, inner_it{}, end_base{} {}
 
    private:
     friend parent_type;
 
-    iterator_t(outer_iterator_type outer_it_, inner_iterator_type inner_it_, base_view_ptr base_view_)
-        : outer_it(std::move(outer_it_)), inner_it(std::move(inner_it_)), base_view(base_view_) {}
+    iterator_t(outer_iterator_type outer_it_, inner_iterator_type inner_it_, outer_iterator_type end_base_)
+        : outer_it(std::move(outer_it_)), inner_it(std::move(inner_it_)), end_base(end_base_) {}
 
     outer_iterator_type outer_it;
     inner_iterator_type inner_it;
-    base_view_ptr base_view;
+    outer_iterator_type end_base;
   };
 
   using iterator = iterator_t<false>;
@@ -195,11 +195,11 @@ struct block_delayed_flatten_t :
   auto get_num_blocks() const { return n_blocks; }
 
   // Return an iterator pointing to the beginning of block i
-  auto get_begin_block(size_t i) { return iterator(outer_starts[i], inner_starts[i], std::addressof(base_view())); }
+  auto get_begin_block(size_t i) { return iterator(outer_starts[i], inner_starts[i], std::end(base_view())); }
 
   // Return an iterator pointing to the beginning of block i
   template<typename UV = const std::remove_reference_t<UnderlyingView>, std::enable_if_t<is_range_v<UV>, int> = 0>
-  auto get_begin_block(size_t i) const { return const_iterator(outer_starts[i], inner_starts[i], std::addressof(base_view())); }
+  auto get_begin_block(size_t i) const { return const_iterator(outer_starts[i], inner_starts[i], std::end(base_view())); }
 
  private:
   size_t n_blocks, n_elements;

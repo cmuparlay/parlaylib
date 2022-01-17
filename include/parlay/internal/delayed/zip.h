@@ -58,7 +58,7 @@ struct block_delayed_zip_t : public block_iterable_view_base<void, block_delayed
     using pointer = void;
 
     reference operator*() const {
-      return std::apply([](auto&&... it) { return reference{std::forward<decltype(*it)>(*it)...}; }, its);
+      return std::apply([](auto&&... it) { return reference{(*it)...}; }, its);
     }
 
     iterator_t& operator++() { index++; std::apply([](auto&... it) { (++it, ...); }, its); return *this; }

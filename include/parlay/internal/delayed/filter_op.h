@@ -67,24 +67,24 @@ struct block_delayed_filter_op_t :
     size_t temp_size = (std::min)(parlay::size(v), block_size);
     return parlay::internal::tabulate(num_blocks(v), [&](size_t i) {
       // Note: For some reason, inlining this code results in a performance
-      // decrease!! Calling a seperate function here is 2% faster (on GCC 9)
+      // decrease!! Calling a separate function here is 2% faster (on GCC 9)
       return filter_block(begin_block(v,i), end_block(v,i), p, temp_size);
     });
   }
 
   template<typename It, typename UP>
   auto filter_block(It first, It last, UP&& p, size_t size) {
-      parlay::internal::uninitialized_sequence<result_type> temp(size);
-      size_t n = 0;
-      for (; first != last; ++first) {
-        auto opt = p(*first);
-        if (opt.has_value()) {
-          assign_uninitialized(temp[n++], std::move(*opt));
-        }
+    parlay::internal::uninitialized_sequence<result_type> temp(size);
+    size_t n = 0;
+    for (; first != last; ++first) {
+      auto opt = p(*first);
+      if (opt.has_value()) {
+        assign_uninitialized(temp[n++], std::move(*opt));
       }
-      auto res = sequence<result_type>::uninitialized(n);
-      uninitialized_relocate_n(res.begin(), temp.begin(), n);
-      return res;
+    }
+    auto res = sequence<result_type>::uninitialized(n);
+    uninitialized_relocate_n(res.begin(), temp.begin(), n);
+    return res;
   }
 
   flattener_type result;
