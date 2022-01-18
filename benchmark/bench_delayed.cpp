@@ -254,8 +254,6 @@ cutInfo bestCut(parlay::sequence<event> const &E, range r, range r1, range r2) {
   return cutInfo(cost, E[i].v, ln, rn);
 }
 
-
-
 static void bench_bestcut(benchmark::State& state) {
   size_t n = state.range(0);
 

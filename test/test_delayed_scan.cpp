@@ -359,10 +359,12 @@ TEST(TestDelayedScan, TestScanCustomType) {
     return m;
   });
 
-  const auto bid = parlay::block_iterable_wrapper(a);
-  auto [m, total] = parlay::delayed::scan(bid, parlay::matrix_add<3>, parlay::BasicMatrix<int,3>::zero());
+  auto add = [](auto&& x, auto&& y) { return parlay::matrix_add<3>(x,y); };
 
-  auto actual_total = std::accumulate(std::begin(a), std::end(a), parlay::BasicMatrix<int,3>::zero(), parlay::matrix_add<3>);
+  const auto bid = parlay::block_iterable_wrapper(a);
+  auto [m, total] = parlay::delayed::scan(bid, add, parlay::BasicMatrix<int,3>::zero());
+
+  auto actual_total = std::accumulate(std::begin(a), std::end(a), parlay::BasicMatrix<int,3>::zero(), add);
 
   ASSERT_EQ(m.size(), a.size());
   ASSERT_EQ(total, actual_total);
@@ -388,8 +390,10 @@ TEST(TestDelayedScan, TestScanInclusiveCustomType) {
     return m;
   });
 
+  auto add = [](auto&& x, auto&& y) { return parlay::matrix_add<3>(x,y); };
+
   const auto bid = parlay::block_iterable_wrapper(a);
-  auto m = parlay::delayed::scan_inclusive(bid, parlay::matrix_add<3>, parlay::BasicMatrix<int,3>::zero());
+  auto m = parlay::delayed::scan_inclusive(bid, add, parlay::BasicMatrix<int,3>::zero());
 
   ASSERT_EQ(m.size(), a.size());
 
