@@ -86,8 +86,8 @@ TEST(TestDelayedReduce, TestBidReduceCustomType) {
   });
 
   const auto bid = parlay::block_iterable_wrapper(a);
-  auto x = parlay::delayed::reduce(bid, parlay::matrix_add, parlay::BasicMatrix<int,3>::zero());
-  auto actual_total = std::accumulate(std::begin(a), std::end(a), parlay::BasicMatrix<int,3>::zero(), parlay::matrix_add);
+  auto x = parlay::delayed::reduce(bid, parlay::matrix_add<3>, parlay::BasicMatrix<int,3>::zero());
+  auto actual_total = std::accumulate(std::begin(a), std::end(a), parlay::BasicMatrix<int,3>::zero(), parlay::matrix_add<3>);
   static_assert(std::is_same_v<decltype(x), parlay::BasicMatrix<int,3>>);
   ASSERT_EQ(x, actual_total);
 }

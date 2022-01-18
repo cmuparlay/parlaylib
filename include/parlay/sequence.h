@@ -480,7 +480,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 
     // If uninitialized memory debugging is turned on, make sure that
     // a buffer of UninitializedTracker is appropriately set to its
-    // uninitialized state by creating and immediately destroying.
+    // uninitialized state.
 #ifdef PARLAY_DEBUG_UNINITIALIZED
     if constexpr (std::is_same_v<value_type, internal::UninitializedTracker>) {
       auto buffer = storage.data();
@@ -498,8 +498,9 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     storage.initialize_capacity(n);
     storage.set_size(n);
     auto buffer = storage.data();
-    parallel_for(
-        0, n, [&](size_t i) { storage.initialize(&buffer[i], f(i)); }, granularity);
+    parallel_for(0, n, [&](size_t i) {
+      storage.initialize(&buffer[i], f(i));
+    }, granularity);
   }
 
   // Implement initialize_default manually rather than
@@ -509,26 +510,24 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   void initialize_default(size_t n) {
     storage.initialize_capacity(n);
     auto buffer = storage.data();
-    parallel_for(
-        0, n,
-        [&](size_t i) {                 // Calling initialize with
-          storage.initialize(buffer + i);  // no arguments performs
-        },
-        initialization_granularity(n));  // value initialization
+    parallel_for(0, n, [&](size_t i) {      // Calling initialize with
+      storage.initialize(buffer + i);       // no arguments performs
+    }, initialization_granularity(n));      // value initialization
     storage.set_size(n);
   }
 
   void initialize_fill(size_t n, const value_type& v) {
     storage.initialize_capacity(n);
     auto buffer = storage.data();
-    parallel_for(
-        0, n, [&](size_t i) { storage.initialize_explicit(buffer + i, v); }, copy_granularity(n));
+    parallel_for(0, n, [&](size_t i) {
+      storage.initialize_explicit(buffer + i, v);
+    }, copy_granularity(n));
     storage.set_size(n);
   }
 
   template<typename InputIterator_>
   void initialize_range(InputIterator_ first, InputIterator_ last, std::input_iterator_tag) {
-    for (; first != last; first++) {
+    for (; first != last; ++first) {
       push_back(*first);
     }
   }
@@ -538,7 +537,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     auto n = std::distance(first, last);
     storage.initialize_capacity(n);
     auto buffer = storage.data();
-    for (size_t i = 0; first != last; i++, first++) {
+    for (size_t i = 0; first != last; i++, ++first) {
       storage.initialize_explicit(buffer + i, *first);
     }
     storage.set_size(n);
@@ -549,7 +548,9 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     auto n = std::distance(first, last);
     storage.initialize_capacity(n);
     auto buffer = storage.data();
-    parallel_for(0, n, [&](size_t i) { storage.initialize_explicit(buffer + i, first[i]); }, copy_granularity(n));
+    parallel_for(0, n, [&](size_t i) {
+      storage.initialize_explicit(buffer + i, first[i]);
+    }, copy_granularity(n));
     storage.set_size(n);
   }
 
@@ -582,8 +583,9 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   iterator append_n(size_t n, const value_type& t) {
     storage.ensure_capacity(size() + n);
     auto it = end();
-    parallel_for(
-        0, n, [&](size_t i) { storage.initialize_explicit(it + i, t); }, this->copy_granularity(n));
+    parallel_for(0, n, [&](size_t i) {
+      storage.initialize_explicit(it + i, t);
+    }, this->copy_granularity(n));
     storage.set_size(size() + n);
     return it;
   }
@@ -616,8 +618,9 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     auto n = std::distance(first, last);
     storage.ensure_capacity(size() + n);
     auto it = end();
-    parallel_for(
-        0, n, [&](size_t i) { storage.initialize_explicit(it + i, first[i]); }, copy_granularity(n));
+    parallel_for(0, n, [&](size_t i) {
+      storage.initialize_explicit(it + i, first[i]);
+    }, copy_granularity(n));
     storage.set_size(size() + n);
     return it;
   }
@@ -686,12 +689,9 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     bool matches = true;
     while (start < n) {
       size_t last = (std::min)(n, start + block_size);
-      parallel_for(
-          start, last,
-          [&](size_t j) {
-            if (!(self[j] == other[j])) matches = false;
-          },
-          granularity);
+      parallel_for(start, last, [&](size_t j) {
+        if (!(self[j] == other[j])) matches = false;
+      }, granularity);
       if (!matches) return false;
       start += block_size;
       block_size *= 2;

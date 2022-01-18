@@ -876,10 +876,9 @@ auto map_split_at(const Range& R, const BoolRange& flags, UnaryOp f) {
 
 /* -------------------- Other Utilities -------------------- */
 
-template <typename R, class Compare>
-auto remove_duplicates_ordered (const R& s, Compare less) {
-  using T = range_value_type_t<R>;
-  return unique(stable_sort(s, less), [&] (T a, T b) {
+template <typename R, typename Compare = std::less<>>
+auto remove_duplicates_ordered (R&& s, Compare less = {}) {
+  return unique(stable_sort(s, less), [&] (auto&& a, auto&& b) {
       return !less(a,b) && !less(b,a);});
 }
 

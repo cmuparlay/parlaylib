@@ -116,8 +116,8 @@ auto reduce(Range&& v, BinaryOperator&& f, T identity) {
 
   auto block_sums = parlay::internal::tabulate(num_blocks(v), [&](size_t i) {
     T result = identity;
-    auto it = begin_block(v, i), end = end_block(v, i);
-    for (; it != end; ++it) {
+    auto it = begin_block(v, i), last = end_block(v, i);
+    for (; it != last; ++it) {
       result = f(std::move(result), *it);
     }
     return result;
@@ -159,8 +159,8 @@ template<typename Range, typename UnaryFunction,
 void for_each(Range&& v, UnaryFunction&& f) {
   static_assert(std::is_invocable_v<UnaryFunction, range_reference_type_t<Range>>);
   parallel_for(0, num_blocks(v), [&](size_t i) {
-    auto it = begin_block(v, i), end = end_block(v, i);
-    for (; it != end; ++it) {
+    auto it = begin_block(v, i), last = end_block(v, i);
+    for (; it != last; ++it) {
       f(*it);
     }
   });
@@ -170,7 +170,7 @@ template<typename Range, typename UnaryFunction>
 void apply(Range&& v, UnaryFunction&& f) {
   static_assert(is_block_iterable_range_v<Range>);
   static_assert(std::is_invocable_v<UnaryFunction, range_reference_type_t<Range>>);
-  for_each(std::forward<Range>(v), std::forward<UnaryFunction>(f));
+  parlay::internal::delayed::for_each(std::forward<Range>(v), std::forward<UnaryFunction>(f));
 }
 
 }  // namespace delayed

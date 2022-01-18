@@ -14,6 +14,8 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/internal/stream_delayed.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/work_stealing_job.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/common.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/filter.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/filter_op.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/flatten.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/map.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/scan.h

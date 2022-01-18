@@ -13,7 +13,6 @@
 
 #include "common.h"
 #include "flatten.h"
-#include "map.h"
 
 namespace parlay {
 namespace internal {

@@ -149,8 +149,8 @@ template<typename T, size_t N>
 struct BasicMatrix {
 
   friend bool operator==(const BasicMatrix& A, const BasicMatrix& B) {
-    for (size_t i = 0; i < 3; i++) {
-      for (size_t j = 0; j < 3; j++) {
+    for (size_t i = 0; i < N; i++) {
+      for (size_t j = 0; j < N; j++) {
         if (A(i, j) != B(i, j)) return false;
       }
     }
@@ -168,9 +168,10 @@ struct BasicMatrix {
   std::vector<std::vector<T>> m;
 };
 
-auto matrix_add(BasicMatrix<int, 3> a, const BasicMatrix<int, 3>& b) {
-  for (size_t i = 0; i < 3; i++) {
-    for (size_t j = 0; j < 3; j++) {
+template<size_t N>
+auto matrix_add(BasicMatrix<int, N> a, const BasicMatrix<int, N>& b) {
+  for (size_t i = 0; i < N; i++) {
+    for (size_t j = 0; j < N; j++) {
       a(i, j) += b(i, j);
     }
   }
