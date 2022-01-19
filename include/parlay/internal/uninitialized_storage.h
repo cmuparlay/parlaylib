@@ -39,11 +39,19 @@ class uninitialized_storage {
 #endif
 
   value_type* get() {
+#ifdef __cpp_lib_launder
     return std::launder(reinterpret_cast<value_type*>(std::addressof(storage)));
+#else
+    return reinterpret_cast<value_type*>(std::addressof(storage));
+#endif  // __cpp_lib_launder
   }
 
   const value_type* get() const {
-    return std::launder(reinterpret_cast<value_type*>(std::addressof(storage)));
+#ifdef __cpp_lib_launder
+    return std::launder(reinterpret_cast<const value_type*>(std::addressof(storage)));
+#else
+    return reinterpret_cast<const value_type*>(std::addressof(storage));
+#endif  // __cpp_lib_launder
   }
 };
 

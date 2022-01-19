@@ -5,337 +5,479 @@ env:
 
 jobs:
   build:
-    name: ${{ matrix.config.name }}  (${{ matrix.build_type }})
+    name: ${{ matrix.config.os }} ${{ matrix.config.cxx }} ${{ matrix.config.note }} (${{ matrix.build_type }})
     runs-on: ${{ matrix.config.os }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       matrix:
         build_type: ["Debug", "RelWithDebInfo", "Release"]
         config:
-        - {
-            name: "Ubuntu-Latest GCC-7",
+          - {
             os: ubuntu-latest,
             cc: "gcc-7", cxx: "g++-7"
           }
-        - {
-            name: "Ubuntu-Latest GCC-9",
+          - {
             os: ubuntu-latest,
-            cc: "gcc-9", cxx: "g++-9"
+            cc: "gcc-11", cxx: "g++-11"
           }
-        - {
-            name: "Ubuntu-Latest GCC-10",
+          - {
+            os: ubuntu-18.04,
+            cc: "clang-6.0", cxx: "clang++-6.0"
+          }
+          - {
             os: ubuntu-latest,
-            cc: "gcc-10", cxx: "g++-10"
+            cc: "clang-12", cxx: "clang++-12"
           }
-        - {
-            name: "Ubuntu-Latest Clang-11",
-            os: ubuntu-latest,
-            cc: "clang-11", cxx: "clang++-11"
-          }
-        - {
-            name: "Ubuntu-Latest Clang-10 with libc++",
+          - {
             os: ubuntu-latest,
             cc: "clang-10", cxx: "clang++-10",
             libcxx: true,
-            libcxx_version: 10
+            libcxx_version: 10,
+            note: " with libc++"
           }
-        - {
-            name: "macOS-Latest GCC-9",
+          - {
             os: macos-latest,
-            cc: "gcc-9", cxx: "g++-9"
+            cc: "gcc-11", cxx: "g++-11"
           }
-        - {
-            name: "macOS-Latest AppleClang",
+          - {
             os: macos-latest,
             cc: "clang", cxx: "clang++"
           }
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Install Compiler
-      if: startsWith(matrix.config.os, 'ubuntu')
-      shell: bash
-      run: sudo apt-get -qq install ${{matrix.config.cc}} ${{matrix.config.cxx}}
+      - name: Set up toolchain repositories
+        if: ${{ matrix.config.os == 'ubuntu-18.04' }}
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-6.0 main"
 
-    - name: Install libc++
-      if: matrix.config.libcxx
-      shell: bash
-      run: sudo apt-get -qq install libc++1-${{matrix.config.libcxx_version}} libc++abi1-${{matrix.config.libcxx_version}} libc++-${{matrix.config.libcxx_version}}-dev libc++abi-${{matrix.config.libcxx_version}}-dev
+      - name: Install Compiler
+        if: startsWith(matrix.config.os, 'ubuntu')
+        run: |
+          sudo apt-get -qq install ${{matrix.config.cc}} ${{matrix.config.cxx}}
 
-    - name: Configure
-      shell: bash
-      run: |
-        mkdir build && cd build
-        CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DUSE_LIBCXX=${{matrix.config.libcxx}} ..
+      - name: Install libc++
+        if: matrix.config.libcxx
+        run: sudo apt-get -qq install libc++1-${{matrix.config.libcxx_version}} libc++abi1-${{matrix.config.libcxx_version}} libc++-${{matrix.config.libcxx_version}}-dev libc++abi-${{matrix.config.libcxx_version}}-dev
 
-    - name: Build
-      shell: bash
-      run: |
-        cd build
-        make
+      - name: Configure
+        run: |
+          mkdir build && cd build
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DUSE_LIBCXX=${{matrix.config.libcxx}} ..
 
-    - name: Test
-      shell: bash
-      run: |
-        cd build
-        ctest --no-tests=error --output-on-failure
+      - name: Build
+        run: |
+          cd build
+          make
+
+      - name: Test
+        run: |
+          cd build
+          ctest --no-tests=error --output-on-failure
+
+  msvc:
+    name: windows-latest MSVC 19 (${{matrix.build_type}})
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        build_type: ["Debug", "RelWithDebInfo", "Release"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Configure
+        run: |
+          md build
+          cd build
+          cmake -A x64 -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DCMAKE_CXX_FLAGS=" /bigobj " -DPARLAY_TEST=On ..
+
+      - name: Build
+        run: |
+          cd build
+          cmake --build .
+
+      - name: Test
+        run: |
+          cd build
+          ctest -C Debug --no-tests=error --output-on-failure
+
+  wsl:
+    strategy:
+      matrix:
+        config:
+          - { cc: "gcc-11", cxx: "g++-11" }
+          - { cc: "clang-12", cxx: "clang++-12" }
+
+    name: windows-latest WSL ${{ matrix.config.cxx }} (Debug)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: wsl-bash {0}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: Vampire/setup-wsl@v1
+        with:
+          distribution: Ubuntu-20.04
+
+      - name: Install
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get -qq update
+          sudo apt-get -y install make ${{matrix.config.cc}} ${{matrix.config.cxx}}
+          wget --quiet https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2-Linux-x86_64.tar.gz
+          tar -xf cmake-3.18.2-Linux-x86_64.tar.gz
+
+      - name: Configure
+        run: |
+          mkdir build
+          cd build
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} ../cmake-3.18.2-Linux-x86_64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DWSL=True ..
+
+      - name: Build
+        run: |
+          cd build
+          make
+
+      - name: Test
+        run: |
+          cd build
+          ../cmake-3.18.2-Linux-x86_64/bin/ctest -C Debug --no-tests=error --output-on-failure
+
+#  msys:
+#    strategy:
+#      matrix:
+#        include:
+#          - { sys: mingw64 }
+#          - { sys: ucrt64 }
+#          - { sys: clang64 }
+
+#    name: windows-latest MSYS2 ${{ matrix.sys }} (Debug)
+#    runs-on: windows-latest
+#    defaults:
+#      run:
+#        shell: msys2 {0}
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: '${{ matrix.icon }} Setup MSYS2'
+#        uses: msys2/setup-msys2@v2
+#        with:
+#          msystem: ${{matrix.sys}}
+#          update: true
+#          install: >-
+#            git
+#            make
+#          pacboy: >-
+#            toolchain:p
+#            cmake:p
+#            ninja:p
+#
+#      - name: Configure
+#        run: |
+#          mkdir build
+#          cd build
+#          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -DPARLAY_SEQUENTIAL " -DPARLAY_TEST=On  ..
+#
+#      - name: Build
+#        run: |
+#          cd build
+#          cmake --build .
+#
+#      - name: Test
+#        run: |
+#          cd build
+#          ctest -C Debug --no-tests=error --output-on-failure
+
+  cygwin:
+    strategy:
+      matrix:
+        config:
+          - { cc: "gcc", cxx: "g++" }
+          - { cc: "clang", cxx: "clang++" }
+
+    name: windows-latest Cygwin ${{ matrix.config.cxx }} (Debug)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: C:\tools\cygwin\bin\bash.exe -eo pipefail -o igncr '{0}'
+    steps:
+      - uses: actions/checkout@v2
+      - uses: egor-tensin/setup-cygwin@v3
+        with:
+          packages: git,make,gcc-core,gcc-g++,cmake,clang,libiconv-devel,cygwin32-libiconv-1.14-2
+
+      - name: Configure
+        run: |
+          mkdir build
+          cd build
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On ..
+
+      - name: Build
+        run: |
+          cd build
+          make
+
+      - name: Test
+        run: |
+          cd build
+          ctest -C Debug --no-tests=error --output-on-failure
+
+  cilk-plus:
+    name: ubuntu-18.04 Cilk Plus GCC-7 (Debug)
+    runs-on: ubuntu-18.04   # Note: GCC-7 on Ubuntu-20 removed Cilk Plus, so we have to go back in time
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install GCC-7
+        shell: bash
+        run: |
+          sudo apt-get -qq install gcc-7 g++-7
+
+      - name: Configure
+        shell: bash
+        run: |
+          mkdir build && cd build
+          CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fcilkplus -DPARLAY_CILKPLUS" -DCMAKE_EXE_LINKER_FLAGS="-fcilkplus -ldl" -DPARLAY_BENCHMARK=On ..
+
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          make
+
+      - name: Test
+        shell: bash
+        run: |
+          cd build
+          ctest --no-tests=error --output-on-failure
+
+  opencilk:
+    name: ubuntu-latest Open Cilk Clang 12 (Debug)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install OpenCilk
+        shell: bash
+        run: |
+          sudo apt-get -qq install gcc-7 g++-7
+          git clone https://github.com/OpenCilk/cilkrts.git
+          mkdir cilkrts/build && pushd cilkrts/build
+          cmake -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 -DCMAKE_INSTALL_PREFIX=/usr/local/ ..
+          make && sudo make install
+          popd
+          wget --quiet https://github.com/OpenCilk/opencilk-project/releases/download/opencilk%2Fv1.1/OpenCilk-1.1-LLVM-12.0.0-Ubuntu-20.04-x86_64.tar.gz
+          tar -xf OpenCilk-1.1-LLVM-12.0.0-Ubuntu-20.04-x86_64.tar.gz
+
+      - name: Configure
+        shell: bash
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_C_COMPILER=$PWD/../OpenCilk-12.0.0-Linux/bin/clang -DCMAKE_CXX_COMPILER=$PWD/../OpenCilk-12.0.0-Linux/bin/clang++ -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fopencilk -DPARLAY_OPENCILK" -DCMAKE_EXE_LINKER_FLAGS="-fopencilk -ldl" -DPARLAY_BENCHMARK=On ..
+
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          make
+
+      - name: Test
+        shell: bash
+        run: |
+          cd build
+          ctest --no-tests=error --output-on-failure
+
+  tbb:
+    name: ubuntu-latest TBB Clang 11 (Debug)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install TBB
+        shell: bash
+        run: |
+          sudo apt-get -qq install clang-11 libtbb-dev
+
+      - name: Configure
+        shell: bash
+        run: |
+          mkdir build && cd build
+          CC=clang-11 CXX=clang++-11 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-DPARLAY_TBB" -DCMAKE_EXE_LINKER_FLAGS="-ltbb" DPARLAY_BENCHMARK=On ..
+
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          make
+
+      - name: Test
+        shell: bash
+        run: |
+          cd build
+          ctest --no-tests=error --output-on-failure
 
   cppcheck:
     name: Cppcheck
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Install Cppcheck
-      shell: bash
-      run: |
-        sudo apt-get -qq install clang-10
-        wget --quiet https://github.com/danmar/cppcheck/archive/refs/tags/2.6.tar.gz
-        tar -xf 2.6.tar.gz
-        mkdir cppcheck-2.6/build && pushd cppcheck-2.6/build
-        CC=clang-10 CXX=clang++-10 cmake .. -DCMAKE_BUILD_TYPE=Release
-        make && sudo make install
-        popd
+      - name: Install Cppcheck
+        shell: bash
+        run: |
+          sudo apt-get -qq install clang-10
+          wget --quiet https://github.com/danmar/cppcheck/archive/refs/tags/2.6.tar.gz
+          tar -xf 2.6.tar.gz
+          mkdir cppcheck-2.6/build && pushd cppcheck-2.6/build
+          CC=clang-10 CXX=clang++-10 cmake .. -DCMAKE_BUILD_TYPE=Release
+          make && sudo make install
+          popd
 
-    - name: Run Cppcheck
-      shell: bash
-      run: |
-        mkdir build && cd build
-        CC=clang-10 CXX=clang++-10 cmake -DENABLE_CPPCHECK=On ..
-        make cppcheck-all
+      - name: Run Cppcheck
+        shell: bash
+        run: |
+          mkdir build && cd build
+          CC=clang-10 CXX=clang++-10 cmake -DENABLE_CPPCHECK=On ..
+          make cppcheck-all
 
   clang-tidy:
     name: Clang Tidy
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Intall Clang Tidy
-      shell: bash
-      run: |
-        sudo apt-get -qq install clang-10 clang-tidy-10
+      - name: Intall Clang Tidy
+        shell: bash
+        run: |
+          sudo apt-get -qq install clang-10 clang-tidy-10
 
-    - name: Run Clang Tidy
-      shell: bash
-      run: |
-        mkdir build
-        cd build
-        CC=clang-10 CXX=clang++-10 cmake -DENABLE_CLANG_TIDY=On -DCLANG_TIDY_EXE=/usr/bin/clang-tidy-10 ..
-        make clang-tidy-all
+      - name: Run Clang Tidy
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          CC=clang-10 CXX=clang++-10 cmake -DENABLE_CLANG_TIDY=On -DCLANG_TIDY_EXE=/usr/bin/clang-tidy-10 ..
+          make clang-tidy-all
 
   iwyu:
     name: Include-what-you-use
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Install IWYU
-      shell: bash
-      run: |
-        sudo apt-get -qq install clang-10 libc++1-10 libc++-10-dev libc++abi1-10 libc++abi-10-dev llvm-10-dev libclang-10-dev
-        git clone https://github.com/include-what-you-use/include-what-you-use.git
-        mkdir include-what-you-use/build && pushd include-what-you-use/build
-        git checkout clang_10
-        cmake -DCMAKE_PREFIX_PATH=/usr/lib/llvm-10 ..
-        make && sudo make install
-        popd
+      - name: Install IWYU
+        shell: bash
+        run: |
+          sudo apt-get -qq install clang-10 libc++1-10 libc++-10-dev libc++abi1-10 libc++abi-10-dev llvm-10-dev libclang-10-dev
+          git clone https://github.com/include-what-you-use/include-what-you-use.git
+          mkdir include-what-you-use/build && pushd include-what-you-use/build
+          git checkout clang_10
+          cmake -DCMAKE_PREFIX_PATH=/usr/lib/llvm-10 ..
+          make && sudo make install
+          popd
 
-    - name: Run IWYU
-      shell: bash
-      run: |
-        mkdir build
-        cd build
-        CC=clang-10 CXX=clang++-10 cmake -DENABLE_IWYU=On ..
-        make iwyu-all
+      - name: Run IWYU
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          CC=clang-10 CXX=clang++-10 cmake -DENABLE_IWYU=On ..
+          make iwyu-all
 
   asan:
-    name: ASAN
+    name: ubuntu-latest ASAN Clang 10 (Debug)
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Install
-      shell: bash
-      run: |
-        sudo apt-get -qq install clang-10 libc++1-10 libc++abi1-10 libc++-10-dev libc++abi-10-dev
+      - name: Install
+        shell: bash
+        run: |
+          sudo apt-get -qq install clang-10 libc++1-10 libc++abi1-10 libc++-10-dev libc++abi-10-dev
 
-    - name: Configure
-      shell: bash
-      run: |
-        mkdir build && cd build
-        CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..  
+      - name: Configure
+        shell: bash
+        run: |
+          mkdir build && cd build
+          CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..
 
-    - name: Build
-      shell: bash
-      run: |
-        cd build
-        make
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          make
 
-    - name: ASAN
-      shell: bash
-      run: |
-        cd build
-        ctest --no-tests=error --output-on-failure -R asan
+      - name: ASAN
+        shell: bash
+        run: |
+          cd build
+          ctest --no-tests=error --output-on-failure -R asan
 
   ubsan:
-    name: UBSAN
+    name: ubuntu-latest UBSAN Clang 10 (Debug)
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Install
-      shell: bash
-      run: |
-        sudo apt-get -qq install clang-10 libc++1-10 libc++abi1-10 libc++-10-dev libc++abi-10-dev
+      - name: Install
+        shell: bash
+        run: |
+          sudo apt-get -qq install clang-10 libc++1-10 libc++abi1-10 libc++-10-dev libc++abi-10-dev
 
-    - name: Configure
-      shell: bash
-      run: |
-        mkdir build && cd build
-        CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_UBSAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..  
+      - name: Configure
+        shell: bash
+        run: |
+          mkdir build && cd build
+          CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_UBSAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..
 
-    - name: Build
-      shell: bash
-      run: |
-        cd build
-        make
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          make
 
-    - name: UBSAN
-      shell: bash
-      run: |
-        cd build
-        ctest --no-tests=error --output-on-failure -R ubsan
-
-  cilk-plus:
-    name: Ubuntu-18 Cilk Plus (GCC-7)
-    # Note: GCC-7 on Ubuntu-20 removed Cilk Plus, so we have to go back in time
-    runs-on: ubuntu-18.04
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Install GCC-7
-      shell: bash
-      run: |
-        sudo apt-get -qq install gcc-7 g++-7
-
-    - name: Configure
-      shell: bash
-      run: |
-        mkdir build && cd build
-        CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fcilkplus -DPARLAY_CILKPLUS" -DCMAKE_EXE_LINKER_FLAGS="-fcilkplus -ldl" -DPARLAY_BENCHMARK=On ..  
-
-    - name: Build
-      shell: bash
-      run: |
-        cd build
-        make
-
-    - name: Test
-      shell: bash
-      run: |
-        cd build
-        ctest --no-tests=error --output-on-failure
-
-  opencilk:
-    name: Ubuntu-Latest Open Cilk (Clang 12)
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Install OpenCilk
-      shell: bash
-      run: |
-        sudo apt-get -qq install gcc-7 g++-7
-        git clone https://github.com/OpenCilk/cilkrts.git
-        mkdir cilkrts/build && pushd cilkrts/build
-        cmake -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 -DCMAKE_INSTALL_PREFIX=/usr/local/ ..
-        make && sudo make install
-        popd
-        wget --quiet https://github.com/OpenCilk/opencilk-project/releases/download/opencilk%2Fv1.1/OpenCilk-1.1-LLVM-12.0.0-Ubuntu-20.04-x86_64.tar.gz
-        tar -xf OpenCilk-1.1-LLVM-12.0.0-Ubuntu-20.04-x86_64.tar.gz
-
-    - name: Configure
-      shell: bash
-      run: |
-        mkdir build && cd build
-        cmake -DCMAKE_C_COMPILER=$PWD/../OpenCilk-12.0.0-Linux/bin/clang -DCMAKE_CXX_COMPILER=$PWD/../OpenCilk-12.0.0-Linux/bin/clang++ -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fopencilk -DPARLAY_OPENCILK" -DCMAKE_EXE_LINKER_FLAGS="-fopencilk -ldl" -DPARLAY_BENCHMARK=On ..
-
-    - name: Build
-      shell: bash
-      run: |
-        cd build
-        make
-
-    - name: Test
-      shell: bash
-      run: |
-        cd build
-        ctest --no-tests=error --output-on-failure
-
-  tbb:
-    name: Ubuntu-Latest TBB (Clang 11)
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Install TBB
-      shell: bash
-      run: |
-        sudo apt-get -qq install clang-11 libtbb-dev
-
-    - name: Configure
-      shell: bash
-      run: |
-        mkdir build && cd build
-        CC=clang-11 CXX=clang++-11 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-DPARLAY_TBB" -DCMAKE_EXE_LINKER_FLAGS="-ltbb" DPARLAY_BENCHMARK=On ..
-
-    - name: Build
-      shell: bash
-      run: |
-        cd build
-        make
-
-    - name: Test
-      shell: bash
-      run: |
-        cd build
-        ctest --no-tests=error --output-on-failure
+      - name: UBSAN
+        shell: bash
+        run: |
+          cd build
+          ctest --no-tests=error --output-on-failure -R ubsan
 
   coverage:
     name: Test Coverage
     runs-on: ubuntu-latest
     needs: build
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Install LCov
-      shell: bash
-      run: |
-        sudo apt-get -qq install gcc-9 g++-9 lcov
+      - name: Install LCov
+        shell: bash
+        run: |
+          sudo apt-get -qq install gcc-9 g++-9 lcov
 
-    - name: Configure
-      shell: bash
-      run: |
-        mkdir build && cd build
-        CC=gcc-9 CXX=g++-9 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG=" --coverage " -DPARLAY_TEST=On ..
+      - name: Configure
+        shell: bash
+        run: |
+          mkdir build && cd build
+          CC=gcc-9 CXX=g++-9 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG=" --coverage " -DPARLAY_TEST=On ..
 
-    - name: Build
-      shell: bash
-      run: |
-        cd build
-        make
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          make
 
-    - name: Test
-      shell: bash
-      run: |
-        cd build
-        make check
+      - name: Test
+        shell: bash
+        run: |
+          cd build
+          make check
 
-    - name: Report coverage
-      shell: bash
-      run: |
-        lcov --directory . --capture --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' '*/googletest/*' '*/test/*' --output-file coverage.info
-        lcov --list coverage.info
-        bash <(curl -s https://codecov.io/bash) -f coverage.info
-
+      - name: Report coverage
+        shell: bash
+        run: |
+          lcov --directory . --capture --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' '*/googletest/*' '*/test/*' --output-file coverage.info
+          lcov --list coverage.info
+          bash <(curl -s https://codecov.io/bash) -f coverage.info
