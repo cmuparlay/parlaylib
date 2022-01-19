@@ -7,6 +7,13 @@
 #include <parlay/type_traits.h>
 #include <parlay/utilities.h>
 
+// Launder is not available in some older compilers
+#ifdef __cpp_lib_launder
+#define LAUNDER(x) std::launder((x))
+#else
+#define LAUNDER(x) (x)
+#endif
+
 // A type that is not trivially relocatable because
 // it keeps a pointer to an object inside itself
 struct NotTriviallyRelocatable {
@@ -63,8 +70,8 @@ static_assert(parlay::is_trivially_relocatable_v<MyTriviallyRelocatable>);
 
 TEST(TestRelocate, TestNotTriviallyRelocatable) {
   std::aligned_storage<sizeof(NotTriviallyRelocatable), alignof(NotTriviallyRelocatable)>::type a, b;
-  NotTriviallyRelocatable* from = std::launder(reinterpret_cast<NotTriviallyRelocatable*>(&a));
-  NotTriviallyRelocatable* to = std::launder(reinterpret_cast<NotTriviallyRelocatable*>(&b));
+  NotTriviallyRelocatable* from = LAUNDER(reinterpret_cast<NotTriviallyRelocatable*>(&a));
+  NotTriviallyRelocatable* to = LAUNDER(reinterpret_cast<NotTriviallyRelocatable*>(&b));
   // -- Both from and to point to uninitialized memory
   
   new (from) NotTriviallyRelocatable(42);
@@ -84,8 +91,8 @@ TEST(TestRelocate, TestNotTriviallyRelocatable) {
 
 TEST(TestRelocate, TestTriviallyRelocatable) {
   std::aligned_storage<sizeof(TriviallyRelocatable), alignof(TriviallyRelocatable)>::type a, b;
-  TriviallyRelocatable* from = std::launder(reinterpret_cast<TriviallyRelocatable*>(&a));
-  TriviallyRelocatable* to = std::launder(reinterpret_cast<TriviallyRelocatable*>(&b));
+  TriviallyRelocatable* from = LAUNDER(reinterpret_cast<TriviallyRelocatable*>(&a));
+  TriviallyRelocatable* to = LAUNDER(reinterpret_cast<TriviallyRelocatable*>(&b));
   // -- Both from and to point to uninitialized memory
   
   new (from) TriviallyRelocatable(42);
@@ -103,8 +110,8 @@ TEST(TestRelocate, TestTriviallyRelocatable) {
 
 TEST(TestRelocate, TestCustomTriviallyRelocatable) {
   std::aligned_storage<sizeof(MyTriviallyRelocatable), alignof(MyTriviallyRelocatable)>::type a, b;
-  MyTriviallyRelocatable* from = std::launder(reinterpret_cast<MyTriviallyRelocatable*>(&a));
-  MyTriviallyRelocatable* to = std::launder(reinterpret_cast<MyTriviallyRelocatable*>(&b));
+  MyTriviallyRelocatable* from = LAUNDER(reinterpret_cast<MyTriviallyRelocatable*>(&a));
+  MyTriviallyRelocatable* to = LAUNDER(reinterpret_cast<MyTriviallyRelocatable*>(&b));
   // -- Both from and to point to uninitialized memory
   
   new (from) MyTriviallyRelocatable(42);
@@ -123,8 +130,8 @@ TEST(TestRelocate, TestCustomTriviallyRelocatable) {
 TEST(TestRelocate, TestNotTriviallyRelocatableArray) {
   constexpr int N = 100000;
   std::vector<std::aligned_storage<sizeof(NotTriviallyRelocatable), alignof(NotTriviallyRelocatable)>::type> a(N), b(N);
-  NotTriviallyRelocatable* from = std::launder(reinterpret_cast<NotTriviallyRelocatable*>(a.data()));
-  NotTriviallyRelocatable* to = std::launder(reinterpret_cast<NotTriviallyRelocatable*>(b.data()));
+  NotTriviallyRelocatable* from = LAUNDER(reinterpret_cast<NotTriviallyRelocatable*>(a.data()));
+  NotTriviallyRelocatable* to = LAUNDER(reinterpret_cast<NotTriviallyRelocatable*>(b.data()));
   // -- Both from and to point to uninitialized memory
   
   for (int i = 0; i < N; i++) {
@@ -152,8 +159,8 @@ TEST(TestRelocate, TestNotTriviallyRelocatableArray) {
 TEST(TestRelocate, TestTriviallyRelocatableArray) {
   constexpr int N = 100000;
   std::vector<std::aligned_storage<sizeof(TriviallyRelocatable), alignof(TriviallyRelocatable)>::type> a(N), b(N);
-  TriviallyRelocatable* from = std::launder(reinterpret_cast<TriviallyRelocatable*>(a.data()));
-  TriviallyRelocatable* to = std::launder(reinterpret_cast<TriviallyRelocatable*>(b.data()));
+  TriviallyRelocatable* from = LAUNDER(reinterpret_cast<TriviallyRelocatable*>(a.data()));
+  TriviallyRelocatable* to = LAUNDER(reinterpret_cast<TriviallyRelocatable*>(b.data()));
   // -- Both from and to point to uninitialized memory
   
   for (int i = 0; i < N; i++) {
@@ -179,8 +186,8 @@ TEST(TestRelocate, TestTriviallyRelocatableArray) {
 TEST(TestRelocate, TestCustomTriviallyRelocatableArray) {
   constexpr int N = 100000;
   std::vector<std::aligned_storage<sizeof(MyTriviallyRelocatable), alignof(MyTriviallyRelocatable)>::type> a(N), b(N);
-  MyTriviallyRelocatable* from = std::launder(reinterpret_cast<MyTriviallyRelocatable*>(a.data()));
-  MyTriviallyRelocatable* to = std::launder(reinterpret_cast<MyTriviallyRelocatable*>(b.data()));
+  MyTriviallyRelocatable* from = LAUNDER(reinterpret_cast<MyTriviallyRelocatable*>(a.data()));
+  MyTriviallyRelocatable* to = LAUNDER(reinterpret_cast<MyTriviallyRelocatable*>(b.data()));
   // -- Both from and to point to uninitialized memory
   
   for (int i = 0; i < N; i++) {
@@ -214,11 +221,11 @@ TEST(TestRelocate, TestRelocatableNonContiguousArray) {
   static_assert(!parlay::is_contiguous_iterator_v<decltype(to)>);
 
   auto get_from = [&](auto i) {
-    return std::launder(reinterpret_cast<MyTriviallyRelocatable*>(&from[i]));
+    return LAUNDER(reinterpret_cast<MyTriviallyRelocatable*>(&from[i]));
   };
 
   auto get_to = [&](auto i) {
-    return std::launder(reinterpret_cast<MyTriviallyRelocatable*>(&to[i]));
+    return LAUNDER(reinterpret_cast<MyTriviallyRelocatable*>(&to[i]));
   };
 
   for (int i = 0; i < N; i++) {
@@ -254,13 +261,13 @@ TEST(TestRelocate, TestRelocatableNonRandomAccessArray) {
   auto get_from = [&](auto i) {
     auto it = from;
     std::advance(it, i);
-    return std::launder(reinterpret_cast<MyTriviallyRelocatable*>(&(*it)));
+    return LAUNDER(reinterpret_cast<MyTriviallyRelocatable*>(&(*it)));
   };
 
   auto get_to = [&](auto i) {
     auto it = to;
     std::advance(it, i);
-    return std::launder(reinterpret_cast<MyTriviallyRelocatable*>(&(*it)));
+    return LAUNDER(reinterpret_cast<MyTriviallyRelocatable*>(&(*it)));
   };
 
   for (int i = 0; i < N; i++) {
@@ -293,7 +300,7 @@ struct NonRelocatableStorage {
     new (get_storage()) T(std::move(*other.get_storage()));
   }
   T* get_storage() {
-    return std::launder(reinterpret_cast<T*>(storage));
+    return LAUNDER(reinterpret_cast<T*>(storage));
   }
   ~NonRelocatableStorage() { }  // Non-trivial destructor prevents it from being trivially relocatable
 };

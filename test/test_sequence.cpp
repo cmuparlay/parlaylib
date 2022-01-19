@@ -5,7 +5,9 @@
 
 #include "gtest/gtest.h"
 
+#include <parlay/alloc.h>
 #include <parlay/sequence.h>
+#include <parlay/type_traits.h>
 #include <parlay/utilities.h>
 
 // Sequences should be trivially relocatable provided that they
@@ -16,7 +18,7 @@ static_assert(parlay::is_trivially_relocatable_v<parlay::short_sequence<int, std
 static_assert(parlay::is_trivially_relocatable_v<parlay::short_sequence<int, parlay::allocator<int>>>);
 
 // With GNU packed structs, everything should fit into 16 bytes.
-#if defined(__GNUC__)
+#if defined(__GNUC__) && !defined(__MINGW64__)
 static_assert(sizeof(parlay::sequence<int>) <= 16);
 static_assert(sizeof(parlay::short_sequence<int>) <= 16);
 #endif

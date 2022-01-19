@@ -221,8 +221,6 @@ inline std::vector<size_t> default_sizes() {
 }
 
 
-
-#ifndef PARLAY_USE_STD_ALLOC
 namespace internal {
 extern inline pool_allocator& get_default_allocator() {
   static pool_allocator default_allocator(default_sizes());
@@ -293,7 +291,7 @@ extern inline void p_free(void* ptr) {
   internal::get_default_allocator().deallocate((void*) (((char*) ptr) - hsize),
                                                n + hsize);
 }
-#endif
+
 
 // ****************************************
 // Static allocator for single items of a given type, e.g.
@@ -306,24 +304,29 @@ extern inline void p_free(void* ptr) {
 
 template <typename T>
 class type_allocator {
+
+  static block_allocator& get_allocator() {
+    static block_allocator allocator(sizeof(T));
+    return allocator;
+  }
+
 public:
   static constexpr inline size_t default_alloc_size = 0;
   static constexpr inline bool initialized = true;
-  static inline block_allocator allocator = block_allocator(sizeof(T));
 
-  static T* alloc() { return static_cast<T*>(allocator.alloc()); }
-  static void free(T* ptr) { allocator.free(static_cast<void*>(ptr)); }
+  static T* alloc() { return static_cast<T*>(get_allocator().alloc()); }
+  static void free(T* ptr) { get_allocator().free(static_cast<void*>(ptr)); }
 
   // for backward compatibility
   static void init(size_t, size_t) {};
   static void init() {};
-  static void reserve(size_t n = default_alloc_size) { allocator.reserve(n); }
-  static void finish() { allocator.clear(); }
-  static size_t block_size () { return allocator.block_size(); }
-  static size_t num_allocated_blocks() { return allocator.num_allocated_blocks(); }
-  static size_t num_used_blocks() { return allocator.num_used_blocks(); }
+  static void reserve(size_t n = default_alloc_size) { get_allocator().reserve(n); }
+  static void finish() { get_allocator().clear(); }
+  static size_t block_size () { return get_allocator().block_size(); }
+  static size_t num_allocated_blocks() { return get_allocator().num_allocated_blocks(); }
+  static size_t num_used_blocks() { return get_allocator().num_used_blocks(); }
   static size_t num_used_bytes() { return num_used_blocks() * block_size(); }
-  static void print_stats() { allocator.print_stats(); }
+  static void print_stats() { get_allocator().print_stats(); }
 };
 
 
