@@ -1,10 +1,11 @@
 #ifndef PARLAY_INTERNAL_DELAYED_FILTER_H_
 #define PARLAY_INTERNAL_DELAYED_FILTER_H_
 
-#include <type_traits>
+#include <cstddef>
+#include <utility>
 
 #include "../../range.h"
-#include "../../type_traits.h"
+#include "../../sequence.h"
 #include "../../utilities.h"
 
 #include "../sequence_ops.h"
@@ -12,6 +13,7 @@
 
 #include "common.h"
 #include "flatten.h"
+#include "map.h"
 
 namespace parlay {
 namespace internal {

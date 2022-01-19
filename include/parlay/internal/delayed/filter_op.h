@@ -1,11 +1,13 @@
 #ifndef PARLAY_INTERNAL_DELAYED_FILTER_OP_H_
 #define PARLAY_INTERNAL_DELAYED_FILTER_OP_H_
 
-#include <optional>
+#include <cstddef>
+
 #include <type_traits>
+#include <utility>
 
 #include "../../range.h"
-#include "../../type_traits.h"
+#include "../../sequence.h"
 #include "../../utilities.h"
 
 #include "../sequence_ops.h"
