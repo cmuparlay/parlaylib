@@ -1,5 +1,5 @@
 #include <iostream>
-#include "parlay/primitives.h"
+#include <parlay/primitives.h>
 
 // Returns primes up to n (inclusive).
 // Based on primes sieve but designed to be reasonably cache efficienct.
@@ -45,6 +45,6 @@ int main(int argc, char* argv[]) {
     // should catch invalid argument exception if not an integer
     n = std::stol(argv[1]);
     parlay::sequence<long> result = primes(n);
-    std::cout << result.size() << std::endl;
+    std::cout << "number of primes: " << result.size() << std::endl;
   }
 }

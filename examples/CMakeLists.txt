@@ -1,5 +1,5 @@
 
-set(EXAMPLES "primes")
+set(EXAMPLES "primes" "BFS")
 
 function(add_example NAME)
   add_executable(${NAME} ${NAME}.cpp)
