@@ -1,5 +1,5 @@
 
-set(EXAMPLES "primes" "BFS")
+set(EXAMPLES "primes" "BFS" "word_counts")
 
 function(add_example NAME)
   add_executable(${NAME} ${NAME}.cpp)

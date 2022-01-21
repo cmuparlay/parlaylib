@@ -18,12 +18,12 @@ parlay::sequence<long> primes(long n) {
   // for each block of size sqrt(n) in parallel
   parlay::parallel_for(0, n/sqrt_n + 1, [&] (long i) {
       long start = sqrt_n * i;
-      long end = std::min(start + sqrt_n, n+1);
+      long end = (std::min)(start + sqrt_n, n+1);
 
       // for each prime up to sqrt(n)
       for (long j = 0; j < sqrt_primes.size(); j++) {
 	long p = sqrt_primes[j];
-	long first = std::max(2*p,(((start-1)/p)+1)*p);
+	long first = (std::max)(2*p,(((start-1)/p)+1)*p);
 
 	// for each multiple of the prime within the block
 	// unset the flag
@@ -34,7 +34,7 @@ parlay::sequence<long> primes(long n) {
 
   // filter to keep indices that remain true (i.e. the primes)
   auto is_true = [&] (long i) {return flags[i];};
-  return parlay::filter(parlay::iota<long>(n+1), is_true);
+  return parlay::filter(parlay::iota(n+1), is_true);
 }
 
 int main(int argc, char* argv[]) {

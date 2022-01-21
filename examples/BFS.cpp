@@ -4,7 +4,7 @@
 namespace delayed = parlay::block_delayed;
 
 // **************************************************************
-// PARALLEL NON DETERMINISTIC BREADTH FIRST SEARCH
+// Parallel Breadth First Search
 // For each vertex returns the parent in the BFS tree
 // The start vertex points to itself, and any unvisited vertices have -1
 // The graph is a seqeunce of sequences of vertex ids, representing
@@ -18,9 +18,6 @@ BFS(vertex start, const Graph &G) {
   size_t n = G.size();
   auto parent = parlay::sequence<std::atomic<vertex>>::from_function(n, [&] (size_t i) {
       return -1;});
-  //auto parent = parlay::tabulate<std::atomic<vertex>>(n, [&] (size_t i) {
-  //    return -1;});
-  //parlay::sequence<std::atomic<vertex>> parent(n, -1);
   parent[start] = start;
   parlay::sequence<vertex> frontier(1,start);
   long rounds = 0;
