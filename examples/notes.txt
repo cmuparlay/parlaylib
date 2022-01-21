@@ -1,0 +1,5 @@
+Examples to add:
+
+primes
+bfs
+word counts
