@@ -14,19 +14,16 @@
 // **************************************************************
 
 auto mcss(parlay::sequence<int> const& A) {
-  using tu = std::array<long,4>;
-  auto f = [] (tu a, tu b) {
-    tu r = {std::max(std::max(a[0],b[0]),a[2]+b[1]),
-	    std::max(a[1],a[3]+b[1]),
-	    std::max(a[2]+b[3],b[2]),
-	    a[3]+b[3]};
-    return r;};
+  using quad = std::array<long,4>;
+  auto f = [] (quad a, quad b) {
+    return quad{std::max(std::max(a[0],b[0]),a[2]+b[1]),
+		std::max(a[1],a[3]+b[1]),
+		std::max(a[2]+b[3],b[2]),
+		a[3]+b[3]};};
   long neginf = std::numeric_limits<long>::lowest();
-  tu identity = {neginf, neginf, neginf, 0l};
-  auto pre = parlay::delayed_tabulate(A.size(), [&] (long i) -> tu {
-      tu x = {A[i],A[i],A[i],A[i]};
-      return x;
-    });
+  quad identity = {neginf, neginf, neginf, 0l};
+  auto pre = parlay::delayed_tabulate(A.size(), [&] (long i) -> quad {
+      return quad{A[i],A[i],A[i],A[i]};});
   return parlay::reduce(pre, parlay::make_monoid(f, identity))[0];
 }
 
