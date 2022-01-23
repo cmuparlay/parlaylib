@@ -1,6 +1,6 @@
 #include <parlay/primitives.h>
 #include <parlay/io.h>
-#include <ctype.h>
+#include <cctype>
 
 using charseq = parlay::sequence<char>;
 
@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
 
     // clean up by just looking at alphabetic chars, and lowercase them
     str = parlay::map(str, [] (char c) -> char {
-	     return isalpha(c) ? tolower(c) : ' ';});
+	    return std::isalpha(c) ? std::tolower(c) : ' ';});
     
     auto counts = word_counts(str);
     auto head = counts.head((std::min)(n, (long) counts.size()));

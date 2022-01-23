@@ -1,9 +1,13 @@
 #include <iostream>
 #include <parlay/primitives.h>
 
+// **************************************************************
+// Parallel primes
 // Returns primes up to n (inclusive).
 // Based on primes sieve but designed to be reasonably cache efficienct.
 // In particular it sieves over blocks of size sqrt(n), which presumably fit in cache
+// **************************************************************
+
 parlay::sequence<long> primes(long n) {
   // base case
   if (n < 2) return parlay::sequence<long>();

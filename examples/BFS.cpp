@@ -7,9 +7,10 @@ namespace delayed = parlay::block_delayed;
 // Parallel Breadth First Search
 // For each vertex returns the parent in the BFS tree
 // The start vertex points to itself, and any unvisited vertices have -1
-// The graph is a seqeunce of sequences of vertex ids, representing
+// The graph is a sequence of sequences of vertex ids, representing
 // the outedges for each vertex
 // **************************************************************
+
 using vertex = int;
 using Graph = parlay::sequence<parlay::sequence<vertex>>;
 
