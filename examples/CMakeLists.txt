@@ -1,6 +1,6 @@
 
 set(EXAMPLES "primes" "BFS" "word_counts" "tokens" "filter" "linefit" "mcss"
-	     "quickhull" "pagerank" "kmeans")
+	     "quickhull" "pagerank" "kmeans" "spanning_tree")
 
 function(add_example NAME)
   add_executable(${NAME} ${NAME}.cpp)

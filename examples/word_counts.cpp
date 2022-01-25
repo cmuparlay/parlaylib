@@ -5,14 +5,20 @@
 using charseq = parlay::sequence<char>;
 
 // **************************************************************
-// Counts the number times each space-separated word appears in a file
-// Returns a sequenc or word-count pairs, in arbitrary order
+// Counts the number times each space-separated word appears in a file.
+// Returns a sequence or word-count pairs, sorted by word frequency, max first
 // **************************************************************
 auto word_counts(charseq const &str) {
   auto words = parlay::tokens(str, [] (char c) {return c == ' ';});
-  return parlay::histogram_by_key(words); 
+  auto pairs = parlay::histogram_by_key(words); 
+  auto cmp = [] (auto const& a, auto const& b) {
+    return a.second > b.second;};
+  return parlay::sort(pairs, cmp);
 }
 
+// **************************************************************
+// Driver code
+// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: word_counts <n> <filename>\nprints first <n> words.";
   long n;
@@ -24,11 +30,13 @@ int main(int argc, char* argv[]) {
     catch (...) {std::cout << usage << std::endl; return 1;}
     charseq str = parlay::chars_from_file(argv[2]);
 
-    // clean up by just looking at alphabetic chars, and lowercase them
+    // clean up by just keeping alphabetic chars, and lowercase them
     str = parlay::map(str, [] (char c) -> char {
 	    return std::isalpha(c) ? std::tolower(c) : ' ';});
     
     auto counts = word_counts(str);
+
+    // take first n entries
     auto head = counts.head((std::min)(n, (long) counts.size()));
 
     // format each line as word-space-count-newline

@@ -1,14 +1,11 @@
-#include <iostream>
 #include <parlay/primitives.h>
 #include <parlay/internal/block_delayed.h>
 namespace delayed = parlay::block_delayed;
 
-// Level: Advanced (heavy use of delayed sequences).
-
 // **************************************************************
-// An implementation of filter with other primitives This makes use of
-// delayed sequences and should be competitive with the built in
-// filter.
+// An implementation of filter with other primitives.
+// Makes use of delayed sequences and should be competitive with the
+// built in filter.
 // It accepts a delayed sequence as an argument
 // ************************************************************** 
 
@@ -25,6 +22,9 @@ auto filter_(const Range& A, const UnaryPred&& f) {
   return r;
 }
 
+// **************************************************************
+// Driver code
+// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: filter <n>";
   if (argc != 2) std::cout << usage << std::endl;

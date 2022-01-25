@@ -1,7 +1,5 @@
-#include <limits>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
-#include <parlay/io.h>
 
 // **************************************************************
 // The quickhull algorithm
@@ -21,8 +19,8 @@ using pointseq = parlay::sequence<point>;
 
 // **************************************************************
 // The recursive routine
-// Points are all the original points
-// l and r are the start and endpoints, and
+// Points are all the original points,
+// l and r are the start and endpoints to find the hull between, and
 // Idxs are the indices of the points (in Points) above the line defined by l--r.
 // **************************************************************
 intseq quickhull(pointseq const &Points, intseq Idxs, point l, point r) {
@@ -82,6 +80,9 @@ intseq upper_hull(pointseq const &Points) {
   return parlay::flatten(nested);
 }
 
+// **************************************************************
+// Driver code
+// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: quickhull <n>";
   if (argc != 2) std::cout << usage << std::endl;

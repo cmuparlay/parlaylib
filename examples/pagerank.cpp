@@ -1,8 +1,5 @@
-#include <limits>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
-#include <parlay/io.h>
-#include <parlay/internal/get_time.h>
 
 using vector = parlay::sequence<double>;
 using element = std::pair<long,double>;

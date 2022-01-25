@@ -1,4 +1,3 @@
-#include <iostream>
 #include <parlay/primitives.h>
 
 // **************************************************************
@@ -6,6 +5,7 @@
 // Returns primes up to n (inclusive).
 // Based on primes sieve but designed to be reasonably cache efficienct.
 // In particular it sieves over blocks of size sqrt(n), which presumably fit in cache
+// Does O(n log log n) work
 // **************************************************************
 
 parlay::sequence<long> primes(long n) {
@@ -34,13 +34,18 @@ parlay::sequence<long> primes(long n) {
 	for (long k = first; k < end; k += p) 
 	  flags[k] = false;
       };}, 1); // the 1 means set granularity to 1 iteration
-  flags[0] = flags[1] = false; // 0 and 1 are not prime
+
+  // 0 and 1 are not prime
+  flags[0] = flags[1] = false; 
 
   // filter to keep indices that remain true (i.e. the primes)
-  auto is_true = [&] (long i) {return flags[i];};
-  return parlay::filter(parlay::iota(n+1), is_true);
+  return parlay::filter(parlay::iota(n+1), [&] (long i) {
+      return flags[i];});
 }
 
+// **************************************************************
+// Driver code
+// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: primes <n>";
   if (argc != 2) std::cout << usage << std::endl;

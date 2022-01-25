@@ -1,16 +1,14 @@
-#include <iostream>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 
 // **************************************************************
 // Parallel Maximum Contiguous Subsequence Sum
-// The algorithm uses reduce to maintain 4 values for a range
+// The algorithm uses reduce to maintain a 4-tuple for a range
 //   1: the best solution in the range
 //   2: the best solution starting at the begining
 //   3: the best solution starting at the end
 //   4: the sum of values in the range
-// These can be combined using reduce to get the result
-// Extracing the first (index 0) gives the result
+// These can be combined using an associative function (f)
 // **************************************************************
 
 auto mcss(parlay::sequence<int> const& A) {
@@ -27,6 +25,9 @@ auto mcss(parlay::sequence<int> const& A) {
   return parlay::reduce(pre, parlay::make_monoid(f, identity))[0];
 }
 
+// **************************************************************
+// Driver code
+// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: mcss <n>";
   if (argc != 2) std::cout << usage << std::endl;
