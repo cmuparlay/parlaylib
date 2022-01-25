@@ -1,5 +1,6 @@
 
-set(EXAMPLES "primes" "BFS" "word_counts" "tokens" "filter" "linefit" "mcss" "quickhull")
+set(EXAMPLES "primes" "BFS" "word_counts" "tokens" "filter" "linefit" "mcss"
+	     "quickhull" "pagerank" "kmeans")
 
 function(add_example NAME)
   add_executable(${NAME} ${NAME}.cpp)

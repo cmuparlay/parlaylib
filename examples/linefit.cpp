@@ -22,12 +22,12 @@ auto linefit(const Seq& points) {
 }
 
 int main(int argc, char* argv[]) {
-  long n;
-  if (argc != 2)
-    std::cout << "linefit <n>" << std::endl;
+  auto usage = "Usage: linefit <n>";
+  if (argc != 2) std::cout << usage << std::endl;
   else {
-    // should catch invalid argument exception if not an integer
-    n = std::stol(argv[1]);
+    long n;
+    try {n = std::stol(argv[1]);}
+    catch (...) {std::cout << usage << std::endl; return 1;}
     double offset = 1.0;
     double slope = 1.0;
     parlay::random r;

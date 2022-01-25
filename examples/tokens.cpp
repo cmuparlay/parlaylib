@@ -36,9 +36,8 @@ tokens_(const Range& str, F is_space) {
 }
 
 int main(int argc, char* argv[]) {
-  long n;
-  if (argc != 2)
-    std::cout << "tokens <filename>" << std::endl;
+  auto usage = "Usage: tokens <filename>";
+  if (argc != 2) std::cout << usage << std::endl;
   else {
     charseq str = parlay::chars_from_file(argv[1]);
 

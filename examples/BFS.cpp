@@ -54,15 +54,16 @@ BFS(vertex start, const Graph &G) {
 Graph generate_graph(long n) {
   return parlay::tabulate(n, [=] (vertex i) {
            return parlay::tabulate(20, [=] (vertex j) {
-   		    return (vertex) (parlay::hash64(j*n + i) % n);});});
+		    return (vertex) (parlay::hash64(j*n + i) % n);}, 100);});
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 2)
-    std::cout << "BFS <n>" << std::endl;
+  auto usage = "Usage: BFS <n>";
+  if (argc != 2) std::cout << usage << std::endl;
   else {
-    // should catch invalid argument exception if not an integer
-    long n = std::stol(argv[1]);
+    long n;
+    try {n = std::stol(argv[1]);}
+    catch (...) {std::cout << usage << std::endl; return 1;}
     Graph G = generate_graph(n);
     auto [result, rounds] = BFS(0, G);
     std::cout << "number of rounds: " << rounds << std::endl;

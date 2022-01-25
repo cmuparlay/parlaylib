@@ -14,12 +14,14 @@ auto word_counts(charseq const &str) {
 }
 
 int main(int argc, char* argv[]) {
+  auto usage = "Usage: word_counts <n> <filename>\nprints first <n> words.";
   long n;
   if (argc != 3)
-    std::cout << "word_counts <n> <filename>" << std::endl;
+    std::cout << usage << std::endl;
   else {
-    // should catch invalid argument exception if not an integer
-    n = std::stol(argv[1]);
+    long n;
+    try {n = std::stol(argv[1]);}
+    catch (...) {std::cout << usage << std::endl; return 1;}
     charseq str = parlay::chars_from_file(argv[2]);
 
     // clean up by just looking at alphabetic chars, and lowercase them

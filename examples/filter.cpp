@@ -26,11 +26,12 @@ auto filter_(const Range& A, const UnaryPred&& f) {
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 2)
-    std::cout << "primes <n>" << std::endl;
+  auto usage = "Usage: filter <n>";
+  if (argc != 2) std::cout << usage << std::endl;
   else {
-    // should catch invalid argument exception if not an integer
-    long n = std::stol(argv[1]);
+    long n;
+    try {n = std::stol(argv[1]);}
+    catch (...) {std::cout << usage << std::endl; return 1;}
     auto result = filter_(parlay::iota(n+1), [] (long i) {return i%2 == 0;});
     std::cout << "number of even integers up to n: " << result.size() << std::endl;
   }

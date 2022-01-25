@@ -42,12 +42,12 @@ parlay::sequence<long> primes(long n) {
 }
 
 int main(int argc, char* argv[]) {
-  long n;
-  if (argc != 2)
-    std::cout << "primes <n>" << std::endl;
+  auto usage = "Usage: primes <n>";
+  if (argc != 2) std::cout << usage << std::endl;
   else {
-    // should catch invalid argument exception if not an integer
-    n = std::stol(argv[1]);
+    long n;
+    try {n = std::stol(argv[1]);}
+    catch (...) {std::cout << usage << std::endl; return 1;}
     parlay::sequence<long> result = primes(n);
     std::cout << "number of primes: " << result.size() << std::endl;
   }

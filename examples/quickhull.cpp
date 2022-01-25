@@ -83,12 +83,12 @@ intseq upper_hull(pointseq const &Points) {
 }
 
 int main(int argc, char* argv[]) {
-  long n;
-  if (argc != 2)
-    std::cout << "convexhull <n>" << std::endl;
+  auto usage = "Usage: quickhull <n>";
+  if (argc != 2) std::cout << usage << std::endl;
   else {
-    // should catch invalid argument exception if not an integer
-    n = std::stol(argv[1]);
+    long n;
+    try {n = std::stol(argv[1]);}
+    catch (...) {std::cout << usage << std::endl; return 1;}
     parlay::random r;
 
     // generate n random points in a unit square
