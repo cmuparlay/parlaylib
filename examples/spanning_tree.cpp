@@ -12,8 +12,8 @@ using edge = std::pair<vertex,vertex>;
 using edges = parlay::sequence<edge>;
 
 // **************************************************************
-// Given an sequence of edges, i.e. (u,v) pairs, return the indices
-// in the sequence of edges in a spanning_forest
+// Given an sequence of edges, i.e. (u,v) pairs, return a spanning
+// forest given as indices into the sequence of edges
 // **************************************************************
 parlay::sequence<long> spanning_forest(edges const &E, vertex n) {
   long m = E.size();
@@ -55,16 +55,15 @@ edges generate_edges(long n) {
 
   // create random edges
   auto E = parlay::delayed_tabulate(n*5, [&] (long i) {
-      vertex v1 = rand[2*i]%n;
-      vertex v2 = rand[2*i+1]%n;
-      if (v1 > v2) std::swap(v1,v2);
-      return edge(v1,v2); });
+      return edge(rand[2*i]%n,rand[2*i+1]%n);});
 
-  // remove self and redundant edges
-  auto Ef = parlay::filter(E, [] (edge e) {return e.first != e.second;});
-  return parlay::unique(parlay::sort(Ef));
+  // remove self edges
+  return parlay::filter(E, [] (edge e) {return e.first != e.second;});
 }
 
+// **************************************************************
+// Driver
+// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: spanning_tree <n>";
   if (argc != 2) std::cout << usage << std::endl;

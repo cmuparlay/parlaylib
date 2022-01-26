@@ -2,10 +2,10 @@
 #include <parlay/random.h>
 
 // **************************************************************
-// The quickhull algorithm
-// For a sequence of points, returns the indices of the points on
-// the upper hull in left to right order
-// Uses the divide-and-conquer quickhull algorithm
+// The quickhull algorithm for 2d convex hull.
+// For a sequence of 2d points, returns the indices of the points on
+// the upper hull in left to right order.
+// Uses the divide-and-conquer quickhull algorithm.
 // **************************************************************
 
 struct point { double x; double y;};

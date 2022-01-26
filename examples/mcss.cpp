@@ -3,10 +3,10 @@
 
 // **************************************************************
 // Parallel Maximum Contiguous Subsequence Sum
-// The algorithm uses reduce to maintain a 4-tuple for a range
+// The algorithm uses reduce to maintain a 4-tuple for a range, consisting of:
 //   1: the best solution in the range
-//   2: the best solution starting at the begining
-//   3: the best solution starting at the end
+//   2: the best solution starting at the begining of the range
+//   3: the best solution starting at the end of the range
 //   4: the sum of values in the range
 // These can be combined using an associative function (f)
 // **************************************************************
@@ -29,7 +29,7 @@ auto mcss(parlay::sequence<int> const& A) {
 // Driver code
 // **************************************************************
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: mcss <n>";
+  auto usage = "Usage: mcss <size>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n;

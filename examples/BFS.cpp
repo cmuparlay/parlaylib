@@ -5,10 +5,10 @@ namespace delayed = parlay::block_delayed;
 
 // **************************************************************
 // Parallel Breadth First Search
-// For each vertex returns the parent in the BFS tree
-// The start vertex points to itself, and any unvisited vertices have -1
+// For each vertex returns the parent in the BFS tree.
+// The start vertex points to itself, and any unvisited vertices have -1.
 // The graph is a sequence of sequences of vertex ids, representing
-// the outedges for each vertex
+// the outedges for each vertex.
 // **************************************************************
 
 using vertex = int;
@@ -46,7 +46,6 @@ BFS(vertex start, const Graph &G) {
 			rounds);
 }
 
-
 // **************************************************************
 // Generate a random graph
 // Each vertex has 20 random neighbors (could be self)
@@ -57,6 +56,9 @@ Graph generate_graph(long n) {
 		    return (vertex) (parlay::hash64(j*n + i) % n);}, 100);});
 }
 
+// **************************************************************
+// Driver
+// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: BFS <n>";
   if (argc != 2) std::cout << usage << std::endl;

@@ -1,10 +1,19 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 
+// **************************************************************
+// Fits a set of points to a least-square linefit
+// returns the y intercept at x=0 and the slope
+// Algorithm is from:
+// "Numerical Recipes: The art of scientific computing"
+// by Press, Teukolsky, Vetterling, and Flannery.
+// **************************************************************
+
 using point = std::pair<double,double>;
 auto add_point = parlay::pair_monoid(parlay::addm<double>(),
-				    parlay::addm<double>());
+				     parlay::addm<double>());
 
+// The algorithm
 template <class Seq>
 auto linefit(const Seq& points) {
   long n = points.size();
@@ -21,8 +30,11 @@ auto linefit(const Seq& points) {
   return point(a, b);
 }
 
+// **************************************************************
+// Driver
+// **************************************************************
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: linefit <n>";
+  auto usage = "Usage: linefit <num_points>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n;

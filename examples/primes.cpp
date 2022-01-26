@@ -3,9 +3,9 @@
 // **************************************************************
 // Parallel primes
 // Returns primes up to n (inclusive).
-// Based on primes sieve but designed to be reasonably cache efficienct.
-// In particular it sieves over blocks of size sqrt(n), which presumably fit in cache
-// Does O(n log log n) work
+// Based on primes sieve but designed to be reasonably cache efficient.
+// In particular it sieves over blocks of size sqrt(n), which presumably fit in cache.
+// It does O(n log log n) work with O(sqrt(n) log n) span.
 // **************************************************************
 
 parlay::sequence<long> primes(long n) {

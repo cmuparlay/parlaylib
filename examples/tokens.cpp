@@ -35,6 +35,9 @@ tokens_(const Range& str, F is_space) {
 	   return parlay::to_sequence(str.cut(ids[2*i],ids[2*i+1]));});
 }
 
+// **************************************************************
+// Driver
+// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: tokens <filename>";
   if (argc != 2) std::cout << usage << std::endl;

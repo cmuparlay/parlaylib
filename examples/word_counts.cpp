@@ -2,12 +2,13 @@
 #include <parlay/io.h>
 #include <cctype>
 
-using charseq = parlay::sequence<char>;
-
 // **************************************************************
 // Counts the number times each space-separated word appears in a file.
 // Returns a sequence or word-count pairs, sorted by word frequency, max first
 // **************************************************************
+
+using charseq = parlay::sequence<char>;
+
 auto word_counts(charseq const &str) {
   auto words = parlay::tokens(str, [] (char c) {return c == ' ';});
   auto pairs = parlay::histogram_by_key(words); 

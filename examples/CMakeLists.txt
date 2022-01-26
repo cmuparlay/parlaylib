@@ -1,6 +1,7 @@
 
 set(EXAMPLES "primes" "BFS" "word_counts" "tokens" "filter" "linefit" "mcss"
-	     "quickhull" "pagerank" "kmeans" "spanning_tree")
+  "quickhull" "pagerank" "kmeans" "spanning_tree" "maximal_matching"
+  "min_spanning_tree" "mergesort")
 
 function(add_example NAME)
   add_executable(${NAME} ${NAME}.cpp)

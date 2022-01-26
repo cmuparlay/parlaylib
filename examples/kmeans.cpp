@@ -5,14 +5,20 @@
 // Kmeans using Lloyd's algorithm
 // **************************************************************
 
+// **************************************************************
+// Helper definitions and functions
+// **************************************************************
+
 using Point = parlay::sequence<double>;
 using Points = parlay::sequence<Point>;
 
+// the 100 in the following two is for granularity control
+// i.e. if the the number of dimensions is less than 100, run sequentially
 Point operator/(Point& a, double b) {
   return parlay::map(a, [=] (double v) {return v/b;}, 100);}
 
 Point operator+(Point& a, Point& b) {
-  return parlay::tabulate(a.size(), [&] (long i) {return a[i]+-b[i];}, 100);}
+  return parlay::tabulate(a.size(), [&] (long i) {return a[i] + b[i];}, 100);}
 
 double squared_dist(Point& a, Point& b) {
   return parlay::reduce(parlay::delayed_tabulate(a.size(), [&] (long i) {
@@ -33,7 +39,7 @@ auto addm = parlay::make_monoid(addpair, std::pair(Point(),0l));
 
 // **************************************************************
 // This is the main algorithm
-// It uses k random points among the input to start
+// It uses k random points from the input as the starting centers
 // **************************************************************
 Points kmeans(Points& pts, int k, int rounds) {
   long n = pts.size();
@@ -41,20 +47,23 @@ Points kmeans(Points& pts, int k, int rounds) {
   Points kpts = parlay::to_sequence(pts.head(k));
 
   for (int i = 0; i < rounds; i++) {
-    // for each point find closest among the kmeans (kpts)
+    // for each point find closest among the k centers (kpts)
     auto closest = parlay::map(pts, [&] (Point& p) {
 	return std::pair{closest_point(p, kpts), std::pair{p,1l}};});
 
-    // Sum the coordinates, that map to each of the k points
+    // Sum the points that map to each of the k centers
     auto mid_and_counts = parlay::reduce_by_index(closest, k, addm);
 
-    // Calculate new centers (average of coordinates)
+    // Calculate new centers (average of the points)
     auto kpts = parlay::map(mid_and_counts, [&] (auto mcnt) {
 		  return (mcnt.first / (double) mcnt.second);});
   }
   return kpts;
 }
 
+// **************************************************************
+// Driver
+// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: kmeans <n>";
   if (argc != 2) std::cout << usage << std::endl;
