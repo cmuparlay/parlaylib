@@ -70,8 +70,8 @@ template<typename T, typename U = T>
 using is_equality_comparable = std::conjunction<
                                  std::is_invocable_r<bool, std::equal_to<>, T, U>,
                                  std::is_invocable_r<bool, std::equal_to<>, U, T>,
-                                 std::is_invocable_r<bool, decltype(std::not_fn(std::equal_to<>{})), T, U>,
-                                 std::is_invocable_r<bool, decltype(std::not_fn(std::equal_to<>{})), U, T>
+                                 std::is_invocable_r<bool, std::not_equal_to<>, T, U>,
+                                 std::is_invocable_r<bool, std::not_equal_to<>, U, T>
                                >;
 
 template<typename T, typename U = T>

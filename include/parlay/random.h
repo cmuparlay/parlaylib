@@ -16,6 +16,8 @@
 
 #include "internal/counting_sort.h"
 
+// IWYU pragma: no_include <sstream>
+
 namespace parlay {
 
 // A cheap version of an inteface that should be improved
