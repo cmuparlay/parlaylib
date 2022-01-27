@@ -8,15 +8,34 @@
 #include <array>
 #include <iterator>
 #include <limits>
+#include <type_traits>
 #include <utility>
+
+#include "type_traits.h"
 
 // Definition of various monoids
 // each consists of:
 //   T : type of the values
-//   static T identity() : returns identity for the monoid
-//   static T add(T, T) : adds two elements, must be associative
+//   T identity : returns identity for the monoid
+//   T add(T, T) : adds two elements, must be associative
 
 namespace parlay {
+
+// Type trait for detecting the value type of a Monoid, denoted by the member Monoid_::T
+template<typename Monoid_>
+using monoid_value_type = type_identity<typename std::remove_reference_t<Monoid_>::T>;
+
+// Returns the value type of the given Monoid, denoted by the member Monoid_::T
+template<typename Monoid_>
+using monoid_value_type_t = typename monoid_value_type<Monoid_>::type;
+
+// Type trait for detecting the function type of a Monoid, given by m.f
+template<typename Monoid_>
+using monoid_function_type = type_identity<decltype(std::declval<Monoid_&>().f)>;
+
+// Returns the function type of the given Monoid, given by m.f
+template<typename Monoid_>
+using monoid_function_type_t = typename monoid_function_type<Monoid_>::type;
 
 template <class F, class TT>
 struct monoid {

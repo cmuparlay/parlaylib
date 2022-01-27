@@ -45,7 +45,7 @@ struct block_delayed_filter_op_t :
   using reference = const result_type&;
 
   template<typename UV, typename UP>
-  block_delayed_filter_op_t(UV&& v, UP&& p) : base(std::forward<UV>(v)),
+  block_delayed_filter_op_t(UV&& v, UP&& p) : base(std::forward<UV>(v), 0),
       result(filter_blocks(base_view(), std::forward<UP>(p)), 0) {
 
   }
@@ -91,6 +91,11 @@ struct block_delayed_filter_op_t :
   flattener_type result;
 };
 
+// Given a range v and a function p on the reference type of v
+// that returns std::optional<T> for some type T, returns a
+// delayed range consisting of the values held by the optionals
+// produced by p on the values of v such that the optional is
+// not empty.
 template<typename UnderlyingView, typename UnaryOperator>
 auto filter_op(UnderlyingView&& v, UnaryOperator&& p) {
   static_assert(is_block_iterable_range_v<UnderlyingView>);
@@ -99,6 +104,11 @@ auto filter_op(UnderlyingView&& v, UnaryOperator&& p) {
       std::forward<UnderlyingView>(v), std::forward<UnaryOperator>(p));
 }
 
+// Given a range v and a function p on the reference type of v
+// that returns std::optional<T> for some type T, returns a
+// delayed range consisting of the values held by the optionals
+// produced by p on the values of v such that the optional is
+// not empty.
 template<typename UnderlyingView, typename UnaryOperator>
 auto map_maybe(UnderlyingView&& v, UnaryOperator&& p) {
   return filter_op(std::forward<UnderlyingView>(v), std::forward<UnaryOperator>(p));

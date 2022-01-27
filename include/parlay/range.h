@@ -51,6 +51,7 @@
 #include <iterator>       // IWYU pragma: keep
 #include <type_traits>
 
+#include "type_traits.h"
 
 // Old macros that we used to use to conditionally
 // insert type constraints if concepts were enabled.
@@ -63,19 +64,42 @@ namespace parlay {
 /*  ----------------------------- Iterator traits --------------------------------
     Type traits that deduce useful types about an iterator.
 
+    iterator_category        : the category tag type of the iterator
     iterator_value_type      : the value type of the iterator
     iterator_reference_type  : the type obtained by dereferencing an iterator
     iterator_difference_type : a type that can represent the difference between two iterators
 */
 
+// Deduce the iterator category of the given iterator type
 template<typename It_>
-using iterator_value_type_t = typename std::iterator_traits<It_>::value_type;
+using iterator_category = type_identity<typename std::iterator_traits<It_>::iterator_category>;
 
 template<typename It_>
-using iterator_reference_type_t = typename std::iterator_traits<It_>::reference;
+using iterator_category_t = typename iterator_category<It_>::type;
 
+// Deduce the value type of the given iterator type
 template<typename It_>
-using iterator_difference_type_t = typename std::iterator_traits<It_>::difference_type;
+using iterator_value_type = type_identity<typename std::iterator_traits<It_>::value_type>;
+
+// Deduce the value type of the given iterator type
+template<typename It_>
+using iterator_value_type_t = typename iterator_value_type<It_>::type;
+
+// Deduce the reference type of the given iterator type
+template<typename It_>
+using iterator_reference_type = type_identity<typename std::iterator_traits<It_>::reference>;
+
+// Deduce the reference type of the given iterator type
+template<typename It_>
+using iterator_reference_type_t = typename iterator_reference_type<It_>::type;
+
+// Deduce the difference type of the given iterator type
+template<typename It_>
+using iterator_difference_type = type_identity<typename std::iterator_traits<It_>::difference_type>;
+
+// Deduce the difference type of the given iterator type
+template<typename It_>
+using iterator_difference_type_t = typename iterator_difference_type<It_>::type;
 
 /*  ----------------------------- Range traits --------------------------------
     Type traits that deduce useful types about a range.
@@ -89,9 +113,7 @@ using iterator_difference_type_t = typename std::iterator_traits<It_>::differenc
 
 // Deduce the iterator type of the range type T
 template<typename Range_>
-struct range_iterator_type {
-  using type = decltype(std::begin(std::declval<Range_&>()));
-};
+using range_iterator_type = type_identity<decltype(std::begin(std::declval<Range_&>()))>;
 
 // Deduce the iterator type of the range type T
 template<typename Range_>
@@ -99,9 +121,7 @@ using range_iterator_type_t = typename range_iterator_type<Range_>::type;
 
 // Deduce the sentinel (end iterator) type of the range type T
 template<typename Range_>
-struct range_sentinel_type {
-  using type = decltype(std::end(std::declval<Range_&>()));
-};
+using range_sentinel_type = type_identity<decltype(std::end(std::declval<Range_&>()))>;
 
 // Deduce the sentinel (end iterator) type of the range type T
 template<typename Range_>
@@ -110,9 +130,7 @@ using range_sentinel_type_t = typename range_sentinel_type<Range_>::type;
 // Deduce the underlying value type of a range. This should correspond to a
 // type that can be used to safely copy a value obtained by one of its iterators
 template<typename Range_>
-struct range_value_type {
-  using type = typename std::iterator_traits<range_iterator_type_t<Range_>>::value_type;
-};
+using range_value_type = type_identity<iterator_value_type_t<range_iterator_type_t<Range_>>>;
 
 // Deduce the underlying value type of a range. This should correspond to a
 // type that can be used to safely copy a value obtained by one of its iterators
@@ -121,9 +139,7 @@ using range_value_type_t = typename range_value_type<Range_>::type;
 
 // Deduce the reference type of a range. This is the type obtained by dereferencing one of its iterators.
 template<typename Range_>
-struct range_reference_type {
-  using type = typename std::iterator_traits<range_iterator_type_t<Range_>>::reference;
-};
+using range_reference_type = type_identity<iterator_reference_type_t<range_iterator_type_t<Range_>>>;
 
 // Deduce the reference type of a range. This is the type obtained by dereferencing one of its iterators.
 template<typename Range_>
@@ -132,9 +148,7 @@ using range_reference_type_t = typename range_reference_type<Range_>::type;
 // Deduce the difference type of a range. This is a type that can be used to
 // represent a difference between two iterators
 template<typename Range_>
-struct range_difference_type {
-  using type = typename std::iterator_traits<range_iterator_type_t<Range_>>::difference_type;
-};
+using range_difference_type = type_identity<iterator_difference_type_t<range_iterator_type_t<Range_>>>;
 
 // Deduce the difference type of a range. This is a type that can be used to
 //// represent a difference between two iterators
@@ -149,10 +163,10 @@ struct is_iterator : public std::false_type {};
 
 template<typename It_>
 struct is_iterator<It_, std::void_t<
-  typename std::iterator_traits<It_>::iterator_category,
+  iterator_category<It_>,
   decltype( ++std::declval<It_&>() ),
   decltype( *std::declval<It_&>() ),
-  decltype( std::swap(std::declval<It_&>(), std::declval<It_&>()) ),
+  std::enable_if_t< std::is_swappable_v<It_&> >,
   std::enable_if_t< std::is_same_v<decltype(++std::declval<It_&>()), It_&> >,
   std::enable_if_t< std::is_copy_constructible_v<It_> >,
   std::enable_if_t< std::is_copy_assignable_v<It_> >,
@@ -170,11 +184,8 @@ struct is_sentinel_for : public std::false_type {};
 
 template<typename It_, typename Sentinel_>
 struct is_sentinel_for<It_, Sentinel_, std::void_t<
-  decltype( std::declval<It_>() == std::declval<Sentinel_>() ),
-  decltype( std::declval<It_>() != std::declval<Sentinel_>() ),
-  decltype( std::declval<Sentinel_>() == std::declval<It_>() ),
-  decltype( std::declval<Sentinel_>() != std::declval<It_>() ),
   std::enable_if_t< is_iterator_v<It_> >,
+  std::enable_if_t< is_equality_comparable_v<It_, Sentinel_> >,
   std::enable_if_t< std::is_default_constructible_v<Sentinel_> >,
   std::enable_if_t< std::is_copy_constructible_v<Sentinel_> >,
   std::enable_if_t< std::is_copy_assignable_v<Sentinel_> >
@@ -190,12 +201,11 @@ struct is_input_iterator : public std::false_type {};
 
 template<typename It_>
 struct is_input_iterator<It_, std::void_t<
-  decltype( std::declval<It_&>() == std::declval<It_&>() ),
-  decltype( std::declval<It_&>() != std::declval<It_&>() ),
   decltype( std::declval<It_&>()++ ),
   std::enable_if_t< is_iterator_v<It_> >,
-  std::enable_if_t< std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >,
-  std::enable_if_t< std::is_same_v<decltype(*std::declval<It_&>()), typename std::iterator_traits<It_>::reference> >
+  std::enable_if_t< is_equality_comparable_v<It_&, It_&> >,
+  std::enable_if_t< std::is_base_of_v<std::input_iterator_tag, iterator_category_t<It_>> >,
+  std::enable_if_t< std::is_same_v<decltype(*std::declval<It_&>()), iterator_reference_type_t<It_>> >
 >> : public std::true_type {};
 
 // true if the iterator type It_ is at least an input iterator
@@ -209,7 +219,7 @@ struct is_output_iterator : public std::false_type {};
 template<typename It_>
 struct is_output_iterator<It_, std::void_t<
   std::enable_if_t< is_iterator_v<It_> >,
-  std::enable_if_t< std::is_base_of_v<std::output_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >
+  std::enable_if_t< std::is_base_of_v<std::output_iterator_tag, iterator_category_t<It_>> >
 >> : public std::true_type {};
 
 // true if the iterator type It_ is an output iterator
@@ -223,10 +233,10 @@ struct is_forward_iterator : public std::false_type {};
 template<typename It_>
 struct is_forward_iterator<It_, std::void_t<
   std::enable_if_t< is_input_iterator_v<It_> >,
-  std::enable_if_t< std::is_base_of_v<std::forward_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >,
+  std::enable_if_t< std::is_base_of_v<std::forward_iterator_tag, iterator_category_t<It_>> >,
   std::enable_if_t< std::is_default_constructible_v<It_> >,
   std::enable_if_t< std::is_convertible_v<decltype(std::declval<It_&>()++), const std::remove_reference_t<It_>&> >,
-  std::enable_if_t< std::is_same_v<decltype(*(std::declval<It_&>()++)), typename std::iterator_traits<It_>::reference> >
+  std::enable_if_t< std::is_same_v<decltype(*(std::declval<It_&>()++)), iterator_reference_type_t<It_>> >
 >> : public std::true_type {};
 
 // true if the iterator type It_ is at least a forward iterator
@@ -242,9 +252,9 @@ struct is_bidirectional_iterator<It_, std::void_t<
   decltype( --std::declval<It_&>() ),
   decltype( std::declval<It_&>()-- ),
   std::enable_if_t< is_forward_iterator_v<It_> >,
-  std::enable_if_t< std::is_base_of_v<std::bidirectional_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >,
+  std::enable_if_t< std::is_base_of_v<std::bidirectional_iterator_tag, iterator_category_t<It_>> >,
   std::enable_if_t< std::is_convertible_v<decltype(std::declval<It_&>()--), const std::remove_reference_t<It_>&> >,
-  std::enable_if_t< std::is_same_v<decltype(*(std::declval<It_&>()--)), typename std::iterator_traits<It_>::reference> >
+  std::enable_if_t< std::is_same_v<decltype(*(std::declval<It_&>()--)), iterator_reference_type_t<It_>> >
 >> : public std::true_type {};
 
 // true if the iterator type It is at least a bidirectional iterator
@@ -258,7 +268,7 @@ struct is_random_access_iterator : public std::false_type {};
 template<typename It_>
 struct is_random_access_iterator<It_, std::void_t<
   std::enable_if_t< is_bidirectional_iterator_v<It_> >,
-  std::enable_if_t< std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It_>::iterator_category> >,
+  std::enable_if_t< std::is_base_of_v<std::random_access_iterator_tag, iterator_category_t<It_>> >,
   std::enable_if_t< std::is_same_v<decltype(std::declval<It_&>() += std::declval<iterator_difference_type_t<It_>>()), It_&> >,
   std::enable_if_t< std::is_same_v<decltype(std::declval<It_>() + std::declval<iterator_difference_type_t<It_>>()), It_> >,
   std::enable_if_t< std::is_same_v<decltype(std::declval<It_&>() -= std::declval<iterator_difference_type_t<It_>>()), It_&> >,
@@ -277,7 +287,7 @@ inline constexpr bool is_random_access_iterator_v = is_random_access_iterator<It
 
 // Defines a member constant value true if the iterator type It_ is a contiguous iterator
 template<typename It_>
-struct is_contiguous_iterator : public std::is_pointer<It_> {};
+using is_contiguous_iterator = std::is_pointer<It_>;
 
 // true if the iterator type It_ corresponds to a contiguous iterator type
 template<typename It_>

@@ -41,7 +41,7 @@ class delayed_sequence;
 //
 // Deprecated. Prefer to use delayed_tabulate instead.
 template <typename T, typename F>
-delayed_sequence<T, std::remove_reference_t<T>, F> delayed_seq (size_t, F);
+delayed_sequence<T, std::remove_cv_t<std::remove_reference_t<T>>, F> delayed_seq (size_t, F);
 
 // A delayed sequence is an iterator range that generates its
 // elements on demand.
@@ -318,8 +318,8 @@ class delayed_sequence {
 //
 // Deprecated. Prefer to use delayed_tabulate instead.
 template <typename T, typename F>
-delayed_sequence<T, std::remove_reference_t<T>, F> delayed_seq (size_t n, F f) {
-  return delayed_sequence<T, std::remove_reference_t<T>, F>(n, std::move(f));
+delayed_sequence<T, std::remove_cv_t<std::remove_reference_t<T>>, F> delayed_seq (size_t n, F f) {
+  return delayed_sequence<T, std::remove_cv_t<std::remove_reference_t<T>>, F>(n, std::move(f));
 }
 
 }  // namespace parlay

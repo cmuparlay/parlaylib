@@ -38,7 +38,8 @@ auto tokens_delayed(const parlay::sequence<char>& seq, F is_space) {
   auto r = parlay::sequence<ipair>::uninitialized(sum.first);
   parlay::delayed::apply(z, [&] (auto&& x) {
     if (is_end(std::get<1>(x)))
-      r[std::get<0>(x).first] = ipair(std::get<0>(x).second, std::get<1>(x));});
+      parlay::assign_uninitialized(r[std::get<0>(x).first], ipair(std::get<0>(x).second, std::get<1>(x)));
+  });
 
   return r;
 }
@@ -101,28 +102,31 @@ static void bench_primes(benchmark::State& state) {
 
 // bignum represented as sequence of bytes, each with values in the range [0..128)
 // i.e. think of as radix 128 integer representation
-using byte = unsigned char;
-using bignum = parlay::sequence<byte>;
+using digit = unsigned char;
+using bignum = parlay::sequence<digit>;
+constexpr digit BASE = 128;
 
 auto big_add_delayed(bignum const& A, bignum const &B) {
   size_t n = A.size();
-  auto sums = parlay::delayed_tabulate(n, [&] (size_t i) -> byte {
-    return A[i] + B[i];});
-  auto f = [] (byte a, byte b) ->byte { // carry propagate
-    return (b == 127) ? a : b;};
-  auto [carries, total] = parlay::delayed::scan(sums, f, (byte)0);
+  auto sums = parlay::delayed_tabulate(n, [&] (size_t i) -> digit {
+    return A[i] + B[i]; });
+  auto f = [] (digit a, digit b) -> digit { // carry propagate
+    return (b == BASE-1) ? a : b;};
+  auto [carries, total] = parlay::delayed::scan(sums, f, digit(BASE-1));
 
-  auto z = parlay::delayed::zip(carries, sums);
-  auto mr = parlay::delayed::map(z, [] (auto x) {return ((std::get<0>(x) >> 7) + std::get<1>(x)) & 127;});
+  auto mr = parlay::delayed::zip_with([](digit carry, digit sum) -> digit {
+    return ((carry >= BASE) + sum) % BASE;
+  }, carries, sums);
   auto r = parlay::delayed::to_sequence(mr);
-  return std::make_pair(std::move(r), (total >> 7));
+
+  return std::make_pair(std::move(r), (total >= BASE));
 }
 
 static void bench_bignum_add(benchmark::State& state) {
   size_t n = state.range(0);
 
-  auto a = parlay::tabulate(n, [] (size_t) -> byte {return 64;});
-  auto b = parlay::tabulate(n, [] (size_t) -> byte {return 64;});
+  auto a = parlay::tabulate(n, [] (size_t i) -> digit { return i % 128; });
+  auto b = parlay::tabulate(n, [] (size_t i) -> digit { return i % 128; });
 
   for (auto _ : state) {
     {
@@ -332,7 +336,7 @@ using adjList = parlay::sequence<parlay::sequence<vertexId>>;
 
 parlay::sequence<vertexId> BFS(vertexId start, const adjList& G) {
   size_t n = G.size();
-  auto parent = parlay::sequence<std::atomic<vertexId>>::from_function(n, [&] (size_t) { return -1;});
+  auto parent = parlay::tabulate<std::atomic<vertexId>>(n, [&](size_t) { return -1; });
   parent[start] = start;
   parlay::sequence<vertexId> frontier(1,start);
 

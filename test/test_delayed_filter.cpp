@@ -176,3 +176,48 @@ TEST(TestDelayedFilter, TestFilterRValueRefs) {
     else ASSERT_TRUE(s[i].size() == i);
   }
 }
+
+TEST(TestDelayedFilter, TestFilterCopyConstruct) {
+  auto strings = parlay::tabulate(10000, [](int i) { return std::vector<char>(i, 'a'); });
+  auto pred = [](const std::vector<char>& x) { return x.size() % 2 == 0; };
+  auto answer = parlay::tabulate(5000, [](int i) { return std::vector<char>(2*i, 'a'); });
+
+  // Create a delayed filter, then copy-construct and return the copy. the original should be
+  // destroyed so if we accidentally take iterators from the old sequence they will dangle
+  auto f = [&]() {
+    auto f = parlay::delayed::filter(parlay::block_iterable_wrapper(strings.to_vector()), pred);
+    auto f2 = f;
+    return f2;
+  }();
+
+  ASSERT_EQ(f.size(), 5000);
+  auto it = f.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, answer[i]);
+    ++it;
+  }
+}
+
+TEST(TestDelayedFilter, TestFilterCopyAssign) {
+  auto strings = parlay::tabulate(10000, [](int i) { return std::vector<char>(i, 'a'); });
+  auto strings2 = parlay::tabulate(10000, [](int i) { return std::vector<char>(i, 'b'); });
+  auto pred = [](const std::vector<char>& x) { return x.size() % 2 == 0; };
+  auto answer = parlay::tabulate(5000, [](int i) { return std::vector<char>(2*i, 'a'); });
+  auto answer2 = parlay::tabulate(5000, [](int i) { return std::vector<char>(2*i, 'b'); });
+
+  // Create a delayed filter, then copy-assign and return the copy. the original should be
+  // destroyed so if we accidentally take iterators from the old sequence they will dangle
+  auto f = [&]() {
+    auto f = parlay::delayed::filter(parlay::block_iterable_wrapper(strings.to_vector()), pred);
+    auto f2 = parlay::delayed::filter(parlay::block_iterable_wrapper(strings2.to_vector()), pred);
+    f2 = f;
+    return f2;
+  }();
+
+  ASSERT_EQ(f.size(), 5000);
+  auto it = f.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, answer[i]);
+    ++it;
+  }
+}

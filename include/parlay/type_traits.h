@@ -17,6 +17,7 @@
 
 #include <cstddef>
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <type_traits>
@@ -39,9 +40,7 @@ using type_identity_t = typename type_identity<T>::type;
 // Provides the member type std::add_const_t<T> if Const is
 // true, otherwise provides the member type T
 template<bool Const, typename T>
-struct maybe_const {
-  using type = std::conditional_t<Const, std::add_const_t<T>, T>;
-};
+using maybe_const = std::conditional<Const, std::add_const_t<T>, T>;
 
 // Adds const to the given type if Const is true
 template<bool Const, typename T>
@@ -57,6 +56,26 @@ struct is_optional<std::optional<T>> : std::true_type {};
 // true if the given type is an instance of std::optional
 template<typename T>
 inline constexpr bool is_optional_v = is_optional<T>::value;
+
+template<typename T, typename U = T>
+using is_less_than_comparable = std::conjunction<
+                                  std::is_invocable_r<bool, std::less<>, T, U>,
+                                  std::is_invocable_r<bool, std::less<>, U, T>
+                                >;
+
+template<typename T, typename U = T>
+inline constexpr bool is_less_than_comparable_v = is_less_than_comparable<T, U>::value;
+
+template<typename T, typename U = T>
+using is_equality_comparable = std::conjunction<
+                                 std::is_invocable_r<bool, std::equal_to<>, T, U>,
+                                 std::is_invocable_r<bool, std::equal_to<>, U, T>,
+                                 std::is_invocable_r<bool, decltype(std::not_fn(std::equal_to<>{})), T, U>,
+                                 std::is_invocable_r<bool, decltype(std::not_fn(std::equal_to<>{})), U, T>
+                               >;
+
+template<typename T, typename U = T>
+inline constexpr bool is_equality_comparable_v = is_equality_comparable<T, U>::value;
 
 /*  --------------------- Priority tags. -------------------------
     Priority tags are an easy way to force template resolution to

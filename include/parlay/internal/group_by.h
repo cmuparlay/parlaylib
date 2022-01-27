@@ -26,21 +26,26 @@ namespace parlay {
 #pragma clang diagnostic ignored "-Wunused-local-typedef"
 #endif
 
-template <PARLAY_RANGE_TYPE Range, typename Comp>
-auto group_by_key_sorted(const Range& S, const Comp& less) {
+template <typename Range, typename Comp>
+auto group_by_key_ordered(Range&& S, Comp&& less) {
+  static_assert(is_random_access_range_v<Range>);
+
   using KV = range_value_type_t<Range>;
   using K = typename KV::first_type;
   using V = typename KV::second_type;
+
+  static_assert(std::is_invocable_r_v<bool, Comp, K, K>);
+
   size_t n = S.size();
 
   sequence<KV> sorted;
-  if constexpr(std::is_integral_v<K> &&
-               std::is_unsigned_v<K> &&
-               sizeof(KV) <= 16) {
-    sorted = parlay::integer_sort(make_slice(S), [] (KV a) { return a.first; });
+  if constexpr(std::is_integral_v<K> && std::is_unsigned_v<K> && sizeof(KV) <= 16) {
+    auto get_first = [] (auto&& a) -> decltype(auto) {
+      return std::forward<decltype(a)>(a).first; };
+    sorted = parlay::integer_sort(make_slice(S), get_first);
   } else {
-    auto pair_less = [&] (auto const &a, auto const &b) {
-      return less(a.first, b.first);};
+    auto pair_less = [&] (auto&& a, auto&& b) {
+      return less(std::forward<decltype(a)>(a).first, std::forward<decltype(b)>(b).first);};
     sorted = parlay::stable_sort(make_slice(S), pair_less);
   }
 
@@ -59,9 +64,10 @@ auto group_by_key_sorted(const Range& S, const Comp& less) {
   return r;
 }
 
-template <PARLAY_RANGE_TYPE Range>
-auto group_by_key_sorted(const Range& S) {
-  return group_by_key_sorted(S, std::less<>{});
+template <typename Range>
+auto group_by_key_ordered(Range&& S) {
+  static_assert(is_random_access_range_v<Range>);
+  return parlay::group_by_key_ordered(std::forward<Range>(S), std::less<>{});
 }
 
 
@@ -93,11 +99,12 @@ struct reduce_by_key_helper {
 // the same type, but with equal keys combined into a single element.
 // Values are combined with a monoid, which must be on the value type.
 // Returned in an arbitrary order that depends on the hash function.
-template <PARLAY_RANGE_TYPE R,
+template <typename R,
     typename Monoid = addm<typename range_value_type_t<R>::second_type>,
-    typename Hash = std::hash<typename range_value_type_t<R>::first_type>,
-    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
-auto reduce_by_key(R &&A, const Monoid& monoid = {}, Hash hash = {}, Equal equal = {}) {
+    typename Hash = parlay::hash<typename range_value_type_t<R>::first_type>,
+    typename Equal = std::equal_to<>>
+auto reduce_by_key(R&& A, Monoid&& monoid = {}, Hash&& hash = {}, Equal&& equal = {}) {
+  static_assert(is_random_access_range_v<R>);
   auto helper = reduce_by_key_helper<range_value_type_t<R>,Monoid,Hash,Equal>{monoid,hash,equal};
   return internal::collect_reduce_sparse(std::forward<R>(A), helper);
 }
@@ -126,10 +133,12 @@ struct group_by_key_helper {
     return result_type(key, vals);}
 };
 
-template <PARLAY_RANGE_TYPE R,
-    typename Hash = std::hash<typename range_value_type_t<R>::first_type>,
-    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
-auto group_by_key(R &&A, Hash hash = {}, Equal equal = {}) {
+template <typename R,
+    typename Hash = parlay::hash<typename range_value_type_t<R>::first_type>,
+    typename Equal = std::equal_to<>>
+auto group_by_key(R&& A, Hash&& hash = {}, Equal&& equal = {}) {
+  static_assert(is_random_access_range_v<R>);
+
   auto helper = group_by_key_helper<range_value_type_t<R>,Hash,Equal>{hash,equal};
   return internal::collect_reduce_sparse(std::forward<R>(A), helper);
 }
@@ -156,10 +165,11 @@ struct count_by_key_helper {
 // a unique value from the input, and the number of times it appears.
 // Returned in an arbitrary order that depends on the hash function.
 template <typename sum_type = size_t,
-    PARLAY_RANGE_TYPE R,
-    typename Hash = std::hash<range_value_type_t<R>>,
-    typename Equal = std::equal_to<range_value_type_t<R>>>
-auto histogram_by_key(R &&A, Hash hash = {}, Equal equal = {}) {
+    typename R,
+    typename Hash = parlay::hash<range_value_type_t<R>>,
+    typename Equal = std::equal_to<>>
+auto histogram_by_key(R &&A, Hash&& hash = {}, Equal&& equal = {}) {
+  static_assert(is_random_access_range_v<R>);
   auto helper = count_by_key_helper<range_value_type_t<R>,sum_type,Hash,Equal>{hash,equal};
   return internal::collect_reduce_sparse(std::forward<R>(A), helper);
 }
@@ -181,10 +191,14 @@ struct remove_duplicates_helper {
 };
 
 // should be made more efficient by avoiding generating and then stripping counts
-template <PARLAY_RANGE_TYPE R,
-    typename Hash = std::hash<range_value_type_t<R>>,
-    typename Equal = std::equal_to<range_value_type_t<R>>>
-auto remove_duplicates(R&& A, Hash hash = {}, Equal equal = {}) {
+template <typename R,
+    typename Hash = parlay::hash<range_value_type_t<R>>,
+    typename Equal = std::equal_to<>>
+auto remove_duplicates(R&& A, Hash&& hash = {}, Equal&& equal = {}) {
+  static_assert(is_random_access_range_v<R>);
+  static_assert(std::is_invocable_r_v<size_t, Hash, range_reference_type_t<R>>);
+  static_assert(std::is_invocable_r_v<bool, Equal, range_reference_type_t<R>, range_reference_type_t<R>>);
+  static_assert(std::is_constructible_v<range_value_type_t<R>, range_reference_type_t<R>>);
   auto helper = remove_duplicates_helper<range_value_type_t<R>,Hash,Equal>{hash,equal};
   return internal::collect_reduce_sparse(std::forward<R>(A), helper);
 }
@@ -194,11 +208,8 @@ auto remove_duplicates(R&& A, Hash hash = {}, Equal equal = {}) {
 // Values are combined with a monoid, which must be on the value type.
 // Must specify the number of buckets and it is an error for a key to be
 // be out of range.
-template <PARLAY_RANGE_TYPE R,
-    typename Monoid = addm<typename range_value_type_t<R>::second_type>,
-    typename Hash = std::hash<typename range_value_type_t<R>::first_type>,
-    typename Equal = std::equal_to<typename range_value_type_t<R>::first_type>>
-auto reduce_by_index(R const &A, size_t num_buckets, const Monoid& monoid = {}) {
+template <typename R, typename Monoid = addm<typename range_value_type_t<R>::second_type>>
+auto reduce_by_index(R&& A, size_t num_buckets, Monoid&& monoid = {}) {
   struct helper {
     using in_type = range_value_type_t<R>;
     using key_type = typename in_type::first_type;
@@ -219,8 +230,8 @@ auto reduce_by_index(R const &A, size_t num_buckets, const Monoid& monoid = {}) 
 // Given a sequence of integers creates a histogram with the count
 // of each interger value. The range num_buckets must be specified
 // and it is an error if any integers is out of the range [0:num_buckets).
-template <typename Integer_t, PARLAY_RANGE_TYPE R>
-auto histogram_by_index(R const &A, Integer_t num_buckets) {
+template <typename Integer_t, typename R>
+auto histogram_by_index(R&& A, Integer_t num_buckets) {
   struct helper {
     using key_type = range_value_type_t<R>;
     using val_type = Integer_t;
@@ -235,8 +246,12 @@ auto histogram_by_index(R const &A, Integer_t num_buckets) {
   return internal::collect_reduce(A, helper{A.size()}, num_buckets);
 }
 
-template <typename Integer_t, PARLAY_RANGE_TYPE R>
-auto remove_duplicate_integers(R const &A, Integer_t max_value) {
+template <typename Integer_t, typename R>
+auto remove_duplicate_integers(R&& A, Integer_t max_value) {
+  static_assert(is_random_access_range_v<R>);
+  static_assert(std::is_convertible_v<range_reference_type_t<R>, Integer_t>);
+  static_assert(std::is_integral_v<Integer_t>);
+
   struct helper {
     using key_type = range_value_type_t<R>;
     using val_type = bool;
@@ -251,8 +266,12 @@ auto remove_duplicate_integers(R const &A, Integer_t max_value) {
   return pack(iota<Integer_t>(max_value), flags);
 }
 
-template <typename Integer_t, PARLAY_RANGE_TYPE R>
-auto group_by_index(R const &A, Integer_t num_buckets) {
+template <typename Integer_t, typename R>
+auto group_by_index(R&& A, Integer_t num_buckets) {
+  static_assert(is_random_access_range_v<R>);
+  static_assert(std::is_integral_v<typename range_value_type_t<R>::first_type>);
+  static_assert(std::is_integral_v<Integer_t>);
+
   if (A.size() > static_cast<size_t>(num_buckets)*num_buckets) {
     auto keys = delayed_map(A, [] (auto const &kv) {return kv.first;});
     auto vals = delayed_map(A, [] (auto const &kv) {return kv.second;});

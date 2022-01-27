@@ -324,3 +324,27 @@ TEST(TestDelayedZip, TestBidZipNoConst) {
     ASSERT_EQ(y, x);
   }
 }
+
+TEST(TestDelayedZip, TestEnumerate) {
+  auto s = parlay::delayed_map(parlay::iota<int>(10000), [](int x) { return std::make_unique<int>(x); });
+
+  for (auto [i, x] : parlay::delayed::enumerate(s)) {
+    ASSERT_EQ(i, *x);
+  }
+}
+
+TEST(TestDelayedZip, TestZipWith) {
+  auto s = parlay::delayed_map(parlay::iota<int>(10000), [](int x) { return std::make_unique<int>(x); });
+  auto zw = parlay::delayed::zip_with([](int x, auto&& up) {
+    return x + *up;
+  }, parlay::iota<int>(10000), s);
+
+  ASSERT_EQ(zw.size(), 10000);
+
+  auto it = zw.begin();
+  for (size_t i = 0; i < zw.size(); i++) {
+    ASSERT_EQ(2*i, *it);
+    it++;
+  }
+  ASSERT_EQ(it, zw.end());
+}

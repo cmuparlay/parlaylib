@@ -232,7 +232,6 @@ extern inline std::pair<size_t,size_t> memory_usage() {
   return get_default_allocator().stats();
 }
 
-// pair of total currently used space, and total unused space the allocator has in reserve
 extern inline void memory_clear() {
   return get_default_allocator().clear();
 }

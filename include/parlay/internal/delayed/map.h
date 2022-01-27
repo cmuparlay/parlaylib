@@ -37,7 +37,7 @@ struct block_delayed_map_t :
   using value_type = std::remove_cv_t<std::remove_reference_t<reference>>;
 
   template<typename UV>
-  block_delayed_map_t(UV&& v, UnaryOperator f) : base(std::forward<UV>(v)), op(std::move(f)) {}
+  block_delayed_map_t(UV&& v, UnaryOperator f) : base(std::forward<UV>(v), 0), op(std::move(f)) {}
 
   template<bool Const>
   struct iterator_t {

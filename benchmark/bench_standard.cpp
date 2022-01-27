@@ -601,7 +601,7 @@ static void bench_group_by_key_sorted(benchmark::State& state) {
       return par(r.ith_rand(i) % (n/20), i);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::group_by_key_sorted(S));
+    RUN_AND_CLEAR(parlay::group_by_key_ordered(S));
   }
 
   REPORT_STATS(n, 0, 0);

@@ -31,7 +31,7 @@ TEST(TestGroupBy, TestGroupByKeySorted) {
       {2,21},
       {1,10}
   };
-  auto grouped = parlay::group_by_key_sorted(a);
+  auto grouped = parlay::group_by_key_ordered(a);
 
   ASSERT_EQ(grouped.size(), 3);
   ASSERT_EQ(grouped[0].first, 1);
@@ -48,7 +48,7 @@ TEST_P(TestGroupByP, TestGroupByKeySortedLarge) {
   });
   size_t num_buckets = GetParam();
   auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
-  auto result = parlay::group_by_key_sorted(key_vals);
+  auto result = parlay::group_by_key_ordered(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
 
@@ -83,7 +83,7 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonContiguous) {
   std::deque<unsigned long long> s(std::begin(ss), std::end(ss));
   size_t num_buckets = GetParam();
   auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
-  auto result = parlay::group_by_key_sorted(key_vals);
+  auto result = parlay::group_by_key_ordered(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
 
@@ -119,7 +119,7 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonTrivial) {
   });
   size_t num_buckets = GetParam();
   auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(std::to_string(std::stoull(x) % num_buckets), x); } );
-  auto result = parlay::group_by_key_sorted(key_vals);
+  auto result = parlay::group_by_key_ordered(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
 
@@ -149,7 +149,7 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonRelocatable) {
   });
   size_t num_buckets = GetParam();
   auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
-  auto result = parlay::group_by_key_sorted(key_vals);
+  auto result = parlay::group_by_key_ordered(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
 
@@ -270,6 +270,7 @@ TEST_P(TestGroupByP, TestReduceByKeyNonTrivial) {
   auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(std::stoull(x) % num_buckets, x); } );
 
   struct string_concat_monoid {
+    using T = std::string;
     std::string identity{};
     static std::string f(const std::string& a, const std::string& b) { return a + b; }
   };
@@ -291,6 +292,7 @@ TEST_P(TestGroupByP, TestReduceByKeyNonRelocatable) {
   size_t num_buckets = GetParam();
   auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
   struct add_monoid {
+    using T = SelfReferentialThing;
     SelfReferentialThing identity{0};
     static SelfReferentialThing f(const SelfReferentialThing& a, const SelfReferentialThing& b) {
       return SelfReferentialThing(a.x + b.x);
@@ -772,6 +774,7 @@ TEST_P(TestGroupByP, TestReduceByIndexNonTrivial) {
   auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(std::stoull(x) % num_buckets, x); } );
 
   struct string_concat_monoid {
+    using T = std::string;
     std::string identity{};
     static std::string f(const std::string& a, const std::string& b) { return a + b; }
   };

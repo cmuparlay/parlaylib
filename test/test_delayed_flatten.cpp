@@ -96,17 +96,17 @@ TEST(TestDelayedFlatten, TestRadFlattenTiny) {
 
 TEST(TestDelayedFlatten, TestRadFlattenBalanced) {
 
-  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
-    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(2500, [](size_t) {
+    return parlay::tabulate(2500, [](size_t i) -> int { return i; });
   });
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -114,17 +114,17 @@ TEST(TestDelayedFlatten, TestRadFlattenBalanced) {
 
 TEST(TestDelayedFlatten, TestRadFlattenConst) {
 
-  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
-    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(2500, [](size_t) {
+    return parlay::tabulate(2500, [](size_t i) -> int { return i; });
   });
 
   const auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -132,17 +132,17 @@ TEST(TestDelayedFlatten, TestRadFlattenConst) {
 
 TEST(TestDelayedFlatten, TestRadFlattenConstAndNonConst) {
 
-  parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
-    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(2500, [](size_t) {
+    return parlay::tabulate(2500, [](size_t i) -> int { return i; });
   });
 
   const auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -150,17 +150,17 @@ TEST(TestDelayedFlatten, TestRadFlattenConstAndNonConst) {
 
 TEST(TestDelayedFlatten, TestRadFlattenBalancedOwning) {
 
-  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
-    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(2500, [](size_t) {
+    return parlay::tabulate(2500, [](size_t i) -> int { return i; });
   });
 
   auto f = parlay::delayed::flatten(std::move(seq));
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -168,17 +168,17 @@ TEST(TestDelayedFlatten, TestRadFlattenBalancedOwning) {
 
 TEST(TestDelayedFlatten, TestRadFlattenUnevenLast) {
 
-  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(4001, [](size_t) {
-    return parlay::tabulate(4001, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(2001, [](size_t) {
+    return parlay::tabulate(2001, [](size_t i) -> int { return i; });
   });
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 16008001);
+  ASSERT_EQ(f.size(), 2001*2001);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 4001);
+    ASSERT_EQ(*it, i % 2001);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -186,33 +186,33 @@ TEST(TestDelayedFlatten, TestRadFlattenUnevenLast) {
 
 TEST(TestDelayedFlatten, TestRadFlattenToSeq) {
 
-  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
-    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(2500, [](size_t) {
+    return parlay::tabulate(2500, [](size_t i) -> int { return i; });
   });
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto s = parlay::delayed::to_sequence(f);
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(s[i], i % 5000);
+    ASSERT_EQ(s[i], i % 2500);
   }
 }
 
 TEST(TestDelayedFlatten, TestRadFlattenManySmall) {
 
-  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(50000, [](size_t) {
-    return parlay::tabulate(500, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
+    return parlay::tabulate(50, [](size_t i) -> int { return i; });
   });
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 250000);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 500);
+    ASSERT_EQ(*it, i % 50);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -220,17 +220,17 @@ TEST(TestDelayedFlatten, TestRadFlattenManySmall) {
 
 TEST(TestDelayedFlatten, TestRadFlattenFewLarge) {
 
-  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(500, [](size_t) {
-    return parlay::tabulate(50000, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(50, [](size_t) {
+    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
   });
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 250000);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 50000);
+    ASSERT_EQ(*it, i % 5000);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -238,19 +238,19 @@ TEST(TestDelayedFlatten, TestRadFlattenFewLarge) {
 
 TEST(TestDelayedFlatten, TestRadFlattenMutable) {
 
-  parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t) {
-    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(2500, [](size_t) {
+    return parlay::tabulate(2500, [](size_t i) -> int { return i; });
   });
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     (*it) += 10000;
-    ASSERT_EQ(seq[i/5000][i%5000], *it);
+    ASSERT_EQ(seq[i/2500][i%2500], *it);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -258,18 +258,18 @@ TEST(TestDelayedFlatten, TestRadFlattenMutable) {
 
 TEST(TestDelayedFlatten, TestRadFlattenWithEmpty) {
 
-  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(5000, [](size_t i) {
-    if (i % 3 == 2) return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> seq = parlay::tabulate(2500, [](size_t i) {
+    if (i % 3 == 2) return parlay::tabulate(2500, [](size_t i) -> int { return i; });
     else return parlay::sequence<int>{};
   });
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 8330000);
+  ASSERT_EQ(f.size(), 2082500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -296,15 +296,15 @@ TEST(TestDelayedFlatten, TestRadFlattenManySmallWithEmpty) {
 
 
 TEST(TestDelayedFlatten, TestRadFlattenTemporaries) {
-  auto seq = parlay::delayed_tabulate(5000, [](size_t) { return parlay::iota(5000); });
+  auto seq = parlay::delayed_tabulate(2500, [](size_t) { return parlay::iota(2500); });
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -312,7 +312,7 @@ TEST(TestDelayedFlatten, TestRadFlattenTemporaries) {
   auto s = parlay::delayed::to_sequence(f);
   ASSERT_EQ(s.size(), f.size());
   for (size_t i = 0; i < s.size(); i++) {
-    ASSERT_EQ(s[i], i % 5000);
+    ASSERT_EQ(s[i], i % 2500);
   }
 }
 
@@ -350,15 +350,15 @@ TEST(TestDelayedFlatten, TestRadFlattenRvalueReferences) {
 
 TEST(TestDelayedFlatten, TestRadFlattenNoConst) {
 
-  auto seq = parlay::NestedNonConstRange(4001);
+  auto seq = parlay::NestedNonConstRange(2500);
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 16008001);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 4001);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -457,18 +457,18 @@ TEST(TestDelayedFlatten, TestBidFlattenNonConstAndConst) {
 
 TEST(TestDelayedFlatten, TestBidFlattenBalanced) {
 
-  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t) {
-    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(2500, [](size_t) {
+    return parlay::tabulate(2500, [](size_t i) -> int { return i; });
   });
   auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -476,18 +476,18 @@ TEST(TestDelayedFlatten, TestBidFlattenBalanced) {
 
 TEST(TestDelayedFlatten, TestBidFlattenBalancedOwning) {
 
-  parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t) {
-    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(2500, [](size_t) {
+    return parlay::tabulate(2500, [](size_t i) -> int { return i; });
   });
   auto seq = parlay::block_iterable_wrapper(std::move(s));
 
   auto f = parlay::delayed::flatten(std::move(seq));
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -495,18 +495,18 @@ TEST(TestDelayedFlatten, TestBidFlattenBalancedOwning) {
 
 TEST(TestDelayedFlatten, TestBidFlattenUnevenLast) {
 
-  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(4001, [](size_t) {
-    return parlay::tabulate(4001, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(2001, [](size_t) {
+    return parlay::tabulate(2001, [](size_t i) -> int { return i; });
   });
   auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 16008001);
+  ASSERT_EQ(f.size(), 2001*2001);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 4001);
+    ASSERT_EQ(*it, i % 2001);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -514,10 +514,10 @@ TEST(TestDelayedFlatten, TestBidFlattenUnevenLast) {
 
 TEST(TestDelayedFlatten, TestBidFlattenToSeq) {
 
-  std::vector<std::vector<int>> ss(5000);
-  for (size_t i = 0; i < 5000; i++) {
-    ss[i] = std::vector<int>(5000);
-    std::iota(std::begin(ss[i]), std::end(ss[i]), i * 5000);
+  std::vector<std::vector<int>> ss(2500);
+  for (size_t i = 0; i < 2500; i++) {
+    ss[i] = std::vector<int>(2500);
+    std::iota(std::begin(ss[i]), std::end(ss[i]), i * 2500);
   }
 
   const auto s = ss;
@@ -526,7 +526,7 @@ TEST(TestDelayedFlatten, TestBidFlattenToSeq) {
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto seqd = parlay::delayed::to_sequence(f);
   for (size_t i = 0; i < f.size(); i++) {
@@ -536,18 +536,18 @@ TEST(TestDelayedFlatten, TestBidFlattenToSeq) {
 
 TEST(TestDelayedFlatten, TestBidFlattenManySmall) {
 
-  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(50000, [](size_t) {
-    return parlay::tabulate(500, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t) {
+    return parlay::tabulate(50, [](size_t i) -> int { return i; });
   });
   auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 250000);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 500);
+    ASSERT_EQ(*it, i % 50);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -555,18 +555,18 @@ TEST(TestDelayedFlatten, TestBidFlattenManySmall) {
 
 TEST(TestDelayedFlatten, TestBidFlattenFewLarge) {
 
-  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(500, [](size_t) {
-    return parlay::tabulate(50000, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(50, [](size_t) {
+    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
   });
   auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 250000);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 50000);
+    ASSERT_EQ(*it, i % 5000);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -574,20 +574,20 @@ TEST(TestDelayedFlatten, TestBidFlattenFewLarge) {
 
 TEST(TestDelayedFlatten, TestBidFlattenMutable) {
 
-  parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t) {
-    return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(2500, [](size_t) {
+    return parlay::tabulate(2500, [](size_t i) -> int { return i; });
   });
   auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     (*it) += 10000;
-    ASSERT_EQ(s[i/5000][i%5000], *it);
+    ASSERT_EQ(s[i/2500][i%2500], *it);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -595,19 +595,19 @@ TEST(TestDelayedFlatten, TestBidFlattenMutable) {
 
 TEST(TestDelayedFlatten, TestBidFlattenWithEmpty) {
 
-  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t i) {
-    if (i % 3 == 2) return parlay::tabulate(5000, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(2500, [](size_t i) {
+    if (i % 3 == 2) return parlay::tabulate(2500, [](size_t i) -> int { return i; });
     else return parlay::sequence<int>{};
   });
   auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 8330000);
+  ASSERT_EQ(f.size(), 2082500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -615,35 +615,35 @@ TEST(TestDelayedFlatten, TestBidFlattenWithEmpty) {
 
 TEST(TestDelayedFlatten, TestBidFlattenManySmallWithEmpty) {
 
-  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(50000, [](size_t i) {
-    if (i % 10 == 9) return parlay::tabulate(500, [](size_t i) -> int { return i; });
+  const parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(5000, [](size_t i) {
+    if (i % 10 == 9) return parlay::tabulate(50, [](size_t i) -> int { return i; });
     else return parlay::sequence<int>{};
   });
   auto seq = parlay::block_iterable_wrapper(s);
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 2500000);
+  ASSERT_EQ(f.size(), 25000);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 500);
+    ASSERT_EQ(*it, i % 50);
     ++it;
   }
   ASSERT_EQ(it, f.end());
 }
 
 TEST(TestDelayedFlatten, TestBidFlattenTemporaries) {
-  auto x = parlay::delayed_tabulate(5000, [](size_t) { return parlay::iota(5000); });
+  auto x = parlay::delayed_tabulate(2500, [](size_t) { return parlay::iota(2500); });
   auto seq = parlay::block_iterable_wrapper(x);
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 25000000);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 5000);
+    ASSERT_EQ(*it, i % 2500);
     ++it;
   }
   ASSERT_EQ(it, f.end());
@@ -651,7 +651,7 @@ TEST(TestDelayedFlatten, TestBidFlattenTemporaries) {
   auto s = parlay::delayed::to_sequence(f);
   ASSERT_EQ(s.size(), f.size());
   for (size_t i = 0; i < s.size(); i++) {
-    ASSERT_EQ(s[i], i % 5000);
+    ASSERT_EQ(s[i], i % 2500);
   }
 }
 
@@ -688,16 +688,61 @@ TEST(TestDelayedFlatten, TestBidFlattenRvalueReferences) {
 }
 
 TEST(TestDelayedFlatten, TestBidFlattenNoConst) {
-  auto x = parlay::NestedNonConstRange(4001);
+  auto x = parlay::NestedNonConstRange(2500);
   auto seq = parlay::block_iterable_wrapper(x);
 
   auto f = parlay::delayed::flatten(seq);
 
-  ASSERT_EQ(f.size(), 16008001);
+  ASSERT_EQ(f.size(), 2500*2500);
 
   auto it = f.begin();
   for (size_t i = 0; i < f.size(); i++) {
-    ASSERT_EQ(*it, i % 4001);
+    ASSERT_EQ(*it, i % 2500);
+    ++it;
+  }
+  ASSERT_EQ(it, f.end());
+}
+
+TEST(TestDelayedFlatten, TestBidFlattenCopyConstruct) {
+  parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(500, [](size_t) {
+    return parlay::tabulate(500, [](size_t i) -> int { return i; });
+  });
+  // Create a delayed flatten, then copy-construct and return the copy. the original should be
+  // destroyed so if we accidentally take iterators from the old sequence they will dangle
+  auto f = [&]() {
+    auto f = parlay::delayed::flatten(parlay::block_iterable_wrapper(std::move(s)));
+    auto f2 = f;
+    return f2;
+  }();
+
+  ASSERT_EQ(f.size(), 250000);
+
+  auto it = f.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, i % 500);
+    ++it;
+  }
+  ASSERT_EQ(it, f.end());
+}
+
+TEST(TestDelayedFlatten, TestBidFlattenCopyAssign) {
+  parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(500, [](size_t) {
+    return parlay::tabulate(500, [](size_t i) -> int { return i; });
+  });
+  // Create a delayed flatten, then copy-assign and return the copy. the original should be
+  // destroyed so if we accidentally take iterators from the old sequence they will dangle
+  auto f = [&]() {
+    auto f = parlay::delayed::flatten(parlay::block_iterable_wrapper(std::move(s)));
+    auto f2 = f;
+    f2 = f;
+    return f2;
+  }();
+
+  ASSERT_EQ(f.size(), 250000);
+
+  auto it = f.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, i % 500);
     ++it;
   }
   ASSERT_EQ(it, f.end());

@@ -45,83 +45,50 @@ struct block_delayed_flatten_t :
   using reference = range_reference_type_t<range_reference_type_t<UnderlyingView>>;
   using value_type = range_value_type_t<range_reference_type_t<UnderlyingView>>;
 
+  block_delayed_flatten_t(const block_delayed_flatten_t& other) : base(other) {
+    // Note that it would be incorrect to unconditionally copy the iterators
+    // from other, because other might own the underlying view, and our copy
+    // of the underlying view has different iterators!
+    if (std::is_lvalue_reference_v<UnderlyingView>) {
+      n_blocks = other.n_blocks;
+      n_elements = other.n_elements;
+      outer_starts = other.outer_starts;
+      inner_starts = other.inner_starts;
+    }
+    else {
+      initialize_iterators();
+    }
+  }
+
+  block_delayed_flatten_t& operator=(const block_delayed_flatten_t& other) {
+    base::operator=(other);
+    if constexpr (std::is_lvalue_reference_v<UnderlyingView>) {
+      n_blocks = other.n_blocks;
+      n_elements = other.n_elements;
+      outer_starts = other.outer_starts;
+      inner_starts = other.inner_starts;
+    }
+    else {
+      initialize_iterators();
+    }
+    return *this;
+  }
+
+  block_delayed_flatten_t(block_delayed_flatten_t&&) noexcept(
+      std::is_nothrow_move_constructible_v<base>                          &&
+      std::is_nothrow_move_constructible_v<sequence<outer_iterator_type>> &&
+      std::is_nothrow_move_constructible_v<sequence<inner_iterator_type>>) = default;
+  block_delayed_flatten_t& operator=(block_delayed_flatten_t&&) noexcept(
+      std::is_nothrow_move_assignable_v<base>                          &&
+      std::is_nothrow_move_assignable_v<sequence<outer_iterator_type>> &&
+      std::is_nothrow_move_assignable_v<sequence<inner_iterator_type>>) = default;
+
   template<typename UV>
-  block_delayed_flatten_t(UV&& v, int) : base(std::forward<UV>(v)) {
+  block_delayed_flatten_t(UV&& v, int) : base(std::forward<UV>(v), 0) {
     //                            ^
     // Extra int parameter is used to ensure that this template doesn't
     // accidentally take over the job of the copy constructor.
-
-    // Compute "input offsets", which are, for each element in the input (outer)
-    // sequence, the position of its first element in the output sequence
-    auto offsets = parlay::internal::delayed::to_sequence(
-        parlay::internal::delayed::map(base_view(), [](auto&& r) -> size_t { return parlay::size(r); }));
-    n_elements = parlay::internal::scan_inplace(make_slice(offsets), addm<size_t>{});
-
-    n_blocks = num_blocks_from_size(n_elements);
-    outer_starts = sequence<outer_iterator_type>::uninitialized(n_blocks+1);
-    inner_starts = sequence<inner_iterator_type>::uninitialized(n_blocks+1);
-
-    // The random-access version of the algorithm can just binary
-    // search the offsets for each block which is very cheap
-    if constexpr (is_random_access_range_v<UnderlyingView>) {
-      parlay::parallel_for(0, n_blocks, [&](size_t i) {
-        size_t start = i * block_size;
-        auto j = std::distance(std::begin(offsets),
-                               std::upper_bound(std::begin(offsets), std::end(offsets), start)) - 1;
-        auto external_it = std::begin(base_view()) + j;
-        auto internal_it = std::begin(*external_it);
-        std::advance(internal_it, (start - offsets[j]));
-        assign_uninitialized(outer_starts[i], external_it);
-        assign_uninitialized(inner_starts[i], internal_it);
-      });
-    }
-
-    // The block-iterable version of the algorithm can not binary search the offsets,
-    // so instead it linearly searches them within each block. To be efficient, it
-    // does not do a new linear search for each element since this could take up to
-    // quadratic work, but instead it can start from where the previous search ended
-    else if (n_elements > 0) {
-
-      // Compute "output block offsets", which are, for each block in the output sequence,
-      // the index of the element in the input sequence that contains the block's first element
-      auto out_block_offsets = parlay::internal::tabulate(n_blocks, [&](size_t i) -> size_t {
-        size_t start = i * block_size;
-        return std::distance(std::begin(offsets),
-                             std::upper_bound(std::begin(offsets), std::end(offsets), start)) - 1;
-      });
-
-      // For each block in the input sequence, iterate it (sequentially since we have to), and
-      // find the locations at which the blocks of the output sequence begin.
-      parallel_for(0, num_blocks(base_view()), [&](size_t i) {
-        size_t block_start = i * block_size, block_end = (std::min)((i + 1) * block_size, offsets.size());
-        size_t out_block_id = std::distance(std::begin(out_block_offsets),
-                  std::lower_bound(std::begin(out_block_offsets), std::end(out_block_offsets), block_start));
-
-        size_t outer_idx = out_block_offsets[out_block_id];
-        if (outer_idx < block_end) {
-          auto outer_it = begin_block(base_view(), i);
-          std::advance(outer_it, outer_idx - block_start);
-
-          auto outer_end = end_block(base_view(), i);
-          for (; outer_it != outer_end && out_block_id < out_block_offsets.size() &&
-                 out_block_offsets[out_block_id] < block_end; ++outer_it, ++outer_idx) {
-            for (; out_block_id < out_block_offsets.size() && out_block_offsets[out_block_id] == outer_idx;
-                   ++out_block_id) {
-              auto inner_it = std::begin(*outer_it);
-              std::advance(inner_it, out_block_id * block_size - offsets[outer_idx]);
-              assign_uninitialized(outer_starts[out_block_id], outer_it);
-              assign_uninitialized(inner_starts[out_block_id], inner_it);
-            }
-          }
-        }
-      });
-    }
-
-    // Sentinel for the end iterator. The inner sentinel is value-initialized, which
-    // is safe because it will never be compared against any other iterator unless
-    // outer_it = end(base_view()), in which case, the other is also value-initialized
-    assign_uninitialized(outer_starts[n_blocks], std::end(base_view()));
-    assign_uninitialized(inner_starts[n_blocks], {});
+    initialize_iterators();
   }
 
   template<bool Const>
@@ -131,7 +98,6 @@ struct block_delayed_flatten_t :
     using base_view_type = maybe_const_t<Const, std::remove_reference_t<UnderlyingView>>;
     using outer_iterator_type = range_iterator_type_t<base_view_type>;
     using inner_iterator_type = range_iterator_type_t<range_reference_type_t<base_view_type>>;
-    using base_view_ptr = std::add_pointer_t<base_view_type>;
 
     static_assert(std::is_same_v<inner_iterator_type,
                                  range_iterator_type_t<decltype(*std::declval<outer_iterator_type&>())>>);
@@ -202,6 +168,80 @@ struct block_delayed_flatten_t :
   auto get_begin_block(size_t i) const { return const_iterator(outer_starts[i], inner_starts[i], std::end(base_view())); }
 
  private:
+  void initialize_iterators() {
+    // Compute "input offsets", which are, for each element in the input (outer)
+    // sequence, the position of its first element in the output sequence
+    auto offsets = parlay::internal::delayed::to_sequence(
+        parlay::internal::delayed::map(base_view(), [](auto&& r) -> size_t { return parlay::size(r); }));
+    n_elements = parlay::internal::scan_inplace(make_slice(offsets), addm<size_t>{});
+
+    n_blocks = num_blocks_from_size(n_elements);
+    outer_starts = sequence<outer_iterator_type>::uninitialized(n_blocks+1);
+    inner_starts = sequence<inner_iterator_type>::uninitialized(n_blocks+1);
+
+    // The random-access version of the algorithm can just binary
+    // search the offsets for each block which is very cheap
+    if constexpr (is_random_access_range_v<UnderlyingView>) {
+      parlay::parallel_for(0, n_blocks, [&](size_t i) {
+        size_t start = i * block_size;
+        auto j = std::distance(std::begin(offsets),
+                               std::upper_bound(std::begin(offsets), std::end(offsets), start)) - 1;
+        auto external_it = std::begin(base_view()) + j;
+        auto internal_it = std::begin(*external_it);
+        std::advance(internal_it, (start - offsets[j]));
+        assign_uninitialized(outer_starts[i], external_it);
+        assign_uninitialized(inner_starts[i], internal_it);
+      });
+    }
+
+    // The block-iterable version of the algorithm can not binary search the offsets,
+    // so instead it linearly searches them within each block. To be efficient, it
+    // does not do a new linear search for each element since this could take up to
+    // quadratic work, but instead it can start from where the previous search ended
+    else if (n_elements > 0) {
+
+      // Compute "output block offsets", which are, for each block in the output sequence,
+      // the index of the element in the input sequence that contains the block's first element
+      auto out_block_offsets = parlay::internal::tabulate(n_blocks, [&](size_t i) -> size_t {
+        size_t start = i * block_size;
+        return std::distance(std::begin(offsets),
+                             std::upper_bound(std::begin(offsets), std::end(offsets), start)) - 1;
+      });
+
+      // For each block in the input sequence, iterate it (sequentially since we have to), and
+      // find the locations at which the blocks of the output sequence begin.
+      parallel_for(0, num_blocks(base_view()), [&](size_t i) {
+        size_t block_start = i * block_size, block_end = (std::min)((i + 1) * block_size, offsets.size());
+        size_t out_block_id = std::distance(std::begin(out_block_offsets),
+                                            std::lower_bound(std::begin(out_block_offsets), std::end(out_block_offsets), block_start));
+
+        size_t outer_idx = out_block_offsets[out_block_id];
+        if (outer_idx < block_end) {
+          auto outer_it = begin_block(base_view(), i);
+          std::advance(outer_it, outer_idx - block_start);
+
+          auto outer_end = end_block(base_view(), i);
+          for (; outer_it != outer_end && out_block_id < out_block_offsets.size() &&
+                 out_block_offsets[out_block_id] < block_end; ++outer_it, ++outer_idx) {
+            for (; out_block_id < out_block_offsets.size() && out_block_offsets[out_block_id] == outer_idx;
+                 ++out_block_id) {
+              auto inner_it = std::begin(*outer_it);
+              std::advance(inner_it, out_block_id * block_size - offsets[outer_idx]);
+              assign_uninitialized(outer_starts[out_block_id], outer_it);
+              assign_uninitialized(inner_starts[out_block_id], inner_it);
+            }
+          }
+        }
+      });
+    }
+
+    // Sentinel for the end iterator. The inner sentinel is value-initialized, which
+    // is safe because it will never be compared against any other iterator unless
+    // outer_it = end(base_view()), in which case, the other is also value-initialized
+    assign_uninitialized(outer_starts[n_blocks], std::end(base_view()));
+    assign_uninitialized(inner_starts[n_blocks], {});
+  }
+
   size_t n_blocks, n_elements;
   sequence<outer_iterator_type> outer_starts;
   sequence<inner_iterator_type> inner_starts;

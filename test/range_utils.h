@@ -81,7 +81,7 @@ struct block_iterable_wrapper_t :
   using const_iterator = iterator_t<true>;
 
   template<typename U>
-  block_iterable_wrapper_t(U&& v, std::true_type) : base(std::forward<U>(v)) {}
+  block_iterable_wrapper_t(U&& v, int) : base(std::forward<U>(v), 0) {}
 
   [[nodiscard]] size_t size() { return parlay::size(base_view()); }
 
@@ -101,7 +101,7 @@ struct block_iterable_wrapper_t :
 
 template<typename T>
 auto block_iterable_wrapper(T&& t) {
-  return block_iterable_wrapper_t<T>(std::forward<T>(t), {});
+  return block_iterable_wrapper_t<T>(std::forward<T>(t), 0);
 }
 
 static_assert(parlay::is_range_v<const parlay::sequence<int>>);

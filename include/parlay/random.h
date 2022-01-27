@@ -42,8 +42,10 @@ void seq_random_shuffle_(slice<Iterator, Iterator> A, random r = random()) {
   // the Knuth shuffle
   size_t n = A.size();
   if (n < 2) return;
-  for (size_t i=n-1; i > 0; i--)
-    std::swap(A[i],A[r.ith_rand(i)%(i+1)]);
+  for (size_t i=n-1; i > 0; i--) {
+    using std::swap;
+    swap(A[i], A[r.ith_rand(i) % (i + 1)]);
+  }
 }
 
 template <typename InIterator, typename OutIterator>

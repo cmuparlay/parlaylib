@@ -11,6 +11,7 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/internal/file_map.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/group_by.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/sequence_base.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/sequence_ops.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/stream_delayed.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/work_stealing_job.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/common.h

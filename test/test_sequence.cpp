@@ -7,6 +7,7 @@
 
 #include <parlay/alloc.h>
 #include <parlay/sequence.h>
+#include <parlay/primitives.h>
 #include <parlay/type_traits.h>
 #include <parlay/utilities.h>
 
@@ -831,6 +832,17 @@ TEST(TestSequence, TestGetAllocator) {
   parlay::sequence<int, std::allocator<int>> s;
   auto alloc = s.get_allocator();
   ASSERT_EQ(alloc, std::allocator<int>());
+}
+
+TEST(TestSequence, TestLessThan) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5};
+  auto s3 = parlay::sequence<int>{1,2,3,4,5,6,7,8,10};
+  auto s4 = parlay::sequence<int>{1,2,3,4,6};
+
+  ASSERT_LT(s2, s);
+  ASSERT_LT(s, s3);
+  ASSERT_LT(s, s4);
 }
 
 // TODO: More thorough tests with custom allocators

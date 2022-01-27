@@ -51,7 +51,7 @@ struct block_delayed_scan_t :
 
   template<typename UV>
   block_delayed_scan_t(UV&& v, BinaryOperator f, T identity)
-      : base(std::forward<UV>(v)), total(identity), op(std::move(f)) {
+      : base(std::forward<UV>(v), 0), total(identity), op(std::move(f)) {
 
     size_t n_blocks = num_blocks(base_view());
 

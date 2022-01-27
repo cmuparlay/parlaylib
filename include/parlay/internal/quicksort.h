@@ -64,7 +64,8 @@ void insertion_sort(Iterator A, size_t n, const BinPred& f) {
   for (size_t i = 1; i < n; i++) {
     long j = i;
     while (--j >= 0 && f(A[j + 1], A[j])) {
-      std::swap(A[j + 1], A[j]);
+      using std::swap;
+      swap(A[j + 1], A[j]);
     }
   }
 }
@@ -74,7 +75,10 @@ template <class Iterator, class BinPred>
 void sort5(Iterator A, size_t n, const BinPred& f) {
   size_t size = 5;
   size_t m = n / (size + 1);
-  for (size_t l = 0; l < size; l++) std::swap(A[l], A[m * (l + 1)]);
+  for (size_t l = 0; l < size; l++) {
+    using std::swap;
+    swap(A[l], A[m * (l + 1)]);
+  }
   insertion_sort(A, size, f);
 }
 
@@ -96,8 +100,9 @@ std::tuple<Iterator, Iterator, bool> split3(Iterator A, size_t n, const BinPred&
   
   // Use A[1] and A[3] as the pivots. Move them to
   // the front so that A[0] and A[1] are the pivots
-  std::swap(A[0], A[1]);
-  std::swap(A[1], A[3]);
+  using std::swap;
+  swap(A[0], A[1]);
+  swap(A[1], A[3]);
   const auto& p1 = A[0];
   const auto& p2 = A[1];
   bool pivots_equal = !f(p1, p2);
@@ -117,12 +122,12 @@ std::tuple<Iterator, Iterator, bool> split3(Iterator A, size_t n, const BinPred&
   while (M <= R) {
 
     if (f(*M, p1)) {
-      std::swap(*M, *L);
+      swap(*M, *L);
       L++;
     } else if (f(p2, *M)) {
-      std::swap(*M, *R);
+      swap(*M, *R);
       if (f(*M, p1)) {
-        std::swap(*L, *M);
+        swap(*L, *M);
         L++;
       }
 
@@ -134,9 +139,9 @@ std::tuple<Iterator, Iterator, bool> split3(Iterator A, size_t n, const BinPred&
 
   // Swap the pivots into position
   L -= 2;
-  std::swap(A[1], *(L+1));
-  std::swap(A[0], *L);
-  std::swap(*(L+1), *R);
+  swap(A[1], *(L+1));
+  swap(A[0], *L);
+  swap(*(L+1), *R);
 
   return std::make_tuple(L, M, pivots_equal);
 }

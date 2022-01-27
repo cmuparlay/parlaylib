@@ -211,9 +211,9 @@ struct block_iterable_view_base : public block_iterable_view_base_data<Underlyin
  protected:
   block_iterable_view_base() = default;
 
-  template<typename... UV>
-  explicit block_iterable_view_base(UV&&... v)
-    : block_iterable_view_base_data<UnderlyingView>(std::forward<UV>(v)...) { }
+  template<typename UV>
+  explicit block_iterable_view_base(UV&& v, int)
+    : block_iterable_view_base_data<UnderlyingView>(std::forward<UV>(v)) { }
 
  private:
   Parent* parent() { return static_cast<Parent*>(this); }
