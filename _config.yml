@@ -1,0 +1,3 @@
+title: ParlayLib
+theme: jekyll-theme-slate
+include: ['datatypes', 'algorithms', 'other']
