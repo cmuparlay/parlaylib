@@ -73,7 +73,7 @@ static_assert(parlay::is_contiguous_range_v<parlay::sequence<int>>);
 static_assert(parlay::is_contiguous_range_v<const parlay::sequence<int>>);
 static_assert(parlay::is_common_range_v<parlay::sequence<int>>);
 
-struct F { auto operator()(size_t) -> int; };
+struct F { auto operator()(size_t) const -> int; };
 using delayed_seq_int = decltype(parlay::delayed_seq<int>(10, F{}));
 static_assert(parlay::is_random_access_range_v<delayed_seq_int>);
 static_assert(parlay::is_random_access_range_v<const delayed_seq_int>);
