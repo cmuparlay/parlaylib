@@ -57,8 +57,8 @@ auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
 //   f(0), f(1), ... f(n)
 template<typename F>
 auto delayed_tabulate(size_t n, F f) {
-  static_assert(std::is_invocable_v<F, size_t>);
-  using T = std::invoke_result_t<F, size_t>;
+  static_assert(std::is_invocable_v<const F&, size_t>);
+  using T = std::invoke_result_t<const F&, size_t>;
   static_assert(!std::is_void_v<T>);
   using V = std::remove_cv_t<std::remove_reference_t<T>>;
   return delayed_sequence<T, V, F>(n, std::move(f));
@@ -68,8 +68,8 @@ auto delayed_tabulate(size_t n, F f) {
 //   f(0), f(1), ... f(n)
 template<typename T, typename F>
 auto delayed_tabulate(size_t n, F f) {
-  static_assert(std::is_invocable_v<F, size_t>);
-  static_assert(std::is_convertible_v<std::invoke_result_t<F, size_t>, T>);
+  static_assert(std::is_invocable_v<const F&, size_t>);
+  static_assert(std::is_convertible_v<std::invoke_result_t<const F&, size_t>, T>);
   return delayed_sequence<T, std::remove_cv_t<std::remove_reference_t<T>>, F>(n, std::move(f));
 }
 
@@ -77,8 +77,8 @@ auto delayed_tabulate(size_t n, F f) {
 //   f(0), f(1), ... f(n)
 template<typename T, typename V, typename F>
 auto delayed_tabulate(size_t n, F f) {
-  static_assert(std::is_invocable_v<F, size_t>);
-  static_assert(std::is_convertible_v<std::invoke_result_t<F, size_t>, T>);
+  static_assert(std::is_invocable_v<const F&, size_t>);
+  static_assert(std::is_convertible_v<std::invoke_result_t<const F&, size_t>, T>);
   return delayed_sequence<T, V, F>(n, std::move(f));
 }
 
@@ -93,8 +93,8 @@ template<typename R, typename UnaryOp,
     std::enable_if_t<std::is_rvalue_reference_v<R&&>, int> = 0>
 auto delayed_map(R&& r, UnaryOp f) {
   static_assert(is_random_access_range_v<R>);
-  static_assert(std::is_invocable_v<UnaryOp, range_reference_type_t<R>>);
-  static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, range_reference_type_t<R>>>);
+  static_assert(std::is_invocable_v<const UnaryOp&, range_reference_type_t<R>>);
+  static_assert(!std::is_void_v<std::invoke_result_t<const UnaryOp&, range_reference_type_t<R>>>);
 
   // The closure object keeps a cache of the begin iterator to the range r.
   //
@@ -122,8 +122,8 @@ template<typename R, typename UnaryOp,
     std::enable_if_t<std::is_lvalue_reference_v<R&&>, int> = 0>
 auto delayed_map(R&& r, UnaryOp f) {
   static_assert(is_random_access_range_v<R>);
-  static_assert(std::is_invocable_v<UnaryOp, range_reference_type_t<R>>);
-  static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, range_reference_type_t<R>>>);
+  static_assert(std::is_invocable_v<const UnaryOp&, range_reference_type_t<R>>);
+  static_assert(!std::is_void_v<std::invoke_result_t<const UnaryOp&, range_reference_type_t<R>>>);
 
   size_t n = parlay::size(r);
   return delayed_tabulate(n, [ri = std::begin(r), f = std::move(f) ]

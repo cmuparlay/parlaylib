@@ -14,9 +14,10 @@
 //            [](size_t i) { return i*i; });
 //
 // By default, the reference type of the delayed sequence
-// is the return type of the function T, and the value type
-// is std::remove_reference_t<T>. These can be customized
-// by providing template arguments to delayed_tabulate.
+// is the return type of the function F and the value type
+// is std::remove_cv_t<std::remove_reference_t<reference>>.
+// These can be customized by providing template arguments
+// to delayed_tabulate.
 //
 
 #ifndef PARLAY_DELAYED_SEQUENCE_H_
@@ -57,6 +58,8 @@ delayed_sequence<T, std::remove_cv_t<std::remove_reference_t<T>>, F> delayed_seq
 //
 template<typename T, typename V, typename F>
 class delayed_sequence {
+  static_assert(std::is_invocable_r_v<T, const F&, size_t>);
+
  public:
   
   // Types exposed by standard containers (although

@@ -260,6 +260,11 @@ struct copyable_function_wrapper {
   // Special case for when the argument is just a size_t. This is the common case since this is what
   // all of the functions in delayed_sequence are. This should in theory make absolutely no difference
   // compared to the templates whatsoever but for some reason it's faster???
+  PARLAY_INLINE decltype(auto) operator()(size_t i) noexcept(std::is_nothrow_invocable_v<F&, size_t>) {
+    static_assert(std::is_invocable_v<F&, size_t>);
+    return std::invoke(f, i);
+  }
+
   PARLAY_INLINE decltype(auto) operator()(size_t i) const noexcept(std::is_nothrow_invocable_v<const F&, size_t>) {
     static_assert(std::is_invocable_v<const F&, size_t>);
     return std::invoke(f, i);
