@@ -1,60 +1,19 @@
 #include "parlay/primitives.h"
 #include "parlay/random.h"
 #include "parlay/io.h"
+#include "helper/heap_tree.h"
 
 // **************************************************************
 // Sample sort
 // Basically a generalization of quicksort to many pivots.
-// In particular this code picks up to 256 pivots by randomly selecting them.
+// In particular this code picks up to 256 pivots by randomly
+// selecting and then sorting them.
 // It then puts the keys into buckets depending on which pivots
 // they fall between and recursively sorts within the buckets.
 // Makes use of a parlaylib bucket sort for the bucketing,
 // and std::sort for the base case and sorting the pivots.
 // **************************************************************
 
-// An efficient search tree to store pivots for finding which bucket a key belongs in
-// The tree is indexed like heaps (i.e. the children of i are at 2*i+1 and 2*i+2).
-// Significantly more efficient than binary search since it avoids conditionals
-// The number of pivots must be 2^i-1 (i.e. fully balanced tree)
-template <typename T>
-struct search_tree {
-private:
-  const long size;
-  parlay::sequence<T> tree;
-  const long levels;
-
-  // converts from sorted sequence into a "heap indexed" tree
-  void to_tree(const parlay::sequence<T>& In,
-	       long root, long l, long r) {
-    size_t n = r - l;
-    size_t m = l + n / 2;
-    tree[root] = In[m];
-    if (n == 1) return;
-    to_tree(In, 2 * root + 1, l, m);
-    to_tree(In, 2 * root + 2, m + 1, r);
-  }
-public:
-  // constructor
-  search_tree(const parlay::sequence<T>& keys) :
-    size(keys.size()), tree(parlay::sequence<T>(size)),
-    levels(parlay::log2_up(keys.size()+1)-1) {
-    to_tree(keys, 0, 0, size);}
-
-  // finds a key in the "heap indexed" tree
-  template <typename Less>
-  inline int find(const T& key, const Less& less) {
-    long j = 0;
-    for (int k = 0; k < levels; k++) {
-      j = 1 + 2 * j + less(tree[j],key);
-    }
-    j = 1 + 2 * j + !less(key,tree[j]);
-    return j - size;
-  }
-};
-
-// **************************************************************
-//  The main recursive algorithm
-// **************************************************************
 template <typename Range, typename Less>
 void sample_sort_(Range in, Range out, Less less, int level=1) {
   long n = in.size();
@@ -85,7 +44,7 @@ void sample_sort_(Range in, Range out, Less less, int level=1) {
 		  return oversample[(i+1)*over_ratio];});
     
   // put pivots into efficient search tree and find buckets id for the input keys
-  search_tree ss(pivots);
+  heap_tree ss(pivots);
   auto bucket_ids = parlay::tabulate(n, [&] (long i) -> unsigned char {
 		      return ss.find(in[i], less);});
 
@@ -103,14 +62,12 @@ void sample_sort_(Range in, Range out, Less less, int level=1) {
     else parlay::copy(keys.cut(first,last), out.cut(first,last));}, 1);
 }
 
-//  A wraper that allocates a temporary sequence and calls sample_sort_
+//  A wraper that calls sample_sort_
 template <typename Range,
 	  typename Less = std::less<typename Range::value_type>>
 void sample_sort(Range& in, Less less = {}) {
-  parlay::internal::timer t;
   auto ins = parlay::make_slice(in);
   sample_sort_(ins, ins, less);
-  t.next("sort");
 }
 
 // **************************************************************
@@ -129,10 +86,7 @@ int main(int argc, char* argv[]) {
     auto data = parlay::tabulate(n, [&] (long i) {return (long) (r[i]%n);});
 
     auto result = data;
-    for (int i=0; i < 7; i++) {
-      result = data;
-      sample_sort(result);
-    }
+    sample_sort(result);
     auto first_ten = result.head(10);
     std::cout << "first 10 elements: " << parlay::to_chars(first_ten) << std::endl;
   }
