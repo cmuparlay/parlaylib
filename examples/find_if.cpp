@@ -3,8 +3,7 @@
 
 // **************************************************************
 // Finds location i of first element  that satisfies a predicate
-// Importantly it runs with only O(i) work.
-// It uses O(log^2 i) span.
+// Importantly it runs with only O(i) work, while using O(log^2 i) span.
 // Based on doubling search.
 // This is available in parlaylib.
 // **************************************************************
