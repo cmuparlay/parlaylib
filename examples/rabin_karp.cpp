@@ -4,10 +4,12 @@
 // **************************************************************
 // Rabin-Karp string matching.
 // Generates a running hash such that the difference been two
-// positions gives a hash for the string in between.  The search string
-// can then be compared with all pairs of positions.
+// positions gives a hash for the string in between.  The search
+// string can then be compared with the n - m pairs of strings 
+// that differ by the length of the search string m.
 // **************************************************************
 
+// a finite field modulo a prime
 struct field {
   static constexpr unsigned int p = 1045678717;
   using l = unsigned long;
@@ -21,6 +23,8 @@ struct field {
 };
 auto multm = parlay::monoid([] (field a, field b) {return a*b;}, 1);
 
+// works on any range type (e.g. std:vector, parlay::sequence)
+// elements must be of integer type (e.g. char, int)
 template <typename Range1, typename Range2>
 long rabin_karp(const Range1& s, const Range2& str) {
   long n = s.size();
@@ -44,7 +48,7 @@ long rabin_karp(const Range1& s, const Range2& str) {
   auto y = parlay::delayed_tabulate(n-m+1, [&] (long i) {
 	     field hash_end = (i == n - m) ? total: hashes[i+m];
 	     if (hash * powers[i] + hashes[i] == hash_end &&
-		 parlay::equal(str, s.cut(i,i+m)))
+		 parlay::equal(str, s.cut(i,i+m))) // double check
 	       return i;
 	     return n; });
   return parlay::reduce(y, parlay::minm<long>());
