@@ -21,7 +21,7 @@ struct field {
   field operator*(field a) {return field(((l) val * (l) a.val)%p);}
   bool operator==(field a) {return val == a.val;}
 };
-auto multm = parlay::monoid([] (field a, field b) {return a*b;}, 1);
+auto multm = parlay::monoid([] (field a, field b) {return a*b;}, field(1));
 
 // works on any range type (e.g. std:vector, parlay::sequence)
 // elements must be of integer type (e.g. char, int)
