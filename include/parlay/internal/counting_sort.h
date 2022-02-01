@@ -292,7 +292,7 @@ template <typename InIterator, typename KeyS>
 auto count_sort(slice<InIterator, InIterator> In, KeyS const& Keys, size_t num_buckets) {
   using value_type = typename slice<InIterator, InIterator>::value_type;
   auto Out = sequence<value_type>::uninitialized(In.size());
-  auto a = count_sort<copy_assign_tag>(In, make_slice(Out), make_slice(Keys), num_buckets);
+  auto a = count_sort<uninitialized_copy_tag>(In, make_slice(Out), make_slice(Keys), num_buckets);
   return std::make_pair(std::move(Out), std::move(a.first));
 }
 

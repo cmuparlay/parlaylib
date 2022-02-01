@@ -30,6 +30,13 @@
 #define PARLAY_DEBUG_UNINITIALIZED
 #include <parlay/internal/debug_uninitialized.h>
 
+#include <parlay/internal/bucket_sort.h>
+#include <parlay/internal/counting_sort.h>
+#include <parlay/internal/integer_sort.h>
+#include <parlay/internal/merge_sort.h>
+#include <parlay/internal/quicksort.h>
+#include <parlay/internal/sample_sort.h>
+
 #include <parlay/primitives.h>
 #include <parlay/type_traits.h>
 
@@ -59,6 +66,15 @@ TEST(TestUninitializedMemory, TestMergeSort) {
   });
   auto sorted = parlay::internal::merge_sort(make_slice(s), std::less<parlay::internal::UninitializedTracker>());
   ASSERT_EQ(s.size(), sorted.size());
+  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
+}
+
+TEST(TestUninitializedMemory, TestCountSort) {
+  auto s = parlay::tabulate(10000000, [](size_t i) -> parlay::internal::UninitializedTracker {
+    return (50021 * i + 61) % (1 << 10);
+  });
+  auto keys = parlay::internal::delayed_map(s, [](auto&& x) { return x.x; });
+  auto [sorted, offset] = parlay::internal::count_sort(make_slice(s), keys, 1 << 10);
   ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
 }
 

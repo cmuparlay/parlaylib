@@ -221,3 +221,29 @@ TEST(TestDelayedFilter, TestFilterCopyAssign) {
     ++it;
   }
 }
+
+TEST(TestDelayedFilter, TestFilterSwap) {
+  auto strings = parlay::tabulate(10000, [](int i) { return std::vector<char>(i, 'a'); });
+  auto strings2 = parlay::tabulate(10000, [](int i) { return std::vector<char>(i, 'b'); });
+  auto pred = [](const std::vector<char>& x) { return x.size() % 2 == 0; };
+  auto answer = parlay::tabulate(5000, [](int i) { return std::vector<char>(2*i, 'a'); });
+  auto answer2 = parlay::tabulate(5000, [](int i) { return std::vector<char>(2*i, 'b'); });
+
+  auto f = parlay::delayed::filter(parlay::block_iterable_wrapper(strings.to_vector()), pred);
+  auto f2 = parlay::delayed::filter(parlay::block_iterable_wrapper(strings2.to_vector()), pred);
+
+  ASSERT_EQ(f.size(), 5000);
+  ASSERT_EQ(f2.size(), 5000);
+
+  using std::swap;
+  swap(f, f2);
+
+  auto it = f.begin();
+  auto it2 = f2.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, answer2[i]);
+    ASSERT_EQ(*it2, answer[i]);
+    ++it;
+    ++it2;
+  }
+}

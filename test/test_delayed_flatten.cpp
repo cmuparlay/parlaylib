@@ -747,3 +747,34 @@ TEST(TestDelayedFlatten, TestBidFlattenCopyAssign) {
   }
   ASSERT_EQ(it, f.end());
 }
+
+TEST(TestDelayedFlatten, TestBidFlattenSwap) {
+  parlay::sequence<parlay::sequence<int>> s = parlay::tabulate(500, [](size_t) {
+    return parlay::tabulate(500, [](size_t i) -> int { return i; });
+  });
+
+  parlay::sequence<parlay::sequence<int>> s2 = parlay::tabulate(500, [](size_t) {
+    return parlay::tabulate(500, [](size_t i) -> int { return 500+i; });
+  });
+
+  // Create a delayed flatten, then copy-assign and return the copy. the original should be
+  // destroyed so if we accidentally take iterators from the old sequence they will dangle
+  auto f = parlay::delayed::flatten(parlay::block_iterable_wrapper(std::move(s)));
+  auto f2 = parlay::delayed::flatten(parlay::block_iterable_wrapper(std::move(s2)));
+
+  ASSERT_EQ(f.size(), 250000);
+  ASSERT_EQ(f2.size(), 250000);
+
+  using std::swap;
+  swap(f, f2);
+
+  auto it = f.begin();
+  auto it2 = f2.begin();
+  for (size_t i = 0; i < f.size(); i++) {
+    ASSERT_EQ(*it, 500 + i % 500);
+    ASSERT_EQ(*it2, i % 500);
+    ++it;
+    ++it2;
+  }
+  ASSERT_EQ(it, f.end());
+}

@@ -39,40 +39,29 @@ struct block_delayed_filter_t :
   using value_type = range_value_type_t<UnderlyingView>;
   using reference = range_reference_type_t<UnderlyingView>;
 
-  block_delayed_filter_t(const block_delayed_filter_t& other) : base(other), p(other.p),
-    result(flattener_type{filter_blocks(base_view(), p), 0}, dereference{}) {
-
-    // The default copy constructor doesn't work if the base view is not an lvalue-reference
-    // since the filtered blocks contains iterators which will still point to other's copy of
-    // the base view, not ours. The default copy constructor would work if the base view is
-    // an lvalue-reference, but until C++20 we can't selectively enable a constructor overload
-  }
-
-  block_delayed_filter_t& operator=(const block_delayed_filter_t& other) {
-      base::operator=(other);
-      p = other.p;
-      if constexpr (std::is_lvalue_reference_v<UnderlyingView>) {
-        result = other.result;
-      }
-      else {
-        result = mapper_type{flattener_type{filter_blocks(base_view(), p), 0}, dereference{}};
-      }
-      return *this;
-  }
-
-  block_delayed_filter_t(block_delayed_filter_t&&) noexcept(
-      std::is_nothrow_move_constructible_v<base>                                      &&
-      std::is_nothrow_move_constructible_v<copyable_function_wrapper<UnaryPredicate>> &&
-      std::is_nothrow_move_constructible_v<mapper_type>) = default;
-  block_delayed_filter_t& operator=(block_delayed_filter_t&&) noexcept(
-      std::is_nothrow_move_assignable_v<base>                                      &&
-      std::is_nothrow_move_assignable_v<copyable_function_wrapper<UnaryPredicate>> &&
-      std::is_nothrow_move_assignable_v<mapper_type>) = default;
-
   template<typename UV>
   block_delayed_filter_t(UV&& v, UnaryPredicate p_) : base(std::forward<UV>(v), 0), p(std::move(p_)),
-    result(flattener_type{filter_blocks(base_view(), p), 0}, dereference{}) {
+      result(flattener_type{filter_blocks(base_view(), p), 0}, dereference{}) { }
 
+  // The default copy constructor is not viable because it might copy dangling iterators
+  block_delayed_filter_t(const block_delayed_filter_t& other) : base(other), p(other.p),
+    result(flattener_type{filter_blocks(base_view(), p), 0}, dereference{}) { }
+
+  block_delayed_filter_t(block_delayed_filter_t&&) noexcept(
+    std::is_nothrow_move_constructible_v<base>                                      &&
+    std::is_nothrow_move_constructible_v<copyable_function_wrapper<UnaryPredicate>> &&
+    std::is_nothrow_move_constructible_v<mapper_type>) = default;
+
+  friend void swap(block_delayed_filter_t& first, block_delayed_filter_t& second) {
+    using std::swap;
+    swap(first.base_view(), second.base_view());
+    swap(first.result, second.result);
+    swap(first.p, second.p);
+  }
+
+  block_delayed_filter_t& operator=(block_delayed_filter_t other) {
+    swap(*this, other);
+    return *this;
   }
 
   // Returns the number of elements in the filtered range

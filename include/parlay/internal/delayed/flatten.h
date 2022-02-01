@@ -45,50 +45,36 @@ struct block_delayed_flatten_t :
   using reference = range_reference_type_t<range_reference_type_t<UnderlyingView>>;
   using value_type = range_value_type_t<range_reference_type_t<UnderlyingView>>;
 
-  block_delayed_flatten_t(const block_delayed_flatten_t& other) : base(other) {
-    // Note that it would be incorrect to unconditionally copy the iterators
-    // from other, because other might own the underlying view, and our copy
-    // of the underlying view has different iterators!
-    if (std::is_lvalue_reference_v<UnderlyingView>) {
-      n_blocks = other.n_blocks;
-      n_elements = other.n_elements;
-      outer_starts = other.outer_starts;
-      inner_starts = other.inner_starts;
-    }
-    else {
-      initialize_iterators();
-    }
-  }
-
-  block_delayed_flatten_t& operator=(const block_delayed_flatten_t& other) {
-    base::operator=(other);
-    if constexpr (std::is_lvalue_reference_v<UnderlyingView>) {
-      n_blocks = other.n_blocks;
-      n_elements = other.n_elements;
-      outer_starts = other.outer_starts;
-      inner_starts = other.inner_starts;
-    }
-    else {
-      initialize_iterators();
-    }
-    return *this;
-  }
-
-  block_delayed_flatten_t(block_delayed_flatten_t&&) noexcept(
-      std::is_nothrow_move_constructible_v<base>                          &&
-      std::is_nothrow_move_constructible_v<sequence<outer_iterator_type>> &&
-      std::is_nothrow_move_constructible_v<sequence<inner_iterator_type>>) = default;
-  block_delayed_flatten_t& operator=(block_delayed_flatten_t&&) noexcept(
-      std::is_nothrow_move_assignable_v<base>                          &&
-      std::is_nothrow_move_assignable_v<sequence<outer_iterator_type>> &&
-      std::is_nothrow_move_assignable_v<sequence<inner_iterator_type>>) = default;
-
   template<typename UV>
   block_delayed_flatten_t(UV&& v, int) : base(std::forward<UV>(v), 0) {
     //                            ^
     // Extra int parameter is used to ensure that this template doesn't
     // accidentally take over the job of the copy constructor.
     initialize_iterators();
+  }
+
+  // The default copy constructor is not viable because it might copy dangling iterators
+  block_delayed_flatten_t(const block_delayed_flatten_t& other) : base(other) {
+    initialize_iterators();
+  }
+
+  block_delayed_flatten_t(block_delayed_flatten_t&&) noexcept(
+    std::is_nothrow_move_constructible_v<base>                          &&
+    std::is_nothrow_move_constructible_v<sequence<outer_iterator_type>> &&
+    std::is_nothrow_move_constructible_v<sequence<inner_iterator_type>>) = default;
+
+  friend void swap(block_delayed_flatten_t& first, block_delayed_flatten_t& second) {
+    using std::swap;
+    swap(first.base_view(), second.base_view());
+    swap(first.n_blocks, second.n_blocks);
+    swap(first.n_elements, second.n_elements);
+    swap(first.outer_starts, second.outer_starts);
+    swap(first.inner_starts, second.inner_starts);
+  }
+
+  block_delayed_flatten_t& operator=(block_delayed_flatten_t other) {
+    swap(*this, other);
+    return *this;
   }
 
   template<bool Const>
