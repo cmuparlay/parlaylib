@@ -87,7 +87,7 @@ auto second_eigenvector(Matrix A, vector v1, double error) {
     v2 = vnew;
   }
   std::cout << "number of iterations = " << i << std::endl;
-  return std::make_pair(v2);
+  return v2;
 }
 
 // partitions graph by finding an approximation of the second
