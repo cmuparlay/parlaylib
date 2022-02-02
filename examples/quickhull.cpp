@@ -8,9 +8,14 @@
 // Uses the divide-and-conquer quickhull algorithm.
 // **************************************************************
 
+// **************************************************************
+// A couple operations on points
+// **************************************************************
 struct point { double x; double y;};
 
-inline double triArea(point a, point b, point c) {
+// twice the area in the triangle defined by three points
+// negative if counter clockwise
+inline double area(point a, point b, point c) {
   return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
 
@@ -18,7 +23,7 @@ using intseq = parlay::sequence<int>;
 using pointseq = parlay::sequence<point>;
 
 // **************************************************************
-// The recursive routine
+// The main recursive function
 // Points are all the original points,
 // l and r are the start and endpoints to find the hull between, and
 // Idxs are the indices of the points (in Points) above the line defined by l--r.
@@ -27,9 +32,9 @@ intseq quickhull(pointseq const &Points, intseq Idxs, point l, point r) {
   size_t n = Idxs.size();
   if (n <= 1) return Idxs;
 
-  // find distances from the line l--r, tag each with its index
+  // find relative distances from the line l--r, tag each with its index
   auto Pairs = parlay::delayed_map(Idxs, [&] (int idx) {
-                 return std::make_pair(triArea(l, r, Points[idx]), idx);});
+                 return std::make_pair(area(l, r, Points[idx]), idx);});
 
   // get the index of the point with maximum distance from l--r
   auto mid_idx = parlay::reduce(Pairs, parlay::maxm<std::pair<double,int>>()).second;
@@ -37,11 +42,11 @@ intseq quickhull(pointseq const &Points, intseq Idxs, point l, point r) {
 
   // get points above the line l--P[mid_idx]
   auto left = parlay::filter(Idxs, [&] (int id) {
-	        return triArea(l, mid, Points[id]) > 0;});
+	        return area(l, mid, Points[id]) > 0;});
 
   // get points above the line P[mid_idx]--r
   auto right = parlay::filter(Idxs, [&] (int id) {
-		return triArea(mid, r, Points[id]) > 0;});
+		return area(mid, r, Points[id]) > 0;});
 
   Idxs.clear(); // clear and use std::move to avoid O(n log n) memory usage
 
@@ -73,7 +78,7 @@ intseq upper_hull(pointseq const &Points) {
 
   // get indices of points above the line P[mid_idx]--P[max_idx]
   auto above = parlay::filter(parlay::iota(n), [&] (int id) {
-		 return triArea(minp, maxp, Points[id]) > 0;});
+		 return area(minp, maxp, Points[id]) > 0;});
 
   intseq res = quickhull(Points, std::move(above), minp, maxp);
   parlay::sequence<intseq> nested = {intseq(1, min_idx), res, intseq(1, max_idx)};

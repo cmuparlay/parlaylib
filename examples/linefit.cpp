@@ -2,11 +2,11 @@
 #include <parlay/random.h>
 
 // **************************************************************
-// Fits a set of points to a least-square linefit
-// returns the y intercept at x=0 and the slope
-// Algorithm is from:
+// Fits a set of points to a line minimizing chi-squared
+// returns the y intercept at x=0 and the slope.
+// Parallel version of the "fit" algorithm from:
 // "Numerical Recipes: The art of scientific computing"
-// by Press, Teukolsky, Vetterling, and Flannery.
+// by Press, Teukolsky, Vetterling, and Flannery, section 15.2.
 // **************************************************************
 
 using point = std::pair<double,double>;

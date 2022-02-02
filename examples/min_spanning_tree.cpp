@@ -1,16 +1,17 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
-#include "union_find.h"
-#include "speculative_for.h"
+#include "helper/union_find.h"
+#include "helper/speculative_for.h"
 
 // **************************************************************
 // Parallel version of Kruskal's algorithm for MST
-// Uses the approach of deterministic reservations. See:
+// Uses the approach of deterministic reservations, see:
 // "Internally deterministic parallel algorithms can be fast"
 // Blelloch, Fineman, Gibbons, and Shun.
 // Sorts the edges and then simulates the same insertion order
 // as the sequential version, but allowing for parallelism.
-// Earlier edges always win, giving the same tree as the sequential version
+// Earlier edges always win, which is what gives the same
+// tree as the sequential version
 // **************************************************************
 
 using vertex = int;
@@ -45,11 +46,11 @@ struct union_find_step {
     auto [w, id, u, v] = E[i];
     if (R[v].check(i)) {
       R[u].check_reset(i); 
-      UF.link(v, u);     // the union step
+      UF.link(v, u);     // the assymetric union step
       inST[id] = true;
       return true;}
     else if (R[u].check(i)) {
-      UF.link(u, v);    // the union step
+      UF.link(u, v);    // the assymetric union step
       inST[id] = true;
       return true; }
     else return false;

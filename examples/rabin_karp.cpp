@@ -2,14 +2,17 @@
 #include <parlay/io.h>
 
 // **************************************************************
-// Rabin-Karp string matching.
-// Generates a running hash such that the difference been two
-// positions gives a hash for the string in between.  The search
-// string can then be compared with the n - m pairs of strings 
-// that differ by the length of the search string m.
+// Rabin-Karp string searching.
+// Finds the first position of a search string of length m in a string
+// of length n.  Generates a running hash such that the difference
+// been two positions gives a hash for the string in between.  The
+// search string can then be compared with the (n - m + 1) length m
+// substrings of the input string in constant work per comparison.
 // **************************************************************
 
 // a finite field modulo a prime
+// The prime needs to fit in 32 bits so multiplication into 64 bits
+// does not overlow.  
 struct field {
   static constexpr unsigned int p = 1045678717;
   using l = unsigned long;
@@ -23,8 +26,8 @@ struct field {
 };
 auto multm = parlay::monoid([] (field a, field b) {return a*b;}, field(1));
 
-// works on any range type (e.g. std:vector, parlay::sequence)
-// elements must be of integer type (e.g. char, int)
+// Works on any range types (e.g. std::string, parlay::sequence)
+// Elements must be of integer type (e.g. char, int, unsigned char)
 template <typename Range1, typename Range2>
 long rabin_karp(const Range1& s, const Range2& str) {
   long n = s.size();

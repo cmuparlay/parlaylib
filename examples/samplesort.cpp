@@ -5,9 +5,9 @@
 
 // **************************************************************
 // Sample sort
-// Basically a generalization of quicksort to many pivots.
-// In particular this code picks up to 256 pivots by randomly
-// selecting and then sorting them.
+// A generalization of quicksort to many pivots.
+// This code picks up to 256 pivots by randomly selecting and
+// then sorting them.
 // It then puts the keys into buckets depending on which pivots
 // they fall between and recursively sorts within the buckets.
 // Makes use of a parlaylib bucket sort for the bucketing,
@@ -18,7 +18,7 @@ template <typename Range, typename Less>
 void sample_sort_(Range in, Range out, Less less, int level=1) {
   long n = in.size();
 
-  // for the base case (small or recursion level greater than 1) use std::sort
+  // for the base case (small or recursion level greater than 2) use std::sort
   long cutoff = 256;
   if (n <= cutoff || level > 2) {
     parlay::copy(in, out);

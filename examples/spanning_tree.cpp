@@ -1,6 +1,6 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
-#include "union_find.h"
+#include "helper/union_find.h"
 
 // **************************************************************
 // Find the spanning tree (or forest if not connected) of a graph

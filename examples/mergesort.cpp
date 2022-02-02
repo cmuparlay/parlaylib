@@ -62,7 +62,7 @@ template <typename Range,
 void merge_sort(Range& in, Less less = {}) {
   long n = in.size();
   using T = typename Range::value_type;
-  auto tmp = parlay::sequence<T>::uninitialized(n);
+  parlay::sequence<T> tmp(n);
   merge_sort_(in.cut(0,n), tmp.cut(0,n), true, less);
 }
 
