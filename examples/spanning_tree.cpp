@@ -3,8 +3,10 @@
 #include "helper/union_find.h"
 
 // **************************************************************
-// Find the spanning tree (or forest if not connected) of a graph
+// Find the spanning tree (or forest if not connected) of a graph.
 // Uses a commutative version of union-find from file union_find.h
+// It is non-deterministic.  Could find different forests on
+// different runs.
 // **************************************************************
 
 using vertex = int;
