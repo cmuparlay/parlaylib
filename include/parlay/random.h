@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include <tuple>
+#include <limits>
 
 #include "delayed_sequence.h"
 #include "parallel.h"
@@ -31,7 +32,7 @@ struct random {
   size_t ith_rand(uint64_t i) const { return static_cast<size_t>(hash64(i + state)); }
   size_t operator[](size_t i) const { return ith_rand(i); }
   size_t rand() { return ith_rand(0); }
-
+  size_t max() { return std::numeric_limits<size_t>::max(); }
  private:
   size_t state = 0;
 };

@@ -168,3 +168,5 @@ if (PARLAY_BENCHMARK)
 else()
   message(STATUS "benchmarks: Disabled (enable with -DPARLAY_BENCHMARK=On)")
 endif()
+
+add_subdirectory(examples)
