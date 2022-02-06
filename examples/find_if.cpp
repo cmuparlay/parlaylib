@@ -1,5 +1,11 @@
+#include <algorithm>
+#include <iostream>
+#include <string>
+
+#include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
+#include <parlay/sequence.h>
 
 // **************************************************************
 // Finds location i of first element  that satisfies a predicate
@@ -9,7 +15,7 @@
 // **************************************************************
 
 template <typename Range, typename UnaryPredicate>
-long find_if_(const Range& r, UnaryPredicate p) {
+long find_if(const Range& r, UnaryPredicate p) {
   long n = r.size();
   long len = 1000;
   long i;
@@ -21,7 +27,7 @@ long find_if_(const Range& r, UnaryPredicate p) {
   while (start < n) {
     long end = (std::min)(n, start + len);
     long loc = parlay::reduce(parlay::delayed_tabulate(end-start, [&] (long i) {
-	         return p(r[i + start]) ? i + start : n;}), parlay::minm<long>());
+      return p(r[i + start]) ? i + start : n;}), parlay::minm<long>());
     if (loc < n) return loc;
     start += len;
     len *= 2;
@@ -37,14 +43,14 @@ int main(int argc, char* argv[]) {
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n;
-    try {n = std::stol(argv[1]);}
-    catch (...) {std::cout << usage << std::endl; return 1;}
+    try { n = std::stol(argv[1]); }
+    catch (...) { std::cout << usage << std::endl; return 1; }
     parlay::random r;
 
     // generate n random numbers from 0 .. n-1
-    auto vals = parlay::tabulate(n, [&] (long i) {return (r[i] % n);});
+    auto vals = parlay::tabulate(n, [&] (long i) { return (r[i] % n); });
 
-    long result = find_if_(vals, [] (long i) {return i == 277;});
+    long result = ::find_if(vals, [] (long i) { return i == 277; });
 
     if (result == n) std::cout << "not found" << std::endl;
     else std::cout << "found at location " << result << std::endl;

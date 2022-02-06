@@ -1,5 +1,9 @@
-#include <parlay/primitives.h>
+#include <iostream>
+
 #include <parlay/io.h>
+#include <parlay/monoid.h>
+#include <parlay/primitives.h>
+#include <parlay/sequence.h>
 
 // **************************************************************
 // Rabin-Karp string searching.
@@ -12,7 +16,7 @@
 
 // a finite field modulo a prime
 // The prime needs to fit in 32 bits so multiplication into 64 bits
-// does not overlow.  
+// does not overflow.
 struct field {
   static constexpr unsigned int p = 1045678717;
   using l = unsigned long;
@@ -20,9 +24,9 @@ struct field {
   template <typename Int>
   field(Int i) : val(i) {}
   field() {}
-  field operator+(field a) {return field(((l) val + (l) a.val)%p);}
-  field operator*(field a) {return field(((l) val * (l) a.val)%p);}
-  bool operator==(field a) {return val == a.val;}
+  field operator+(field a) { return field(((l) val + (l) a.val)%p); }
+  field operator*(field a) { return field(((l) val * (l) a.val)%p); }
+  bool operator==(field a) { return val == a.val; }
 };
 auto multm = parlay::monoid([] (field a, field b) {return a*b;}, field(1));
 
@@ -36,40 +40,40 @@ long rabin_karp(const Range1& s, const Range2& str) {
 
   // calculate hashes for prefixes of s
   auto xs = parlay::delayed_tabulate(n, [&] (long i) {
-	      return x;});
+    return x;});
   auto [powers, total] = parlay::scan(xs, multm);
-  auto terms = parlay::tabulate(n, [&] (long i) {
-		 return field(s[i]) * powers[i];});
+  auto terms = parlay::tabulate(n, [&, &powers = powers] (long i) {
+    return field(s[i]) * powers[i];});
   auto [hashes, sum] = parlay::scan(terms);
-  
+
   // calculate hash for str
-  auto terms2 = parlay::delayed_tabulate(m, [&] (long i) {
-		  return field(str[i]) * powers[i];});
+  auto terms2 = parlay::delayed_tabulate(m, [&, &powers = powers] (long i) {
+    return field(str[i]) * powers[i];});
   field hash = parlay::reduce(terms2);
-  
+
   // find matches
-  auto y = parlay::delayed_tabulate(n-m+1, [&] (long i) {
-	     field hash_end = (i == n - m) ? total: hashes[i+m];
-	     if (hash * powers[i] + hashes[i] == hash_end &&
-		 parlay::equal(str, s.cut(i,i+m))) // double check
-	       return i;
-	     return n; });
+  auto y = parlay::delayed_tabulate(n-m+1,
+    [&, &powers = powers, &hashes = hashes, total = total] (long i) {
+      field hash_end = (i == n - m) ? total: hashes[i+m];
+      if (hash * powers[i] + hashes[i] == hash_end &&
+          parlay::equal(str, s.cut(i,i+m))) // double check
+        return i;
+      return n; });
   return parlay::reduce(y, parlay::minm<long>());
 }
 
 // **************************************************************
 // Driver code
 // **************************************************************
-using charseq = parlay::sequence<char>;
 
 int main(int argc, char* argv[]) {
   auto usage = "Usage: rabin_karp <search_string> <filename>";
   if (argc != 3) std::cout << usage << std::endl;
   else {
-    charseq str = parlay::chars_from_file(argv[2]);
-    charseq search_str = parlay::to_chars(argv[1]);
+    parlay::chars str = parlay::chars_from_file(argv[2]);
+    parlay::chars search_str = parlay::to_chars(argv[1]);
     long loc = rabin_karp(str, search_str);
-    if (loc < str.size())  
+    if (loc < str.size())
       std::cout << "found at position: " << loc << std::endl;
     else std::cout << "not found" << std::endl;
   }

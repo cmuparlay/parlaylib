@@ -6,7 +6,7 @@
 # -------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.13)
-project(PARLAY VERSION 1.0
+project(PARLAY VERSION 2.0
         DESCRIPTION "A collection of parallel algorithms and other support for parallelism in C++"
         LANGUAGES CXX)
 

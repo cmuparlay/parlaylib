@@ -1,5 +1,13 @@
+#include <cstddef>
+
+#include <iostream>
+#include <string>
+#include <tuple>
+
 #include <parlay/primitives.h>
 #include <parlay/random.h>
+#include <parlay/sequence.h>
+
 #include "helper/union_find.h"
 #include "helper/speculative_for.h"
 
@@ -45,7 +53,7 @@ struct union_find_step {
   bool commit(edge_id i) {
     auto [w, id, u, v] = E[i];
     if (R[v].check(i)) {
-      R[u].check_reset(i); 
+      R[u].check_reset(i);
       UF.link(v, u);     // the assymetric union step
       inST[id] = true;
       return true;}
@@ -57,13 +65,13 @@ struct union_find_step {
   }
 };
 
-parlay::sequence<edge_id> min_spanning_forest(edges &E, long n) { 
+parlay::sequence<edge_id> min_spanning_forest(edges &E, long n) {
   size_t m = E.size();
 
   // tag each edge with an index
   auto EI = parlay::delayed_tabulate(m, [&] (long i) {
-      auto [u,v,w] = E[i];
-      return indexed_edge(w, i, u, v);});
+    auto [u,v,w] = E[i];
+    return indexed_edge(w, i, u, v);});
 
   auto SEI = parlay::sort(EI);
 
@@ -83,12 +91,12 @@ edges generate_edges(long n) {
 
   // create random edges
   auto E = parlay::delayed_tabulate(n*5, [&] (long i) {
-      return weighted_edge(rand[3*i]%n,rand[3*i+1]%n,
-			   (double) (rand[3*i+2]%1000000));});
+    return weighted_edge(rand[3*i]%n,rand[3*i+1]%n,
+                         (double) (rand[3*i+2]%1000000));});
 
   // remove self edges
   return parlay::filter(E, [] (weighted_edge e) {
-      return std::get<0>(e) != std::get<1>(e);});
+    return std::get<0>(e) != std::get<1>(e);});
 }
 
 // **************************************************************
@@ -99,8 +107,8 @@ int main(int argc, char* argv[]) {
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n;
-    try {n = std::stol(argv[1]);}
-    catch (...) {std::cout << usage << std::endl; return 1;}
+    try { n = std::stol(argv[1]); }
+    catch (...) { std::cout << usage << std::endl; return 1; }
     edges E = generate_edges(n);
     std::cout << "edges generated, starting MST" << std::endl;
     auto result = min_spanning_forest(E, n);

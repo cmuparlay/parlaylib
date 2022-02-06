@@ -1,7 +1,10 @@
-#include <parlay/primitives.h>
-#include <parlay/io.h>
+#include <cstddef>
 
-using charseq = parlay::sequence<char>;
+#include <iostream>
+
+#include <parlay/io.h>
+#include <parlay/primitives.h>
+#include <parlay/sequence.h>
 
 // **************************************************************
 // Breaks a string (arbitrary range) into tokens identified by a 
@@ -11,11 +14,9 @@ using charseq = parlay::sequence<char>;
 // implementation.
 // **************************************************************
 
-template <typename Range, typename F>
-parlay::sequence<Range>
-tokens_(const Range& str, F is_space) {
+template <typename Range, typename F> auto tokens_(const Range& str, F is_space) {
   long n = str.size();
-  
+
   // checks if an index is at the start or one past the end of a token
   auto check = [&] (long i) {
     if (i == n) return !is_space(str[n-1]);
@@ -42,10 +43,8 @@ int main(int argc, char* argv[]) {
   auto usage = "Usage: tokens <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
-    charseq str = parlay::chars_from_file(argv[1]);
-
-    auto r = tokens_(str, [&] (char c) {return c == ' ';});
-
+    parlay::chars str = parlay::chars_from_file(argv[1]);
+    auto r = tokens_(str, [&] (char c) { return c == ' '; });
     std::cout << "number of space separated tokens: " << r.size() << std::endl;
   }
 }

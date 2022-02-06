@@ -679,7 +679,7 @@ bool equal(R1&& r1, R2&& r2, BinaryPred&& p) {
 }
 
 template <typename R1, typename R2>
-bool equal(const R1& r1, const R2& r2) {
+bool equal(R1&& r1, R2&& r2) {
   static_assert(is_random_access_range_v<R1>);
   static_assert(is_random_access_range_v<R2>);
   static_assert(is_equality_comparable_v<range_reference_type_t<R1>, range_reference_type_t<R2>>);

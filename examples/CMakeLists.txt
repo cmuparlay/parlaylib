@@ -12,9 +12,3 @@ endfunction()
 foreach(example ${EXAMPLES})
   add_example(${example})
 endforeach()
-
-
-
-
-
-

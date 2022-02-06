@@ -1,6 +1,12 @@
-#include "parlay/primitives.h"
-#include "parlay/random.h"
-#include "parlay/io.h"
+#include <algorithm>
+#include <functional>
+#include <iostream>
+#include <string>
+
+#include <parlay/primitives.h>
+#include <parlay/random.h>
+#include <parlay/sequence.h>
+
 #include "helper/heap_tree.h"
 
 // **************************************************************
@@ -9,7 +15,7 @@
 // Fast in practice
 // **************************************************************
 template <typename Range,
-	  typename Less = std::less<typename Range::value_type>>
+    typename Less = std::less<typename Range::value_type>>
 auto kth_smallest(Range in, long k, Less less = {}) {
   long n = in.size();
   if (n <= 1000) return parlay::sort(in,less)[k];
@@ -25,7 +31,7 @@ auto kth_smallest(Range in, long k, Less less = {}) {
   // Determine which of the 32 buckets each key belongs in
   heap_tree ss(pivots);
   auto ids = parlay::tabulate(n, [&] (long i) -> unsigned char {
-		      return ss.find(in[i], less);});
+    return ss.find(in[i], less);});
 
   // Count how many in keys are each bucket
   auto sums = parlay::histogram_by_index(ids, sample_size+1);
@@ -47,12 +53,12 @@ int main(int argc, char* argv[]) {
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n;
-    try {n = std::stol(argv[1]);}
-    catch (...) {std::cout << usage << std::endl; return 1;}
+    try { n = std::stol(argv[1]); }
+    catch (...) { std::cout << usage << std::endl; return 1; }
     parlay::random r;
 
     // generate random long values
-    auto data = parlay::tabulate(n, [&] (long i) {return (long) (r[i]%n);});
+    auto data = parlay::tabulate(n, [&] (long i) -> long {return r[i] % n; });
 
     long result = kth_smallest(data, n/2);
     std::cout << "median is: " << result << std::endl;

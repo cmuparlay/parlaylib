@@ -1,6 +1,15 @@
-#include "parlay/primitives.h"
-#include "parlay/random.h"
-#include "parlay/io.h"
+#include <cmath>
+
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <utility>
+
+#include <parlay/delayed_sequence.h>
+#include <parlay/monoid.h>
+#include <parlay/primitives.h>
+#include <parlay/random.h>
+#include <parlay/sequence.h>
 
 // **************************************************************
 // Spectral graph separator
@@ -20,19 +29,19 @@
 // **************************************************************
 using vector = parlay::sequence<double>;
 auto operator*(double c, const vector& v) {
-  return parlay::map(v, [=] (double ve) {return c * ve;});}
+  return parlay::map(v, [=] (double ve) { return c * ve; });}
 auto operator-(const vector& v1, const vector& v2) {
-  return parlay::tabulate(v1.size(), [&] (long i) {return v1[i]-v2[i];});}
+  return parlay::tabulate(v1.size(), [&] (long i) { return v1[i]-v2[i]; });}
 double dot(const vector& v1, const vector& v2) {
   return parlay::reduce(parlay::delayed_tabulate(v1.size(), [&] (long i) {
-							      return v1[i]*v2[i];}));}
+    return v1[i]*v2[i]; }));}
 double rms_diff(const vector& v1, const vector& v2) {
   auto diff = v1-v2;
-  return parlay::reduce(parlay::delayed_map(diff, [&] (double e) {return e*e;}));}
-auto normalize(const vector& v) { return (1.0/sqrt(dot(v,v))) * v;}
+  return parlay::reduce(parlay::delayed_map(diff, [&] (double e) { return e*e; }));}
+auto normalize(const vector& v) { return (1.0/std::sqrt(dot(v,v))) * v;}
 auto rand_vector(long n) {
   parlay::random r;
-  return normalize(parlay::tabulate(n, [&] (long i) {return (double) r[i];}));}
+  return normalize(parlay::tabulate(n, [&] (long i) -> double {return r[i]; }));}
 
 // **************************************************************
 // Graph Laplacian Matrix 
@@ -53,16 +62,16 @@ struct laplacian {
   double diag;
   static double max_degree(const graph& g) {
     return parlay::reduce(parlay::map(g, [] (auto& ngh) {return (double) ngh.size();}),
-			  parlay::maxm<double>());}
+                          parlay::maxm<double>());}
   laplacian(const graph& g) : g(g), diag(max_degree(g)+1.0) {}
   vector operator*(vector const& vec) {
     return parlay::tabulate(g.size(), [&] (long u) {
-	  neighbors& ngh = g[u];
-	  // contribution from off diagonal
-	  double x = parlay::reduce(parlay::delayed_map(ngh, [&] (vertex v) {
-		       return vec[v];}));
-	  // add contribution from diagonal
-	  return (diag + -(double) ngh.size()) * vec[u] + x;},100);
+      neighbors& ngh = g[u];
+      // contribution from off diagonal
+      double x = parlay::reduce(parlay::delayed_map(ngh, [&] (vertex v) {
+        return vec[v];}));
+      // add contribution from diagonal
+      return (diag + -(double) ngh.size()) * vec[u] + x;},100);
   }
   double size() {return g.size();}
 };
@@ -114,7 +123,7 @@ using edge = std::pair<vertex,vertex>;
 auto generate_edges(long n, long m, long off, int seed) {
   parlay::random rand(seed);
   return parlay::tabulate(m, [=] (long i) {
-           return edge(rand[2*i]%n + off, rand[2*i+1]%n + off);});
+    return edge(rand[2*i]%n + off, rand[2*i+1]%n + off);});
 }
 
 // Converts an edge set into a adjacency representation
@@ -123,16 +132,16 @@ auto edges_to_symmetric(const parlay::sequence<edge>& E, long n) {
   auto ET = parlay::map(E, [] (edge e) {return edge(e.second, e.first);});;
   auto G = parlay::group_by_index(parlay::append(E,ET), n);
   return parlay::tabulate(n, [&] (long u) {
-			       auto x = parlay::filter(G[u], [=] (vertex v) {return u != v;});
-			       return parlay::remove_duplicates(x);});
+    auto x = parlay::filter(G[u], [=] (vertex v) {return u != v;});
+    return parlay::remove_duplicates(x);});
 }
 
 graph generate_graph(long n) {
   int degree = 5;
   parlay::sequence<parlay::sequence<edge>> E = {
-     generate_edges(n/2, degree * n/2, 0, 0), // one side
-     generate_edges(n/2, degree * n/2, n/2, 1), // the other
-     parlay::sequence<edge>(1,edge(0,n/2))}; // the joining edge
+      generate_edges(n/2, degree * n/2, 0, 0), // one side
+      generate_edges(n/2, degree * n/2, n/2, 1), // the other
+      parlay::sequence<edge>(1,edge(0,n/2))}; // the joining edge
   return edges_to_symmetric(parlay::flatten(E), n);
 }
 
@@ -144,15 +153,15 @@ int main(int argc, char* argv[]) {
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n;
-    try {n = std::stol(argv[1]);}
-    catch (...) {std::cout << usage << std::endl; return 1;}
+    try { n = std::stol(argv[1]); }
+    catch (...) { std::cout << usage << std::endl; return 1; }
     auto g = generate_graph(n);
     //std::cout << parlay::to_chars(g) << std::endl;
     auto partition = partition_graph(g);
     long e1 = parlay::reduce(parlay::tabulate(n, [&] (long i) -> long {
-						   return (i < n/2) != partition[i];}));
+      return (i < n/2) != partition[i];}));
     long e2 = parlay::reduce(parlay::tabulate(n, [&] (long i) -> long {
-						   return (i < n/2) != !partition[i];}));
+      return (i < n/2) != !partition[i];}));
     std::cout << "percent errors: " << (100.0 * std::min(e1,e2)) / n << std::endl;
   }
 }
