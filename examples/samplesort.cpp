@@ -37,7 +37,7 @@ void sample_sort_(Range in, Range out, Less less, int level=1) {
   }
 
   // number of bits in bucket count (e.g. 8 would mean 256 buckets)
-  int bits = std::min(8ul, parlay::log2_up(n)-parlay::log2_up(cutoff)+1);
+  int bits = std::min<long>(8, parlay::log2_up(n)-parlay::log2_up(cutoff)+1);
   long num_buckets = 1 << bits;
 
   // over-sampling ratio: keeps the buckets more balanced

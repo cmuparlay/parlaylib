@@ -229,7 +229,7 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
 
 template <typename assignment_tag, typename Slice, typename Helper>
 auto seq_collect_reduce_sparse(Slice A, Helper const &helper) {
-  size_t table_size = 1.5 * A.size();
+  size_t table_size = 3 * A.size() / 2;
   //using in_type = typename Helper::in_type;
   using key_type = typename Helper::key_type;
   using result_type = typename Helper::result_type;

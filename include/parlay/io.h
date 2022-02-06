@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cctype>
+#include <cinttypes>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -38,11 +39,11 @@ inline chars chars_from_file(const std::string& filename,
   else end = (std::min)(end,length);
   std::streamsize n = end - start;
   file.seekg (start, std::ios::beg);
-  auto chars = chars::uninitialized(n + null_terminate);
+  auto chars = chars::uninitialized(static_cast<size_t>(n) + null_terminate);
   file.read (chars.data(), n);
   file.close();
   if (null_terminate) {
-    chars[n] = 0;
+    chars[static_cast<size_t>(n)] = 0;
   }
   return chars;
 }
@@ -267,22 +268,6 @@ inline long double chars_to_long_double(const chars& s) {
 //                                Formatting
 // ----------------------------------------------------------------------------
 
-// Flatten a sequence of character sequences into a character sequence.
-// This overload is preferred over the usual one which returns an ordinary
-// (non-small-size-optimized) sequence
-// auto flatten(const sequence<chars>& r) {
-//   auto offsets = sequence<size_t>::from_function(parlay::size(r),
-//                                                  [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
-//   size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
-//   auto res = chars::uninitialized(len);
-//   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
-//     parallel_for(0, parlay::size(it[i]),
-//                  [&](size_t j) { assign_uninitialized(res[offsets[i] + j], it[i][j]); }
-//     );
-//   });
-//   return res;
-// }
-
 // Still a work in progress. TODO: Improve these?
 
 inline chars to_chars(char c) {
@@ -315,8 +300,31 @@ inline chars to_chars(unsigned int v) {
   return to_chars((unsigned long) v);
 };
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+#endif
+
+inline chars to_chars(long long v) {
+  constexpr int max_len = 21;
+  char s[max_len + 1];
+  int l = std::snprintf(s, max_len, "%" PRId64, v);
+  return chars(s, s + (std::min)(max_len - 1, l));
+}
+
+inline chars to_chars(unsigned long long v) {
+  constexpr int max_len = 21;
+  char s[max_len + 1];
+  int l = std::snprintf(s, max_len, "%" PRIu64, v);
+  return chars(s, s + (std::min)(max_len - 1, l));
+}
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+
 inline chars to_chars(double v) {
-  constexpr int max_len = 20;
+  constexpr int max_len = 21;
   char s[max_len + 1];
   int l = std::snprintf(s, max_len, "%.11le", v);
   return chars(s, s + (std::min)(max_len - 1, l));
