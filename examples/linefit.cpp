@@ -8,8 +8,8 @@
 #include <parlay/sequence.h>
 
 // **************************************************************
-// Fits a set of points to a line minimizing chi-squared
-// returns the y intercept at x=0 and the slope.
+// Fits a set of points to a line minimizing chi-squared.
+// Returns the y intercept at x=0 and the slope.
 // Parallel version of the "fit" algorithm from:
 // "Numerical Recipes: The art of scientific computing"
 // by Press, Teukolsky, Vetterling, and Flannery, section 15.2.

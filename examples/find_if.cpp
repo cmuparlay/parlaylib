@@ -36,7 +36,7 @@ long find_if(const Range& r, UnaryPredicate p) {
 }
 
 // **************************************************************
-// Driver code
+// Driver
 // **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: find_if <size>";

@@ -80,8 +80,7 @@ struct laplacian {
 // Graph Partitioning
 // **************************************************************
 
-// Finds approximate second eigenvector and eigenvalue given
-// the first eigenvector v1.
+// Finds approximate second eigenvector given the first eigenvector v1.
 // Uses the power method while removing the component along v1.
 // Abstracted over matrix type allowing the multiply to be implicit.
 template <typename Matrix>
@@ -101,6 +100,7 @@ auto second_eigenvector(Matrix A, vector v1, double error) {
 
 // partitions graph by finding an approximation of the second
 // eigenvector of the graph laplacian (the Fiedler vector).
+// It then splits based on the median value of the vector.
 auto partition_graph(graph g) {
   long n = g.size();
   laplacian mat(g);
@@ -112,6 +112,10 @@ auto partition_graph(graph g) {
   double median = parlay::sort(vec)[n/2];
   return parlay::map(vec, [=] (double x) {return x < median;});
 }
+
+// **************************************************************
+// Driver
+// **************************************************************
 
 // **************************************************************
 // Generate Graph
@@ -145,9 +149,6 @@ graph generate_graph(long n) {
   return edges_to_symmetric(parlay::flatten(E), n);
 }
 
-// **************************************************************
-// Driver
-// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: spectral_separator <n>";
   if (argc != 2) std::cout << usage << std::endl;

@@ -40,7 +40,7 @@ void merge(Range in1, Range in2, Range out, Less less) {
 }
 
 // **************************************************************
-// A mergesort that sorts "in" into eiher itself of "out" depending
+// A mergesort that sorts "in" into either itself of "out" depending
 // on the value of inplace.
 // Out can be mutated even if inplace=true
 // **************************************************************

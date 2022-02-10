@@ -36,7 +36,7 @@ struct union_find_step {
   parlay::sequence<bool> &inST;
 
   // find roots and reserve endpoints
-  // earliest (min weight since sorted) wins
+  // earliest edge (the min weight edge since sorted) wins
   bool reserve(edge_id i) {
     auto [w, id, u, v] = E[i];
     u = std::get<2>(E[i]) = UF.find(u);
@@ -50,6 +50,8 @@ struct union_find_step {
 
   // checks if successfully reserved on at least one side
   // if so, add edge to mst, and link (union)
+  // note that links cannot form a cycle since on a cycle
+  // at least one edge not minimum on either side
   bool commit(edge_id i) {
     auto [w, id, u, v] = E[i];
     if (R[v].check(i)) {
@@ -84,6 +86,10 @@ parlay::sequence<edge_id> min_spanning_forest(edges &E, long n) {
 }
 
 // **************************************************************
+// Driver
+// **************************************************************
+
+// **************************************************************
 // Generate random edges
 // **************************************************************
 edges generate_edges(long n) {
@@ -99,9 +105,6 @@ edges generate_edges(long n) {
     return std::get<0>(e) != std::get<1>(e);});
 }
 
-// **************************************************************
-// Driver
-// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: min_spanning_tree <n>";
   if (argc != 2) std::cout << usage << std::endl;

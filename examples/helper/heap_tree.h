@@ -4,9 +4,11 @@
 #include <parlay/utilities.h>
 
 // An efficient search tree for replacing binary-search on a sorted sequence.
+// Returns the rank of the first element greater than or equal to the key.
 // Reorganizes the values into a "heap ordering":
 // i.e. with root at 0 and the children of position i are at 2*i+1 and 2*i+2.
-// Significantly more efficient than binary search since it avoids conditionals
+// Significantly more efficient than binary search when tree fits in cache
+// since it avoids conditionals.
 // The number of pivots must be 2^i-1 (i.e. fully balanced tree)
 template <typename T>
 struct heap_tree {

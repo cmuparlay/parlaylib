@@ -75,6 +75,10 @@ parlay::sequence<edgeid> maximal_matching(edges const &E, long n) {
 }
 
 // **************************************************************
+// Driver code
+// **************************************************************
+
+// **************************************************************
 // Generate random edges
 // **************************************************************
 edges generate_edges(long n, long m) {
@@ -91,9 +95,6 @@ edges generate_edges(long n, long m) {
   return parlay::filter(E, [] (edge e) {return e.first != e.second;});
 }
 
-// **************************************************************
-// Driver code
-// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: maximal_matching <num_vertices>";
   if (argc != 2) std::cout << usage << std::endl;

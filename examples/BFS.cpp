@@ -58,6 +58,10 @@ std::pair<parlay::sequence<vertex>,long> BFS(vertex start, const Graph &G) {
 }
 
 // **************************************************************
+// Driver
+// **************************************************************
+
+// **************************************************************
 // Generate a random graph
 // Each vertex has 20 random neighbors (could be self)
 // **************************************************************
@@ -67,9 +71,6 @@ Graph generate_graph(long n) {
       return (vertex) (parlay::hash64(j*n + i) % n);}, 100);});
 }
 
-// **************************************************************
-// Driver
-// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: BFS <n>";
   if (argc != 2) std::cout << usage << std::endl;

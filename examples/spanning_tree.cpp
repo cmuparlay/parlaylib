@@ -58,6 +58,10 @@ parlay::sequence<long> spanning_forest(edges const &E, vertex n) {
 }
 
 // **************************************************************
+// Driver
+// **************************************************************
+
+// **************************************************************
 // Generate random edges
 // **************************************************************
 edges generate_edges(long n) {
@@ -71,9 +75,6 @@ edges generate_edges(long n) {
   return parlay::filter(E, [] (edge e) {return e.first != e.second;});
 }
 
-// **************************************************************
-// Driver
-// **************************************************************
 int main(int argc, char* argv[]) {
   auto usage = "Usage: spanning_tree <n>";
   if (argc != 2) std::cout << usage << std::endl;

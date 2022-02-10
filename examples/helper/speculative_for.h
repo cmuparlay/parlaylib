@@ -5,7 +5,16 @@
 #include <parlay/primitives.h>
 #include <parlay/utilities.h>
 
-// Uses the approach of deterministic reservations
+// Uses the approach of deterministic reservations.  Basically it
+// preserves the sequentiaal order of a loop, by running blocks
+// (rounds) of iterations in parallel and checking for conflicts.  If
+// there is potentially shared locations involving mutation among
+// iterations, an iteration needs to "reserve" the locations.  Lower
+// iterations have priority on the reservation.  After all iterations
+// in the block try to reserve, a second pass can "check" if the
+// iteration won on all its reservations, and apply itself if so.  Any
+// iterations that fail are carried over to the next block.  The first
+// always succeeds.
 // See:
 // "Internally deterministic parallel algorithms can be fast"
 // Blelloch, Fineman, Gibbons, and Shun, 
