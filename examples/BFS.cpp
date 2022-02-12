@@ -5,11 +5,13 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <random>
 
 #include <parlay/delayed.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/utilities.h>
+#include <parlay/random.h>
 
 namespace delayed = parlay::delayed;
 
@@ -66,9 +68,13 @@ std::pair<parlay::sequence<vertex>,long> BFS(vertex start, const Graph &G) {
 // Each vertex has 20 random neighbors (could be self)
 // **************************************************************
 Graph generate_graph(long n) {
-  return parlay::tabulate(n, [=] (vertex i) {
-    return parlay::tabulate(20, [=] (vertex j) {
-      return (vertex) (parlay::hash64(j*n + i) % n);}, 100);});
+  parlay::random_generator gen;
+  std::uniform_int_distribution<vertex> dis(0, n-1);
+  
+  return parlay::tabulate(n, [&] (vertex i) {
+    return parlay::tabulate(20, [&] (vertex j) {
+	auto r = gen[i*20 + j];
+	return dis(r);}, 100);});
 }
 
 int main(int argc, char* argv[]) {
