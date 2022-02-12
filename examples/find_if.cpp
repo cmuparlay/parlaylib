@@ -15,7 +15,7 @@
 // **************************************************************
 
 template <typename Range, typename UnaryPredicate>
-long find_if(const Range& r, UnaryPredicate p) {
+long find_if(Range&& r, UnaryPredicate&& p) {
   long n = r.size();
   long len = 1000;
   long i;

@@ -14,7 +14,7 @@
 // implementation.
 // **************************************************************
 
-template <typename Range, typename F> auto tokens_(const Range& str, F is_space) {
+template <typename Range, typename F> auto tokens(const Range& str, F is_space) {
   long n = str.size();
 
   // checks if an index is at the start or one past the end of a token
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
   if (argc != 2) std::cout << usage << std::endl;
   else {
     parlay::chars str = parlay::chars_from_file(argv[1]);
-    auto r = tokens_(str, [&] (char c) { return c == ' '; });
+    auto r = tokens(str, [&] (char c) { return c == ' '; });
     std::cout << "number of space separated tokens: " << r.size() << std::endl;
   }
 }
