@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <utility>
+#include <random>
 
 #include <parlay/primitives.h>
 #include <parlay/random.h>
@@ -45,11 +46,14 @@ vector pagerank(sparse_matrix const& mat, int iters) {
 // Columns must sum to 1
 // **************************************************************
 sparse_matrix generate_matrix(long n) {
-  parlay::random rand;
+  parlay::random_generator gen;
+  std::uniform_int_distribution<long> dis(0, n-1);
   int total_entries = n * 20;
+
   // pick column ids
   auto column_ids = parlay::tabulate(total_entries, [&] (long i) {
-    return rand[i]%n;});
+      auto r = gen[i];
+      return dis(r);});
   auto column_counts = histogram_by_index(column_ids, n);
 
   // generate each row with 20 entries, nomalized so columsns sum to 1

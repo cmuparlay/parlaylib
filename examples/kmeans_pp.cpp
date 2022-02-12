@@ -1,8 +1,8 @@
-
 #include <algorithm>
 #include <iostream>
 #include <string>
 #include <utility>
+#include <random>
 
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
@@ -52,11 +52,12 @@ template <typename D>
 auto kmeans(Points& pts, int k, D& distance, double epsilon) {
   long n = pts.size();
   long max_round = 1000;
+  parlay::random_generator rand;
+  std::uniform_real_distribution<> dis(0.0,1.0);
 
   // add k initial points by the kmeans++ rule
-  parlay::random rand;
   // random initial center
-  Points kpts({pts[rand[0]%k]});
+  Points kpts({pts[rand()%k]});
   for (int i=1; i < k; i++) {
     // find the closest center for all points
     auto dist = parlay::map(pts, [&] (const Point& p) {
@@ -64,7 +65,7 @@ auto kmeans(Points& pts, int k, D& distance, double epsilon) {
 
     // pick with probability proportional do distance (squared)
     auto [sums, total] = scan(dist);
-    auto pos = ((double) rand[i] * total)/((double) rand.max());
+    auto pos = dis(rand) * total;
     auto j = std::upper_bound(sums.begin(), sums.end(), pos) - sums.begin()-1;
 
     // add to the k points
@@ -114,10 +115,13 @@ int main(int argc, char* argv[]) {
     long n;
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
-    parlay::random rand;
+    parlay::random_generator gen;
+    std::uniform_real_distribution<> dis(0.0,1.0);
+	
     Points pts = parlay::tabulate(n, [&] (long i) {
-      return parlay::tabulate(dims, [&] (long j) {
-        return double(rand[i*dims+j] % 1000000)/1000000.;});});
+	return parlay::tabulate(dims, [&] (long j) {
+	    auto r = gen[i*dims + j];
+	    return dis(r);});});
     auto [result, rounds] = kmeans(pts, k, euclidean_squared, epsilon);
     std::cout << rounds << " rounds until diff < " << epsilon << std::endl;
   }

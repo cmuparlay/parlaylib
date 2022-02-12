@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <utility>
+#include <random>
 
 #include <parlay/primitives.h>
 #include <parlay/random.h>
@@ -82,14 +83,16 @@ parlay::sequence<edgeid> maximal_matching(edges const &E, long n) {
 // Generate random edges
 // **************************************************************
 edges generate_edges(long n, long m) {
-  parlay::random rand;
+  parlay::random_generator gen;
+  std::uniform_int_distribution<long> dis(0, n-1);
 
   // create random edges
-  auto E = parlay::delayed_tabulate(m, [&] (long i) {
-    vertex v1 = rand[2*i]%n;
-    vertex v2 = rand[2*i+1]%n;
-    if (v1 > v2) std::swap(v1,v2);
-    return edge(v1,v2); });
+  auto E = parlay::tabulate(m, [&] (long i) {
+      auto r = gen[i];
+      vertex v1 = dis(r);
+      vertex v2 = dis(r);
+      if (v1 > v2) std::swap(v1,v2);
+      return edge(v1,v2); });
 
   // remove self edges
   return parlay::filter(E, [] (edge e) {return e.first != e.second;});

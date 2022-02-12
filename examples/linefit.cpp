@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <utility>
+#include <random>
 
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
@@ -48,12 +49,14 @@ int main(int argc, char* argv[]) {
     catch (...) { std::cout << usage << std::endl; return 1; }
     double offset = 1.0;
     double slope = 1.0;
-    parlay::random r;
+    parlay::random_generator gen;
+    std::uniform_real_distribution<> dis(0.0,1.0);
 
     // generate points on a line
     auto pts = parlay::tabulate(n, [&] (long i) {
-      double x = r[i] % 1000000000000l;
-      return point(x, offset + x * slope);
+	auto r = gen[i];
+	double x = dis(r);
+	return point(x, offset + x * slope);
     });
     auto [offset_, slope_] = linefit(pts);
     std::cout << "offset = " << offset_ << " slope = " << slope_ << std::endl;

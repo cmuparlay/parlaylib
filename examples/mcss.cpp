@@ -3,6 +3,7 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <random>
 
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
@@ -43,11 +44,14 @@ int main(int argc, char* argv[]) {
     long n;
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
-    parlay::random r;
+    parlay::random_generator gen;
+    std::uniform_int_distribution<int> dis(-100, 100);
 
     // generate n random numbers from -100 .. 100
-    auto vals = parlay::tabulate(n, [&] (long i) -> int {
-      return (r[i] % 201) - 100;});
+    auto vals = parlay::tabulate(n, [&] (long i) {
+	auto r = gen[i];
+	return dis(r);});
+    
     auto result = mcss(vals);
     std::cout << "mcss = " << result << std::endl;
   }

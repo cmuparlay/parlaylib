@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <utility>
+#include <random>
 
 #include <parlay/parallel.h>
 #include <parlay/primitives.h>
@@ -65,11 +66,13 @@ parlay::sequence<long> spanning_forest(edges const &E, vertex n) {
 // Generate random edges
 // **************************************************************
 edges generate_edges(long n) {
-  parlay::random rand;
+  parlay::random_generator gen;
+  std::uniform_int_distribution<long> dis(0, n-1);
 
   // create random edges
   auto E = parlay::delayed_tabulate(n*5, [&] (long i) {
-    return edge(rand[2*i]%n,rand[2*i+1]%n);});
+      auto r = gen[i];
+      return edge(dis(r), dis(r));});
 
   // remove self edges
   return parlay::filter(E, [] (edge e) {return e.first != e.second;});

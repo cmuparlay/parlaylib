@@ -2,6 +2,7 @@
 #include <functional>
 #include <iostream>
 #include <string>
+#include <random>
 
 #include <parlay/io.h>
 #include <parlay/parallel.h>
@@ -44,9 +45,11 @@ void sample_sort_(Range in, Range out, Less less, int level=1) {
   int over_ratio = 8;
 
   // create an over sample and sort it using std:sort
-  parlay::random r;
+  parlay::random_generator gen;
+  std::uniform_int_distribution<long> dis(0, n-1);
   auto oversample = parlay::tabulate(num_buckets * over_ratio, [&] (long i) {
-    return in[r[i]%n];});
+      auto r = gen[i];
+      return in[dis(r)];});
   std::sort(oversample.begin(), oversample.end());
 
   // sub sample to pick final pivots (num_buckets - 1 of them)
@@ -90,10 +93,13 @@ int main(int argc, char* argv[]) {
     long n;
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
-    parlay::random r;
+    parlay::random_generator gen;
+    std::uniform_int_distribution<long> dis(0, n-1);
 
     // generate random long values
-    auto data = parlay::tabulate(n, [&] (long i) -> long { return r[i] % n; });
+    auto data = parlay::tabulate(n, [&] (long i) {
+	auto r = gen[i];
+	return dis(r);});
 
     auto result = data;
     sample_sort(result);

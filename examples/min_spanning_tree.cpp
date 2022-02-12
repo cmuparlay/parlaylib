@@ -1,8 +1,8 @@
 #include <cstddef>
-
 #include <iostream>
 #include <string>
 #include <tuple>
+#include <random>
 
 #include <parlay/primitives.h>
 #include <parlay/random.h>
@@ -93,12 +93,14 @@ parlay::sequence<edge_id> min_spanning_forest(edges &E, long n) {
 // Generate random edges
 // **************************************************************
 edges generate_edges(long n) {
-  parlay::random rand;
+  parlay::random_generator gen;
+  std::uniform_int_distribution<long> i_dis(0, n-1);
+  std::uniform_real_distribution<double> w_dis(0.0, 1e8);
 
   // create random edges
   auto E = parlay::delayed_tabulate(n*5, [&] (long i) {
-    return weighted_edge(rand[3*i]%n,rand[3*i+1]%n,
-                         (double) (rand[3*i+2]%1000000));});
+      auto r = gen[i];
+      return weighted_edge(i_dis(r), i_dis(r), w_dis(r));});
 
   // remove self edges
   return parlay::filter(E, [] (weighted_edge e) {

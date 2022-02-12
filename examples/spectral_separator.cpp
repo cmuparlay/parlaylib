@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <utility>
+#include <random>
 
 #include <parlay/delayed_sequence.h>
 #include <parlay/monoid.h>
@@ -40,8 +41,10 @@ double rms_diff(const vector& v1, const vector& v2) {
   return parlay::reduce(parlay::delayed_map(diff, [&] (double e) { return e*e; }));}
 auto normalize(const vector& v) { return (1.0/std::sqrt(dot(v,v))) * v;}
 auto rand_vector(long n) {
-  parlay::random r;
-  return normalize(parlay::tabulate(n, [&] (long i) -> double {return r[i]; }));}
+  parlay::random_generator gen;
+  std::uniform_real_distribution<> dis(0.0, 1.0);
+  return normalize(parlay::tabulate(n, [&] (long i) {
+	auto r = gen[i]; return dis(r); }));}
 
 // **************************************************************
 // Graph Laplacian Matrix 
@@ -125,9 +128,11 @@ auto partition_graph(graph g) {
 // **************************************************************
 using edge = std::pair<vertex,vertex>;
 auto generate_edges(long n, long m, long off, int seed) {
-  parlay::random rand(seed);
-  return parlay::tabulate(m, [=] (long i) {
-    return edge(rand[2*i]%n + off, rand[2*i+1]%n + off);});
+  parlay::random_generator gen;
+  std::uniform_int_distribution<> dis(0, n-1);
+  return parlay::tabulate(m, [&] (long i) {
+      auto r = gen[i];
+      return edge(dis(r) + off, dis(r) + off);});
 }
 
 // Converts an edge set into a adjacency representation

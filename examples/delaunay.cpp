@@ -1,3 +1,9 @@
+#include <iostream>
+#include <iterator>
+#include <string>
+#include <utility>
+#include <random>
+
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 #include <parlay/io.h>
@@ -159,13 +165,14 @@ int main(int argc, char* argv[]) {
     point_id n;
     try {n = std::stoi(argv[1]);}
     catch (...) {std::cout << usage << std::endl; return 1;}
-    parlay::random r;
+    parlay::random_generator gen(0);
+    std::uniform_real_distribution<real> dis(0.0,1.0);
 
     // generate n random points in a unit square
     auto points = parlay::tabulate(n, [&] (point_id i) -> point {
-	return point{i, (r[2*i] % 16000000)/(float) 16000000.0,
-		       (r[2*i+1] % 16000000)/(float) 16000000.0};});
-
+	auto r = gen[i];
+	return point{i, dis(r), dis(r)};});
+      
     parlay::internal::timer t;
     parlay::sequence<tri> result;
     for (int i=0; i < 5; i++) {

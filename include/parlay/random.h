@@ -21,8 +21,24 @@
 
 namespace parlay {
 
-// A cheap version of an inteface that should be improved
-// Allows forking a state into multiple states
+// Satisfies  c++ interface for uniform_random_bit_generator
+// Also supports operator[] which can generate new generators from the current
+// Should develop some stronger generators
+struct random_generator {
+ public:
+  using result_type = size_t;
+  random_generator(size_t seed) : state(seed){};
+  random_generator() : state(0){};
+  void seed(result_type value=0) {state = value;}
+  result_type operator()() {return state = hash64(state);}
+  result_type max() { return std::numeric_limits<result_type>::max(); }
+  result_type min() { return std::numeric_limits<result_type>::lowest(); }
+  random_generator operator[](size_t i) const {
+    return random_generator(static_cast<size_t>(hash64((i+1)*0x7fffffff + state))); }
+ private:
+  result_type state = 0;
+};
+
 struct random {
  public:
   random(size_t seed) : state(seed){};

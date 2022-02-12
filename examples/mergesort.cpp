@@ -2,6 +2,7 @@
 #include <iostream>
 #include <functional>
 #include <string>
+#include <random>
 
 #include <parlay/io.h>
 #include <parlay/parallel.h>
@@ -82,10 +83,13 @@ int main(int argc, char* argv[]) {
     long n;
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
-    parlay::random r;
+    parlay::random_generator gen;
+    std::uniform_int_distribution<long> dis(0, n-1);
 
     // generate random long values
-    auto data = parlay::tabulate(n, [&] (long i) -> long {return r[i]%n;});
+    auto data = parlay::tabulate(n, [&] (long i) {
+	auto r = gen[i];
+	return dis(r);});
 
     merge_sort(data);
     auto first_ten = data.head(10);

@@ -24,8 +24,11 @@ auto kth_smallest(Range in, long k, Less less = {}) {
   // and taking every 8th key (i.e. oversampling)
   int sample_size = 31;
   int over = 8;
-  parlay::random r;
-  auto pivots = parlay::sort(parlay::tabulate(sample_size*over, [&] (long i) {return in[r[i]%n];}));
+  parlay::random_generator gen;
+  std::uniform_int_distribution<long> dis(0, n-1);
+  auto pivots = parlay::sort(parlay::tabulate(sample_size*over, [&] (long i) {
+	auto r = gen[i];
+	return in[dis(r)];}));
   pivots = parlay::tabulate(sample_size,[&] (long i) {return pivots[i*over];});
 
   // Determine which of the 32 buckets each key belongs in
@@ -55,10 +58,13 @@ int main(int argc, char* argv[]) {
     long n;
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
-    parlay::random r;
+    parlay::random_generator gen;
+    std::uniform_int_distribution<long> dis(0, n-1);
 
     // generate random long values
-    auto data = parlay::tabulate(n, [&] (long i) -> long {return r[i] % n; });
+    auto data = parlay::tabulate(n, [&] (long i) -> long {
+	auto r = gen[i];
+	return dis(r); });
 
     long result = kth_smallest(data, n/2);
     std::cout << "median is: " << result << std::endl;
