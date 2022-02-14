@@ -31,8 +31,8 @@ struct random_generator {
   random_generator() : state(0){};
   void seed(result_type value=0) {state = value;}
   result_type operator()() {return state = hash64(state);}
-  result_type max() { return std::numeric_limits<result_type>::max(); }
-  result_type min() { return std::numeric_limits<result_type>::lowest(); }
+  static constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
+  static constexpr result_type min() { return std::numeric_limits<result_type>::lowest(); }
   random_generator operator[](size_t i) const {
     return random_generator(static_cast<size_t>(hash64((i+1)*0x7fffffff + state))); }
  private:
