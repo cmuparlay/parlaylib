@@ -1,13 +1,18 @@
+#include <cstddef>
+
 #include <iostream>
-#include <iterator>
+#include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <random>
 
+#include <parlay/parallel.h>
 #include <parlay/primitives.h>
+#include <parlay/sequence.h>
 #include <parlay/random.h>
-#include <parlay/io.h>
-#include <parlay/internal/get_time.h>
+#include <parlay/utilities.h>
+
 #include "hashmap.h"
 
 // **************************************************************
@@ -61,8 +66,8 @@ auto in_circle (point a, point b, point d) {
     return vect{px, py, px*px + py*py};};
   auto cross = [] (vect v1, vect v2) {
     return vect{v1.y*v2.z - v1.z*v2.y,
-		v1.z*v2.x - v1.x*v2.z,
-		v1.x*v2.y - v1.y*v2.x};};
+                v1.z*v2.x - v1.x*v2.z,
+                v1.x*v2.y - v1.y*v2.x};};
   vect cp = cross(project(a), project(b));
   return [=] (point c) -> bool{
     auto dot = [] (vect v1, vect v2) {
@@ -92,9 +97,9 @@ struct Delaunay {
     auto a = parlay::merge(t1->conflicts, t2->conflicts);
     auto is_in_circle = in_circle(points[t.p1],points[t.p2],points[t.p3]);
     auto keep = parlay::tabulate(a.size(), [&] (long i) {
-	return ((i != 0) && (a[i].id != a[i-1].id) &&
-		((i+1 < a.size() && a[i].id == a[i+1].id) ||
-		 is_in_circle(a[i])));},500);
+      return ((i != 0) && (a[i].id != a[i-1].id) &&
+              ((i+1 < a.size() && a[i].id == a[i+1].id) ||
+               is_in_circle(a[i])));},500);
     return parlay::pack(a, keep);
   }
 
@@ -109,19 +114,19 @@ struct Delaunay {
       t1 = t2 = nullptr;
     } else {
       if (earliest(t2) < earliest(t1)) {
-	std::swap(t2, t1); std::swap(e.p1, e.p2);}
+        std::swap(t2, t1); std::swap(e.p1, e.p2);}
       point_id p = earliest(t1);
       tri t{e.p1, e.p2, p};
       t1 = std::make_shared<triangle>(t, filter_points(t1, t2, t));
       auto check_edge = [&] (edge e, triangle_ptr& tp) {
-	auto key = (e.p1 < e.p2) ? e : edge{e.p2, e.p1};
-	if (edges.insert(key, tp)) return;
-	auto tt = *edges.remove(key);
-	process_edge(tp, e, tt);};
+        auto key = (e.p1 < e.p2) ? e : edge{e.p2, e.p1};
+        if (edges.insert(key, tp)) return;
+        auto tt = *edges.remove(key);
+        process_edge(tp, e, tt);};
       auto ta1 = t1; auto tb1 = t1;
       parlay::par_do3([&] {check_edge(edge{p, e.p1}, ta1);},
-		      [&] {check_edge(edge{e.p2, p}, tb1);},
-		      [&] {process_edge(t1, e, t2);});
+                      [&] {check_edge(edge{e.p2, p}, tb1);},
+                      [&] {process_edge(t1, e, t2);});
     }
   }
 
@@ -130,8 +135,8 @@ struct Delaunay {
   // triangles in the final mesh.
   // Assumes points are inside unit square to fit enclosing triangle.
   Delaunay(const Points& P) :
-    mesh(hashmap<tri,bool>(2*P.size())),
-    edges(hashmap<edge,triangle_ptr>(6*P.size())), n(P.size()) {
+      mesh(hashmap<tri,bool>(2*P.size())),
+      edges(hashmap<edge,triangle_ptr>(6*P.size())), n(P.size()) {
     points = P;
     // enclosing triangle
     point p0{n,0.0,100.0};
@@ -145,8 +150,8 @@ struct Delaunay {
     t2 = t3 = t;
     te2 = te3 = te;
     parlay::par_do3([&] {process_edge(t2, edge{p0.id,p1.id}, te2);},
-		    [&] {process_edge(t3, edge{p1.id,p2.id}, te3);},
-		    [&] {process_edge(t, edge{p2.id,p0.id}, te);});
+                    [&] {process_edge(t3, edge{p1.id,p2.id}, te3);},
+                    [&] {process_edge(t, edge{p2.id,p0.id}, te);});
   }
 };
 
@@ -154,7 +159,7 @@ parlay::sequence<tri> delaunay(const Points& P) {
   Delaunay dt(P);
   return dt.mesh.keys();
 }
-   
+
 // **************************************************************
 // Driver
 // **************************************************************
@@ -170,9 +175,9 @@ int main(int argc, char* argv[]) {
 
     // generate n random points in a unit square
     auto points = parlay::tabulate(n, [&] (point_id i) -> point {
-	auto r = gen[i];
-	return point{i, dis(r), dis(r)};});
-      
+      auto r = gen[i];
+      return point{i, dis(r), dis(r)};});
+
     parlay::internal::timer t;
     parlay::sequence<tri> result;
     for (int i=0; i < 5; i++) {

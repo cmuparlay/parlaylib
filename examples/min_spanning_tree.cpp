@@ -99,8 +99,8 @@ edges generate_edges(long n) {
 
   // create random edges
   auto E = parlay::delayed_tabulate(n*5, [&] (long i) {
-      auto r = gen[i];
-      return weighted_edge(i_dis(r), i_dis(r), w_dis(r));});
+    auto r = gen[i];
+    return weighted_edge(i_dis(r), i_dis(r), w_dis(r));});
 
   // remove self edges
   return parlay::filter(E, [] (weighted_edge e) {

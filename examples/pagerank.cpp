@@ -52,8 +52,8 @@ sparse_matrix generate_matrix(long n) {
 
   // pick column ids
   auto column_ids = parlay::tabulate(total_entries, [&] (long i) {
-      auto r = gen[i];
-      return dis(r);});
+    auto r = gen[i];
+    return dis(r);});
   auto column_counts = histogram_by_index(column_ids, n);
 
   // generate each row with 20 entries, nomalized so columsns sum to 1

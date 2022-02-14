@@ -6,7 +6,6 @@
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
-#include <parlay/sequence.h>
 
 // **************************************************************
 // Finds location i of first element  that satisfies a predicate
@@ -51,8 +50,8 @@ int main(int argc, char* argv[]) {
 
     // generate n random numbers from 0 .. n-1
     auto vals = parlay::tabulate(n, [&] (long i) {
-	auto r = gen[i];
-	return dis(r); });
+      auto r = gen[i];
+      return dis(r); });
 
     long result = ::find_if(vals, [] (long i) { return i == 277; });
 

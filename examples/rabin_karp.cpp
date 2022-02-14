@@ -51,7 +51,7 @@ long rabin_karp(const Range1& s, const Range2& str) {
   auto terms = parlay::delayed_tabulate(n, [&, &powers = powers] (long i) {
     return field(s[i]) * powers[i];});
   auto [hashes, sum] = parlay::scan(terms);
-  
+
   // hash for str
   auto terms2 = parlay::delayed_tabulate(m, [&, &powers = powers] (long i) {
     return field(str[i]) * powers[i];});

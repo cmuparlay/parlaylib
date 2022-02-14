@@ -17,14 +17,14 @@ namespace delayed = parlay::delayed;
 // of assign_uninitialized(dest, src) to write to.
 // Could use regular sequence and = for assignment, but would
 // be more costly.
-// ************************************************************** 
+// **************************************************************
 
 template<typename Range, typename UnaryPred>
 auto filter(const Range& A, const UnaryPred&& f) {
   long n = A.size();
   using T = typename Range::value_type;
   auto flags = parlay::delayed_map(A, [&] (const T& x) {
-		 return (long) f(x);});
+    return (long) f(x);});
   auto [offsets, sum] = delayed::scan(flags);
   auto r = parlay::sequence<T>::uninitialized(sum);
 

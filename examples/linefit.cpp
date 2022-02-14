@@ -54,9 +54,9 @@ int main(int argc, char* argv[]) {
 
     // generate points on a line
     auto pts = parlay::tabulate(n, [&] (long i) {
-	auto r = gen[i];
-	double x = dis(r);
-	return point(x, offset + x * slope);
+      auto r = gen[i];
+      double x = dis(r);
+      return point(x, offset + x * slope);
     });
     auto [offset_, slope_] = linefit(pts);
     std::cout << "offset = " << offset_ << " slope = " << slope_ << std::endl;

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <functional>
 #include <iostream>
+#include <random>
 #include <string>
 
 #include <parlay/primitives.h>
@@ -27,8 +28,8 @@ auto kth_smallest(Range in, long k, Less less = {}) {
   parlay::random_generator gen;
   std::uniform_int_distribution<long> dis(0, n-1);
   auto pivots = parlay::sort(parlay::tabulate(sample_size*over, [&] (long i) {
-	auto r = gen[i];
-	return in[dis(r)];}));
+    auto r = gen[i];
+    return in[dis(r)];}));
   pivots = parlay::tabulate(sample_size,[&] (long i) {return pivots[i*over];});
 
   // Determine which of the 32 buckets each key belongs in
@@ -63,8 +64,8 @@ int main(int argc, char* argv[]) {
 
     // generate random long values
     auto data = parlay::tabulate(n, [&] (long i) -> long {
-	auto r = gen[i];
-	return dis(r); });
+      auto r = gen[i];
+      return dis(r); });
 
     long result = kth_smallest(data, n/2);
     std::cout << "median is: " << result << std::endl;

@@ -72,7 +72,7 @@ parlay::sequence<edgeid> maximal_matching(edges const &E, long n) {
 
   // returns the edges that successfully committed (their reservation remains in R[v]).
   return parlay::pack(parlay::delayed_seq<edgeid>(n, [&] (size_t i) {return R[i].get();}),
-           parlay::tabulate(n, [&] (size_t i) {return R[i].reserved();}));
+                      parlay::tabulate(n, [&] (size_t i) {return R[i].reserved();}));
 }
 
 // **************************************************************
@@ -88,11 +88,11 @@ edges generate_edges(long n, long m) {
 
   // create random edges
   auto E = parlay::tabulate(m, [&] (long i) {
-      auto r = gen[i];
-      vertex v1 = dis(r);
-      vertex v2 = dis(r);
-      if (v1 > v2) std::swap(v1,v2);
-      return edge(v1,v2); });
+    auto r = gen[i];
+    vertex v1 = dis(r);
+    vertex v2 = dis(r);
+    if (v1 > v2) std::swap(v1,v2);
+    return edge(v1,v2); });
 
   // remove self edges
   return parlay::filter(E, [] (edge e) {return e.first != e.second;});

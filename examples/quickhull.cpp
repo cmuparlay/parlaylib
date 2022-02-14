@@ -64,8 +64,8 @@ intseq quickhull(pointseq const &Points, intseq Idxs, point l, point r) {
   // recurse in parallel
   intseq leftR, rightR;
   parlay::par_do_if(n > 100,
-                    [&] () {leftR = quickhull(Points, std::move(left), l, mid);},
-                    [&] () {rightR = quickhull(Points, std::move(right), mid, r);});
+    [&] () {leftR = quickhull(Points, std::move(left), l, mid);},
+    [&] () {rightR = quickhull(Points, std::move(right), mid, r);});
 
   parlay::sequence<intseq> nested = {leftR, intseq(1,mid_idx), rightR};
   return parlay::flatten(nested);
@@ -108,11 +108,11 @@ int main(int argc, char* argv[]) {
     catch (...) { std::cout << usage << std::endl; return 1; }
     parlay::random_generator gen(0);
     std::uniform_real_distribution<> dis(0.0,1.0);
-	
+
     // generate n random points in a unit square
     auto points = parlay::tabulate(n, [&] (long i) -> point {
-	auto r = gen[i];
-	return point{dis(r), dis(r)};});
+      auto r = gen[i];
+      return point{dis(r), dis(r)};});
 
     intseq results = upper_hull(points);
     std::cout << "number of points in upper hull = " << results.size() << std::endl;

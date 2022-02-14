@@ -117,11 +117,11 @@ int main(int argc, char* argv[]) {
     catch (...) { std::cout << usage << std::endl; return 1; }
     parlay::random_generator gen;
     std::uniform_real_distribution<> dis(0.0,1.0);
-	
+
     Points pts = parlay::tabulate(n, [&] (long i) {
-	return parlay::tabulate(dims, [&] (long j) {
-	    auto r = gen[i*dims + j];
-	    return dis(r);});});
+      return parlay::tabulate(dims, [&] (long j) {
+        auto r = gen[i*dims + j];
+        return dis(r);});});
     auto [result, rounds] = kmeans(pts, k, euclidean_squared, epsilon);
     std::cout << rounds << " rounds until diff < " << epsilon << std::endl;
   }
