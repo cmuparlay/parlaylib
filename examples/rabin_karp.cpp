@@ -18,17 +18,17 @@
 // The prime needs to fit in 32 bits so multiplication into 64 bits
 // does not overflow.
 struct field {
-  static constexpr ulong p = 0x7fffffff; // Mersenne prime (2^31 - 1)
+  static constexpr unsigned long p = 0x7fffffff; // Mersenne prime (2^31 - 1)
   unsigned int val;
   template <typename Int>
   field(Int i) : val(i) {}
   field() {}
   field operator+(field a) {
-    ulong x = (ulong) val + a.val;
+    unsigned long x = (unsigned long) val + a.val;
     return field((x & p) + (x >> 31));} // mod p
   field operator*(field a) {
-    ulong x = (ulong) val * a.val;
-    ulong y = (x & p) + (x >> 31);
+    unsigned long x = (unsigned long) val * a.val;
+    unsigned long y = (x & p) + (x >> 31);
     return field((y & p) + (y >> 31));} // mod p
   bool operator==(field a) { return val == a.val; }
 };
