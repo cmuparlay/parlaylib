@@ -5,7 +5,7 @@
 
 // **************************************************************
 // Lasso (least absolute shrinkage and selection operator) regression.
-// i.e., the optimization problem:
+// i.e., for the optimization problem:
 //      \arg \min_x ||Ax-y|| + \lambda |x|_1
 // which is least square minization with L1 regularization.
 // The columns of A are features, and the rows samples.

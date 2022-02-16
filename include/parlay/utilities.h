@@ -135,7 +135,7 @@ inline uint64_t hash64_2(uint64_t x) {
 }
 
 // Combine two hash values into a single hash value. Formula borrowed from Boost
-void hash_combine(size_t& seed, size_t v) {
+inline void hash_combine(size_t& seed, size_t v) {
   seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
