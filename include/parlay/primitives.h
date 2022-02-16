@@ -25,7 +25,7 @@
 #include "internal/delayed/zip.h"
 
 #include "delayed_sequence.h"
-#include "monoid.h"
+#include "monoid.h"                    // IWYU pragma: export
 #include "parallel.h"
 #include "range.h"
 #include "sequence.h"
@@ -89,9 +89,7 @@ void copy(R_in&& in, R_out&& out) {
 template<typename R, typename Monoid>
 auto reduce(R&& r, Monoid&& m) {
   static_assert(is_random_access_range_v<R>);
-  using T = typename std::remove_reference_t<Monoid>::T;
-  static_assert(std::is_invocable_r_v<T, decltype(m.f), range_reference_type_t<R>, range_reference_type_t<R>>);
-  static_assert(std::is_invocable_r_v<T, decltype(m.f), T&&, range_reference_type_t<R>>);
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<R>>);
   return internal::reduce(make_slice(r), std::forward<Monoid>(m));
 }
 
@@ -100,6 +98,7 @@ template<typename R>
 auto reduce(R&& r) {
   static_assert(is_random_access_range_v<R>);
   using value_type = range_value_type_t<R>;
+  static_assert(is_monoid_for_v<addm<value_type>, range_reference_type_t<R>>);
   return parlay::reduce(r, addm<value_type>());
 }
 
@@ -109,10 +108,7 @@ template<typename R>
 auto scan(R&& r) {
   static_assert(is_random_access_range_v<R>);
   using value_type = range_value_type_t<R>;
-  static_assert(std::is_invocable_r_v<value_type, monoid_function_type_t<addm<value_type>>,
-                                      range_reference_type_t<R>, range_reference_type_t<R>>);
-  static_assert(std::is_invocable_r_v<value_type, monoid_function_type_t<addm<value_type>>,
-                                      value_type&&, range_reference_type_t<R>>);
+  static_assert(is_monoid_for_v<addm<value_type>, range_reference_type_t<R>>);
   return internal::scan(make_slice(r), addm<value_type>());
 }
 
@@ -120,10 +116,7 @@ template<typename R>
 auto scan_inclusive(R&& r) {
   static_assert(is_random_access_range_v<R>);
   using value_type = range_value_type_t<R>;
-  static_assert(std::is_invocable_r_v<value_type, monoid_function_type_t<addm<value_type>>,
-                                      range_reference_type_t<R>, range_reference_type_t<R>>);
-  static_assert(std::is_invocable_r_v<value_type, monoid_function_type_t<addm<value_type>>,
-                                      value_type&&, range_reference_type_t<R>>);
+  static_assert(is_monoid_for_v<addm<value_type>, range_reference_type_t<R>>);
   return internal::scan(make_slice(r), addm<value_type>(),
     internal::fl_scan_inclusive).first;
 }
@@ -132,10 +125,7 @@ template<typename R>
 auto scan_inplace(R&& r) {
   static_assert(is_random_access_range_v<R>);
   using value_type = range_value_type_t<R>;
-  static_assert(std::is_invocable_r_v<value_type, monoid_function_type_t<addm<value_type>>,
-                                      range_reference_type_t<R>, range_reference_type_t<R>>);
-  static_assert(std::is_invocable_r_v<value_type, monoid_function_type_t<addm<value_type>>,
-                                      value_type&&, range_reference_type_t<R>>);
+  static_assert(is_monoid_for_v<addm<value_type>, range_reference_type_t<R>>);
   return internal::scan_inplace(make_slice(r), addm<value_type>());
 }
 
@@ -143,10 +133,7 @@ template<typename R>
 auto scan_inclusive_inplace(R&& r) {
   static_assert(is_random_access_range_v<R>);
   using value_type = range_value_type_t<R>;
-  static_assert(std::is_invocable_r_v<value_type, monoid_function_type_t<addm<value_type>>,
-                                      range_reference_type_t<R>, range_reference_type_t<R>>);
-  static_assert(std::is_invocable_r_v<value_type, monoid_function_type_t<addm<value_type>>,
-                                      value_type&&, range_reference_type_t<R>>);
+  static_assert(is_monoid_for_v<addm<value_type>, range_reference_type_t<R>>);
   return internal::scan_inplace(make_slice(r), addm<value_type>(),
     internal::fl_scan_inclusive);
 }
@@ -154,20 +141,14 @@ auto scan_inclusive_inplace(R&& r) {
 template<typename R, typename Monoid>
 auto scan(R&& r, Monoid&& m) {
   static_assert(is_random_access_range_v<R>);
-  static_assert(std::is_invocable_r_v<monoid_value_type_t<Monoid>, monoid_function_type_t<Monoid>,
-                                      range_reference_type_t<R>, range_reference_type_t<R>>);
-  static_assert(std::is_invocable_r_v<monoid_value_type_t<Monoid>, monoid_function_type_t<Monoid>,
-                                      monoid_value_type_t<Monoid>&&, range_reference_type_t<R>>);
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<R>>);
   return internal::scan(make_slice(r), std::forward<Monoid>(m));
 }
 
 template<typename R, typename Monoid>
 auto scan_inclusive(R&& r, Monoid&& m) {
   static_assert(is_random_access_range_v<R>);
-  static_assert(std::is_invocable_r_v<monoid_value_type_t<Monoid>, monoid_function_type_t<Monoid>,
-                                      range_reference_type_t<R>, range_reference_type_t<R>>);
-  static_assert(std::is_invocable_r_v<monoid_value_type_t<Monoid>, monoid_function_type_t<Monoid>,
-                                      monoid_value_type_t<Monoid>&&, range_reference_type_t<R>>);
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<R>>);
   return internal::scan(make_slice(r), std::forward<Monoid>(m),
     internal::fl_scan_inclusive).first;
 }
@@ -175,20 +156,14 @@ auto scan_inclusive(R&& r, Monoid&& m) {
 template<typename R, typename Monoid>
 auto scan_inplace(R&& r, Monoid&& m) {
   static_assert(is_random_access_range_v<R>);
-  static_assert(std::is_invocable_r_v<monoid_value_type_t<Monoid>, monoid_function_type_t<Monoid>,
-                                      range_reference_type_t<R>, range_reference_type_t<R>>);
-  static_assert(std::is_invocable_r_v<monoid_value_type_t<Monoid>, monoid_function_type_t<Monoid>,
-                                      monoid_value_type_t<Monoid>&&, range_reference_type_t<R>>);
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<R>>);
   return internal::scan_inplace(make_slice(r), std::forward<Monoid>(m));
 }
 
 template<typename R, typename Monoid>
 auto scan_inclusive_inplace(R&& r, Monoid&& m) {
   static_assert(is_random_access_range_v<R>);
-  static_assert(std::is_invocable_r_v<monoid_value_type_t<Monoid>, monoid_function_type_t<Monoid>,
-                                      range_reference_type_t<R>, range_reference_type_t<R>>);
-  static_assert(std::is_invocable_r_v<monoid_value_type_t<Monoid>, monoid_function_type_t<Monoid>,
-                                      monoid_value_type_t<Monoid>&&, range_reference_type_t<R>>);
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<R>>);
   return internal::scan_inplace(make_slice(r), std::forward<Monoid>(m),
     internal::fl_scan_inclusive);
 }
@@ -464,7 +439,7 @@ size_t find_if_index(size_t n, IntegerPred&& p, size_t granularity = 1000) {
   while (start < n) {
     size_t end = (std::min)(n, start + block_size);
     parallel_for(start, end, [&](size_t j) {
-      if (p(j)) write_min(&result, j, std::less<size_t>());
+      if (p(j)) write_min(&result, j, std::less<>());
     }, granularity);
     if (auto res = result.load(); res < n) return res;
     start += block_size;

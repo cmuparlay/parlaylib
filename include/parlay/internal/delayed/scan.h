@@ -40,14 +40,7 @@ struct block_delayed_scan_t :
   using value_type = T;
 
   static_assert(std::is_move_constructible_v<T>);
-
-  static_assert(std::is_invocable_v<BinaryOperator, T&&, base_ref_type>);
-  static_assert(std::is_invocable_v<BinaryOperator, T&&, T&&>);
-  static_assert(std::is_invocable_v<BinaryOperator, base_ref_type, base_ref_type>);
-
-  static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, T&&, base_ref_type>, T>);
-  static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, T&&, T&&>, T>);
-  static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, base_ref_type, base_ref_type>, T>);
+  static_assert(is_binary_operator_for_v<BinaryOperator, T, base_ref_type>);
 
   template<typename UV>
   block_delayed_scan_t(UV&& v, BinaryOperator f, T identity)

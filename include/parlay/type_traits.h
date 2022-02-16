@@ -37,6 +37,17 @@ struct type_identity {
 template<typename T>
 using type_identity_t = typename type_identity<T>::type;
 
+// Given a pointer-to-member (object or function), returns
+// the type of the class in which the member lives
+template<typename T>
+struct member_pointer_class;
+
+template<typename T, typename U>
+struct member_pointer_class<T U::*> : public type_identity<U> {};
+
+template<typename T>
+using member_pointer_class_t = typename member_pointer_class<T>::type;
+
 // Provides the member type std::add_const_t<T> if Const is
 // true, otherwise provides the member type T
 template<bool Const, typename T>
@@ -76,6 +87,43 @@ using is_equality_comparable = std::conjunction<
 
 template<typename T, typename U = T>
 inline constexpr bool is_equality_comparable_v = is_equality_comparable<T, U>::value;
+
+// Defines a member value true if the given type BinaryOperator_ can be invoked on types
+// T1&& and T2 to yield a result of a type that is convertible to T1.
+//
+// This requirement corresponds to the needs of a left fold over the operator BinaryOperator_
+// with an identity and result type of T1, where the intermediate elements being reduced over
+// are potentially of type T2.
+template<typename BinaryOperator_, typename T1, typename T2, typename = void, typename = void>
+struct is_binary_operator_for : public std::false_type {};
+
+template<typename BinaryOperator_, typename T1, typename T2>
+struct is_binary_operator_for<BinaryOperator_, T1, T2, std::void_t<
+  std::enable_if_t< std::is_move_constructible_v<T1> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, T1&&, T1&&> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, T1&&, T2> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, T2, T2> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, T2, T1&&> >
+>, std::enable_if_t<!std::is_member_function_pointer_v<BinaryOperator_>>> : public std::true_type{};
+
+// Handle the case where BinaryOperator_ is a member function pointer
+template<typename BinaryOperator_, typename T1, typename T2>
+struct is_binary_operator_for<BinaryOperator_, T1, T2, std::void_t<
+  std::enable_if_t< std::is_move_constructible_v<T1> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, const member_pointer_class_t<BinaryOperator_>&, T1&&, T1&&> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, const member_pointer_class_t<BinaryOperator_>&, T1&&, T2> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, const member_pointer_class_t<BinaryOperator_>&, T2, T2> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, const member_pointer_class_t<BinaryOperator_>&, T2, T1&&> >
+>, std::enable_if_t<std::is_member_function_pointer_v<BinaryOperator_>>> : public std::true_type{};
+
+// True if the given type BinaryOperator_ can be invoked on types T1&& and T2 to yield a result
+// of a type that is convertible to T1. T2 defaults to T1&& if not specified.
+//
+// This requirement corresponds to the needs of a left fold over the operator BinaryOperator_
+// with an identity and result type of T1, where the intermediate elements being reduced over
+// are potentially of type T2.
+template<typename BinaryOperator_, typename T1, typename T2 = T1&&>
+inline constexpr bool is_binary_operator_for_v = is_binary_operator_for<BinaryOperator_, T1, T2>::value;
 
 /*  --------------------- Priority tags. -------------------------
     Priority tags are an easy way to force template resolution to

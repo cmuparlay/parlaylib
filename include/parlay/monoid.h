@@ -7,56 +7,113 @@
 #include <algorithm>    // IWYU pragma: keep
 #include <array>
 #include <iterator>
+#include <functional>
 #include <limits>
 #include <type_traits>
 #include <utility>
 
 #include "type_traits.h"
 
-// Definition of various monoids
-// each consists of:
-//   T : type of the values
-//   T identity : returns identity for the monoid
-//   T add(T, T) : adds two elements, must be associative
-
 namespace parlay {
 
-// Type trait for detecting the value type of a Monoid, denoted by the member Monoid_::T
-template<typename Monoid_>
-using monoid_value_type = type_identity<typename std::remove_reference_t<Monoid_>::T>;
+// ----------------------------- Type traits -------------------------------------------
 
-// Returns the value type of the given Monoid, denoted by the member Monoid_::T
+// Type trait for detecting the value type of a Monoid, denoted by the type of "identity"
+template<typename Monoid_>
+using monoid_value_type = type_identity<decltype(std::remove_reference_t<Monoid_>::identity)>;
+
+// Returns the value type of the given Monoid, denoted by the type of "identity"
 template<typename Monoid_>
 using monoid_value_type_t = typename monoid_value_type<Monoid_>::type;
 
 // Type trait for detecting the function type of a Monoid, given by m.f
+//
+// This is actually kind of tricky, because there are three cases. All
+// we know if that m.f(x,y) should work, but f could be a member function,
+// a static function, or a member object with an operator().
+
+// Static or member function case. This returns a function pointer, or a
+// pointer to member function. In the second case, note that member
+// functions take an additional argument (an object reference)
+template<typename Monoid_, typename = void>
+struct monoid_function_type : public type_identity<decltype(&std::remove_reference_t<Monoid_>::f)> {};
+
+// Member object case
 template<typename Monoid_>
-using monoid_function_type = type_identity<decltype(std::declval<Monoid_&>().f)>;
+struct monoid_function_type<Monoid_, std::enable_if_t<std::is_member_object_pointer_v<
+  decltype(&std::remove_reference_t<Monoid_>::f)
+>>> : public type_identity<decltype(std::remove_reference_t<Monoid_>::f)> {};
 
 // Returns the function type of the given Monoid, given by m.f
 template<typename Monoid_>
 using monoid_function_type_t = typename monoid_function_type<Monoid_>::type;
 
-template <class F, class TT>
+template<typename Monoid_, typename = void>
+struct is_monoid : public std::false_type {};
+
+template<typename Monoid_>
+struct is_monoid<Monoid_, std::void_t<
+  monoid_value_type_t<Monoid_>,
+  monoid_function_type_t<Monoid_>,
+  std::enable_if_t< std::is_move_constructible_v<monoid_value_type_t<Monoid_>> >,
+  std::enable_if_t< is_binary_operator_for_v<monoid_function_type_t<Monoid_>, monoid_value_type_t<Monoid_>> >
+>> : public std::true_type {};
+
+template<typename Monoid_>
+inline constexpr bool is_monoid_v = is_monoid<Monoid_>::value;
+
+template<typename Monoid_, typename T, typename = void>
+struct is_monoid_for : public std::false_type {};
+
+template<typename Monoid_, typename T>
+struct is_monoid_for<Monoid_, T, std::void_t<
+  std::enable_if_t< is_monoid_v<Monoid_> >,
+  std::enable_if_t< is_binary_operator_for_v<monoid_function_type_t<Monoid_>, monoid_value_type_t<Monoid_>, T> >
+>> : public std::true_type {};
+
+template<typename Monoid_, typename T>
+inline constexpr bool is_monoid_for_v = is_monoid_for<Monoid_, T>::value;
+
+// ----------------------------- Definitions -------------------------------------------
+
+// Definition of various monoids. Each consists of:
+//   typename T    : type of the values
+//   T identity    : returns identity for the monoid
+//   T f(T&&, T&&) : adds two elements, must be associative
+
+template <typename F, typename TT>
 struct monoid {
   using T = TT;
   F f;
-  TT identity;
-  monoid(F f, TT id) : f(f), identity(id) {}
+  T identity;
+  monoid(F f, T id) : f(std::move(f)), identity(std::move(id)) { }
 };
+
+template<typename F, typename T>
+monoid<F, T> binary_op(F f, T id) {
+  static_assert(is_binary_operator_for_v<F, T>);
+  return monoid<F, T>(std::move(f), std::move(id));
+}
+
+// ----------------------------- Old definitions -------------------------------------------
+// These are now renamed / deprecated. They remain here for backwards compatibility
 
 template <class F, class T>
 monoid<F, T> make_monoid(F f, T id) {
-  return monoid<F, T>(f, id);
+  static_assert(is_binary_operator_for_v<F, T>);
+  return monoid<F, T>(std::move(f), std::move(id));
 }
 
 template <class M1, class M2>
 auto pair_monoid(M1 m1, M2 m2) {
-  using P = std::pair<typename M1::T, typename M2::T>;
-  auto f = [&](P a, P b) {
-    return P(m1.f(a.first, b.first), m2.f(a.second, b.second));
+  static_assert(is_monoid_v<M1>);
+  static_assert(is_monoid_v<M2>);
+  using P = std::pair<monoid_value_type_t<M1>, monoid_value_type_t<M2>>;
+  auto f = [f1 = std::move(m1.f), f2 = std::move(m2.f)](auto&& a, auto&& b) {
+    return P(f1(std::get<0>(std::forward<decltype(a)>(a)), std::get<0>(std::forward<decltype(b)>(b))),
+             f2(std::get<1>(std::forward<decltype(a)>(a)), std::get<1>(std::forward<decltype(b)>(b))));
   };
-  return make_monoid(f, P(m1.identity, m2.identity));
+  return make_monoid(f, P(std::move(m1.identity), std::move(m2.identity)));
 }
 
 template <class M, size_t n>
@@ -140,70 +197,6 @@ struct minmaxm {
   }
 };
 
-template <class TT>
-struct Add {
-  using T = TT;
-  static T identity() { return (T)0; }
-  static T add(T a, T b) { return a + b; }
-};
-
-template <class TT>
-struct Max {
-  using T = TT;
-  static T identity() { return (T)(std::numeric_limits<T>::min)(); }
-  static T add(T a, T b) { return (std::max)(a, b); }
-};
-
-template <class TT>
-struct Min {
-  using T = TT;
-  static T identity() { return (T)(std::numeric_limits<T>::max)(); }
-  static T add(T a, T b) { return (std::min)(a, b); }
-};
-
-template <class A1, class A2>
-struct Add_Pair {
-  using T = std::pair<typename A1::T, typename A2::T>;
-  static T identity() { return T(A1::identity(), A2::identity()); }
-  static T add(T a, T b) {
-    return T(A1::add(a.first, b.first), A2::add(a.second, b.second));
-  }
-};
-
-template <class AT>
-struct Add_Array {
-  using S = std::tuple_size<AT>;
-  using T = std::array<typename AT::value_type, S::value>;
-  static T identity() {
-    T r;
-    for (size_t i = 0; i < S::value; i++) r[i] = 0;
-    return r;
-  }
-  static T add(T a, T b) {
-    T r;
-    for (size_t i = 0; i < S::value; i++) r[i] = a[i] + b[i];
-    return r;
-  }
-};
-
-template <class AT>
-struct Add_Nested_Array {
-  using T = AT;
-  using S = std::tuple_size<T>;
-  using SS = std::tuple_size<typename AT::value_type>;
-  static T identity() {
-    T r;
-    for (size_t i = 0; i < S::value; i++)
-      for (size_t j = 0; j < SS::value; j++) r[i][j] = 0;
-    return r;
-  }
-  static T add(T a, T b) {
-    T r;
-    for (size_t i = 0; i < S::value; i++)
-      for (size_t j = 0; j < SS::value; j++) r[i][j] = a[i][j] + b[i][j];
-    return r;
-  }
-};
 
 }  // namespace parlay
 
