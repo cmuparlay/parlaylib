@@ -1,3 +1,6 @@
+#include <iostream>
+#include <string>
+#include <utility>
 #include <cmath>
 #include <parlay/primitives.h>
 #include <parlay/io.h>
