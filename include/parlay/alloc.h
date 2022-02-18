@@ -316,8 +316,6 @@ public:
   static T* alloc() { return static_cast<T*>(get_allocator().alloc()); }
   static void free(T* ptr) { get_allocator().free(static_cast<void*>(ptr)); }
 
-  static T* allocate() { return static_cast<T*>(get_allocator().alloc()); }
-
   template <typename ... Args>
   static T* allocate(Args... args) {
     T* r = alloc();
