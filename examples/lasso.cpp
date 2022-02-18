@@ -8,8 +8,8 @@
 // i.e., for the optimization problem:
 //      \arg \min_x ||Ax-y|| + \lambda |x|_1
 // which is least square minization with L1 regularization.
-// The columns of A are features, and the rows samples.
-// The y's are known values for the rows.
+// The columns of A are features (coordinates), and the rows samples.
+// The y's are known values for each sample.
 // The algorithm uses coordinate descent.
 // The parallelism is non-deterministic since columns (coordinates)
 // that are running in parallel can modifify the same entry of Ax.
@@ -167,12 +167,15 @@ auto read_file(const std::string& filename) {
 
   return std::pair(parlay::group_by_index(entries, nx), y);
 }
-      
+
+sparse_matrix tmp;
+
 int main(int argc, char* argv[]) {
   auto usage = "Usage: tokens <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     auto [AT, y] = read_file(argv[1]);
+    tmp = AT;
     parlay::internal::timer t;
     solve_lasso(AT, y, 0.5, 0.0); 
     t.next("");
