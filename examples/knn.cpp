@@ -10,9 +10,8 @@
 #include "parlay/internal/get_time.h"
 
 // **************************************************************
-// K-Nearest-Neighbor Graph
-// For each point in constan dimensions find its k closest points
-// Return as a sparse graph
+// K-Nearest-Neighbor Graph (constant dimensions)
+// For each point find its k closest points and return as a sparse graph
 // Uses z-trees, which are based on sorting in the morton ordering
 // and building an oct-tree like tree over it.   See:
 //   Magdalen Dobson and Guy E. Blelloch.
@@ -23,12 +22,13 @@
 
 // type definitions
 constexpr int dims = 3;
-using coord = int;
+using idx = int; // index of point (int can handle up to 2^31 points)
+using coord = int; // type of each coordinate
 using coords = std::array<coord,dims>;
 using box = std::pair<coords,coords>;
-struct point {int id; coords pnt;};
+struct point {idx id; coords pnt;};
 using points = parlay::sequence<point>;
-using knn_graph = parlay::sequence<parlay::sequence<int>>;
+using knn_graph = parlay::sequence<parlay::sequence<idx>>;
 
 constexpr int node_size_cutoff = 25;
 
@@ -64,12 +64,13 @@ box bound_box(const box& b1, const box& b2) {
 // **************************************************************
 // Tree structure, leafs and internal extend the base node class
 // **************************************************************
-struct node { bool is_leaf; int size; box bounds; node* parent; };
+struct node { bool is_leaf; idx size; box bounds; node* parent; };
 
 struct leaf : node {
   points pts;
   leaf(points pts)
-    : node{true, (int) pts.size(), bound_box(pts), nullptr}, pts(pts) {}
+    : node{true, static_cast<idx>(pts.size()), bound_box(pts), nullptr},
+      pts(pts) {}
 };
 
 struct internal : node {
@@ -95,7 +96,7 @@ node* build_recursive(slice P, int bit) {
 
   // if ran out of bits, or small then generate a leaf
   if (bit == 0 || n < node_size_cutoff) {
-    return (node*) leaf_allocator.allocate(parlay::to_sequence(P));
+    return leaf_allocator.allocate(parlay::to_sequence(P));
   } else {
 
     // binary search for the cut point on the given bit
@@ -110,35 +111,47 @@ node* build_recursive(slice P, int bit) {
     else {
       node *L, *R; 
       parlay::par_do_if(n > 1000,
-			[&] () {L = build_recursive(P.cut(0, pos), bit - 1);},
-			[&] () {R = build_recursive(P.cut(pos, n), bit - 1);});
-      return (node*) internal_allocator.allocate(L,R); 
+	[&] () {L = build_recursive(P.cut(0, pos), bit - 1);},
+        [&] () {R = build_recursive(P.cut(pos, n), bit - 1);});
+      return internal_allocator.allocate(L,R); 
     }
   }
 }
   
 auto build_tree(const parlay::sequence<coords>& P) {
-  //compares the interleaved bits of points p and q without explicitly interleaving them
+  // compares the interleaved bits of points p and q without explicitly
+  // interleaving them
   auto less = [] (const point& p, const point& q) {
     int j, k;
     coord y, x = 0;
     auto less_msb = [] (coord x, coord y) { return x < y && x < (x^y);};
-    for (j = k = 0; k < dims; k++ ){
-      if (less_msb(x, y = p.pnt[k]^q.pnt[k])){
-	j=k; x=y;}}
+    for (j = k = 0; k < dims; k++ )
+      if (less_msb(x, y = p.pnt[k] ^ q.pnt[k])) {
+	j = k; x = y;}
     return p.pnt[j] < q.pnt[j];     
   };
-  points pts = parlay::tabulate(P.size(), [&] (long i) {return point{(int) i, P[i]};});
+  points pts = parlay::tabulate(P.size(), [&] (long i) {
+      return point{(int) i, P[i]};});
   pts = parlay::sort(pts, less);
   int nbits = dims*sizeof(coord)*8;
   return  build_recursive(parlay::make_slice(pts), nbits-1);
+}
+
+void delete_tree(node* T) { // delete tree in parallel
+  if (T->is_leaf) leaf_allocator.retire(static_cast<leaf*>(T));
+  else {
+    internal* TI = static_cast<internal*>(T);
+    parlay::par_do_if(T->size > 1000, [&] {delete_tree(TI->left);},
+		      [&] {delete_tree(TI->right);});
+    internal_allocator.retire(TI);
+  }
 }
 
 // **************************************************************
 // Search the tree
 // **************************************************************
 struct search {
-  using neighbor = std::pair<int,double>;
+  using neighbor = std::pair<idx,double>;
   point p;
   int k;
   static constexpr double inf = std::numeric_limits<double>::max();
@@ -152,15 +165,16 @@ struct search {
     : p(p), k(k), candidates(parlay::sequence<neighbor>(k, neighbor{-1,inf})) {
 
     // insert leaf nodes in candidate list
-    leaf* TL = (leaf*) T;
+    leaf* TL = static_cast<leaf*>(T);
     for (int i = 0; i < TL->size; i++)
       if (TL->pts[i].id != p.id) update_nearest(TL->pts[i]);
     
-    // move up tree searching subtrees, with pruning updating candidates
-    while ((not within_epsilon_box(T, -sqrt(candidates[0].second))) and
+    // move up tree searching subtrees updating candidates
+    // can stop if radius to current k-th nearest point is within the box
+    while ((!within_epsilon_box(T, -sqrt(candidates[0].second))) &&
 	   (T->parent != nullptr)) { 
       node* parent = T->parent;
-      internal* pI = (internal*) parent;
+      internal* pI = static_cast<internal*>(parent);
       if (T == pI->right) k_nearest_down(pI->left);
       else k_nearest_down(pI->right);
       T = parent;
@@ -194,15 +208,17 @@ struct search {
     }
   }
     
-  // looks for nearest neighbors for pt in subtree rooted at T
+  // looks for nearest neighbors for pt in subtree rooted at T.
+  // Can return immediately if radius to current k-th nearest point
+  // does not intersect the box.
   void k_nearest_down(node* T) {
     if (within_epsilon_box(T, sqrt(candidates[0].second)))
       if (T->is_leaf) {
-	leaf* TL = (leaf*) T;
+	leaf* TL = static_cast<leaf*>(T);
 	for (int i = 0; i < TL->size; i++)
 	  if (TL->pts[i].id != p.id) update_nearest(TL->pts[i]);
       } else {
-	internal* TI = (internal*) T;
+	internal* TI = static_cast<internal*>(T);
 	if (distance_sq(center(TI->left->bounds)) <
 	    distance_sq(center(TI->right->bounds))) {
 	  k_nearest_down(TI->left);
@@ -218,28 +234,30 @@ struct search {
 // **************************************************************
 // Find nearest neighbor for each point, starting at the leaves
 // **************************************************************
-void process_points_rec(node* T, knn_graph& knn, int k) {
+void process_points_recursive(node* T, knn_graph& knn, int k) {
   if (T->is_leaf)
     for (int i=0; i < T->size; i++) {
-      leaf* TL = (leaf*) T;
+      leaf* TL = static_cast<leaf*>(T);
       search s(T, TL->pts[i], k); // the main search
-      knn[TL->pts[i].id] = parlay::map(s.candidates, [] (auto x) {return x.first;});
+      knn[TL->pts[i].id] = parlay::map(s.candidates, [] (auto x) {
+	  return x.first;});
     }
   else {
-    internal* TI = (internal*) T;
+    internal* TI = static_cast<internal*>(T);
     size_t n_left = TI->left->size;
     size_t n = T->size;
     parlay::par_do_if(n > 10,
-		      [&] () {process_points_rec(TI->left, knn, k);},
-		      [&] () {process_points_rec(TI->right, knn, k);});
+      [&] () {process_points_recursive(TI->left, knn, k);},
+      [&] () {process_points_recursive(TI->right, knn, k);});
   }
 }
-  
+
 auto build_knn_graph(const parlay::sequence<coords>& P, int k) {
   parlay::internal::timer t;
   node* T = build_tree(P);
   knn_graph r(P.size());
-  process_points_rec(T, r, k);
+  process_points_recursive(T, r, k);
+  delete_tree(T);
   return r;
 }
 
@@ -256,7 +274,7 @@ int main(int argc, char* argv[]) {
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
     parlay::random_generator gen(0);
-    std::uniform_int_distribution<int> dis(0,1000000000);
+    std::uniform_int_distribution<coord> dis(0,1000000000);
 
     // generate n random points in a unit square
     auto points = parlay::tabulate(n, [&] (long i) {
@@ -270,7 +288,8 @@ int main(int argc, char* argv[]) {
       r = build_knn_graph(points, k);
       t.next("knn graph");
     }
-    std::cout << k << " nearest neighbor graph for " << r.size() << " points" << std::endl;
+    std::cout << k << " nearest neighbor graph for " << r.size()
+	      << " points" << std::endl;
   }
 }
 
