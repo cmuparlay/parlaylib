@@ -38,7 +38,8 @@ namespace parlay {
 //    parlay::random_generator gen;
 //    std::uniform_int_distribution<vertex> dis(0, n-1);
 //    auto result = parlay::tabulate(n, [&](size_t i) {
-//      return dis(gen[i]);
+//      auto r = gen[i];
+//      return dis(r);
 //    });
 //
 // The quality of randomness should be good enough for simple randomized algorithms,

@@ -166,7 +166,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
   size_t num_non_zero = 0;
   for (size_t i = 0; i < num_buckets; i++)
     num_non_zero += (bucket_offsets[i] > 0);
-  [[maybe_unused]] size_t total = scan_inplace(make_slice(bucket_offsets), addm<size_t>());
+  [[maybe_unused]] size_t total = scan_inplace(make_slice(bucket_offsets), plus<size_t>());
   if (skip_if_in_one && num_non_zero == 1) {
     return std::make_pair(std::move(bucket_offsets), true);
   }

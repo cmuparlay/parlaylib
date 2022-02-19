@@ -23,17 +23,15 @@ struct field {
   template <typename Int>
   field(Int i) : val(i) {}
   field() {}
-  field operator+(field a) {
+  field operator+(field a) const {
     unsigned long x = (unsigned long) val + a.val;
     return field((x & p) + (x >> 31));} // mod p
-  field operator*(field a) {
+  field operator*(field a) const {
     unsigned long x = (unsigned long) val * a.val;
     unsigned long y = (x & p) + (x >> 31);
     return field((y & p) + (y >> 31));} // mod p
-  bool operator==(field a) { return val == a.val; }
+  bool operator==(field a) const { return val == a.val; }
 };
-
-auto multm = parlay::monoid([] (field a, field b) {return a*b;}, field(1));
 
 // Works on any range types (e.g. std::string, parlay::sequence)
 // Elements must be of integer type (e.g. char, int, unsigned char)
@@ -45,7 +43,7 @@ long rabin_karp(const Range1& s, const Range2& str) {
 
   // powers of x
   auto xs = parlay::delayed_tabulate(n, [&] (long i) { return x;});
-  auto [powers, total] = parlay::scan(xs, multm);
+  auto [powers, total] = parlay::scan(xs, parlay::multiplies<field>{});
 
   // hashes for prefixes of s
   auto terms = parlay::delayed_tabulate(n, [&, &powers = powers] (long i) {
@@ -65,7 +63,7 @@ long rabin_karp(const Range1& s, const Range2& str) {
           parlay::equal(str, s.cut(i,i+m))) // double check
         return i;
       return n; });
-  return parlay::reduce(y, parlay::minm<long>());
+  return parlay::reduce(y, parlay::minimum<long>());
 }
 
 // **************************************************************

@@ -175,17 +175,21 @@ void sliced_for(size_t n, size_t block_size, const F &f, flags fl = no_flag) {
 
 template <typename Seq, typename Monoid>
 auto reduce_serial(Seq const &A, Monoid&& m) {
+  static_assert(is_random_access_range_v<Seq>);
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<Seq>>);
   using T = monoid_value_type_t<Monoid>;
   if (A.size() == 0) return m.identity;
   T r = A[0];
   for (size_t j = 1; j < A.size(); j++) {
-    r = m.f(std::move(r), A[j]);
+    r = m(std::move(r), A[j]);
   }
   return r;
 }
 
 template <typename Seq, typename Monoid>
 auto reduce(Seq const &A, Monoid&& m, flags fl = no_flag) {
+  static_assert(is_random_access_range_v<Seq>);
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<Seq>>);
   using T = monoid_value_type_t<Monoid>;
   size_t n = A.size();
   size_t block_size = (std::max)(_block_size, 4 * static_cast<size_t>(std::ceil(std::sqrt(n))));
@@ -207,13 +211,15 @@ const flags fl_scan_inclusive = (1 << 4);
 template <typename In_Seq, typename Out_Seq, typename Monoid>
 auto scan_serial(In_Seq const &In, Out_Seq Out, Monoid&& m,
                  monoid_value_type_t<Monoid> offset, flags fl, bool out_uninitialized = false) {
+  static_assert(is_random_access_range_v<In_Seq>);
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<In_Seq>>);
   using T = monoid_value_type_t<Monoid>;
   T r = std::move(offset);
   size_t n = In.size();
   bool inclusive = fl & fl_scan_inclusive;
   if (inclusive) {
     for (size_t i = 0; i < n; i++) {
-      r = m.f(std::move(r), In[i]);
+      r = m(std::move(r), In[i]);
       if (out_uninitialized) assign_uninitialized(Out[i], r);
       else Out[i] = r;
     }
@@ -222,7 +228,7 @@ auto scan_serial(In_Seq const &In, Out_Seq Out, Monoid&& m,
       T t = In[i];
       if (out_uninitialized) assign_uninitialized(Out[i], r);
       else Out[i] = r;
-      r = m.f(std::move(r), t);
+      r = m(std::move(r), t);
     }
   }
   return r;
@@ -231,6 +237,8 @@ auto scan_serial(In_Seq const &In, Out_Seq Out, Monoid&& m,
   
 template <typename In_Seq, typename Out_Range, class Monoid>
 auto scan_(In_Seq const &In, Out_Range Out, Monoid&& m, flags fl, bool out_uninitialized=false) {
+  static_assert(is_random_access_range_v<In_Seq>);
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<In_Seq>>);
   using T = monoid_value_type_t<Monoid>;
   size_t n = In.size();
   size_t l = num_blocks(n, _block_size);
@@ -250,22 +258,26 @@ auto scan_(In_Seq const &In, Out_Range Out, Monoid&& m, flags fl, bool out_unini
 
 template <typename Iterator, typename Monoid>
 auto scan_inplace(slice<Iterator, Iterator> In, Monoid&& m, flags fl = no_flag) {
+  static_assert(is_monoid_for_v<Monoid, iterator_reference_type_t<Iterator>>);
   return scan_(In, In, std::forward<Monoid>(m), fl);
 }
 
 template <typename In_Seq, typename Monoid>
 auto scan(In_Seq const &In, Monoid&& m, flags fl = no_flag) {
+  static_assert(is_random_access_range_v<In_Seq>);
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<In_Seq>>);
   using T = monoid_value_type_t<Monoid>;
   auto Out = sequence<T>::uninitialized(In.size());
-  return std::make_pair(std::move(Out), scan_(In, make_slice(Out), m, fl, true));
+  return std::make_pair(std::move(Out), scan_(In, make_slice(Out), std::forward<Monoid>(m), fl, true));
 }
 
 // do in place if rvalue reference to a sequence<T>
 template <typename T, typename Monoid,
     std::enable_if_t<std::is_same_v<T, monoid_value_type_t<Monoid>>, int> = 0>
 auto scan(sequence<T>&& In, Monoid&& m, flags fl = no_flag) {
+  static_assert(is_monoid_v<Monoid>);
   sequence<T> Out = std::move(In);
-  T total = scan_(make_slice(Out), make_slice(Out), m, fl);
+  T total = scan_(make_slice(Out), make_slice(Out), std::forward<Monoid>(m), fl);
   return std::make_pair(std::move(Out), total);
 }
 
@@ -311,7 +323,7 @@ auto pack(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     assign_uninitialized(sums[i], sum_bools_serial(make_slice(Fl).cut(s, e)));
   });
-  size_t m = scan_inplace(make_slice(sums), addm<size_t>());
+  size_t m = scan_inplace(make_slice(sums), plus<size_t>());
   sequence<T> Out = sequence<T>::uninitialized(m);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     pack_serial_at(make_slice(In).cut(s, e), make_slice(Fl).cut(s, e),
@@ -332,7 +344,7 @@ size_t pack_out(In_Seq const &In, Bool_Seq const &Fl, /* uninitialized */ Out_Se
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     Sums[i] = sum_bools_serial(make_slice(Fl).cut(s, e));
   });
-  size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
+  size_t m = scan_inplace(make_slice(Sums), plus<size_t>());
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     pack_serial_at(make_slice(In).cut(s, e), make_slice(Fl).cut(s, e),
                    make_slice(Out).cut(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
@@ -355,7 +367,7 @@ auto filter_map(In_Seq const &In, F&& f, G&& g) {
     for (size_t j = s; j < e; j++) r += (Fl[j] = f(In[j]));
     Sums[i] = r;
   });
-  size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
+  size_t m = scan_inplace(make_slice(Sums), plus<size_t>());
   sequence<outT> Out = sequence<outT>::uninitialized(m);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     pack_serial_at(make_slice(in_mapped).cut(s, e),
@@ -387,7 +399,7 @@ size_t filter_out(In_Seq const &In, /* uninitialized */ Out_Seq Out, F&& f) {
     for (size_t j = s; j < e; j++) r += (Fl[j] = f(In[j]));
     Sums[i] = r;
   });
-  size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
+  size_t m = scan_inplace(make_slice(Sums), plus<size_t>());
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     pack_serial_at(make_slice(In).cut(s, e), make_slice(Fl).cut(s, e),
                    make_slice(Out).cut(Sums[i], (i == l - 1) ? m : Sums[i + 1]));
@@ -424,8 +436,8 @@ std::pair<size_t, size_t> split_three(slice<InIterator, InIterator> In,
     Sums0[i] = c0;
     Sums1[i] = c1;
   }, fl);
-  size_t m0 = scan_inplace(make_slice(Sums0), addm<size_t>());
-  size_t m1 = scan_inplace(make_slice(Sums1), addm<size_t>());
+  size_t m0 = scan_inplace(make_slice(Sums0), plus<size_t>());
+  size_t m1 = scan_inplace(make_slice(Sums1), plus<size_t>());
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     size_t c0 = Sums0[i];
     size_t c1 = m0 + Sums1[i];
@@ -455,7 +467,7 @@ auto split_two(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
     for (size_t j = s; j < e; j++) c += (Fl[j] == false);
     Sums[i] = c;
   }, fl);
-  size_t m = scan_inplace(make_slice(Sums), addm<size_t>());
+  size_t m = scan_inplace(make_slice(Sums), plus<size_t>());
   sequence<T> Out = sequence<T>::uninitialized(n);
   sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
     size_t c0 = Sums[i];

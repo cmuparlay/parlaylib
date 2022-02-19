@@ -254,9 +254,12 @@ struct allocator {
     internal::get_default_allocator().deallocate((void*) ptr, n * sizeof(T));
   }
 
-  constexpr allocator() = default;
+  constexpr allocator() noexcept { internal::get_default_allocator(); };
   template <class U> constexpr allocator(const allocator<U>&) noexcept { }
 };
+
+template<typename T>
+struct is_trivially_relocatable<allocator<T>> : std::true_type {};
 
 template <class T, class U>
 bool operator==(const allocator<T>&, const allocator<U>&) { return true; }

@@ -156,9 +156,10 @@ auto scan(UnderlyingView&& v, BinaryOperator f, T identity) {
   return std::make_pair(std::move(s), s.get_total());
 }
 
-template<typename UnderlyingView, typename BinaryOperator>
-auto scan(UnderlyingView&& v, BinaryOperator f) {
-  return scan(std::forward<UnderlyingView>(v), std::move(f), range_value_type_t<UnderlyingView>{});
+template<typename UnderlyingView, typename Monoid>
+auto scan(UnderlyingView&& v, Monoid m) {
+  auto identity = m.identity;
+  return scan(std::forward<UnderlyingView>(v), std::move(m), std::move(identity));
 }
 
 template<typename UnderlyingView>
@@ -172,9 +173,10 @@ auto scan_inclusive(UnderlyingView&& v, BinaryOperator f, T identity) {
       (std::forward<UnderlyingView>(v), std::move(f), std::move(identity));
 }
 
-template<typename UnderlyingView, typename BinaryOperator>
-auto scan_inclusive(UnderlyingView&& v, BinaryOperator f) {
-  return scan_inclusive(std::forward<UnderlyingView>(v), std::move(f), range_value_type_t<UnderlyingView>{});
+template<typename UnderlyingView, typename Monoid>
+auto scan_inclusive(UnderlyingView&& v, Monoid m) {
+  auto identity = m.identity;
+  return scan_inclusive(std::forward<UnderlyingView>(v), std::move(m), std::move(identity));
 }
 
 template<typename UnderlyingView>

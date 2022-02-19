@@ -131,7 +131,7 @@ sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
                                    size_t num_buckets) {
   size_t m = num_buckets * num_blocks;
   sequence<s_size_t> dest_offsets;
-  auto add = addm<s_size_t>();
+  auto add = plus<s_size_t>();
 
   // for smaller input do non-cache oblivious version
   if (n < NON_CACHE_OBLIVIOUS_THRESHOLD || num_buckets <= 512 || num_blocks <= 512) {

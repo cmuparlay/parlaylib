@@ -320,7 +320,7 @@ sequence<size_t> integer_sort_(slice<InIterator, InIterator> In,
   if (bits == 0) {
     auto get_key = [&](size_t i) { return static_cast<size_t>(g(In[i])); };
     auto keys = delayed_seq<size_t>(In.size(), get_key);
-    bits = log2_up(internal::reduce(make_slice(keys), maxm<size_t>()) + 1);
+    bits = log2_up(internal::reduce(make_slice(keys), maximum<size_t>()) + 1);
   }
   return integer_sort_r<inplace_tag, assignment_tag>(
     In, Out, Tmp, g, bits, num_buckets);

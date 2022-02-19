@@ -5,6 +5,7 @@
 #include <parlay/alloc.h>
 #include <parlay/random.h>
 
+/*
 TEST(TestAllocator, TestParlayAllocator) {
   std::vector<int, parlay::allocator<int>> a;
   a.reserve(100000);
@@ -82,4 +83,12 @@ TEST(TestAllocator, TestPMallocAndPFree) {
   for (void* p : memory) {
     parlay::p_free(p);
   }
+}
+*/
+
+parlay::sequence<parlay::sequence<int>> a;
+
+TEST(TestAllocator, TestStaticGlobal) {
+  parlay::sequence<parlay::sequence<int>> b{{2, 3, 4, 5}, {1, 2, 3, 4}};
+  a = b;
 }

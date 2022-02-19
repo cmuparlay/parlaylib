@@ -259,7 +259,7 @@ TEST(TestDelayedScan, TestScanInclusiveConstRef) {
 TEST(TestDelayedScan, TestScanCustomOp) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(100001));
   const auto bid = parlay::block_iterable_wrapper(a);
-  auto [m, total] = parlay::delayed::scan(bid, std::bit_xor<>{});
+  auto [m, total] = parlay::delayed::scan(bid, parlay::bit_xor<int>{});
 
   auto actual_total = std::accumulate(std::begin(a), std::end(a), 0, std::bit_xor<>{});
 
@@ -297,7 +297,7 @@ TEST(TestDelayedScan, TestScanNonConst) {
 TEST(TestDelayedScan, TestScanInclusiveCustomOp) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(100001));
   const auto bid = parlay::block_iterable_wrapper(a);
-  auto m = parlay::delayed::scan_inclusive(bid, std::bit_xor<>{});
+  auto m = parlay::delayed::scan_inclusive(bid, parlay::bit_xor<int>{});
 
   ASSERT_EQ(m.size(), a.size());
 
