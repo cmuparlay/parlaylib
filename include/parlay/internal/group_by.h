@@ -85,7 +85,7 @@ struct reduce_by_key_helper {
   void init(result_type &p, in_type const &kv) const {
     assign_uninitialized(p.second, kv.second);}
   void update(result_type &p, in_type const &kv) const {
-    p.second = monoid.f(p.second, kv.second); }
+    p.second = monoid(p.second, kv.second); }
   static void destruct_val(in_type &kv) {kv.second.~value_type();}
   template <typename Range>
   result_type reduce(Range &S) const {
@@ -100,7 +100,7 @@ struct reduce_by_key_helper {
 // Values are combined with a monoid, which must be on the value type.
 // Returned in an arbitrary order that depends on the hash function.
 template <typename R,
-    typename Monoid = addm<typename range_value_type_t<R>::second_type>,
+    typename Monoid = parlay::plus<typename range_value_type_t<R>::second_type>,
     typename Hash = parlay::hash<typename range_value_type_t<R>::first_type>,
     typename Equal = std::equal_to<>>
 auto reduce_by_key(R&& A, Monoid&& monoid = {}, Hash&& hash = {}, Equal&& equal = {}) {
@@ -208,7 +208,7 @@ auto remove_duplicates(R&& A, Hash&& hash = {}, Equal&& equal = {}) {
 // Values are combined with a monoid, which must be on the value type.
 // Must specify the number of buckets and it is an error for a key to be
 // be out of range.
-template <typename R, typename Monoid = addm<typename range_value_type_t<R>::second_type>>
+template <typename R, typename Monoid = parlay::plus<typename range_value_type_t<R>::second_type>>
 auto reduce_by_index(R&& A, size_t num_buckets, Monoid&& monoid = {}) {
   struct helper {
     using in_type = range_value_type_t<R>;
@@ -218,7 +218,7 @@ auto reduce_by_index(R&& A, size_t num_buckets, Monoid&& monoid = {}) {
     static key_type get_key(const in_type& a) {return a.first;};
     static val_type get_val(const in_type& a) {return a.second;};
     val_type init() const {return mon.identity;}
-    void update(val_type& d, val_type const &a) const {d = mon.f(d, a);};
+    void update(val_type& d, val_type const &a) const { d = mon(d, a); };
     void combine(val_type& d, slice<in_type*,in_type*> s) const {
       auto vals = delayed_map(s, [&] (in_type &v) {return v.second;});
       d = internal::reduce(vals, mon);

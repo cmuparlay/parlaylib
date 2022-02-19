@@ -72,47 +72,30 @@ auto to_sequence(Range&& v) {
 
 template<typename Range, typename BinaryOperator, typename T,
   std::enable_if_t<is_random_access_range_v<Range>, int> = 0>
-auto reduce(Range&& v, BinaryOperator&& f, T identity) {
-  using R = range_reference_type_t<Range>;
-
-  static_assert(std::is_move_constructible_v<T>);
-  static_assert(std::is_invocable_v<BinaryOperator, T&&, R>);
-  static_assert(std::is_invocable_v<BinaryOperator, T&&, T&&>);
-  static_assert(std::is_invocable_v<BinaryOperator, R, R>);
-  static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, T&&, R>, T>);
-  static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, T&&, T&&>, T>);
-  static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, R, R>, T>);
-
-  return parlay::internal::reduce(make_slice(v),
-            parlay::make_monoid(std::forward<BinaryOperator>(f), std::move(identity)));
+auto reduce(Range&& v, BinaryOperator f, T identity) {
+  static_assert(is_binary_operator_for_v<BinaryOperator, T, range_reference_type_t<Range>>);
+  return parlay::internal::reduce(make_slice(v), parlay::binary_op(std::move(f), std::move(identity)));
 }
 
-template<typename Range, typename BinaryOperator,
+template<typename Range, typename Monoid,
   std::enable_if_t<is_random_access_range_v<Range>, int> = 0>
-auto reduce(Range&& v, BinaryOperator&& f) {
-  return reduce(std::forward<Range>(v), std::forward<BinaryOperator>(f), range_value_type_t<Range>{});
+auto reduce(Range&& v, Monoid&& m) {
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<Range>>);
+  return parlay::internal::reduce(make_slice(v), std::forward<Monoid>(m));
 }
 
 template<typename Range,
   std::enable_if_t<is_random_access_range_v<Range>, int> = 0>
 auto reduce(Range&& v) {
+  static_assert(is_binary_operator_for_v<std::plus<>, range_value_type_t<Range>, range_reference_type_t<Range>>);
   return reduce(std::forward<Range>(v), std::plus<>{}, range_value_type_t<Range>{});
 }
-
 
 template<typename Range, typename BinaryOperator, typename T,
   std::enable_if_t<!is_random_access_range_v<Range> &&
                     is_block_iterable_range_v<Range>, int> = 0>
 auto reduce(Range&& v, BinaryOperator&& f, T identity) {
-  using R = range_reference_type_t<Range>;
-
-  static_assert(std::is_move_constructible_v<T>);
-  static_assert(std::is_invocable_v<BinaryOperator, T&&, R>);
-  static_assert(std::is_invocable_v<BinaryOperator, T&&, T&&>);
-  static_assert(std::is_invocable_v<BinaryOperator, R, R>);
-  static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, T&&, R>, T>);
-  static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, T&&, T&&>, T>);
-  static_assert(std::is_convertible_v<std::invoke_result_t<BinaryOperator, R, R>, T>);
+  static_assert(is_binary_operator_for_v<BinaryOperator, T, range_reference_type_t<Range>>);
 
   auto block_sums = parlay::internal::tabulate(num_blocks(v), [&](size_t i) {
     T result = identity;
@@ -126,17 +109,20 @@ auto reduce(Range&& v, BinaryOperator&& f, T identity) {
             parlay::make_monoid(std::forward<BinaryOperator>(f), std::move(identity)));
 }
 
-template<typename Range, typename BinaryOperator,
+template<typename Range, typename Monoid,
   std::enable_if_t<!is_random_access_range_v<Range> &&
                     is_block_iterable_range_v<Range>, int> = 0>
-auto reduce(Range&& v, BinaryOperator&& f) {
-  return reduce(std::forward<Range>(v), std::forward<BinaryOperator>(f), range_value_type_t<Range>{});
+auto reduce(Range&& v, Monoid&& m) {
+  static_assert(is_monoid_for_v<Monoid, range_reference_type_t<Range>>);
+  auto identity = m.identity;
+  return reduce(std::forward<Range>(v), std::forward<Monoid>(m), std::move(identity));
 }
 
 template<typename Range,
   std::enable_if_t<!is_random_access_range_v<Range> &&
                     is_block_iterable_range_v<Range>, int> = 0>
 auto reduce(Range&& v) {
+  static_assert(is_binary_operator_for_v<std::plus<>, range_value_type_t<Range>, range_reference_type_t<Range>>);
   return reduce(std::forward<Range>(v), std::plus<>{}, range_value_type_t<Range>{});
 }
 

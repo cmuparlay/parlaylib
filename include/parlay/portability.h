@@ -20,6 +20,16 @@ namespace parlay {
 #define PARLAY_PACKED
 #endif
 
+// PARLAY_NO_UNIQUE_ADDR: Allow a member object to occupy no space
+#if defined(__has_cpp_attribute)
+#if __has_cpp_attribute(no_unique_address)
+#define PARLAY_NO_UNIQUE_ADDR [[no_unique_address]]
+#else
+#define PARLAY_NO_UNIQUE_ADDR
+#endif
+#else
+#define PARLAY_NO_UNIQUE_ADDR
+#endif
 
 }  // namespace parlay
 

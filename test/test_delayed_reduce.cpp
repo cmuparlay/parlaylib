@@ -59,7 +59,7 @@ TEST(TestDelayedReduce, TestBidReduceConstRef) {
 TEST(TestDelayedReduce, TestBidReduceCustomOp) {
   const parlay::sequence<int> a = parlay::to_sequence(parlay::iota(100001));
   const auto bid = parlay::block_iterable_wrapper(a);
-  auto x = parlay::delayed::reduce(bid, std::bit_xor<>{});
+  auto x = parlay::delayed::reduce(bid, parlay::bit_xor<int>{});
   auto actual_total = std::accumulate(std::begin(a), std::end(a), 0, std::bit_xor<>{});
   static_assert(std::is_same_v<decltype(x), int>);
   ASSERT_EQ(x, actual_total);

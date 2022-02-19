@@ -998,3 +998,26 @@ TEST(TestPrimitives, TestAppend) {
   auto res = parlay::append(s1, s2);
   ASSERT_EQ(res, answer);
 }
+
+TEST(TestPrimitives, TestMapMaybe) {
+  const auto seq = parlay::to_sequence(parlay::iota<int>(100000));
+  auto f = parlay::map_maybe(seq, [](auto x) -> std::optional<int> {
+    if (x % 2 == 0) return std::make_optional(x); else return std::nullopt; });
+  auto answer = parlay::map(parlay::iota(50000), [](int x) { return 2*x; });
+
+  ASSERT_EQ(f.size(), 50000);
+  ASSERT_TRUE(std::equal(f.begin(), f.end(), answer.begin()));
+}
+
+TEST(TestPrimitives, TestZip) {
+  auto a = parlay::tabulate(50000, [](size_t i) { return i+1; });
+  auto b = parlay::tabulate(50000, [](size_t i) { return i+2; });
+  ASSERT_EQ(a.size(), b.size());
+
+  auto zipped = parlay::zip(a,b);
+  ASSERT_EQ(zipped.size(), a.size());
+
+  for (auto [x,y] : zipped) {
+    ASSERT_EQ(y, x+1);
+  }
+}

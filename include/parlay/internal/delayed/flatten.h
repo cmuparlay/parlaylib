@@ -159,7 +159,7 @@ struct block_delayed_flatten_t :
     // sequence, the position of its first element in the output sequence
     auto offsets = parlay::internal::delayed::to_sequence(
         parlay::internal::delayed::map(base_view(), [](auto&& r) -> size_t { return parlay::size(r); }));
-    n_elements = parlay::internal::scan_inplace(make_slice(offsets), addm<size_t>{});
+    n_elements = parlay::internal::scan_inplace(make_slice(offsets), plus<size_t>{});
 
     n_blocks = num_blocks_from_size(n_elements);
     outer_starts = sequence<outer_iterator_type>::uninitialized(n_blocks+1);

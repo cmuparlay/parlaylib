@@ -86,20 +86,26 @@ void copy(R_in&& in, R_out&& out) {
 // to m. That is, given a sequence r[0], ..., r[n-1], and
 // an associative operation +, compute
 //  r[0] + r[1] + ... + r[n-1]
-template<typename R, typename Monoid>
+template<typename R, typename Monoid,
+         std::enable_if_t<is_monoid_v<Monoid>, int> = 0>
 auto reduce(R&& r, Monoid&& m) {
   static_assert(is_random_access_range_v<R>);
   static_assert(is_monoid_for_v<Monoid, range_reference_type_t<R>>);
   return internal::reduce(make_slice(r), std::forward<Monoid>(m));
 }
 
+template<typename R, typename LegacyMonoid,
+    std::enable_if_t<!is_monoid_v<LegacyMonoid> && is_legacy_monoid_v<LegacyMonoid>, int> = 0>
+auto reduce(R&& r, LegacyMonoid m) {
+  static_assert(is_random_access_range_v<R>);
+  return parlay::reduce(std::forward<R>(r), legacy_monoid_adapter(std::move(m)));
+}
+
 // Compute the sum of the elements of r
 template<typename R>
 auto reduce(R&& r) {
   static_assert(is_random_access_range_v<R>);
-  using value_type = range_value_type_t<R>;
-  static_assert(is_monoid_for_v<addm<value_type>, range_reference_type_t<R>>);
-  return parlay::reduce(r, addm<value_type>());
+  return parlay::reduce(r, parlay::plus<range_value_type_t<R>>());
 }
 
 /* ---------------------- Scans --------------------- */
@@ -107,65 +113,85 @@ auto reduce(R&& r) {
 template<typename R>
 auto scan(R&& r) {
   static_assert(is_random_access_range_v<R>);
-  using value_type = range_value_type_t<R>;
-  static_assert(is_monoid_for_v<addm<value_type>, range_reference_type_t<R>>);
-  return internal::scan(make_slice(r), addm<value_type>());
+  return internal::scan(make_slice(r), parlay::plus<range_value_type_t<R>>());
 }
 
 template<typename R>
 auto scan_inclusive(R&& r) {
   static_assert(is_random_access_range_v<R>);
-  using value_type = range_value_type_t<R>;
-  static_assert(is_monoid_for_v<addm<value_type>, range_reference_type_t<R>>);
-  return internal::scan(make_slice(r), addm<value_type>(),
-    internal::fl_scan_inclusive).first;
+  return internal::scan(make_slice(r), parlay::plus<range_value_type_t<R>>(), internal::fl_scan_inclusive).first;
 }
 
 template<typename R>
 auto scan_inplace(R&& r) {
   static_assert(is_random_access_range_v<R>);
-  using value_type = range_value_type_t<R>;
-  static_assert(is_monoid_for_v<addm<value_type>, range_reference_type_t<R>>);
-  return internal::scan_inplace(make_slice(r), addm<value_type>());
+  return internal::scan_inplace(make_slice(r), parlay::plus<range_value_type_t<R>>());
 }
 
 template<typename R>
 auto scan_inclusive_inplace(R&& r) {
   static_assert(is_random_access_range_v<R>);
-  using value_type = range_value_type_t<R>;
-  static_assert(is_monoid_for_v<addm<value_type>, range_reference_type_t<R>>);
-  return internal::scan_inplace(make_slice(r), addm<value_type>(),
-    internal::fl_scan_inclusive);
+  return internal::scan_inplace(make_slice(r), parlay::plus<range_value_type_t<R>>(), internal::fl_scan_inclusive);
 }
 
-template<typename R, typename Monoid>
+template<typename R, typename Monoid,
+         std::enable_if_t<is_monoid_v<Monoid>, int> = 0>
 auto scan(R&& r, Monoid&& m) {
   static_assert(is_random_access_range_v<R>);
   static_assert(is_monoid_for_v<Monoid, range_reference_type_t<R>>);
   return internal::scan(make_slice(r), std::forward<Monoid>(m));
 }
 
-template<typename R, typename Monoid>
+template<typename R, typename LegacyMonoid,
+         std::enable_if_t<!is_monoid_v<LegacyMonoid> && is_legacy_monoid_v<LegacyMonoid>, int> = 0>
+auto scan(R&& r, LegacyMonoid m) {
+  static_assert(is_random_access_range_v<R>);
+  return parlay::scan(make_slice(r), legacy_monoid_adapter(std::move(m)));
+}
+
+template<typename R, typename Monoid,
+         std::enable_if_t<is_monoid_v<Monoid>, int> = 0>
 auto scan_inclusive(R&& r, Monoid&& m) {
   static_assert(is_random_access_range_v<R>);
   static_assert(is_monoid_for_v<Monoid, range_reference_type_t<R>>);
-  return internal::scan(make_slice(r), std::forward<Monoid>(m),
-    internal::fl_scan_inclusive).first;
+  return internal::scan(make_slice(r), std::forward<Monoid>(m), internal::fl_scan_inclusive).first;
 }
 
-template<typename R, typename Monoid>
+template<typename R, typename LegacyMonoid,
+         std::enable_if_t<!is_monoid_v<LegacyMonoid> && is_legacy_monoid_v<LegacyMonoid>, int> = 0>
+auto scan_inclusive(R&& r, LegacyMonoid m) {
+  static_assert(is_random_access_range_v<R>);
+  return parlay::scan_inclusive(std::forward<R>(r), legacy_monoid_adapter(std::move(m)));
+}
+
+template<typename R, typename Monoid,
+         std::enable_if_t<is_monoid_v<Monoid>, int> = 0>
 auto scan_inplace(R&& r, Monoid&& m) {
   static_assert(is_random_access_range_v<R>);
   static_assert(is_monoid_for_v<Monoid, range_reference_type_t<R>>);
   return internal::scan_inplace(make_slice(r), std::forward<Monoid>(m));
 }
 
-template<typename R, typename Monoid>
+template<typename R, typename LegacyMonoid,
+         std::enable_if_t<!is_monoid_v<LegacyMonoid> && is_legacy_monoid_v<LegacyMonoid>, int> = 0>
+auto scan_inplace(R&& r, LegacyMonoid m) {
+  static_assert(is_random_access_range_v<R>);
+  return parlay::scan_inplace(std::forward<R>(r), legacy_monoid_adapter(std::move(m)));
+}
+
+template<typename R, typename Monoid,
+         std::enable_if_t<is_monoid_v<Monoid>, int> = 0>
 auto scan_inclusive_inplace(R&& r, Monoid&& m) {
   static_assert(is_random_access_range_v<R>);
   static_assert(is_monoid_for_v<Monoid, range_reference_type_t<R>>);
-  return internal::scan_inplace(make_slice(r), std::forward<Monoid>(m),
-    internal::fl_scan_inclusive);
+  return internal::scan_inplace(make_slice(r), std::forward<Monoid>(m), internal::fl_scan_inclusive);
+}
+
+template<typename R, typename LegacyMonoid,
+         std::enable_if_t<!is_monoid_v<LegacyMonoid> && is_legacy_monoid_v<LegacyMonoid>, int> = 0>
+auto scan_inclusive_inplace(R&& r, LegacyMonoid&& m) {
+  static_assert(is_random_access_range_v<R>);
+  return parlay::scan_inclusive_inplace(std::forward<R>(r), legacy_monoid_adapter(std::move(m)));
 }
 
 /* ----------------------- Pack ----------------------- */
@@ -902,7 +928,7 @@ auto flatten(R&& r) {
   using T = range_value_type_t<range_reference_type_t<R>>;
   auto offsets = tabulate(parlay::size(r), [it = std::begin(r)](size_t i)
                           { return parlay::size(it[i]); });
-  size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
+  size_t len = internal::scan_inplace(make_slice(offsets), plus<size_t>());
   auto res = sequence<T>::uninitialized(len);
   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
     auto dit = std::begin(res)+offsets[i];
@@ -920,7 +946,7 @@ auto flatten(sequence<sequence<T>>&& r) {
   static_assert(std::is_move_constructible_v<T>);
   auto offsets = tabulate(parlay::size(r),
     [it = std::begin(r)](size_t i) { return parlay::size(it[i]); });
-  size_t len = internal::scan_inplace(make_slice(offsets), addm<size_t>());
+  size_t len = internal::scan_inplace(make_slice(offsets), plus<size_t>());
   auto res = sequence<T>::uninitialized(len);
   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
     uninitialized_relocate_n(std::begin(res)+offsets[i], std::begin(it[i]), it[i].size());
@@ -1117,6 +1143,17 @@ auto append(R1&& s1, R2&& s2) {
   size_t n1 = s1.size();
   return tabulate(n1 + s2.size(), [&] (size_t i) -> T {
       return (i < n1) ? s1[i] : s2[i-n1];});
+}
+
+template<typename Range, typename UnaryOperator>
+auto map_maybe(Range&& v, UnaryOperator&& p) {
+  return internal::delayed::to_sequence(
+    internal::delayed::filter_op(std::forward<Range>(v), std::forward<UnaryOperator>(p)));
+}
+
+template<typename... Ranges>
+auto zip(Ranges&&... rs) {
+  return internal::delayed::to_sequence(internal::delayed::zip(std::forward<Ranges>(rs)...));
 }
 
 }  // namespace parlay
