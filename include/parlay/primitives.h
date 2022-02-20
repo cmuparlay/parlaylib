@@ -189,7 +189,7 @@ auto scan_inclusive_inplace(R&& r, Monoid&& m) {
 
 template<typename R, typename LegacyMonoid,
          std::enable_if_t<!is_monoid_v<LegacyMonoid> && is_legacy_monoid_v<LegacyMonoid>, int> = 0>
-auto scan_inclusive_inplace(R&& r, LegacyMonoid&& m) {
+auto scan_inclusive_inplace(R&& r, LegacyMonoid m) {
   static_assert(is_random_access_range_v<R>);
   return parlay::scan_inclusive_inplace(std::forward<R>(r), legacy_monoid_adapter(std::move(m)));
 }
