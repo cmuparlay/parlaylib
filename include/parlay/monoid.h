@@ -179,7 +179,12 @@ monoid<F, T> binary_op(F f, T id) {
 
 // Defines the member value true if Monoid_ is a valid legacy monoid. That is, it has
 // a typedef T which is move constructible, a member "identity" of type T , and a member
-// f, which is a valid binary operator over the type T
+// f, which is a valid binary operator over the type T.
+//
+// Library functions that used legacy monoids have overloads that still support them,
+// e.g., parlay::reduce and parlay::scan, but all new library functions will only support
+// the new monoids. This ensures backward compatibility, but encourages the use of the
+// new ones for new code.
 template<typename Monoid_, typename = void>
 struct is_legacy_monoid : public std::false_type {};
 
