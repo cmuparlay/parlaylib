@@ -451,7 +451,7 @@ static void bench_reduce_by_index_256(benchmark::State& state) {
       return par(r.ith_rand(i) % num_buckets, 1);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::addm<T>()));
+    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::plus<T>()));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -467,7 +467,7 @@ static void bench_reduce_by_index(benchmark::State& state) {
       return par(r.ith_rand(i) % num_buckets, 1);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::addm<T>()));
+    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::plus<T>()));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -497,7 +497,7 @@ static void bench_reduce_by_key(benchmark::State& state) {
       return par((T) r.ith_rand(i) % (n/2), (T) 1);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::reduce_by_key(S, parlay::addm<T>())); 
+    RUN_AND_CLEAR(parlay::reduce_by_key(S, parlay::plus<T>()));
   }
 
   REPORT_STATS(n, 0, 0);
