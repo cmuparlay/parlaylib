@@ -42,7 +42,7 @@ long closest_point(const Point& p, const Points& kpts, D& distance) {
 auto addpair = [] (const std::pair<Point,long> &a,
                    const std::pair<Point,long> &b) {
   return std::pair(a.first + b.first, a.second + b.second);};
-auto addm = parlay::make_monoid(addpair, std::pair(Point(), 0l));
+auto addm = parlay::binary_op(addpair, std::pair(Point(), 0l));
 
 // **************************************************************
 // This is the main algorithm

@@ -59,8 +59,8 @@ coords center(box b) {
 
 box bound_box(const parlay::sequence<point>& P) {
   auto pts = parlay::map(P, [] (point p) {return p.pnt;});
-  return box{parlay::reduce(pts, parlay::make_monoid(minv, coords())),
-             parlay::reduce(pts, parlay::make_monoid(maxv, coords()))};
+  return box{parlay::reduce(pts, parlay::binary_op(minv, coords())),
+             parlay::reduce(pts, parlay::binary_op(maxv, coords()))};
 }
 
 box bound_box(const box& b1, const box& b2) {

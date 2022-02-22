@@ -25,11 +25,11 @@ struct field {
   field() {}
   field operator+(field a) const {
     unsigned long x = (unsigned long) val + a.val;
-    return field((x & p) + (x >> 31));} // mod p
+    return field((x & p) + (x >> 31));} // fast mod p
   field operator*(field a) const {
     unsigned long x = (unsigned long) val * a.val;
     unsigned long y = (x & p) + (x >> 31);
-    return field((y & p) + (y >> 31));} // mod p
+    return field((y & p) + (y >> 31));} // fast mod p
   bool operator==(field a) const { return val == a.val; }
 };
 

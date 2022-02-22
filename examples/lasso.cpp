@@ -46,7 +46,7 @@ auto tab_reduce(long n, const F& f) {
 template <typename F>
 auto max_tab_reduce(long n, const F& f) {
   return parlay::reduce(parlay::tabulate(n, f, 100),
-			parlay::maxm<real>());}
+			parlay::maximum<real>());}
 
 // Pre calculate feature (column) covariants and A^T * y.
 auto initialize_features(const sparse_matrix& AT, const vector& y) {

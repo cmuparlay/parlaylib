@@ -25,50 +25,40 @@ using edges = parlay::sequence<edge>;
 using edgeid = long;
 using res = reservation<edgeid>;
 
-struct match_step {
-  edges const &E;
+parlay::sequence<edgeid> maximal_matching(edges const &E, long n) {
+  size_t m = E.size();
 
-  // one slot per vertex used for reservation
-  parlay::sequence<res> &R;
-
-  // marks a vertex as already matched
-  parlay::sequence<bool> &matched;
+  parlay::sequence<res> R(n);
+  parlay::sequence<bool> matched(n, false);
 
   // tries to reserve both endpoints with edge i if neither are matched
-  bool reserve(edgeid i) {
+  auto reserve = [&] (edgeid i) {
     edgeid u = E[i].first;
     edgeid v = E[i].second;
     if (matched[u] || matched[v] || (u == v)) return false;
     R[u].reserve(i);
     R[v].reserve(i);
     return true;
-  }
+  };
 
   // checks if successfully reserved both endpoints
   // if so mark endpoints as matched and return true
   // otherwise if succeeded on one, reset it
-  bool commit(edgeid i) {
+  auto commit = [&] (edgeid i) {
     edgeid u = E[i].first;
     edgeid v = E[i].second;
     if (R[v].check(i)) {
-      R[v].reset();
+      R[v].reset(); // so only one endpoint has edge id in it
       if (R[u].check(i)) {
         matched[u] = matched[v] = true;
         return true;
       }
     } else if (R[u].check(i)) R[u].reset();
     return false;
-  }
-};
+  };
 
-parlay::sequence<edgeid> maximal_matching(edges const &E, long n) {
-  size_t m = E.size();
-
-  parlay::sequence<res> R(n);
-  parlay::sequence<bool> matched(n, false);
-  match_step mStep{E, R, matched};
-
-  speculative_for<edgeid>(mStep, 0, m, 10);
+  // loops over edged in parallel blocks
+  speculative_for<edgeid>(0, m, reserve, commit);
 
   // returns the edges that successfully committed (their reservation remains in R[v]).
   return parlay::pack(parlay::delayed_seq<edgeid>(n, [&] (size_t i) {return R[i].get();}),
