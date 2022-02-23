@@ -8,6 +8,7 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 #include <parlay/sequence.h>
+#include <parlay/delayed.h>
 
 #include "helper/speculative_for.h"
 
@@ -61,7 +62,9 @@ parlay::sequence<edgeid> maximal_matching(edges const &E, long n) {
   speculative_for<edgeid>(0, m, reserve, commit);
 
   // returns the edges that successfully committed (their reservation remains in R[v]).
-  return parlay::pack(parlay::delayed_seq<edgeid>(n, [&] (size_t i) {return R[i].get();}),
+  //return parlay::pack(parlay::delayed_seq<edgeid>(n, [&] (size_t i) {return R[i].get();}),
+  //                    parlay::tabulate(n, [&] (size_t i) {return R[i].reserved();}));
+  return parlay::pack(parlay::delayed::map(R, [&] (auto& r) {return r.get();}),
                       parlay::tabulate(n, [&] (size_t i) {return R[i].reserved();}));
 }
 

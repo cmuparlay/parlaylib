@@ -8,6 +8,7 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 #include <parlay/sequence.h>
+#include <parlay/delayed.h>
 
 // **************************************************************
 // Kmeans using kmeans++ algorithm
@@ -33,7 +34,7 @@ Point operator+(const Point& a, const Point& b) {
 
 template <typename D>
 long closest_point(const Point& p, const Points& kpts, D& distance) {
-  auto a = parlay::delayed_map(kpts, [&] (const Point &q) {
+  auto a = parlay::delayed::map(kpts, [&] (const Point &q) {
     return distance(p, q);});
   return min_element(a) - a.begin();
 }

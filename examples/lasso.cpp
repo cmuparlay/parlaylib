@@ -4,6 +4,7 @@
 #include <cmath>
 #include <parlay/primitives.h>
 #include <parlay/io.h>
+#include <parlay/delayed.h>
 #include <parlay/internal/get_time.h>
 
 // **************************************************************
@@ -37,7 +38,7 @@ constexpr int stride=8;
 // three helper functions
 template <typename Seq, typename F>
 auto map_reduce(const Seq& s, const F& f) {
-  return parlay::reduce(parlay::delayed_map(s, f));}
+  return parlay::reduce(parlay::delayed::map(s, f));}
 
 template <typename F>
 auto tab_reduce(long n, const F& f) {

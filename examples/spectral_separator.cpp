@@ -6,7 +6,7 @@
 #include <utility>
 #include <random>
 
-#include <parlay/delayed_sequence.h>
+#include <parlay/delayed.h>
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
@@ -38,7 +38,7 @@ double dot(const vector& v1, const vector& v2) {
     return v1[i]*v2[i]; }));}
 double rms_diff(const vector& v1, const vector& v2) {
   auto diff = v1-v2;
-  return parlay::reduce(parlay::delayed_map(diff, [&] (double e) { return e*e; }));}
+  return parlay::reduce(parlay::delayed::map(diff, [&] (double e) { return e*e; }));}
 auto normalize(const vector& v) { return (1.0/std::sqrt(dot(v,v))) * v;}
 auto rand_vector(long n) {
   parlay::random_generator gen;
@@ -71,7 +71,7 @@ struct laplacian {
     return parlay::tabulate(g.size(), [&] (long u) {
       neighbors& ngh = g[u];
       // contribution from off diagonal
-      double x = parlay::reduce(parlay::delayed_map(ngh, [&] (vertex v) {
+      double x = parlay::reduce(parlay::delayed::map(ngh, [&] (vertex v) {
         return vec[v];}));
       // add contribution from diagonal
       return (diag + -(double) ngh.size()) * vec[u] + x;},100);

@@ -6,6 +6,7 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 #include <parlay/sequence.h>
+#include <parlay/delayed.h>
 
 // **************************************************************
 // The pagerank algorithm on a sparse graph
@@ -21,8 +22,8 @@ using sparse_matrix = parlay::sequence<row>;
 // sparse matrix vector multiplication
 auto mxv(sparse_matrix const& mat, vector const& vec) {
   return parlay::map(mat, [&] (row const& r) {
-    return parlay::reduce(parlay::delayed_map(r, [&] (element e) {
-      return vec[e.first] * e.second;}));});
+      return parlay::reduce(parlay::delayed::map(r, [&] (element e) {
+	    return vec[e.first] * e.second;}));});
 }
 
 // the algorithm

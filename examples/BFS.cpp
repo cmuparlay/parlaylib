@@ -37,8 +37,8 @@ std::pair<parlay::sequence<vertex>,long> BFS(vertex start, const Graph &G) {
 
     // get out edges of the frontier and flatten
     auto nested_edges = parlay::map(frontier, [&] (vertex u) {
-      return parlay::delayed_tabulate(G[u].size(), [&, u] (size_t i) {
-        return std::pair(u, G[u][i]);});});
+	return parlay::delayed_tabulate(G[u].size(), [&, u] (size_t i) {
+	    return std::pair(u, G[u][i]);});});
     auto edges = delayed::flatten(nested_edges);
 
     // keep the v from (u,v) edges that succeed in setting the parent array at v to u

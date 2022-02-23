@@ -20,15 +20,15 @@ namespace delayed = parlay::delayed;
 // **************************************************************
 
 template<typename Range, typename UnaryPred>
-auto filter(const Range& A, const UnaryPred&& f) {
+auto filter(const Range& A, const UnaryPred& f) {
   long n = A.size();
   using T = typename Range::value_type;
-  auto flags = parlay::delayed_map(A, [&] (const T& x) {
+  auto flags = delayed::map(A, [&] (const T& x) {
     return (long) f(x);});
   auto [offsets, sum] = delayed::scan(flags);
   auto r = parlay::sequence<T>::uninitialized(sum);
 
-  delayed::apply(delayed::enumerate(offsets), [&] (auto&& x) {
+  parlay::for_each(delayed::enumerate(offsets), [&] (auto&& x) {
     auto [i, offset] = x;
     if (flags[i]) parlay::assign_uninitialized(r[offset], A[i]); });
 
