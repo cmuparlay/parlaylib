@@ -36,6 +36,13 @@ using ::parlay::internal::delayed::map_maybe;
 using ::parlay::internal::delayed::for_each;
 using ::parlay::internal::delayed::apply;
 
+// Delayed tabulate
+
+template<typename UnaryFunction>
+auto tabulate(size_t n, UnaryFunction f) {
+  return parlay::internal::delayed_tabulate(n, std::move(f));
+}
+
 // Composite delayed operations
 
 template<typename Integral_>

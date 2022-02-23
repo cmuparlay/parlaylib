@@ -138,7 +138,7 @@ struct maximum {
 template<typename T>
 struct minimum {
   T identity;
-  minimum() : identity(std::numeric_limits<T>::lowest()) { }
+  minimum() : identity(std::numeric_limits<T>::max()) { }
   explicit minimum(T identity_) : identity(std::move(identity_)) { }
   template<typename T1, typename T2>
   T operator()(T1&& x, T2&& y) const { return std::min<T>(std::forward<T1>(x), std::forward<T2>(y)); }
@@ -151,7 +151,7 @@ struct monoid {
   static_assert(is_binary_operator_for_v<F, TT>);
   using T = TT;
   T identity;
-  PARLAY_NO_UNIQUE_ADDR F f;
+  F f;
   monoid(F f, T id) : identity(std::move(id)), f(std::move(f)) { }
   template<typename T1, typename T2>
   PARLAY_INLINE decltype(auto) operator()(T1&& x, T2&& y) const {
