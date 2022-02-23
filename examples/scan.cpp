@@ -45,9 +45,9 @@ auto scan(const Range& A, const BinaryOp&& binop) {
     auto [part, total] = scan(sums, binop); 
 
     // expand back out
-    parlay::parallel_for(0, num_blocks, [&] (long i) {
+    parlay::parallel_for(0, num_blocks, [&, prt=part] (long i) {
 	scan_seq(i*block_size, std::min((i+1)*block_size, n),
-		 part[i]);});
+		 prt[i]);});
     return std::pair{std::move(r), total};
   }
 }
