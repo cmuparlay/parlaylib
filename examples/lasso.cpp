@@ -4,6 +4,7 @@
 #include <cmath>
 #include <parlay/primitives.h>
 #include <parlay/io.h>
+#include <parlay/delayed.h>
 #include <parlay/internal/get_time.h>
 
 // **************************************************************
@@ -37,7 +38,7 @@ constexpr int stride=8;
 // three helper functions
 template <typename Seq, typename F>
 auto map_reduce(const Seq& s, const F& f) {
-  return parlay::reduce(parlay::delayed_map(s, f));}
+  return parlay::reduce(parlay::delayed::map(s, f));}
 
 template <typename F>
 auto tab_reduce(long n, const F& f) {
@@ -46,7 +47,7 @@ auto tab_reduce(long n, const F& f) {
 template <typename F>
 auto max_tab_reduce(long n, const F& f) {
   return parlay::reduce(parlay::tabulate(n, f, 100),
-			parlay::maxm<real>());}
+			parlay::maximum<real>());}
 
 // Pre calculate feature (column) covariants and A^T * y.
 auto initialize_features(const sparse_matrix& AT, const vector& y) {

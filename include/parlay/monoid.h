@@ -138,7 +138,7 @@ struct maximum {
 template<typename T>
 struct minimum {
   T identity;
-  minimum() : identity(std::numeric_limits<T>::lowest()) { }
+  minimum() : identity(std::numeric_limits<T>::max()) { }
   explicit minimum(T identity_) : identity(std::move(identity_)) { }
   template<typename T1, typename T2>
   T operator()(T1&& x, T2&& y) const { return std::min<T>(std::forward<T1>(x), std::forward<T2>(y)); }
@@ -151,7 +151,7 @@ struct monoid {
   static_assert(is_binary_operator_for_v<F, TT>);
   using T = TT;
   T identity;
-  PARLAY_NO_UNIQUE_ADDR F f;
+  F f;
   monoid(F f, T id) : identity(std::move(id)), f(std::move(f)) { }
   template<typename T1, typename T2>
   PARLAY_INLINE decltype(auto) operator()(T1&& x, T2&& y) const {
@@ -179,7 +179,12 @@ monoid<F, T> binary_op(F f, T id) {
 
 // Defines the member value true if Monoid_ is a valid legacy monoid. That is, it has
 // a typedef T which is move constructible, a member "identity" of type T , and a member
-// f, which is a valid binary operator over the type T
+// f, which is a valid binary operator over the type T.
+//
+// Library functions that used legacy monoids have overloads that still support them,
+// e.g., parlay::reduce and parlay::scan, but all new library functions will only support
+// the new monoids. This ensures backward compatibility, but encourages the use of the
+// new ones for new code.
 template<typename Monoid_, typename = void>
 struct is_legacy_monoid : public std::false_type {};
 

@@ -31,7 +31,7 @@ auto mcss(parlay::sequence<int> const& A) {
   quad identity = {neginf, neginf, neginf, 0l};
   auto pre = parlay::delayed_tabulate(A.size(), [&] (long i) -> quad {
     return quad{A[i],A[i],A[i],A[i]};});
-  return parlay::reduce(pre, parlay::make_monoid(f, identity))[0];
+  return parlay::reduce(pre, parlay::binary_op(f, identity))[0];
 }
 
 // **************************************************************

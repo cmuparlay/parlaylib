@@ -29,44 +29,6 @@ using edges = parlay::sequence<weighted_edge>;
 using indexed_edge = std::tuple<double,edge_id,vertex,vertex>;
 using res = reservation<edge_id>;
 
-struct union_find_step {
-  parlay::sequence<indexed_edge> &E;
-  parlay::sequence<res> &R;
-  union_find<vertex> &UF;
-  parlay::sequence<bool> &inST;
-
-  // find roots and reserve endpoints
-  // earliest edge (the min weight edge since sorted) wins
-  bool reserve(edge_id i) {
-    auto [w, id, u, v] = E[i];
-    u = std::get<2>(E[i]) = UF.find(u);
-    v = std::get<3>(E[i]) = UF.find(v);
-    if (u != v) {
-      R[v].reserve(i);
-      R[u].reserve(i);
-      return true;
-    } else return false;
-  }
-
-  // checks if successfully reserved on at least one side
-  // if so, add edge to mst, and link (union)
-  // note that links cannot form a cycle since on a cycle
-  // at least one edge not minimum on either side
-  bool commit(edge_id i) {
-    auto [w, id, u, v] = E[i];
-    if (R[v].check(i)) {
-      R[u].check_reset(i);
-      UF.link(v, u);     // the assymetric union step
-      inST[id] = true;
-      return true;}
-    else if (R[u].check(i)) {
-      UF.link(u, v);    // the assymetric union step
-      inST[id] = true;
-      return true; }
-    else return false;
-  }
-};
-
 parlay::sequence<edge_id> min_spanning_forest(edges &E, long n) {
   size_t m = E.size();
 
@@ -77,12 +39,44 @@ parlay::sequence<edge_id> min_spanning_forest(edges &E, long n) {
 
   auto SEI = parlay::sort(EI);
 
-  parlay::sequence<bool> mstFlags(m, false);
+  parlay::sequence<bool> inMST(m, false); // marks if edge i in MST
   union_find<vertex> UF(n);
-  parlay::sequence<res> R(n);
-  union_find_step step{SEI, R, UF, mstFlags};
-  speculative_for<vertex>(step, 0, m, 20);
-  return parlay::pack_index<edge_id>(mstFlags);
+  parlay::sequence<res> R(n); // reservations
+
+  // Find roots of endpoints and reserves them.
+  // Earliest edge (the min weight edge since sorted) wins.
+  auto reserve = [&] (edge_id i) {
+    auto [w, id, u, v] = SEI[i];
+    u = std::get<2>(SEI[i]) = UF.find(u);
+    v = std::get<3>(SEI[i]) = UF.find(v);
+    if (u != v) {
+      R[v].reserve(i);
+      R[u].reserve(i);
+      return true;
+    } else return false;
+  };
+
+  // Checks if successfully reserved on at least one endpoint.
+  // If so, add edge to mst, and link (union).
+  // Note that links cannot form a cycle since on a cycle
+  // the maximum edge is not minimum on either side.
+  auto commit = [&] (edge_id i) {
+    auto [w, id, u, v] = SEI[i];
+    if (R[v].check(i)) {
+      R[u].check_reset(i);
+      UF.link(v, u);     // the assymetric union step
+      inMST[id] = true;
+      return true;}
+    else if (R[u].check(i)) {
+      UF.link(u, v);    // the assymetric union step
+      inMST[id] = true;
+      return true; }
+    else return false;
+  };
+
+  // Loop through edges in sorted order (in parallel)
+  speculative_for<vertex>(0, m, reserve, commit);
+  return parlay::pack_index<edge_id>(inMST);
 }
 
 // **************************************************************

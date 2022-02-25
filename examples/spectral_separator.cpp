@@ -6,7 +6,7 @@
 #include <utility>
 #include <random>
 
-#include <parlay/delayed_sequence.h>
+#include <parlay/delayed.h>
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
@@ -38,7 +38,7 @@ double dot(const vector& v1, const vector& v2) {
     return v1[i]*v2[i]; }));}
 double rms_diff(const vector& v1, const vector& v2) {
   auto diff = v1-v2;
-  return parlay::reduce(parlay::delayed_map(diff, [&] (double e) { return e*e; }));}
+  return parlay::reduce(parlay::delayed::map(diff, [&] (double e) { return e*e; }));}
 auto normalize(const vector& v) { return (1.0/std::sqrt(dot(v,v))) * v;}
 auto rand_vector(long n) {
   parlay::random_generator gen;
@@ -64,14 +64,14 @@ struct laplacian {
   graph g;
   double diag;
   static double max_degree(const graph& g) {
-    return parlay::reduce(parlay::map(g, [] (auto& ngh) {return (double) ngh.size();}),
-                          parlay::maxm<double>());}
+    return parlay::reduce(parlay::map(g, [] (auto& ngh) -> double {return ngh.size();}),
+                          parlay::maximum<double>());}
   laplacian(const graph& g) : g(g), diag(max_degree(g)+1.0) {}
   vector operator*(vector const& vec) {
     return parlay::tabulate(g.size(), [&] (long u) {
       neighbors& ngh = g[u];
       // contribution from off diagonal
-      double x = parlay::reduce(parlay::delayed_map(ngh, [&] (vertex v) {
+      double x = parlay::reduce(parlay::delayed::map(ngh, [&] (vertex v) {
         return vec[v];}));
       // add contribution from diagonal
       return (diag + -(double) ngh.size()) * vec[u] + x;},100);

@@ -10,6 +10,7 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 #include <parlay/sequence.h>
+#include <parlay/delayed.h>
 
 #include "helper/union_find.h"
 
@@ -54,7 +55,7 @@ parlay::sequence<long> spanning_forest(edges const &E, vertex n) {
   }, 100);
 
   //get the IDs of the edges in the spanning forest
-  auto h = parlay::delayed_map(hooks, [] (auto&& h) {return h.load(); });
+  auto h = parlay::delayed::map(hooks, [] (auto&& h) {return h.load(); });
   return parlay::filter(h, [&] (size_t a) { return a != m; });
 }
 
@@ -73,7 +74,7 @@ edges generate_edges(long n) {
   auto E = parlay::delayed_tabulate(n*5, [&] (long i) {
       auto r = gen[i];
       return edge(dis(r), dis(r));});
-
+ 
   // remove self edges
   return parlay::filter(E, [] (edge e) {return e.first != e.second;});
 }

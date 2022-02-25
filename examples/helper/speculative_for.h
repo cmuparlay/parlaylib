@@ -14,7 +14,7 @@
 // in the block try to reserve, a second pass can "check" if the
 // iteration won on all its reservations, and apply itself if so.  Any
 // iterations that fail are carried over to the next block.  The first
-// always succeeds.
+// iteration in a block always succeeds.
 // See:
 // "Internally deterministic parallel algorithms can be fast"
 // Blelloch, Fineman, Gibbons, and Shun, 
@@ -37,15 +37,17 @@ struct reservation {
 };
 
 // Runs iterations from start to end in rounds of size approximately
-// granularity (although adapts to contention).
+// (end-start)/granularity (although adapts to contention).
 // Each iterations in a round tries to reserve and commit during the round.
 // If it fails on either it is carried forward to the next round.
 // Lower iterations will will over higher ones during a reservation.
 // Completes when all iterations from start to end have completed.
-template <class idx, class S>
-void speculative_for(S step, idx start, idx end, long granularity) {
+template <class idx, class R, class C>
+void speculative_for(idx start, idx end, 
+		     R reserve, C commit,
+		     long granularity = 10) {
   long max_round_size = (end-start)/granularity+1;
-  long current_round_size = max_round_size/4;
+  long current_round_size = max_round_size/4+1;
   parlay::sequence<idx> Ihold;
 
   long number_done = start; // number of iterations done
@@ -57,13 +59,13 @@ void speculative_for(S step, idx start, idx end, long granularity) {
     // try to reserve (keep is true if succeeded so far)
     parlay::sequence<bool> keep = parlay::tabulate(size, [&] (long i) {
       long j = (i < number_keep) ? Ihold[i] : number_done + i;
-      return step.reserve(j); });
+      return reserve(j); });
 
     // try to commit
     parlay::sequence<idx> I = parlay::tabulate(size, [&] (long i) -> idx {
       if (keep[i]) {
         long j = (i < number_keep) ? Ihold[i] : number_done + i;
-        keep[i] = !step.commit(j);
+        keep[i] = !commit(j);
         return j;
       } else return 0;});
 
@@ -73,9 +75,10 @@ void speculative_for(S step, idx start, idx end, long granularity) {
     number_done += size - number_keep;
 
     // adjust round size based on number of failed attempts
-    if (float(number_keep)/float(size) > .2)
-      current_round_size = std::max(current_round_size/2, std::max(max_round_size/64 + 1, number_keep));
-    else if (float(number_keep)/float(size) < .1)
+    if (float(number_keep)/float(size) > .2) // shrink
+      current_round_size
+	= std::max({number_keep, current_round_size/2, max_round_size/64});
+    else if (float(number_keep)/float(size) < .1) // grow
       current_round_size = std::min(current_round_size * 2, max_round_size);
   }
 }

@@ -12,6 +12,7 @@
 #include "parlay/alloc.h"
 #include "parlay/primitives.h"
 #include "parlay/random.h"
+#include "parlay/delayed.h"
 #include "parlay/sequence.h"    // for sequence, sequence<>::value_type, to_...
 #include "parlay/slice.h"       // for slice, make_slice
 #include "parlay/utilities.h"   // for par_do_if
@@ -59,8 +60,8 @@ coords center(box b) {
 
 box bound_box(const parlay::sequence<point>& P) {
   auto pts = parlay::map(P, [] (point p) {return p.pnt;});
-  return box{parlay::reduce(pts, parlay::make_monoid(minv, coords())),
-             parlay::reduce(pts, parlay::make_monoid(maxv, coords()))};
+  return box{parlay::reduce(pts, parlay::binary_op(minv, coords())),
+             parlay::reduce(pts, parlay::binary_op(maxv, coords()))};
 }
 
 box bound_box(const box& b1, const box& b2) {
@@ -107,7 +108,7 @@ node* build_recursive(slice P, int bit) {
   } else {
 
     // binary search for the cut point on the given bit
-    auto bits = parlay::delayed_map(P, [&] (const point& p) {
+    auto bits = parlay::delayed::map(P, [&] (const point& p) {
       return 1 == ((p.pnt[bit%dims] >> bit/dims) & 1);});
     size_t pos = std::lower_bound(bits.begin(), bits.end(), 1)-bits.begin();
 

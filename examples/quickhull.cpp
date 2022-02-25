@@ -11,6 +11,7 @@
 #include <parlay/random.h>
 #include <parlay/sequence.h>
 #include <parlay/utilities.h>
+#include <parlay/delayed.h>
 
 // **************************************************************
 // The quickhull algorithm for 2d convex hull.
@@ -44,11 +45,11 @@ intseq quickhull(pointseq const &Points, intseq Idxs, point l, point r) {
   if (n <= 1) return Idxs;
 
   // find relative distances from the line l--r, tag each with its index
-  auto Pairs = parlay::delayed_map(Idxs, [&] (int idx) {
+  auto Pairs = parlay::delayed::map(Idxs, [&] (int idx) {
     return std::make_pair(area(l, r, Points[idx]), idx);});
 
   // get the index of the point with maximum distance from l--r
-  auto mid_idx = parlay::reduce(Pairs, parlay::maxm<std::pair<double,int>>()).second;
+  auto mid_idx = parlay::reduce(Pairs, parlay::maximum<std::pair<double,int>>()).second;
   point mid = Points[mid_idx];
 
   // get points above the line l--P[mid_idx]
