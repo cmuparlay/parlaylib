@@ -74,7 +74,7 @@ edges generate_edges(long n) {
   auto E = parlay::delayed_tabulate(n*5, [&] (long i) {
       auto r = gen[i];
       return edge(dis(r), dis(r));});
-
+ 
   // remove self edges
   return parlay::filter(E, [] (edge e) {return e.first != e.second;});
 }
