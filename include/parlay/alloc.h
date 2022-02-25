@@ -10,15 +10,19 @@
 #include <new>
 #include <optional>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "parallel.h"
+#include "type_traits.h"  // IWYU pragma: keep
 #include "utilities.h"
 
 #include "internal/concurrent_stack.h"
 #include "internal/memory_size.h"
 #include "internal/block_allocator.h"
+
+// IWYU pragma: no_forward_declare is_trivially_relocatable
 
 namespace parlay {
 

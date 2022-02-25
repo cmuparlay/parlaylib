@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include <algorithm>
+#include <array>
 #include <iterator>
 #include <fstream>
 #include <string>

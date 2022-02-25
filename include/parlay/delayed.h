@@ -7,9 +7,6 @@
 #include <tuple>
 #include <utility>
 
-#include "delayed_sequence.h"
-#include "range.h"
-
 #include "internal/delayed/filter.h"
 #include "internal/delayed/filter_op.h"
 #include "internal/delayed/flatten.h"
@@ -17,6 +14,11 @@
 #include "internal/delayed/scan.h"
 #include "internal/delayed/terminal.h"
 #include "internal/delayed/zip.h"
+
+#include "internal/sequence_ops.h"
+
+#include "delayed_sequence.h"
+#include "range.h"
 
 namespace parlay {
 namespace delayed {

@@ -8,7 +8,6 @@
 #include <iostream>
 
 #include "delayed_sequence.h"
-#include "monoid.h"
 #include "parallel.h"
 #include "sequence.h"
 #include "slice.h"
