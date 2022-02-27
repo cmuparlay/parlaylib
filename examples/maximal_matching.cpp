@@ -36,10 +36,10 @@ parlay::sequence<edgeid> maximal_matching(edges const &E, long n) {
   auto reserve = [&] (edgeid i) {
     edgeid u = E[i].first;
     edgeid v = E[i].second;
-    if (matched[u] || matched[v] || (u == v)) return false;
+    if (matched[u] || matched[v] || (u == v)) return done;
     R[u].reserve(i);
     R[v].reserve(i);
-    return true;
+    return try_commit;
   };
 
   // checks if successfully reserved both endpoints
@@ -62,8 +62,6 @@ parlay::sequence<edgeid> maximal_matching(edges const &E, long n) {
   speculative_for<edgeid>(0, m, reserve, commit);
 
   // returns the edges that successfully committed (their reservation remains in R[v]).
-  //return parlay::pack(parlay::delayed_seq<edgeid>(n, [&] (size_t i) {return R[i].get();}),
-  //                    parlay::tabulate(n, [&] (size_t i) {return R[i].reserved();}));
   return parlay::pack(parlay::delayed::map(R, [&] (auto& r) {return r.get();}),
                       parlay::tabulate(n, [&] (size_t i) {return R[i].reserved();}));
 }

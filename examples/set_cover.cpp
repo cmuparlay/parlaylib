@@ -44,7 +44,7 @@ set_ids manis(const set_ids& Si, sets& S, elements& E, bool_seq& in_result,
 	   float low, float high) {
   auto reserve = [&] (idx i) {
     idx sid = Si[i];
-    if (S[sid].size() < high) return false;
+    if (S[sid].size() < high) return done;
     
     // keep just elements that are not covered
     S[sid] = parlay::filter(S[sid], [&] (idx e) {return E[e] > 0;});
@@ -52,8 +52,8 @@ set_ids manis(const set_ids& Si, sets& S, elements& E, bool_seq& in_result,
     // if enough elements remain then reserve them with priority i
     if (S[sid].size() >= high) {
       for (idx e : S[sid]) parlay::write_min(&E[e], i, std::less<idx>());
-      return true;
-    } else return false;
+      return try_commit;
+    } else return done;
   };
 
   auto commit = [&] (idx i) {

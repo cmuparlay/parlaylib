@@ -52,8 +52,8 @@ parlay::sequence<edge_id> min_spanning_forest(edges &E, long n) {
     if (u != v) {
       R[v].reserve(i);
       R[u].reserve(i);
-      return true;
-    } else return false;
+      return try_commit;
+    } else return done;
   };
 
   // Checks if successfully reserved on at least one endpoint.

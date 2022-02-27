@@ -60,10 +60,9 @@ long triangle_count(const Graph &G) {
 // **************************************************************
 
 // **************************************************************
-// Generate a random graph
+// Generate a random symmetric (undirected) graph
 // Has exponential degree distribution
 // **************************************************************
-
 Graph generate_graph(long n) {
   parlay::random_generator gen;
   std::exponential_distribution<float> exp_dis(.5);
