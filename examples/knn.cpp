@@ -291,8 +291,10 @@ int main(int argc, char* argv[]) {
       return pnt;
     });
     knn_graph r;
-    for (int i=0; i < 3; i++) {
+    parlay::internal::timer t;
+    for (int i=0; i < 10; i++) {
       r = build_knn_graph(points, k);
+      t.next("knn");
     }
     std::cout << k << " nearest neighbor graph for " << r.size()
               << " points" << std::endl;
