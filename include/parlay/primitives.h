@@ -10,10 +10,13 @@
 #include <atomic>
 #include <functional>
 #include <optional>
+#include <random>
 #include <type_traits>
 #include <utility>
 
+#include "internal/counting_sort.h"
 #include "internal/integer_sort.h"
+#include "internal/heap_tree.h"
 #include "internal/merge.h"
 #include "internal/merge_sort.h"
 #include "internal/sequence_ops.h"     // IWYU pragma: export
@@ -27,6 +30,7 @@
 #include "delayed_sequence.h"
 #include "monoid.h"                    // IWYU pragma: export
 #include "parallel.h"
+#include "random.h"
 #include "range.h"
 #include "sequence.h"
 #include "slice.h"
@@ -285,6 +289,8 @@ auto filter_into_uninitialized(R_in&& in, R_out&& out, UnaryPred&& f) {
 
 // TODO: nth element
 
+// TODO: partial sort? maybe
+
 /* ----------------------- Merging --------------------- */
 
 template<typename R1, typename R2, typename BinaryPred>
@@ -513,7 +519,6 @@ size_t find_if_index(size_t n, IntegerPred&& p, size_t granularity = 1000) {
 }
 
 }  // namespace internal
-
 
 /* -------------------- For each -------------------- */
 
@@ -1220,5 +1225,59 @@ auto rank(Range&& r, BinaryOperator&& compare = {}) {
 }  // namespace parlay
 
 #include "internal/group_by.h"            // IWYU pragma: export
+
+namespace parlay {
+
+template <typename Range, typename Compare = std::less<>>
+auto kth_smallest_copy(Range&& in, size_t k, Compare&& less = {}) {
+  static_assert(is_random_access_range_v<Range>);
+  static_assert(std::is_copy_constructible_v<range_value_type_t<Range>>);
+  static_assert(std::is_invocable_r_v<bool, Compare, range_reference_type_t<Range>, range_reference_type_t<Range>>);
+
+  size_t n = parlay::size(in);
+  if (n <= 1000) return parlay::sort(std::forward<Range>(in), std::forward<Compare>(less))[k];
+
+  auto it = std::begin(in);
+
+  // pick 31 pivots by randomly choosing 8 * 31 keys, sorting them,
+  // and taking every 8th key (i.e. oversampling)
+  int sample_size = 31;
+  int over = 8;
+  parlay::random_generator gen;
+  std::uniform_int_distribution<size_t> dis(0, n-1);
+  auto pivots = parlay::sort(parlay::tabulate(sample_size*over, [&] (size_t i) {
+    auto r = gen[i];
+    return it[dis(r)];
+  }));
+  pivots = parlay::tabulate(sample_size,[&] (size_t i) { return pivots[i*over]; });
+
+  // Determine which of the 32 buckets each key belongs in
+  internal::heap_tree ss(pivots);
+  auto ids = parlay::tabulate(n, [&] (long i) -> unsigned char {
+    return ss.rank(it[i], less);});
+
+  // Count how many in keys are each bucket
+  auto sums = parlay::histogram_by_index(ids, sample_size+1);
+
+  // find which bucket k belongs in, and pack the keys in that bucket into next
+  auto [offsets, total] = parlay::scan(sums);
+  auto id = std::upper_bound(offsets.begin(), offsets.end(), k) - offsets.begin() - 1;
+  auto next = parlay::pack(in, parlay::delayed_map(ids, [=] (auto b) {return b == id;}));
+
+  // recurse on much smaller set, adjusting k as needed
+  return kth_smallest_copy(next, k - offsets[id], less);
+}
+
+template <typename Range, typename Compare = std::less<>>
+auto kth_smallest(Range&& in, size_t k, Compare&& less = {}) {
+  static_assert(is_random_access_range_v<Range>);
+  static_assert(std::is_invocable_r_v<bool, Compare, range_reference_type_t<Range>, range_reference_type_t<Range>>);
+  auto iterators = parlay::tabulate(parlay::size(in), [it = std::begin(in)](size_t i) { return it + i; });
+  return kth_smallest_copy(iterators, k, [less = std::forward<Compare>(less)](auto&& it1, auto&& it2) {
+    return less(*it1, *it2);
+  });
+}
+
+}
 
 #endif  // PARLAY_PRIMITIVES_H_

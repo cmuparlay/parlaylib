@@ -48,7 +48,7 @@ namespace parlay {
 struct random_generator {
  public:
   using result_type = size_t;
-  random_generator(size_t seed) : state(seed) { }
+  explicit random_generator(size_t seed) : state(seed) { }
   random_generator() : state(0) { }
   void seed(result_type value = 0) { state = value; }
   result_type operator()() { return state = hash64(state); }

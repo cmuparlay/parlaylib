@@ -15,9 +15,8 @@
 // Uses a linear-work randomized algorithm
 // Fast in practice
 // **************************************************************
-template <typename Range,
-    typename Less = std::less<typename Range::value_type>>
-auto kth_smallest(Range in, long k, Less less = {}) {
+template <typename Range, typename Less = std::less<>>
+auto kth_smallest(Range&& in, long k, Less less = {}) {
   long n = in.size();
   if (n <= 1000) return parlay::sort(in,less)[k];
 

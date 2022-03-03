@@ -775,3 +775,31 @@ TEST(TestPrimitives, TestRank) {
     ASSERT_EQ(sr, ranks);
   }
 }
+
+TEST(TestPrimitives, TestKthSmallestCopy) {
+  std::default_random_engine eng{2022};
+  auto s = parlay::to_sequence(parlay::iota<size_t>(100000));
+  std::shuffle(s.begin(), s.end(), eng);
+
+  ASSERT_EQ(parlay::kth_smallest_copy(s, 0), 0);
+  ASSERT_EQ(parlay::kth_smallest_copy(s, 50000), 50000);
+  ASSERT_EQ(parlay::kth_smallest_copy(s, 99999), 99999);
+
+  for (size_t i = 7919; i < 100000; i+= 7907) {
+    ASSERT_EQ(parlay::kth_smallest_copy(s, i), i);
+  }
+}
+
+TEST(TestPrimitives, TestKthSmallest) {
+  std::default_random_engine eng{2022};
+  auto s = parlay::to_sequence(parlay::iota<size_t>(100000));
+  std::shuffle(s.begin(), s.end(), eng);
+
+  ASSERT_EQ(*parlay::kth_smallest(s, 0), 0);
+  ASSERT_EQ(*parlay::kth_smallest(s, 50000), 50000);
+  ASSERT_EQ(*parlay::kth_smallest(s, 99999), 99999);
+
+  for (size_t i = 7919; i < 100000; i+= 7907) {
+    ASSERT_EQ(*parlay::kth_smallest(s, i), i);
+  }
+}

@@ -8,8 +8,10 @@ configure_danalysis(
   FILES
     ${PARLAY_INCLUDE_DIR}/parlay/internal/block_delayed.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/collect_reduce.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/counting_sort.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/file_map.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/group_by.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/heap_tree.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/sequence_base.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/sequence_ops.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/stream_delayed.h
@@ -32,8 +34,8 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/primitives.h
     ${PARLAY_INCLUDE_DIR}/parlay/random.h
     ${PARLAY_INCLUDE_DIR}/parlay/range.h
-    ${PARLAY_INCLUDE_DIR}/parlay/sequence.h
     ${PARLAY_INCLUDE_DIR}/parlay/scheduler.h
+    ${PARLAY_INCLUDE_DIR}/parlay/sequence.h
     ${PARLAY_INCLUDE_DIR}/parlay/slice.h
     ${PARLAY_INCLUDE_DIR}/parlay/type_traits.h
     ${PARLAY_INCLUDE_DIR}/parlay/utilities.h
