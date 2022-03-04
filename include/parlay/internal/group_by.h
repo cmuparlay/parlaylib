@@ -58,7 +58,7 @@ auto group_by_key_ordered(Range&& S, Comp&& less) {
     assign_uninitialized(vals[i], sorted[i].second);
     return (i==0) || less(sorted[i-1].first, sorted[i].first);});
 
-  auto r = tabulate(idx.size(), [&] (size_t i) {
+  auto r = internal::tabulate(idx.size(), [&] (size_t i) {
     size_t start = idx[i];
     size_t end = ((i==idx.size()-1) ? n : idx[i+1]);
     return std::pair(std::move(sorted[idx[i]].first),

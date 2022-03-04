@@ -16,10 +16,11 @@
 
 #include "internal/counting_sort.h"
 #include "internal/integer_sort.h"
+#include "internal/group_by.h"            // IWYU pragma: export
 #include "internal/heap_tree.h"
 #include "internal/merge.h"
 #include "internal/merge_sort.h"
-#include "internal/sequence_ops.h"     // IWYU pragma: export
+#include "internal/sequence_ops.h"        // IWYU pragma: export
 #include "internal/sample_sort.h"
 
 #include "internal/delayed/filter_op.h"
@@ -28,7 +29,7 @@
 #include "internal/delayed/zip.h"
 
 #include "delayed_sequence.h"
-#include "monoid.h"                    // IWYU pragma: export
+#include "monoid.h"                       // IWYU pragma: export
 #include "parallel.h"
 #include "random.h"
 #include "range.h"
@@ -1222,12 +1223,6 @@ auto rank(Range&& r, BinaryOperator&& compare = {}) {
       std::forward<Range>(r), std::forward<BinaryOperator>(compare));
 }
 
-}  // namespace parlay
-
-#include "internal/group_by.h"            // IWYU pragma: export
-
-namespace parlay {
-
 template <typename Range, typename Compare = std::less<>>
 auto kth_smallest_copy(Range&& in, size_t k, Compare&& less = {}) {
   static_assert(is_random_access_range_v<Range>);
@@ -1278,6 +1273,6 @@ auto kth_smallest(Range&& in, size_t k, Compare&& less = {}) {
   });
 }
 
-}
+}  // namespace parlay
 
 #endif  // PARLAY_PRIMITIVES_H_
