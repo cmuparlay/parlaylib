@@ -2,17 +2,23 @@
 #ifndef PARLAY_COUNTING_SORT_H_
 #define PARLAY_COUNTING_SORT_H_
 
-#include <math.h>
-#include <stdio.h>
+#include <cassert>
 
-#include <chrono>
-#include <thread>
+#include <cstddef>
+#include <cstdint>
+#include <algorithm>
+#include <iterator>
+#include <limits>
+#include <type_traits>
+#include <utility>
 
 #include "sequence_ops.h"
-#include "transpose.h"
 #include "uninitialized_sequence.h"
-#include "get_time.h"
 
+#include "../monoid.h"
+#include "../parallel.h"
+#include "../sequence.h"
+#include "../slice.h"
 #include "../utilities.h"
 
 
@@ -113,7 +119,6 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                                               size_t num_buckets,
                                               float parallelism = 1.0,
                                               bool skip_if_in_one = false) {
-  timer t("count sort", false);
   using T = typename slice<InIterator, InIterator>::value_type;
   size_t n = In.size();
   size_t num_threads = num_workers();
@@ -149,7 +154,6 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                             counts.begin() + i * num_buckets, num_buckets);
                },
                1, is_nested);
-  t.next("first loop");
 
   auto bucket_offsets = sequence<size_t>::uninitialized(num_buckets + 1);
   parallel_for(0, num_buckets,
@@ -193,7 +197,6 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
 					    num_buckets);
                },
                1, is_nested);
-  t.next("last loop");
 
   return std::make_pair(std::move(bucket_offsets), false);
 }
@@ -202,7 +205,6 @@ template <typename InIterator, typename KeyIterator>
 auto group_by_small_int(slice<InIterator, InIterator> In,
 			slice<KeyIterator, KeyIterator> Keys,
 			size_t num_buckets) {
-  timer t("group by small int", false);
   using T = typename slice<InIterator, InIterator>::value_type;
   size_t n = In.size();
   using s_size_t = size_t;
@@ -243,7 +245,6 @@ auto group_by_small_int(slice<InIterator, InIterator> In,
                             counts.begin() + i * num_buckets, num_buckets);
                },
                1);
-  t.next("first loop");
 
   auto total_counts = sequence<size_t>::uninitialized(num_buckets);
   parallel_for(0, num_buckets, [&](size_t i) {
@@ -272,7 +273,6 @@ auto group_by_small_int(slice<InIterator, InIterator> In,
          dest_offsets.begin() + i * num_buckets,
          num_buckets);
   }, 1);
-  t.next("last loop");
 
   return results;
 }
@@ -306,8 +306,6 @@ auto count_sort(slice<InIterator, InIterator> In,
                              skip_if_in_one);
 }
 
-
-    
 template <typename InIterator, typename KeyS>
 auto count_sort(slice<InIterator, InIterator> In, KeyS const& Keys, size_t num_buckets) {
   using value_type = typename slice<InIterator, InIterator>::value_type;

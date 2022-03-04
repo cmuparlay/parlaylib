@@ -49,7 +49,7 @@ auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
   static_assert(is_random_access_range_v<R>);
   static_assert(std::is_invocable_v<UnaryOp, range_reference_type_t<R>>);
   static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, range_reference_type_t<R>>>);
-  return tabulate(parlay::size(r), [&f, it = std::begin(r)]
+  return tabulate(parlay::size(r), [f = std::forward<UnaryOp>(f), it = std::begin(r)]
       (size_t i) -> decltype(auto) { return f(it[i]); }, granularity);
 }
 

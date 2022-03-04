@@ -3,12 +3,12 @@
 #include <algorithm>
 #include <deque>
 #include <numeric>
+#include <random>
+#include <string>
 
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
-
-#include "sorting_utils.h"
 
 TEST(TestPrimitives, TestTabulate) {
   auto s = parlay::tabulate(100000, [](long long i) -> long long {
@@ -577,292 +577,6 @@ TEST(TestPrimitives, TestHistogramByIndex) {
   ASSERT_TRUE(std::equal(hist.begin(), hist.end(), cnts.begin()));
 }
 
-TEST(TestPrimitives, TestSort) {
-  auto s = parlay::tabulate(100000, [](long long i) -> long long {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  auto sorted = parlay::sort(s);
-  ASSERT_EQ(s.size(), sorted.size());
-  std::sort(std::begin(s), std::end(s));
-  ASSERT_EQ(s, sorted);
-  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
-}
-
-TEST(TestPrimitives, TestSortCustomCompare) {
-  auto s = parlay::tabulate(100000, [](long long i) -> long long {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  auto sorted = parlay::sort(s, std::greater<long long>());
-  ASSERT_EQ(s.size(), sorted.size());
-  std::sort(std::rbegin(s), std::rend(s));
-  ASSERT_EQ(s, sorted);
-  ASSERT_TRUE(std::is_sorted(std::rbegin(sorted), std::rend(sorted)));
-}
-
-TEST(TestPrimitives, TestStableSort) {
-  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
-    UnstablePair x;
-    x.x = (53 * i + 61) % (1 << 10);
-    x.y = i;
-    return x;
-  });
-  auto sorted = parlay::stable_sort(s);
-  ASSERT_EQ(s.size(), sorted.size());
-  std::stable_sort(std::begin(s), std::end(s));
-  ASSERT_EQ(s, sorted);
-  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
-}
-
-TEST(TestPrimitives, TestStableSortCustomCompare) {
-  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
-    UnstablePair x;
-    x.x = (53 * i + 61) % (1 << 10);
-    x.y = i;
-    return x;
-  });
-  auto sorted = parlay::stable_sort(s, std::greater<UnstablePair>());
-  ASSERT_EQ(s.size(), sorted.size());
-  std::stable_sort(std::rbegin(s), std::rend(s));
-  ASSERT_EQ(s, sorted);
-  ASSERT_TRUE(std::is_sorted(std::rbegin(sorted), std::rend(sorted)));
-}
-
-TEST(TestPrimitives, TestSortInplace) {
-  auto s = parlay::tabulate(100000, [](long long i) -> long long {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  auto s2 = s;
-  ASSERT_EQ(s, s2);
-  parlay::sort_inplace(s);
-  std::sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2); 
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
-}
-
-TEST(TestPrimitives, TestSortInplaceCustomCompare) {
-  auto s = parlay::tabulate(100000, [](long long i) -> long long {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  auto s2 = s;
-  ASSERT_EQ(s, s2);
-  parlay::sort_inplace(s, std::greater<long long>());
-  std::sort(std::rbegin(s2), std::rend(s2));
-  ASSERT_EQ(s, s2); 
-  ASSERT_TRUE(std::is_sorted(std::rbegin(s), std::rend(s)));
-}
-
-TEST(TestPrimitives, TestStableSortInplace) {
-  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
-    UnstablePair x;
-    x.x = (53 * i + 61) % (1 << 10);
-    x.y = i;
-    return x;
-  });
-  auto s2 = s;
-  ASSERT_EQ(s, s2);
-  parlay::stable_sort_inplace(s);
-  std::stable_sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2);
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
-}
-
-TEST(TestPrimitives, TestStableSortInplaceCustomCompare) {
-  auto s = parlay::tabulate(100000, [](int i) -> UnstablePair {
-    UnstablePair x;
-    x.x = (53 * i + 61) % (1 << 10);
-    x.y = i;
-    return x;
-  });
-  auto s2 = s;
-  ASSERT_EQ(s, s2);
-  parlay::stable_sort_inplace(s, std::greater<UnstablePair>());
-  std::stable_sort(std::rbegin(s2), std::rend(s2));
-  ASSERT_EQ(s, s2);
-  ASSERT_TRUE(std::is_sorted(std::rbegin(s), std::rend(s)));
-}
-
-TEST(TestPrimitives, TestSortInplaceUncopyable) {
-  auto s = parlay::tabulate(100000, [](int i) -> UncopyableThing {
-    return UncopyableThing(i);
-  });
-  auto s2 = parlay::tabulate(100000, [](int i) -> UncopyableThing {
-    return UncopyableThing(i);
-  });
-  ASSERT_EQ(s, s2);
-  parlay::sort_inplace(s, std::less<UncopyableThing>());
-  std::stable_sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2);
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s))); 
-}
-
-TEST(TestPrimitives, TestStableSortInplaceUncopyable) {
-  auto s = parlay::tabulate(100000, [](int i) -> UncopyableThing {
-    return UncopyableThing(i);
-  });
-  auto s2 = parlay::tabulate(100000, [](int i) -> UncopyableThing {
-    return UncopyableThing(i);
-  });
-  ASSERT_EQ(s, s2);
-  parlay::stable_sort_inplace(s, std::less<UncopyableThing>());
-  std::stable_sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2);
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s))); 
-}
-
-TEST(TestPrimitives, TestSortInplaceNonContiguous) {
-  auto ss = parlay::tabulate(100000, [](long long i) -> long long {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  auto s = std::deque<long long>(ss.begin(), ss.end());
-  auto s2 = s;
-  ASSERT_EQ(s, s2);
-  parlay::sort_inplace(s, std::less<long long>());
-  std::sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2); 
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
-}
-
-TEST(TestPrimitives, TestStableSortInplaceNonContiguous) {
-  auto ss = parlay::tabulate(100000, [](long long i) -> long long {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  auto s = std::deque<long long>(ss.begin(), ss.end());
-  auto s2 = s;
-  ASSERT_EQ(s, s2);
-  parlay::stable_sort_inplace(s, std::less<long long>());
-  std::sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2); 
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
-}
-
-TEST(TestPrimitives, TestIntegerSort) {
-  auto s = parlay::tabulate(100000, [](unsigned long long i) -> unsigned long long {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  auto sorted = parlay::integer_sort(s);
-  ASSERT_EQ(s.size(), sorted.size());
-  std::sort(std::begin(s), std::end(s));
-  ASSERT_EQ(s, sorted);
-  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
-}
-
-TEST(TestPrimitives, TestIntegerSortInplace) {
-  auto s = parlay::tabulate(100000, [](unsigned long long i) -> unsigned long long {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  auto s2 = s;
-  ASSERT_EQ(s, s2);
-  parlay::integer_sort_inplace(s);
-  std::sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2); 
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
-}
-
-TEST(TestPrimitives, TestIntegerSortCustomKey) {
-  auto s = parlay::tabulate(100000, [](unsigned int i) -> UnstablePair {
-    UnstablePair x;
-    x.x = (53 * i + 61) % (1 << 10);
-    x.y = 0;
-    return x;
-  });
-  auto sorted = parlay::integer_sort(s, [](const auto& x) -> unsigned long long {
-    return x.x;
-  });
-  ASSERT_EQ(s.size(), sorted.size());
-  std::stable_sort(std::begin(s), std::end(s));
-  ASSERT_EQ(s, sorted);
-  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
-}
-
-TEST(TestPrimitives, TestStableIntegerSort) {
-  auto s = parlay::tabulate(1000000, [](unsigned int i) {
-    return std::make_pair(i % 10, i);
-  });
-  auto sorted = parlay::stable_integer_sort(s, [](const auto& p) { return p.first; });
-  ASSERT_EQ(sorted.size(), s.size());
-  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
-}
-
-TEST(TestPrimitives, TestIntegerSortInplaceCustomKey) {
-  auto s = parlay::tabulate(100000, [](unsigned int i) -> UnstablePair {
-    UnstablePair x;
-    x.x = (53 * i + 61) % (1 << 10);
-    x.y = 0;
-    return x;
-  });
-  auto s2 = s;
-  ASSERT_EQ(s, s2);
-  parlay::integer_sort_inplace(s, [](const auto& x) -> unsigned long long {
-    return x.x;
-  });
-  std::stable_sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2);
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
-}
-
-TEST(TestPrimitives, TestStableIntegerSortInplace) {
-  auto s = parlay::tabulate(1000000, [](unsigned int i) {
-    return std::make_pair(i % 10, i);
-  });
-  parlay::stable_integer_sort_inplace(s, [](const auto& p) { return p.first; });
-  ASSERT_EQ(s.size(), 1000000);
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
-}
-
-TEST(TestPrimitives, TestIntegerSortInplaceUncopyable) {
-  auto s = parlay::tabulate(100000, [](unsigned int i) -> UncopyableThing {
-    return UncopyableThing(100000-i);
-  });
-  auto s2 = parlay::tabulate(100000, [](unsigned int i) -> UncopyableThing {
-    return UncopyableThing(100000-i);
-  });
-  ASSERT_EQ(s, s2);
-  parlay::integer_sort_inplace(s, [](const auto& a) -> unsigned int { return a.x; });
-  std::sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2);
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s))); 
-}
-
-TEST(TestPrimitives, TestStableIntegerSortInplaceUncopyable) {
-  auto s = parlay::tabulate(100000, [](unsigned int i) -> UncopyableThing {
-    return UncopyableThing(100000-i);
-  });
-  auto s2 = parlay::tabulate(100000, [](unsigned int i) -> UncopyableThing {
-    return UncopyableThing(100000-i);
-  });
-  ASSERT_EQ(s, s2);
-  parlay::stable_integer_sort_inplace(s, [](const auto& a) -> unsigned int { return a.x; });
-  std::sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2);
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
-}
-
-TEST(TestPrimitives, TestIntegerSortInplaceNonContiguous) {
-  auto ss = parlay::tabulate(100000, [](unsigned long long i) {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  auto s = std::deque<unsigned long long>(ss.begin(), ss.end());
-  auto s2 = s;
-  ASSERT_EQ(s, s2);
-  parlay::integer_sort_inplace(s);
-  std::sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2); 
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
-}
-
-TEST(TestPrimitives, TestStableIntegerSortInplaceNonContiguous) {
-  auto ss = parlay::tabulate(100000, [](unsigned long long i) {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  auto s = std::deque<unsigned long long>(ss.begin(), ss.end());
-  auto s2 = s;
-  ASSERT_EQ(s, s2);
-  parlay::stable_integer_sort_inplace(s, [](auto x) { return x; });
-  std::sort(std::begin(s2), std::end(s2));
-  ASSERT_EQ(s, s2);
-  ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
-}
-
 TEST(TestPrimitives, TestFlatten) {
   auto seqs = parlay::tabulate(100, [](size_t i) {
     return parlay::tabulate(1000, [i](size_t j) {
@@ -1019,5 +733,73 @@ TEST(TestPrimitives, TestZip) {
 
   for (auto [x,y] : zipped) {
     ASSERT_EQ(y, x+1);
+  }
+}
+
+TEST(TestPrimitives, TestRank) {
+  std::default_random_engine eng{2022};
+
+  {
+    // Rank of iota should be itself
+    auto s = parlay::to_sequence(parlay::iota<size_t>(100000));
+    auto sr = parlay::rank(s);
+    ASSERT_EQ(s, sr);
+  }
+
+  {
+    // Rank of a shuffled iota should be itself
+    auto s = parlay::to_sequence(parlay::iota<size_t>(100000));
+    std::shuffle(s.begin(), s.end(), eng);
+    auto sr = parlay::rank(s);
+    ASSERT_EQ(s, sr);
+  }
+
+  {
+    auto s = parlay::tabulate(100000, [](size_t i) { return std::make_pair(std::to_string(i), i); });
+    std::sort(s.begin(), s.end());
+    for (size_t i = 0; i < s.size(); i++) {
+      s[i].second = i;
+    }
+    std::shuffle(s.begin(), s.end(), eng);
+    auto sr = parlay::rank(s);
+    for (size_t i = 0; i < s.size(); i++) {
+      ASSERT_EQ(sr[i], s[i].second);
+    }
+  }
+
+  {
+    // Check for stability
+    parlay::sequence<int> s = {0, 1, 0, 1, 2, 3, 2, 3, 4, 5, 4, 5, 6, 7, 6, 7, 8, 9, 8, 9};
+    parlay::sequence<size_t> ranks = {0, 2, 1, 3, 4, 6, 5, 7, 8, 10, 9, 11, 12, 14, 13, 15, 16, 18, 17, 19};
+    auto sr = parlay::rank(s);
+    ASSERT_EQ(sr, ranks);
+  }
+}
+
+TEST(TestPrimitives, TestKthSmallestCopy) {
+  std::default_random_engine eng{2022};
+  auto s = parlay::to_sequence(parlay::iota<size_t>(100000));
+  std::shuffle(s.begin(), s.end(), eng);
+
+  ASSERT_EQ(parlay::kth_smallest_copy(s, 0), 0);
+  ASSERT_EQ(parlay::kth_smallest_copy(s, 50000), 50000);
+  ASSERT_EQ(parlay::kth_smallest_copy(s, 99999), 99999);
+
+  for (size_t i = 7919; i < 100000; i+= 7907) {
+    ASSERT_EQ(parlay::kth_smallest_copy(s, i), i);
+  }
+}
+
+TEST(TestPrimitives, TestKthSmallest) {
+  std::default_random_engine eng{2022};
+  auto s = parlay::to_sequence(parlay::iota<size_t>(100000));
+  std::shuffle(s.begin(), s.end(), eng);
+
+  ASSERT_EQ(*parlay::kth_smallest(s, 0), 0);
+  ASSERT_EQ(*parlay::kth_smallest(s, 50000), 50000);
+  ASSERT_EQ(*parlay::kth_smallest(s, 99999), 99999);
+
+  for (size_t i = 7919; i < 100000; i+= 7907) {
+    ASSERT_EQ(*parlay::kth_smallest(s, i), i);
   }
 }

@@ -32,6 +32,7 @@
 #include "range.h"
 #include "slice.h"
 #include "type_traits.h"      // IWYU pragma: keep  // for is_trivially_relocatable
+#include "utilities.h"
 
 #include "internal/sequence_base.h"
 
@@ -792,7 +793,7 @@ struct hash<parlay::sequence<T, Allocator, EnableSSO>> {
   std::size_t operator()(parlay::sequence<T, Allocator, EnableSSO> const& s) const noexcept {
     size_t hash = 5381;
       for (size_t i = 0; i < s.size(); i++) {
-        hash = ((hash << 5) + hash) + std::hash<T>{}(s[i]);
+        hash = ((hash << 5) + hash) + parlay::hash<T>{}(s[i]);
       }
       return hash;
   }

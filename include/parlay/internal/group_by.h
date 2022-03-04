@@ -6,7 +6,7 @@
 #include <functional>
 #include <utility>
 
-#include "../primitives.h"
+#include "../monoid.h"
 #include "../range.h"
 #include "../sequence.h"
 #include "../slice.h"
@@ -15,6 +15,9 @@
 #include "block_delayed.h"
 #include "collect_reduce.h"
 #include "counting_sort.h"
+#include "integer_sort.h"
+#include "sample_sort.h"
+#include "sequence_ops.h"
 
 namespace parlay {
 
@@ -41,20 +44,21 @@ auto group_by_key_ordered(Range&& S, Comp&& less) {
   if constexpr(std::is_integral_v<K> && std::is_unsigned_v<K> && sizeof(KV) <= 16) {
     auto get_first = [] (auto&& a) -> decltype(auto) {
       return std::forward<decltype(a)>(a).first; };
-    sorted = parlay::integer_sort(make_slice(S), get_first);
+    sorted = internal::integer_sort(make_slice(S), get_first);
   } else {
     auto pair_less = [&] (auto&& a, auto&& b) {
       return less(std::forward<decltype(a)>(a).first, std::forward<decltype(b)>(b).first);};
-    sorted = parlay::stable_sort(make_slice(S), pair_less);
+    sorted = internal::sample_sort(make_slice(S), pair_less, true);
   }
 
   auto vals = sequence<V>::uninitialized(n);
 
-  auto idx = block_delayed::filter(iota(n), [&] (size_t i) {
+  auto ids = internal::delayed_tabulate(n, [](size_t i) { return i; });
+  auto idx = block_delayed::filter(ids, [&] (size_t i) {
     assign_uninitialized(vals[i], sorted[i].second);
     return (i==0) || less(sorted[i-1].first, sorted[i].first);});
 
-  auto r = tabulate(idx.size(), [&] (size_t i) {
+  auto r = internal::tabulate(idx.size(), [&] (size_t i) {
     size_t start = idx[i];
     size_t end = ((i==idx.size()-1) ? n : idx[i+1]);
     return std::pair(std::move(sorted[idx[i]].first),
@@ -262,7 +266,7 @@ auto remove_duplicate_integers(R&& A, Integer_t max_value) {
       d = true;}
   };
   auto flags = internal::collect_reduce(A, helper(), max_value);
-  return pack(iota<Integer_t>(max_value), flags);
+  return pack(delayed_tabulate(max_value, [&] (Integer_t i) {return i;}), flags);
 }
 
 template <typename Integer_t, typename R>
