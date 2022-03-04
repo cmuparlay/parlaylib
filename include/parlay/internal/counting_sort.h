@@ -208,9 +208,29 @@ auto group_by_small_int(slice<InIterator, InIterator> In,
   using s_size_t = size_t;
 
   size_t num_blocks = 1 + n * sizeof(T) / std::max<size_t>(num_buckets * 500, 5000);
-  
   size_t block_size = ((n - 1) / num_blocks) + 1;
   size_t m = num_blocks * num_buckets;
+
+  if (num_buckets == 2) {
+    sequence<size_t> Sums(num_blocks);
+    sliced_for(n, block_size, [&](size_t i, size_t s, size_t e) {
+	size_t c = 0;
+	for (size_t j = s; j < e; j++) c += (Keys[j] == 0);
+	Sums[i] = c; });
+    size_t m = scan_inplace(make_slice(Sums), plus<size_t>());
+    auto r0 = sequence<T>::uninitialized(m);
+    auto r1 = sequence<T>::uninitialized(n-m);
+    sliced_for(n, block_size, [&](size_t i, size_t s, size_t e) {
+	size_t c0 = Sums[i];
+	size_t c1 = s - c0;
+	for (size_t j = s; j < e; j++) {
+	  if (Keys[j] == 0)
+	    assign_uninitialized(r0[c0++], In[j]);
+	  else
+	    assign_uninitialized(r1[c1++], In[j]);
+	}});
+    return parlay::sequence<sequence<T>>{std::move(r0), std::move(r1)};
+  }
 
   auto counts = sequence<s_size_t>::uninitialized(m);
 
@@ -225,14 +245,14 @@ auto group_by_small_int(slice<InIterator, InIterator> In,
                1);
   t.next("first loop");
 
-  auto total_counts = sequence<size_t>::uninitialized(num_buckets + 1);
+  auto total_counts = sequence<size_t>::uninitialized(num_buckets);
   parallel_for(0, num_buckets, [&](size_t i) {
     size_t v = 0;
     for (size_t j = 0; j < num_blocks; j++)
       v += counts[j * num_buckets + i];
     total_counts[i] = v;
   }, 1 + 1024 / num_blocks);
-  total_counts[num_buckets] = 0;
+  //total_counts[num_buckets] = 0;
 
   auto dest_offsets = sequence<T*>::uninitialized(num_blocks * num_buckets);
   auto results = map(total_counts, [](size_t cnt) { return sequence<T>::uninitialized(cnt); });

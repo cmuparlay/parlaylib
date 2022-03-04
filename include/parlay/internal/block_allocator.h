@@ -109,7 +109,7 @@ public:
     parallel_for(0, num_lists, [&] (size_t i) {
       block_p offset = reinterpret_cast<block_p>(start + i * list_length * block_size_);
       global_stack.push(initialize_list(offset));
-   });
+      },1,true);
   }
 
   void print_stats() {
