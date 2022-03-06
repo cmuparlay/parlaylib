@@ -266,7 +266,8 @@ auto remove_duplicate_integers(R&& A, Integer_t max_value) {
       d = true;}
   };
   auto flags = internal::collect_reduce(A, helper(), max_value);
-  return pack(delayed_tabulate(max_value, [&] (Integer_t i) {return i;}), flags);
+  auto ids = internal::delayed_tabulate(max_value, [](size_t i) -> Integer_t { return i; });
+  return internal::pack(make_slice(ids), make_slice(flags));
 }
 
 template <typename Integer_t, typename R>

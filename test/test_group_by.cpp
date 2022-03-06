@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include <parlay/primitives.h>
+
 #include <parlay/internal/group_by.h>
 
 #include "sorting_utils.h"
