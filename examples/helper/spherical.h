@@ -1,5 +1,6 @@
 // The following code was addapted from the PetFMM code.
 // It lives under he Gnu general public license
+// Supports various operarions on spherical harmonic multipole expansions. 
 
 #ifndef included_Transform_SphericalHarmonic_hh
 #define included_Transform_SphericalHarmonic_hh

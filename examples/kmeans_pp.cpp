@@ -14,6 +14,10 @@
 // Kmeans using kmeans++ algorithm
 // The kmeans++ algorithm is Lloyd's iterative algorithm
 // but seeded carefully with points that are spread out.
+// From the paper:
+//    k-means++: The Advantages of Careful Seeding
+//    David Arthur and Sergei Vassilvitskii
+//    SODA 2007
 // **************************************************************
 
 // **************************************************************
@@ -24,7 +28,7 @@ using Point = parlay::sequence<double>;
 using Points = parlay::sequence<Point>;
 
 // the 100 in the following two is for granularity control
-// i.e. if the the number of dimensions is less than 100, run sequentially
+// i.e. if the number of dimensions is less than 100, run sequentially
 Point operator/(const Point& a, const double b) {
   return parlay::map(a, [=] (double v) {return v/b;}, 100);}
 
@@ -39,7 +43,6 @@ long closest_point(const Point& p, const Points& kpts, D& distance) {
   return min_element(a) - a.begin();
 }
 
-// a monoid is an associative "sum" function along with an identity
 auto addpair = [] (const std::pair<Point,long> &a,
                    const std::pair<Point,long> &b) {
   return std::pair(a.first + b.first, a.second + b.second);};

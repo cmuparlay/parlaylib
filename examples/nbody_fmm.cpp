@@ -23,19 +23,20 @@ using parlay::sequence;
 // For bodies experiencing gravitational or electrostatic forces it,
 // calculates the forces for each of n-bodies on each other.
 // Naively this would take n^2 work, but CK algorithms runs in O(n log n)
-// work to build a tree with small constant, and O(n) work for the
+// work to build a tree with a small constant, and O(n) work for the
 // potential (force) calculations, with a significantly larger constant.
 // 
-// It uses similar ideas to the Greengard-Rothkin FMM method but is
-// more flexible for umbalanced trees.  As with FMM it uses
-// "Multipole" (or "exterior") and "Local" (or "interior") expansion on
-// the potential fields.  For the expansions it uses a modified
-// version of the multipole translation code from the PETFMM library
-// using spherical harmonics.  The translations are implemented in
-// spherical.h and can be changed for any other representation that
-// supports the public interface of the transform structure.
+// It uses similar ideas to Greengard and Rothkin's Fast Multipole
+// Method (FMM) but is more flexible for unbalanced trees.  As with
+// FMM it uses "Multipole" (or "exterior") and "Local" (or "interior")
+// expansion on the potential fields.  For the expansions it uses a
+// modified version of the multipole translation code from the PETFMM
+// library using spherical harmonics.  The translations are
+// implemented in spherical.h and can be changed for any other
+// representation that supports the public interface of the
+// exterior_multipole and interior_mutipole structures.
 //
-// Similarly to most FMM-based codes it works in the following steps
+// Similarly to many FMM-based codes it works in the following steps
 //   1) build the CK tree recursively (similar to a k-d tree)
 //   2) calculate multipole expansions going up the tree
 //   3) figure out all far-field interactions using the CK method
@@ -56,22 +57,22 @@ using parlay::sequence;
 //      this also slightly affects accuracy (smaller is better)
 // **************************************************************
 
-// Following for 1e-3 accuracy
+// Following for 1e-3 rms accuracy
 //#define ALPHA 2.2
 //#define terms 7
-//#define BOXSIZE 150
+//#define BOXSIZE 125
 
-// Following for 1e-6 accuracy (2.5x slower than above)
-#define ALPHA 2.65
+// Following for 1e-6 rms accuracy (2.5x slower than above)
+#define ALPHA 2.6
 #define terms 12  
-#define BOXSIZE 300
+#define BOXSIZE 250
 
-// Following for 1e-9 accuracy (2.2x slower than above)
+// Following for 1e-9 rms accuracy (2.2x slower than above)
 // #define ALPHA 3.0
 // #define terms 17
-// #define BOXSIZE 550
+// #define BOXSIZE 500
 
-// Following for 1e-12 accuracy (1.8x slower than above)
+// Following for 1e-12 rms  accuracy (1.8x slower than above)
 //#define ALPHA 3.2
 //#define terms 22
 //#define BOXSIZE 700
@@ -115,7 +116,7 @@ using transform = Transform<vect3d,terms>;
 transform* TRglobal = new transform();
 
 // *************************************************************
-//  Exterior multipole expansions (also just multipole expansions)
+//  Exterior multipole expansions
 //  To approximate the potential at points far from a center
 //  due to points near the center.
 // *************************************************************
@@ -127,7 +128,8 @@ struct exterior_expansion {
   void addTo(point3d pt, double mass) {
     TR->P2Madd(coefficients, mass, center, pt); }
 
-  // translate and add up the tree
+  // Add in another exterior expansion.
+  // Used going up the tree to accumuate contributions from children.
   void addTo(exterior_expansion* y) {
     TR->M2Madd(coefficients, center, y->coefficients, y->center);}
   
@@ -147,11 +149,12 @@ struct interior_expansion {
   transform* TR;
   std::complex<double> coefficients[terms*terms];
   point3d center;
-  // translate from exterior in far box to interior here
+  // translate from exterior in far box and add to interior here
   void addTo(exterior_expansion* y) {
     TR->M2Ladd(coefficients, center, y->coefficients, y->center);}
 
-  // translate interior expansion down the tree
+  // Add in another interior expansion with a different center.
+  // Uses going down the tree to include contributions from parent.
   void addTo(interior_expansion* y) {
     TR->L2Ladd(coefficients, center, y->coefficients, y->center); }
 
@@ -174,7 +177,7 @@ parlay::type_allocator<interior_expansion> interior_pool;
 //  A node in the CK tree
 //  Either a leaf (if children are null) or internal node.
 //  If a leaf, will contains a set of particles.
-//  If an internal node, contains a left and right child.
+//  If an internal node, contains a left and a right child.
 //  All nodes contain exterior and interior expansions.
 //  The leftNeighbors and rightNeighbors contain edges in the CK
 //  well separated decomposition.
@@ -264,12 +267,13 @@ node* build_tree(Particles& particles, size_t effective_size) {
   particles.clear();
 
   auto r = parlay::map(foo, [&] (auto& x) {
-      return build_tree(x, .35 * en);}, 1);
+      return build_tree(x, .4 * en);}, 1);
   return node_pool.allocate(r[0], r[1], n, b);
 }
 
 // *************************************************************
-//  Determine if a point is far enough to use approximation.
+// Determine if two nodes (boxes) are separated enough to use
+// the multipole approximation.
 // *************************************************************
 bool far(node* a, node* b) {
   double rmax = std::max(a->radius(), b->radius());
@@ -278,7 +282,7 @@ bool far(node* a, node* b) {
 }
 
 // *************************************************************
-// Used to count the number of interactions, just for performance
+// Used to count the number of interactions. Just for performance
 // statistics not needed for correctness.
 // *************************************************************
 struct interactions_count {
@@ -393,10 +397,10 @@ size_t get_leaves(node* tr, node** Leaves) {
 }
 
 // *************************************************************
-// Calculates the direct forces between all pairs of particles in two nodes.
-// Directly updates forces in Left, and places forces for ngh in hold
-// This avoid a race condition on modifying ngh while someone else is
-// updating it.
+// Calculates the direct forces between all pairs of particles in two
+// near-field leaf nodes.  Directly updates forces in Left, and places
+// forces for ngh in hold.  This avoids a race condition on modifying
+// ngh while someone else is updating it.
 // *************************************************************
 auto direct(node* Left, node* ngh) {
   auto LP = (Left->particles).data();
@@ -471,16 +475,15 @@ void do_direct(node* a) {
 }
 
 // *************************************************************
-// STEP
-// takes one step and places forces in particles[i]->force
+// Calculates forces, placing them in particles[i].force
 // *************************************************************
-void forces(sequence<particle*> &particles, double alpha) {
+void forces(sequence<particle> &particles, double alpha) {
   parlay::internal::timer t("Time");
   TRglobal->precompute();
-  sequence<particle*> part_copy = particles;
 
   // build the CK tree
-  node* a = build_tree(part_copy, 0);
+  auto part_ptr = parlay::map(particles, [] (particle& p) {return &p;});
+  node* a = build_tree(part_ptr, 0);
   t.next("build tree");
 
   // Sweep up the tree calculating multipole expansions for each node
@@ -512,21 +515,24 @@ void forces(sequence<particle*> &particles, double alpha) {
 // Driver code
 // **************************************************************
 
-// checks 200 randomly selected points for accuracy
-void check_accuracy(sequence<particle*> const &p) {
+// checks 500 randomly selected points for accuracy
+void check_accuracy(sequence<particle>& p) {
   size_t n = p.size();
-  size_t nCheck = std::min<size_t>(n, 200);
-  
+  size_t nCheck = std::min<size_t>(n, 500);
+  parlay::random_generator gen(123);
+  std::uniform_int_distribution<long> dis(0, n-1);
+    
   auto errors = parlay::tabulate(nCheck, [&] (size_t i) {
-    size_t idx = parlay::hash64(i)%n;
-    vect3d force;
-    for (size_t j=0; j < n; j++)
-      if (idx != j) {
-	vect3d v = (p[j]->pt) - (p[idx]->pt);
-	double r2 = v.length_squared();
-	force = force + (v * (p[j]->mass * p[idx]->mass / (r2*sqrt(r2))));
-      }
-    return (force - p[idx]->force).length()/force.length();});
+      auto r = gen[i];
+      size_t idx = dis(r);
+      vect3d force;
+      for (size_t j=0; j < n; j++)
+	if (idx != j) {
+	  vect3d v = (p[j].pt) - (p[idx].pt);
+	  double r = v.length();
+	  force = force + (v * (p[j].mass * p[idx].mass / (r*r*r)));
+	}
+      return (force - p[idx].force).length()/force.length();});
 
   double rms_error = sqrt(parlay::reduce(parlay::map(errors, [] (auto x) {return x*x;}))/nCheck);
   double max_error = parlay::reduce(errors, parlay::maximum<double>());
@@ -541,21 +547,23 @@ int main(int argc, char* argv[]) {
     long n;
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
-    parlay::random_generator gen(0);
-    std::uniform_real_distribution<> dis(-1.0,1.0);
 
-    // generate n random particles in a unit square with mass from 0 to 1
+    // generate n random particles in a square around the origin with
+    // random masses from 0 to 1.
+    parlay::random_generator gen(0);
+    std::uniform_real_distribution<> box_dis(-1.0,1.0);
+    std::uniform_real_distribution<> mass_dis(0.0,1.0);
     auto particles = parlay::tabulate(n, [&] (long i) {
       auto r = gen[i];
-      return particle{point3d{dis(r), dis(r), dis(r)}, 1.0, vect3d()};});
-    auto pp = parlay::map(particles, [] (particle& p) {return &p;});
+      point3d pt{box_dis(r), box_dis(r), box_dis(r)};
+      return particle{pt, mass_dis(r), vect3d()};});
 
     parlay::internal::timer t("Time");
     for (int i=0; i < 1; i++) {
-      forces(pp, ALPHA);
+      forces(particles, ALPHA);
       t.next("TOTAL");
     }
-    check_accuracy(pp);
+    check_accuracy(particles);
   }
 }
 
