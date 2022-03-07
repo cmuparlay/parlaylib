@@ -9,6 +9,7 @@
 #include <parlay/internal/get_time.h>
 
 #include "helper/spherical.h"
+
 using parlay::sequence;
 
 // **************************************************************
@@ -64,7 +65,7 @@ using parlay::sequence;
 
 // Following for 1e-6 rms accuracy (2.5x slower than above)
 #define ALPHA 2.6
-#define terms 12  
+#define terms 12
 #define BOXSIZE 250
 
 // Following for 1e-9 rms accuracy (2.2x slower than above)
@@ -105,7 +106,7 @@ using point3d = vect3d;
 using box = std::pair<point3d,point3d>;
 
 class particle {
-public:
+ public:
   point3d pt;
   double mass;
   vect3d force;
@@ -113,7 +114,11 @@ public:
 
 // Set global constants for spherical harmonics
 using transform = Transform<vect3d,terms>;
-transform* TRglobal = new transform();
+
+transform* get_global_transform() {
+  static transform TRglobal;
+  return &TRglobal;
+}
 
 // *************************************************************
 //  Exterior multipole expansions
@@ -132,7 +137,7 @@ struct exterior_expansion {
   // Used going up the tree to accumuate contributions from children.
   void addTo(exterior_expansion* y) {
     TR->M2Madd(coefficients, center, y->coefficients, y->center);}
-  
+
   exterior_expansion(transform* TR, point3d center) : TR(TR), center(center) {
     for (size_t i=0; i < terms*terms; i++) coefficients[i] = 0.0; }
   exterior_expansion() {}
@@ -165,7 +170,7 @@ struct interior_expansion {
     TR->L2P(potential, result, y, coefficients, center);
     return result * mass;
   }
-  
+
   interior_expansion(transform* TR, point3d center) : TR(TR), center(center) {
     for (size_t i=0; i < terms*terms; i++) coefficients[i] = 0.0; }
   interior_expansion() {}
@@ -203,18 +208,18 @@ struct node {
   double radius() { return (b.second - b.first).length() * 0.5;}
   double lmax() { return (b.second-b.first).max_coord();}
   void allocateExpansions() {
-    ExtExp = exterior_pool.allocate(TRglobal, center());
-    IntExp = interior_pool.allocate(TRglobal, center());
+    ExtExp = exterior_pool.allocate(get_global_transform(), center());
+    IntExp = interior_pool.allocate(get_global_transform(), center());
   }
   node(node* L, node* R, size_t n, box b)
-    : left(L), right(R), n(n), b(b) {
+      : left(L), right(R), n(n), b(b) {
     allocateExpansions();
   }
-  node(parlay::sequence<particle*> P, box b) 
-    : left(NULL), right(NULL), particles(std::move(P)), b(b) {
+  node(parlay::sequence<particle*> P, box b)
+      : left(NULL), right(NULL), particles(std::move(P)), b(b) {
     n = particles.size();
     particles_d = parlay::map(particles, [] (auto p) {
-	return std::pair{p->pt,p->mass};});
+      return std::pair{p->pt,p->mass};});
     allocateExpansions();
   }
 };
@@ -240,16 +245,16 @@ node* build_tree(Particles& particles, size_t effective_size) {
 
   auto minmax = [] (box a, box b) {
     return box((a.first).min(b.first),
-	       (a.second).max(b.second));};
+               (a.second).max(b.second));};
   auto pairs = parlay::delayed_map(particles, [&] (particle* p) {
-      return box(p->pt, p->pt);});
+    return box(p->pt, p->pt);});
   box b = parlay::reduce(pairs, parlay::make_monoid(minmax,pairs[0]));
-										      
-  if (en < BOXSIZE || n < 10) 
+
+  if (en < BOXSIZE || n < 10)
     return node_pool.allocate(parlay::to_sequence(particles), b);
 
   vect3d box_dims = (b.second - b.first);
-	   
+
   int d = 0;
   coord Delta = 0.0;
   for (int i=0; i < 3; i++) {
@@ -258,16 +263,16 @@ node* build_tree(Particles& particles, size_t effective_size) {
       Delta = b.second[i] - b.first[i];
     }
   }
-  
+
   double splitpoint = (b.first[d] + b.second[d])/2.0;
 
   auto isLeft = parlay::delayed_map(particles, [&] (particle* p) {
-      return std::pair(p->pt[d] < splitpoint, p);});
+    return std::pair(p->pt[d] < splitpoint, p);});
   auto foo = parlay::group_by_index(isLeft, 2);
   particles.clear();
 
   auto r = parlay::map(foo, [&] (auto& x) {
-      return build_tree(x, .4 * en);}, 1);
+    return build_tree(x, .4 * en);}, 1);
   return node_pool.allocate(r[0], r[1], n, b);
 }
 
@@ -275,7 +280,7 @@ node* build_tree(Particles& particles, size_t effective_size) {
 // Determine if two nodes (boxes) are separated enough to use
 // the multipole approximation.
 // *************************************************************
-bool far(node* a, node* b) {
+bool far_away(node* a, node* b) {
   double rmax = std::max(a->radius(), b->radius());
   double r = (a->center() - b->center()).length();
   return r >= (ALPHA * rmax);
@@ -299,9 +304,9 @@ struct interactions_count {
 // They calculate the "well separated decomposition" of the points.
 // *************************************************************
 interactions_count interactions(node* Left, node* Right) {
-  if (far(Left,Right)) {
-    Left->indirectNeighbors.push_back(Right); 
-    Right->indirectNeighbors.push_back(Left); 
+  if (far_away(Left,Right)) {
+    Left->indirectNeighbors.push_back(Right);
+    Right->indirectNeighbors.push_back(Left);
     return interactions_count(0,2);
   } else {
     if (!Left->leaf() && (Left->lmax() >= Right->lmax() || Right->leaf())) {
@@ -316,7 +321,7 @@ interactions_count interactions(node* Left, node* Right) {
       if (Right->n > Left->n) std::swap(Right,Left);
       size_t rn = Right->leftNeighbors.size();
       size_t ln = Left->rightNeighbors.size();
-      Right->leftNeighbors.push_back(edge(Left,ln)); 
+      Right->leftNeighbors.push_back(edge(Left,ln));
       Left->rightNeighbors.push_back(edge(Right,rn));
       return interactions_count(Right->n*Left->n,0);
     }
@@ -327,7 +332,7 @@ interactions_count interactions(node* Left, node* Right) {
 // Currently not a bottleneck so left serial.
 interactions_count interactions(node* tr) {
   if (!tr->leaf()) {
-    interactions_count x, y, z; 
+    interactions_count x, y, z;
     x = interactions(tr->left);
     y = interactions(tr->right);
     z = interactions(tr->left,tr->right);
@@ -340,11 +345,11 @@ interactions_count interactions(node* tr) {
 // expansion along all far-field interactions.
 // *************************************************************
 void do_indirect(node* tr) {
-  for (size_t i = 0; i < tr->indirectNeighbors.size(); i++) 
+  for (size_t i = 0; i < tr->indirectNeighbors.size(); i++)
     tr->IntExp->addTo(tr->indirectNeighbors[i]->ExtExp);
   if (!tr->leaf()) {
     parlay::par_do([&] () {do_indirect(tr->left);},
-		   [&] () {do_indirect(tr->right);});
+                   [&] () {do_indirect(tr->right);});
   }
 }
 
@@ -360,7 +365,7 @@ void up_sweep(node* tr) {
     }
   } else {
     parlay::par_do([&] () {up_sweep(tr->left);},
-		   [&] () {up_sweep(tr->right);});
+                   [&] () {up_sweep(tr->right);});
     tr->ExtExp->addTo(tr->left->ExtExp);
     tr->ExtExp->addTo(tr->right->ExtExp);
   }
@@ -378,9 +383,9 @@ void down_sweep(node* tr) {
     }
   } else {
     parlay::par_do([&] () {tr->left->IntExp->addTo(tr->IntExp);
-	                   down_sweep(tr->left);},
-		   [&] () {tr->right->IntExp->addTo(tr->IntExp);
-		           down_sweep(tr->right);});
+                     down_sweep(tr->left);},
+                   [&] () {tr->right->IntExp->addTo(tr->IntExp);
+                     down_sweep(tr->right);});
   }
 }
 
@@ -431,13 +436,13 @@ void self(node* Tr) {
   for (size_t i=0; i < Tr->n; i++) {
     particle* pa = PP[i];
     for (size_t j=i+1; j < Tr->n; j++) {
-	particle* pb = PP[j];
-	vect3d v = (pb->pt) - (pa->pt);
-	double r2 = v.length_squared();
-	vect3d force = (v * (pa->mass * pb->mass / (r2*sqrt(r2))));
-	pb->force = pb->force - force;
-	pa->force = pa->force + force;
-      }
+      particle* pb = PP[j];
+      vect3d v = (pb->pt) - (pa->pt);
+      double r2 = v.length_squared();
+      vect3d force = (v * (pa->mass * pb->mass / (r2*sqrt(r2))));
+      pb->force = pb->force - force;
+      pa->force = pa->force + force;
+    }
   }
 }
 
@@ -457,17 +462,17 @@ void do_direct(node* a) {
 
   // calculates interactions and put neighbor's results in hold
   parlay::parallel_for (0, nleaves, [&] (size_t i) {
-      size_t rn = Leaves[i]->rightNeighbors.size();
-      Leaves[i]->hold = parlay::tabulate(rn, [&] (size_t j) {
-	  return direct(Leaves[i], Leaves[i]->rightNeighbors[j].first);}, rn);}, 1);
+    size_t rn = Leaves[i]->rightNeighbors.size();
+    Leaves[i]->hold = parlay::tabulate(rn, [&] (size_t j) {
+      return direct(Leaves[i], Leaves[i]->rightNeighbors[j].first);}, rn);}, 1);
 
   // picks up results from neighbors that were left in hold
   parlay::parallel_for (0, nleaves, [&] (size_t i) {
     for (size_t j = 0; j < Leaves[i]->leftNeighbors.size(); j++) {
       node* L = Leaves[i];
       auto [u, v] = L->leftNeighbors[j];
-      for (size_t k=0; k < Leaves[i]->n; k++) 
-	L->particles[k]->force = L->particles[k]->force + u->hold[v][k];
+      for (size_t k=0; k < Leaves[i]->n; k++)
+        L->particles[k]->force = L->particles[k]->force + u->hold[v][k];
     }}, 1);
 
   // calculate forces within a node
@@ -479,7 +484,7 @@ void do_direct(node* a) {
 // *************************************************************
 void forces(sequence<particle> &particles, double alpha) {
   parlay::internal::timer t("Time");
-  TRglobal->precompute();
+  get_global_transform()->precompute();
 
   // build the CK tree
   auto part_ptr = parlay::map(particles, [] (particle& p) {return &p;});
@@ -521,20 +526,20 @@ void check_accuracy(sequence<particle>& p) {
   size_t nCheck = std::min<size_t>(n, 500);
   parlay::random_generator gen(123);
   std::uniform_int_distribution<long> dis(0, n-1);
-    
-  auto errors = parlay::tabulate(nCheck, [&] (size_t i) {
-      auto r = gen[i];
-      size_t idx = dis(r);
-      vect3d force;
-      for (size_t j=0; j < n; j++)
-	if (idx != j) {
-	  vect3d v = (p[j].pt) - (p[idx].pt);
-	  double r = v.length();
-	  force = force + (v * (p[j].mass * p[idx].mass / (r*r*r)));
-	}
-      return (force - p[idx].force).length()/force.length();});
 
-  double rms_error = sqrt(parlay::reduce(parlay::map(errors, [] (auto x) {return x*x;}))/nCheck);
+  auto errors = parlay::tabulate(nCheck, [&] (size_t i) {
+    auto r = gen[i];
+    size_t idx = dis(r);
+    vect3d force;
+    for (size_t j=0; j < n; j++)
+      if (idx != j) {
+        vect3d v = (p[j].pt) - (p[idx].pt);
+        double r = v.length();
+        force = force + (v * (p[j].mass * p[idx].mass / (r*r*r)));
+      }
+    return (force - p[idx].force).length()/force.length();});
+
+  double rms_error = std::sqrt(parlay::reduce(parlay::map(errors, [] (auto x) {return x*x;}))/nCheck);
   double max_error = parlay::reduce(errors, parlay::maximum<double>());
   std::cout << "  Sampled RMS Error: " << rms_error << std::endl;
   std::cout << "  Sampled Max Error: " << max_error << std::endl;

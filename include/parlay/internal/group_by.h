@@ -93,7 +93,7 @@ struct reduce_by_key_helper {
   template <typename Range>
   result_type reduce(Range &S) const {
     auto &key = S[0].first;
-    auto sum = internal::reduce(delayed_map(S, [&] (in_type const &kv) {
+    auto sum = internal::reduce(internal::delayed_map(S, [&] (in_type const &kv) {
       return kv.second;}), monoid);
     return result_type(key, sum);}
 };
@@ -132,7 +132,7 @@ struct group_by_key_helper {
   template <typename Range>
   static result_type reduce(Range &S) {
     auto &key = S[0].first;
-    auto vals = map(S, [&] (in_type const &kv) {return kv.second;});
+    auto vals = internal::map(S, [&] (in_type const &kv) {return kv.second;});
     return result_type(key, vals);}
 };
 
@@ -223,7 +223,7 @@ auto reduce_by_index(R&& A, size_t num_buckets, Monoid&& monoid = {}) {
     val_type init() const {return mon.identity;}
     void update(val_type& d, val_type const &a) const { d = mon(d, a); };
     void combine(val_type& d, slice<in_type*,in_type*> s) const {
-      auto vals = delayed_map(s, [&] (in_type &v) {return v.second;});
+      auto vals = internal::delayed_map(s, [&] (in_type &v) {return v.second;});
       d = internal::reduce(vals, mon);
     }
   };
@@ -277,8 +277,8 @@ auto group_by_index(R&& A, Integer_t num_buckets) {
   static_assert(std::is_integral_v<Integer_t>);
 
   if (A.size() > static_cast<size_t>(num_buckets)*num_buckets) {
-    auto keys = delayed_map(A, [] (auto const &kv) {return kv.first;});
-    auto vals = delayed_map(A, [] (auto const &kv) {return kv.second;});
+    auto keys = internal::delayed_map(A, [] (auto const &kv) {return kv.first;});
+    auto vals = internal::delayed_map(A, [] (auto const &kv) {return kv.second;});
     return internal::group_by_small_int(make_slice(vals), make_slice(keys), num_buckets);
   } else {
     struct helper {
@@ -293,7 +293,7 @@ auto group_by_index(R&& A, Integer_t num_buckets) {
       static void update(result_type& d, const result_type& v) {
         abort(); d.append(std::move(v));}
       static void combine(result_type& d, slice<in_type*,in_type*> s) {
-        d =  map(s, [&] (in_type const &kv) {return get_val(kv);});}
+        d = internal::map(s, [&] (in_type const &kv) {return get_val(kv);});}
     };
     return internal::collect_reduce(A, helper(), num_buckets);
   }

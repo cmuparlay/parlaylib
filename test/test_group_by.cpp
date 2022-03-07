@@ -9,8 +9,6 @@
 
 #include <parlay/primitives.h>
 
-#include <parlay/internal/group_by.h>
-
 #include "sorting_utils.h"
 
 class TestGroupByP : public testing::TestWithParam<size_t> { };

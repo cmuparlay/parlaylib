@@ -157,5 +157,5 @@ TEST(TestUninitializedMemory, TestGroupByIndexSmall) {
   size_t num_buckets = 100;
   auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
   auto result = parlay::group_by_index(key_vals, num_buckets);
-  ASSERT_EQ(result.size(), num_buckets+1);  // Why are there num_buckets+1 buckets??
+  ASSERT_EQ(result.size(), num_buckets);
 }
