@@ -17,7 +17,7 @@
 #include "internal/counting_sort.h"
 #include "internal/integer_sort.h"
 #include "internal/group_by.h"            // IWYU pragma: export
-#include "internal/heap_tree.h"
+#include "internal/heap_tree.h"           // IWYU pragma: keep
 #include "internal/merge.h"
 #include "internal/merge_sort.h"
 #include "internal/sequence_ops.h"        // IWYU pragma: export
@@ -1267,7 +1267,7 @@ template <typename Range, typename Compare = std::less<>>
 auto kth_smallest(Range&& in, size_t k, Compare&& less = {}) {
   static_assert(is_random_access_range_v<Range>);
   static_assert(std::is_invocable_r_v<bool, Compare, range_reference_type_t<Range>, range_reference_type_t<Range>>);
-  auto iterators = parlay::tabulate(parlay::size(in), [it = std::begin(in)](size_t i) { return it + i; });
+  auto iterators = parlay::delayed_tabulate(parlay::size(in), [it = std::begin(in)](size_t i) { return it + i; });
   return kth_smallest_copy(iterators, k, [less = std::forward<Compare>(less)](auto&& it1, auto&& it2) {
     return less(*it1, *it2);
   });
