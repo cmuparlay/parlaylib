@@ -1,11 +1,9 @@
-#include <iostream>
-#include <string>
 #include <utility>
 #include <cmath>
+#include <iostream>
+
 #include <parlay/primitives.h>
-#include <parlay/io.h>
 #include <parlay/delayed.h>
-#include <parlay/internal/get_time.h>
 
 // **************************************************************
 // Lasso (least absolute shrinkage and selection operator) regression.
@@ -144,44 +142,4 @@ void solve_lasso(const sparse_matrix& AT, const vector& y,
       }
     }
   } while (step >= 0);
-}
-
-// **************************************************************
-// Driver
-// **************************************************************
-
-// Read matlab data file.
-// Returns A^T (i.e. the transpose of A, organizized as columns), and y.
-auto read_file(const std::string& filename) {
-  auto str = parlay::chars_from_file(filename);
-  auto tokens = parlay::tokens(str, [] (char c) {return c == '\n' || c == ',';});
-  long ny = parlay::chars_to_long(tokens[1]);
-  long nx = parlay::chars_to_long(tokens[ny+4]);
-  long n = parlay::chars_to_long(tokens[ny+3]);
-  if (2*n + ny + 6 != tokens.size()) abort();
-  
-  auto y = parlay::tabulate(ny, [&] (long i) {
-      return parlay::chars_to_double(tokens[i+2]);});
-
-  auto entries = parlay::tabulate(n, [&] (long i) {
-       long a = parlay::chars_to_long(tokens[ny+6 + 2*i])-1;
-       double v = parlay::chars_to_double(tokens[ny+6 + 2*i + 1]);
-       if (a/ny >= nx) {std::cout << a/ny << ", " << i << std::endl; abort();}
-       return std::pair{a/ny, non_zero{a%ny, v}};});
-
-  return std::pair(parlay::group_by_index(entries, nx), y);
-}
-
-sparse_matrix tmp;
-
-int main(int argc, char* argv[]) {
-  auto usage = "Usage: tokens <filename>";
-  if (argc != 2) std::cout << usage << std::endl;
-  else {
-    auto [AT, y] = read_file(argv[1]);
-    tmp = AT;
-    parlay::internal::timer t;
-    solve_lasso(AT, y, 0.5, 0.0); 
-    t.next("");
-  }
 }
