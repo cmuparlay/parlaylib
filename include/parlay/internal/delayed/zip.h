@@ -36,7 +36,7 @@ struct block_delayed_zip_t : public block_iterable_view_base<void, block_delayed
   using reference = std::tuple<range_reference_type_t<UnderlyingViews>...>;
 
   template<typename... UV>
-  explicit block_delayed_zip_t(int, UV&&... vs) : base(), n_elements((std::min)({parlay::size(vs)...})),
+  explicit block_delayed_zip_t(int, UV&&... vs) : base(), n_elements((std::min<size_t>)({parlay::size(vs)...})),
                                                   n_blocks(num_blocks_from_size(n_elements)),
                                                   base_views(std::forward<UV>(vs)...) {
     //                         ^

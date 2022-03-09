@@ -79,7 +79,7 @@ struct block_delayed_filter_t :
  private:
   template<typename UV, typename UP>
   auto filter_blocks(UV&& v, UP&& p) {
-    size_t temp_size = (std::min)(parlay::size(v), block_size);
+    size_t temp_size = (std::min<size_t>)(parlay::size(v), block_size);
     return parlay::internal::tabulate(num_blocks(v), [&](size_t i) {
       return filter_block(begin_block(v, i), end_block(v, i), p, temp_size);
     });
