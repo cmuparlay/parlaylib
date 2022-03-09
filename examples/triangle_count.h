@@ -19,11 +19,8 @@ using Graph = parlay::sequence<vertices>;
 
 long triangle_count(const Graph &G) {
   size_t n = G.size();
-  auto sorted = parlay::sort(parlay::tabulate(n, [&] (long i) {
-	return std::pair(G[i].size(), i);}));
-  parlay::sequence<long> ranks(n);
-  parlay::parallel_for(0, n, [&] (long i) {
-      ranks[sorted[i].second] = i;});
+  auto ranks = parlay::rank(parlay::map(G, [] (auto& ngh) {
+	return ngh.size();}));
   
   Graph Gf = parlay::tabulate(n, [&] (vertex u) {
       return parlay::filter(G[u], [&] (vertex v) {
