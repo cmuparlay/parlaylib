@@ -50,6 +50,7 @@
 
 #include <iterator>       // IWYU pragma: keep
 #include <type_traits>
+#include <utility>
 
 #include "type_traits.h"
 
@@ -471,7 +472,7 @@ inline constexpr bool is_block_iterable_range_v = is_block_iterable_range<Range_
 
 // Return the size (number of elements) of the range r
 template<typename Range_>
-size_t size(Range_&& r) {
+auto size(Range_&& r) {
   if constexpr (is_random_access_range_v<Range_>) {
     return std::end(r) - std::begin(r);
   }
@@ -479,6 +480,13 @@ size_t size(Range_&& r) {
     return r.size();
   }
 }
+
+// A functional that takes a range r and returns its size,
+// as given by parlay::size(FORWARD(r))
+struct range_size {
+  template<typename Range_>
+  decltype(auto) operator()(Range_&& r) const { return parlay::size(std::forward<Range_>(r)); }
+};
 
 }  // namespace parlay
 

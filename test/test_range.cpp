@@ -91,7 +91,7 @@ static_assert(parlay::is_common_range_v<slice_const_int>);
 
 TEST(TestRange, TestVector) {
   auto a = std::vector<int>{1,2,3};
-  ASSERT_EQ(a.size(), 3);
+  ASSERT_EQ(parlay::size(a), 3);
 }
 
 TEST(TestRange, TestArray) {
@@ -113,4 +113,10 @@ TEST(TestRange, TestSlice) {
   std::vector<int> a = {1,2,3};
   auto s = parlay::make_slice(a);
   ASSERT_EQ(parlay::size(s), 3);
+}
+
+TEST(TestRange, TestRangeSize) {
+  auto a = parlay::delayed_seq<int>(10, [](int x) { return x; });
+  parlay::range_size rs;
+  ASSERT_EQ(rs(a), 10);
 }

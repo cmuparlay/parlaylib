@@ -15,7 +15,6 @@
 
 #include <initializer_list>
 #include <iterator>
-#include <functional>
 #include <limits>
 #include <stdexcept>
 #include <string>

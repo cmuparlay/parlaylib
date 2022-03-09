@@ -21,7 +21,7 @@ using Graph = parlay::sequence<parlay::sequence<vertex>>;
 auto BFS(vertex start, const Graph &G, const Graph& GT) {
   long n = G.size();
   auto parent = parlay::tabulate<std::atomic<vertex>>(n, [&] (size_t i) {
-      return -1; });
+    return -1; });
   parent[start] = start;
 
   auto edge_f = [&] (vertex u, vertex v) -> bool {
@@ -29,7 +29,7 @@ auto BFS(vertex start, const Graph &G, const Graph& GT) {
     return parent[v].compare_exchange_strong(expected, u);};
   auto cond_f = [&] (vertex v) { return parent[v] == -1;};
   auto frontier_map = ligra::edge_map(G, GT, edge_f, cond_f);
-  
+
   auto frontier = ligra::vertex_subset(start);
   long visited = 0;
 
@@ -38,5 +38,5 @@ auto BFS(vertex start, const Graph &G, const Graph& GT) {
     frontier = frontier_map(frontier);
   }
   return std::pair{parlay::map(parent, [] (auto const &x) {
-	return x.load();}), visited};
+    return x.load();}), visited};
 }
