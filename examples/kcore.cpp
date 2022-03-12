@@ -6,6 +6,8 @@
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/random.h>
+#include <parlay/range.h>
+
 #include <parlay/internal/get_time.h>
 
 #include "kcore.h"
@@ -58,10 +60,10 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "total edges : "
-	      << parlay::reduce(parlay::map(G, [] (auto& x) {return x.size();}))
+	      << parlay::reduce(parlay::map(G, parlay::size_of()))
 	      << std::endl;
     std::cout << "max degree : "
-	      << parlay::reduce(parlay::map(G, [] (auto& x) {return x.size();}), parlay::maximum<size_t>())
+	      << parlay::reduce(parlay::map(G, parlay::size_of()), parlay::maximum<size_t>())
 	      << std::endl;
     std::cout << "max core (i.e. degeneracy): "
 	      << parlay::reduce(degrees, parlay::maximum<vertex>())

@@ -1,3 +1,5 @@
+#include <cstddef>
+
 #include <atomic>
 #include <optional>
 #include <utility>

@@ -1,6 +1,8 @@
-#include "parlay/primitives.h"
-#include "parlay/parallel.h"
-#include "parlay/delayed.h"
+#include <parlay/delayed.h>
+#include <parlay/primitives.h>
+#include <parlay/parallel.h>
+#include <parlay/range.h>
+
 namespace delayed = parlay::delayed;
 
 // **************************************************************
@@ -46,7 +48,7 @@ struct edge_map {
   const Graph& GT;
   edge_map(Graph const &G, Graph const& GT, Fa fa, Cond cond) :
     G(G), GT(GT), fa(fa), cond(cond), n(G.size()),
-    m(parlay::reduce(parlay::delayed_map(G, [&] (auto& ngh) {return ngh.size();}))) {}
+    m(parlay::reduce(parlay::delayed_map(G, parlay::size_of()))) {}
 
   // The sparse version.  Checks all forward edges (u,v) from each
   // vertex u in vertices.  If cond(v) then fa(u,v) is applied and if

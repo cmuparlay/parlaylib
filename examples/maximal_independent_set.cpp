@@ -5,6 +5,7 @@
 
 #include <parlay/primitives.h>
 #include <parlay/random.h>
+#include <parlay/range.h>
 #include <parlay/sequence.h>
 
 #include "maximal_independent_set.h"
@@ -57,7 +58,7 @@ int main(int argc, char* argv[]) {
       in_set = MIS(G);
       t.next("MIS");
     }
-    long total_edges = parlay::reduce(parlay::map(G, [] (auto& x) {return x.size();}));
+    long total_edges = parlay::reduce(parlay::map(G, parlay::size_of()));
     std::cout << "number of edges: " << total_edges  << std::endl;
     int num_in_set = parlay::reduce(parlay::map(in_set,[] (bool a) {return a ? 1 : 0;}));
     std::cout << "number in set: " << num_in_set << std::endl;

@@ -168,6 +168,6 @@ TEST(TestRange, TestSlice) {
 
 TEST(TestRange, TestRangeSize) {
   auto a = parlay::delayed_seq<int>(10, [](int x) { return x; });
-  parlay::range_size rs;
+  parlay::size_of rs;
   ASSERT_EQ(rs(a), 10);
 }

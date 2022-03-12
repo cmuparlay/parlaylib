@@ -7,6 +7,7 @@
 
 #include <parlay/primitives.h>
 #include <parlay/random.h>
+#include <parlay/range.h>
 #include <parlay/sequence.h>
 
 #include "graph_color.h"
@@ -57,7 +58,7 @@ int main(int argc, char* argv[]) {
       colors = graph_coloring(G);
       t.next("graph color");
     }
-    long total_edges = parlay::reduce(parlay::map(G, [] (auto& x) {return x.size();}));
+    long total_edges = parlay::reduce(parlay::map(G, parlay::size_of()));
     std::cout << "number of edges: " << total_edges  << std::endl;
     int max_color = parlay::reduce(colors, parlay::maximum<int>());
     std::cout << "number of colors: " << max_color + 1  << std::endl;

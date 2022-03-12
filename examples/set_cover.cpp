@@ -2,10 +2,11 @@
 #include <random>
 #include <string>
 
-#include "parlay/parallel.h"
-#include "parlay/primitives.h"
-#include "parlay/sequence.h"
-#include "parlay/random.h"
+#include <parlay/parallel.h>
+#include <parlay/primitives.h>
+#include <parlay/sequence.h>
+#include <parlay/random.h>
+#include <parlay/range.h>
 
 #include "set_cover.h"
 
@@ -62,7 +63,7 @@ int main(int argc, char* argv[]) {
       r = set_cover(S, n, epsilon);
       t.next("set cover");    }
     if (check(r, S, n)) std::cout << "all elements covered!" << std::endl;
-    long total = parlay::reduce(parlay::map(S, [] (auto s) {return s.size();}));
+    long total = parlay::reduce(parlay::map(S, parlay::size_of()));
     std::cout << "sum of set sizes = " << total << std::endl;
     std::cout << "set cover size = " << r.size() << std::endl;
   }
