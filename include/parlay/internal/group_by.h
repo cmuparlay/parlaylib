@@ -19,7 +19,6 @@
 #include "integer_sort.h"
 #include "sample_sort.h"
 #include "sequence_ops.h"
-#include "get_time.h"
 
 namespace parlay {
 
