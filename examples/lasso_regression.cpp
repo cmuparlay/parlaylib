@@ -1,6 +1,6 @@
+#include <stdlib.h>
 #include <iostream>
 #include <string>
-#include <utility>
 
 #include <parlay/primitives.h>
 #include <parlay/io.h>
@@ -20,7 +20,10 @@ auto read_file(const std::string& filename) {
   long ny = parlay::chars_to_long(tokens[1]);
   long nx = parlay::chars_to_long(tokens[ny+4]);
   long n = parlay::chars_to_long(tokens[ny+3]);
-  if (2*n + ny + 6 != tokens.size()) abort();
+  if (2*n + ny + 6 != tokens.size()) {
+    std::cout << "bad file format" << std::endl;
+    abort();
+  }
   
   auto y = parlay::tabulate(ny, [&] (long i) {
       return parlay::chars_to_double(tokens[i+2]);});

@@ -1,5 +1,3 @@
-#include <utility>
-
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/delayed.h>
@@ -9,18 +7,17 @@
 // **************************************************************
 
 using vector = parlay::sequence<double>;
-using element = std::pair<long,double>;
-using row = parlay::sequence<element>;
-using sparse_matrix = parlay::sequence<row>;
 
 // sparse matrix vector multiplication
+template <typename sparse_matrix>
 auto mxv(sparse_matrix const& mat, vector const& vec) {
-  return parlay::map(mat, [&] (row const& r) {
-      return parlay::reduce(parlay::delayed::map(r, [&] (element e) {
+  return parlay::map(mat, [&] (auto const& r) {
+      return parlay::reduce(parlay::delayed::map(r, [&] (auto e) {
 	    return vec[e.first] * e.second;}));});
 }
 
 // the algorithm
+template <typename sparse_matrix>
 vector pagerank(sparse_matrix const& mat, int iters) {
   double d = .85; // damping factor
   long n = mat.size();

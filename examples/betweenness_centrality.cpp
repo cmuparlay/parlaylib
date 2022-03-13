@@ -1,42 +1,49 @@
 #include <iostream>
 #include <string>
+#include <utility>
+#include <random>
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
+#include <parlay/random.h>
+#include <parlay/io.h>
 
-#include "maximal_independent_set.h"
+#include "betweenness_centrality.h"
 #include "helper/graph_utils.h"
 
 // **************************************************************
-// Driver code
+// Driver
 // **************************************************************
 using vertex = int;
 using graph = parlay::sequence<parlay::sequence<vertex>>;
 using utils = graph_utils<vertex>;
 
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: maximal_independent_set <n> || maximal_independent_set <filename>";
+  auto usage = "Usage: betweenness_centrality <n> || betweenness_centrality <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n = 0;
-    graph G;
+    graph G, GT;
     try { n = std::stol(argv[1]); }
     catch (...) {}
     if (n == 0) {
       G = utils::read_symmetric_graph_from_file(argv[1]);
+      GT = G;
       n = G.size();
     } else {
-      G = utils::rmat_symmetric_graph(n, 20*n);
+      G = utils::rmat_graph(n, 20*n);
+      GT = utils::transpose(G);
     }
     utils::print_graph_stats(G);
+    parlay::sequence<float> result;
     parlay::internal::timer t("Time");
-    parlay::sequence<bool> in_set;
     for (int i=0; i < 3; i++) {
-      in_set = MIS(G);
-      t.next("MIS");
+      result = BC_single_source(1, G, GT);
+      t.next("betweenness_centrality");
     }
 
-    int num_in_set = parlay::reduce(parlay::map(in_set,[] (bool a) {return a ? 1 : 0;}));
-    std::cout << "number in set: " << num_in_set << std::endl;
+    long max_centrality = parlay::reduce(result, parlay::maximum<float>());
+    std::cout << "max betweenness centrality = " << max_centrality << std::endl;
   }
 }
+

@@ -20,11 +20,11 @@ template <typename T>
 struct heap_tree {
  private:
   size_t size;
-  parlay::sequence<T> tree;
+  sequence<T> tree;
   size_t levels;
 
   // converts from sorted sequence into a "heap indexed" tree
-  void to_tree(const parlay::sequence<T>& In, size_t root, size_t l, size_t r) {
+  void to_tree(const sequence<T>& In, size_t root, size_t l, size_t r) {
     size_t n = r - l;
     size_t m = l + n / 2;
     tree[root] = In[m];
@@ -35,9 +35,9 @@ struct heap_tree {
 
  public:
 
-  explicit heap_tree(const parlay::sequence<T>& keys) :
+  explicit heap_tree(const sequence<T>& keys) :
       size(keys.size()), tree(size),
-      levels(parlay::log2_up(keys.size()+1)-1) {
+      levels(log2_up(keys.size()+1)-1) {
 
     to_tree(keys, 0, 0, size);
   }

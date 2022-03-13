@@ -15,16 +15,16 @@
 
 // checks 500 randomly selected points for accuracy
 void check_accuracy(sequence<particle>& p) {
-  size_t n = p.size();
-  size_t nCheck = std::min<size_t>(n, 500);
+  long n = p.size();
+  long nCheck = std::min<long>(n, 500);
   parlay::random_generator gen(123);
   std::uniform_int_distribution<long> dis(0, n-1);
 
-  auto errors = parlay::tabulate(nCheck, [&] (size_t i) {
+  auto errors = parlay::tabulate(nCheck, [&] (long i) {
     auto r = gen[i];
-    size_t idx = dis(r);
+    long idx = dis(r);
     vect3d force;
-    for (size_t j=0; j < n; j++)
+    for (long j=0; j < n; j++)
       if (idx != j) {
         vect3d v = (p[j].pt) - (p[idx].pt);
         double r = v.length();

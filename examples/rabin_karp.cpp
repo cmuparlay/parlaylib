@@ -2,7 +2,6 @@
 
 #include <parlay/io.h>
 #include <parlay/primitives.h>
-#include <parlay/sequence.h>
 
 #include "rabin_karp.h"
 

@@ -95,7 +95,7 @@ parlay::type_allocator<internal> internal_allocator;
 // **************************************************************
 template <typename slice>
 node* build_recursive(slice P, int bit) {
-  size_t n = P.size();
+  long n = P.size();
   if (n == 0) abort();
 
   // if ran out of bits, or small then generate a leaf
@@ -106,7 +106,7 @@ node* build_recursive(slice P, int bit) {
     // binary search for the cut point on the given bit
     auto bits = parlay::delayed::map(P, [&] (const point& p) {
       return 1 == ((p.pnt[bit%dims] >> bit/dims) & 1);});
-    size_t pos = std::lower_bound(bits.begin(), bits.end(), 1)-bits.begin();
+    long pos = std::lower_bound(bits.begin(), bits.end(), 1)-bits.begin();
 
     // if all points are on one side, then move onto the next bit
     if (pos == 0 || pos == n) return build_recursive(P, bit - 1);
@@ -248,8 +248,8 @@ void process_points_recursive(node* T, knn_graph& knn, int k) {
     }
   else {
     internal* TI = static_cast<internal*>(T);
-    size_t n_left = TI->left->size;
-    size_t n = T->size;
+    long n_left = TI->left->size;
+    long n = T->size;
     parlay::par_do_if(n > 10,
                       [&] () {process_points_recursive(TI->left, knn, k);},
                       [&] () {process_points_recursive(TI->right, knn, k);});

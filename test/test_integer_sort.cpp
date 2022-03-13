@@ -22,7 +22,7 @@ TEST(TestIntegerSort, TestIntegerSortEmptyInput) {
     [](const int x) { return x; },
     1);
   EXPECT_EQ(sorted.size(), 0);
-  EXPECT_EQ(counts.size(), 0);
+  EXPECT_EQ(counts.size(), 1);
 }
 
 TEST(TestIntegerSort, TestIntegerSortInplaceUniquePtr) {

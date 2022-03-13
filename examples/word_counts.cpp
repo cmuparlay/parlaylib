@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <algorithm>
 #include <iostream>
 #include <string>

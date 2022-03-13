@@ -4,7 +4,6 @@
 
 #include <parlay/primitives.h>
 #include <parlay/random.h>
-#include <parlay/sequence.h>
 
 #include "helper/heap_tree.h"
 

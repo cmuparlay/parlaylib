@@ -1,47 +1,45 @@
 #include <iostream>
-#include <random>
 #include <string>
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
-#include <parlay/random.h>
+#include <parlay/range.h>
 #include <parlay/internal/get_time.h>
 
 #include "BFS.h"
+#include "helper/graph_utils.h"
 
 // **************************************************************
 // Driver
 // **************************************************************
-
-// **************************************************************
-// Generate a random graph
-// Each vertex has 10 random neighbors (could be self)
-// **************************************************************
-Graph generate_graph(long n) {
-  parlay::random_generator gen;
-  std::uniform_int_distribution<vertex> dis(0, n-1);
-  int degree = 10;
-  
-  return parlay::tabulate(n, [&] (vertex i) {
-      return parlay::remove_duplicates(parlay::tabulate(degree, [&] (vertex j) {
-	    auto r = gen[i*degree + j];
-	    return dis(r);}, 100));});
-}
+using vertex = int;
+using nested_seq = parlay::sequence<parlay::sequence<vertex>>;
+using graph = nested_seq;
+using utils = graph_utils<vertex>;
 
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: BFS <n>";
+  auto usage = "Usage: BFS <n> || BFS <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
-    long n;
+    long n = 0;
+    graph G;
     try { n = std::stol(argv[1]); }
-    catch (...) { std::cout << usage << std::endl; return 1; }
-    Graph G = generate_graph(n);
-    parlay::internal::timer t;
-    long visited;
+    catch (...) {}
+    if (n == 0) {
+      G = utils::read_symmetric_graph_from_file(argv[1]);
+      n = G.size();
+    } else {
+      G = utils::rmat_graph(n, 20*n);
+    }
+    utils::print_graph_stats(G);
+    nested_seq result;
+    parlay::internal::timer t("Time");
     for (int i=0; i < 3; i++) {
-      visited = BFS(0, G).second;
+      result = BFS(1, G);
       t.next("BFS");
     }
-    std::cout << "number of vertices visited: " << visited << std::endl;
+
+    long visited = parlay::reduce(parlay::map(result, parlay::range_size()));
+    std::cout << "num vertices visited: " << visited << std::endl;
   }
 }

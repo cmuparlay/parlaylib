@@ -35,7 +35,7 @@ using pointseq = parlay::sequence<point>;
 // Idxs are the indices of the points (in Points) above the line defined by l--r.
 // **************************************************************
 intseq quickhull(pointseq const &Points, intseq Idxs, point l, point r) {
-  size_t n = Idxs.size();
+  long n = Idxs.size();
   if (n <= 1) return Idxs;
 
   // find relative distances from the line l--r, tag each with its index

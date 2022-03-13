@@ -27,6 +27,6 @@ template <typename Range, typename F> auto tokens(const Range& str, F is_space) 
   auto ids = parlay::filter(parlay::iota(n+1), check);
 
   // pair them up and extract subsequence
-  return parlay::tabulate(ids.size()/2, [&] (size_t i) {
+  return parlay::tabulate(ids.size()/2, [&] (long i) {
 	   return parlay::to_sequence(str.cut(ids[2*i],ids[2*i+1]));});
 }

@@ -2,7 +2,6 @@
 
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
-#include <parlay/random.h>
 
 // **************************************************************
 // Finds location i of first element  that satisfies a predicate

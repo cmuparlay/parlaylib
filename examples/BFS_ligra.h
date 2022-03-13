@@ -8,35 +8,31 @@
 
 // **************************************************************
 // Parallel Breadth First Search (Using the Ligra interface)
-// For each vertex returns the parent in the BFS tree.
-// The start vertex points to itself, and any unvisited vertices have -1.
 // The graph is a sequence of sequences of vertex ids, representing
 // the outedges for each vertex.
+// Requires the transpose graph (i.e the back edges).
+// Returns a sequence of sequences, with the ith element corresponding to
+// all vertices at distance i (i.e. the i-th frontier during the search).
 // This version uses the ligra interface.  See: helper/ligra_light.h
 // **************************************************************
-
-using vertex = int;
-using Graph = parlay::sequence<parlay::sequence<vertex>>;
-
-auto BFS(vertex start, const Graph &G, const Graph& GT) {
-  long n = G.size();
-  auto parent = parlay::tabulate<std::atomic<vertex>>(n, [&] (size_t i) {
-    return -1; });
-  parent[start] = start;
+template <typename vertex, typename graph>
+auto BFS(vertex start, const graph& G, const graph& GT) {
+  using nested_seq = parlay::sequence<parlay::sequence<vertex>>;
+  auto visited = parlay::tabulate<std::atomic<bool>>(G.size(), [&] (long i) {
+      return (i==start) ? true : false; });
 
   auto edge_f = [&] (vertex u, vertex v) -> bool {
-    vertex expected = -1;
-    return parent[v].compare_exchange_strong(expected, u);};
-  auto cond_f = [&] (vertex v) { return parent[v] == -1;};
+    bool expected = false;
+    return visited[v].compare_exchange_strong(expected, true);};
+  auto cond_f = [&] (vertex v) { return !visited[v];};
   auto frontier_map = ligra::edge_map(G, GT, edge_f, cond_f);
-
+    
   auto frontier = ligra::vertex_subset(start);
-  long visited = 0;
-
+  nested_seq frontiers;
   while (frontier.size() > 0) {
-    visited += frontier.size();
+    frontiers.push_back(std::move(frontier.to_seq()));
     frontier = frontier_map(frontier);
   }
-  return std::pair{parlay::map(parent, [] (auto const &x) {
-    return x.load();}), visited};
+
+  return frontiers;
 }

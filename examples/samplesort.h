@@ -5,7 +5,6 @@
 #include <parlay/parallel.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
-#include <parlay/sequence.h>
 #include <parlay/slice.h>
 #include <parlay/utilities.h>
 

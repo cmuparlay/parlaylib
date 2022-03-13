@@ -376,7 +376,7 @@ template <typename Tint = size_t, typename Iterator, typename Get_Key>
 auto integer_sort_with_counts(slice<Iterator, Iterator> In, Get_Key const &g, size_t num_buckets) {
   using T = typename slice<Iterator, Iterator>::value_type;
   if (In.size() == 0) {
-    return std::make_pair(parlay::sequence<T>{}, parlay::sequence<Tint>{});
+    return std::make_pair(parlay::sequence<T>{}, parlay::sequence<Tint>(num_buckets));
   }
   assert(num_buckets > 0);
   size_t bits = log2_up(num_buckets);

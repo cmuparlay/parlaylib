@@ -1,13 +1,10 @@
-#include <cstddef>
-
 #include <utility>
-#include <random>
+#include <memory>
+#include <optional>
 
-#include <parlay/delayed.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
-#include <parlay/random.h>
-#include <parlay/internal/get_time.h>
+#include <parlay/utilities.h>
 
 #include "hashmap.h"
 
@@ -30,7 +27,7 @@ struct tri {
   point_id p1, p2, p3;
   const bool operator==(const tri e) const {
     return p1 == e.p1 && p2 == e.p2 && p3 == e.p3;}
-  const size_t hash() {
+  const unsigned long hash() {
     return parlay::hash64(p1 + parlay::hash64(p2 + parlay::hash64(p3)));}
 };
 

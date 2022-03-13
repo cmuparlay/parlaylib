@@ -3,6 +3,7 @@
 
 #include <parlay/sequence.h>
 #include <parlay/io.h>
+#include <parlay/monoid.h>
 
 #include "scan.h"
 

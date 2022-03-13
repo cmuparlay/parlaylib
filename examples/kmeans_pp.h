@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <utility>
 #include <random>
+#include <math.h>
 
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>

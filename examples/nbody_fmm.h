@@ -1,6 +1,12 @@
+#include <math.h>
+#include <algorithm> 
+#include <array>     
+#include <string>    
+#include <utility>   
 #include <vector>
 #include <complex>
 
+#include <parlay/alloc.h>
 #include <parlay/parallel.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
@@ -136,7 +142,7 @@ struct exterior_expansion {
     TR->M2Madd(coefficients, center, y->coefficients, y->center);}
 
   exterior_expansion(transform* TR, point3d center) : TR(TR), center(center) {
-    for (size_t i=0; i < terms*terms; i++) coefficients[i] = 0.0; }
+    for (long i=0; i < terms*terms; i++) coefficients[i] = 0.0; }
   exterior_expansion() {}
 };
 
@@ -169,7 +175,7 @@ struct interior_expansion {
   }
 
   interior_expansion(transform* TR, point3d center) : TR(TR), center(center) {
-    for (size_t i=0; i < terms*terms; i++) coefficients[i] = 0.0; }
+    for (long i=0; i < terms*terms; i++) coefficients[i] = 0.0; }
   interior_expansion() {}
 };
 
@@ -186,12 +192,12 @@ parlay::type_allocator<interior_expansion> interior_pool;
 // *************************************************************
 
 struct node {
-  using edge = std::pair<node*, size_t>;
+  using edge = std::pair<node*, long>;
   node* left;
   node* right;
   sequence<particle*> particles;
   sequence<std::pair<vect3d,double>> particles_d;
-  size_t n;
+  long n;
   box b;
   exterior_expansion* ExtExp;
   interior_expansion* IntExp;
@@ -199,7 +205,7 @@ struct node {
   std::vector<edge> leftNeighbors;
   std::vector<edge> rightNeighbors;
   sequence<sequence<vect3d>> hold;
-  bool leaf() {return left == NULL;}
+  bool leaf() {return left == nullptr;}
   node() {}
   point3d center() { return (b.first + b.second) * 0.5;}
   double radius() { return (b.second - b.first).length() * 0.5;}
@@ -208,12 +214,12 @@ struct node {
     ExtExp = exterior_pool.allocate(get_global_transform(), center());
     IntExp = interior_pool.allocate(get_global_transform(), center());
   }
-  node(node* L, node* R, size_t n, box b)
+  node(node* L, node* R, long n, box b)
       : left(L), right(R), n(n), b(b) {
     allocateExpansions();
   }
   node(parlay::sequence<particle*> P, box b)
-      : left(NULL), right(NULL), particles(std::move(P)), b(b) {
+      : left(nullptr), right(nullptr), particles(std::move(P)), b(b) {
     n = particles.size();
     particles_d = parlay::map(particles, [] (auto p) {
       return std::pair{p->pt,p->mass};});
@@ -221,14 +227,14 @@ struct node {
   }
 };
 
-size_t numLeaves(node* tr) {
+long numLeaves(node* tr) {
   if (tr->leaf()) return 1;
   else return(numLeaves(tr->left)+numLeaves(tr->right));
 }
 
 parlay::type_allocator<node> node_pool;
 
-using edge = std::pair<node*, size_t>;
+using edge = std::pair<node*, long>;
 
 // *************************************************************
 //  Build the CK tree
@@ -236,9 +242,9 @@ using edge = std::pair<node*, size_t>;
 //  of the points instead of the next round-robin dimension.
 // *************************************************************
 template <typename Particles>
-node* build_tree(Particles& particles, size_t effective_size) {
-  size_t n = particles.size();
-  size_t en = std::max(effective_size, n);
+node* build_tree(Particles& particles, long effective_size) {
+  long n = particles.size();
+  long en = std::max(effective_size, n);
 
   auto minmax = [] (box a, box b) {
     return box((a.first).min(b.first),
@@ -316,8 +322,8 @@ interactions_count interactions(node* Left, node* Right) {
       return x + y;
     } else { // both are leaves
       if (Right->n > Left->n) std::swap(Right,Left);
-      size_t rn = Right->leftNeighbors.size();
-      size_t ln = Left->rightNeighbors.size();
+      long rn = Right->leftNeighbors.size();
+      long ln = Left->rightNeighbors.size();
       Right->leftNeighbors.push_back(edge(Left,ln));
       Left->rightNeighbors.push_back(edge(Right,rn));
       return interactions_count(Right->n*Left->n,0);
@@ -342,7 +348,7 @@ interactions_count interactions(node* tr) {
 // expansion along all far-field interactions.
 // *************************************************************
 void do_indirect(node* tr) {
-  for (size_t i = 0; i < tr->indirectNeighbors.size(); i++)
+  for (long i = 0; i < tr->indirectNeighbors.size(); i++)
     tr->IntExp->addTo(tr->indirectNeighbors[i]->ExtExp);
   if (!tr->leaf()) {
     parlay::par_do([&] () {do_indirect(tr->left);},
@@ -356,7 +362,7 @@ void do_indirect(node* tr) {
 // *************************************************************
 void up_sweep(node* tr) {
   if (tr->leaf()) {
-    for (size_t i=0; i < tr->n; i++) {
+    for (long i=0; i < tr->n; i++) {
       particle* P = tr->particles[i];
       tr->ExtExp->addTo(P->pt, P->mass);
     }
@@ -374,7 +380,7 @@ void up_sweep(node* tr) {
 // *************************************************************
 void down_sweep(node* tr) {
   if (tr->leaf()) {
-    for (size_t i=0; i < tr->n; i++) {
+    for (long i=0; i < tr->n; i++) {
       particle* P = tr->particles[i];
       P->force = P->force + tr->IntExp->force(P->pt, P->mass);
     }
@@ -387,13 +393,13 @@ void down_sweep(node* tr) {
 }
 
 // puts the leaves of tree tr into the array Leaves in left to right order
-size_t get_leaves(node* tr, node** Leaves) {
+long get_leaves(node* tr, node** Leaves) {
   if (tr->leaf()) {
     Leaves[0] = tr;
     return 1;
   } else {
-    size_t l = get_leaves(tr->left, Leaves);
-    size_t r = get_leaves(tr->right, Leaves + l);
+    long l = get_leaves(tr->left, Leaves);
+    long r = get_leaves(tr->right, Leaves + l);
     return l + r;
   }
 }
@@ -407,13 +413,13 @@ size_t get_leaves(node* tr, node** Leaves) {
 auto direct(node* Left, node* ngh) {
   auto LP = (Left->particles).data();
   auto R = (ngh->particles_d).data();
-  size_t nl = Left->n;
-  size_t nr = ngh->n;
+  long nl = Left->n;
+  long nr = ngh->n;
   parlay::sequence<vect3d> hold(nr, vect3d());
-  for (size_t i=0; i < nl; i++) {
+  for (long i=0; i < nl; i++) {
     vect3d frc;
     particle pa = *LP[i];
-    for (size_t j=0; j < nr; j++) {
+    for (long j=0; j < nr; j++) {
       vect3d v = R[j].first - pa.pt;
       double r2 = v.length_squared();
       vect3d force = (v * (pa.mass * R[j].second / (r2*sqrt(r2))));;
@@ -430,9 +436,9 @@ auto direct(node* Left, node* ngh) {
 // *************************************************************
 void self(node* Tr) {
   auto PP = (Tr->particles).data();
-  for (size_t i=0; i < Tr->n; i++) {
+  for (long i=0; i < Tr->n; i++) {
     particle* pa = PP[i];
-    for (size_t j=i+1; j < Tr->n; j++) {
+    for (long j=i+1; j < Tr->n; j++) {
       particle* pb = PP[j];
       vect3d v = (pb->pt) - (pa->pt);
       double r2 = v.length_squared();
@@ -453,27 +459,27 @@ void self(node* Tr) {
 // generate a race condition.
 // *************************************************************
 void do_direct(node* a) {
-  size_t nleaves = numLeaves(a);
+  long nleaves = numLeaves(a);
   sequence <node*> Leaves(nleaves);
   get_leaves(a, Leaves.data());
 
   // calculates interactions and put neighbor's results in hold
-  parlay::parallel_for (0, nleaves, [&] (size_t i) {
-    size_t rn = Leaves[i]->rightNeighbors.size();
-    Leaves[i]->hold = parlay::tabulate(rn, [&] (size_t j) {
+  parlay::parallel_for (0, nleaves, [&] (long i) {
+    long rn = Leaves[i]->rightNeighbors.size();
+    Leaves[i]->hold = parlay::tabulate(rn, [&] (long j) {
       return direct(Leaves[i], Leaves[i]->rightNeighbors[j].first);}, rn);}, 1);
 
   // picks up results from neighbors that were left in hold
-  parlay::parallel_for (0, nleaves, [&] (size_t i) {
-    for (size_t j = 0; j < Leaves[i]->leftNeighbors.size(); j++) {
+  parlay::parallel_for (0, nleaves, [&] (long i) {
+    for (long j = 0; j < Leaves[i]->leftNeighbors.size(); j++) {
       node* L = Leaves[i];
       auto [u, v] = L->leftNeighbors[j];
-      for (size_t k=0; k < Leaves[i]->n; k++)
+      for (long k=0; k < Leaves[i]->n; k++)
         L->particles[k]->force = L->particles[k]->force + u->hold[v][k];
     }}, 1);
 
   // calculate forces within a node
-  parlay::parallel_for (0, nleaves, [&] (size_t i) {self(Leaves[i]);});
+  parlay::parallel_for (0, nleaves, [&] (long i) {self(Leaves[i]);});
 }
 
 // *************************************************************

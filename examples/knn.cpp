@@ -1,10 +1,9 @@
 #include <iostream>
 #include <string>
+#include <random>
 
-#include "parlay/alloc.h"
 #include "parlay/primitives.h"
 #include "parlay/random.h"
-#include "parlay/sequence.h"    // for sequence, sequence<>::value_type, to_...
 
 #include "knn.h"
 

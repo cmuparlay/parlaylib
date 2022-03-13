@@ -1,8 +1,6 @@
-#include <cstddef>
-
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
-#include <parlay/random.h>
+#include <parlay/utilities.h>
 
 // **************************************************************
 // Cartesian Tree

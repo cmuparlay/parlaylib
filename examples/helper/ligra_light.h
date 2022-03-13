@@ -30,6 +30,10 @@ struct vertex_subset {
   vertex_subset(dense_t x) :
     dense(std::move(x)), is_sparse(false),
     n(parlay::count(x,true)) {}
+  parlay::sequence<vertex> to_seq() {
+    if (is_sparse) return sparse;
+    else return parlay::pack_index<vertex>(dense);
+  }
 };
 
 template<typename Graph, typename Fa, typename Cond> 

@@ -1,9 +1,9 @@
-#include <utility>
 #include <cmath>
 #include <iostream>
 
 #include <parlay/primitives.h>
 #include <parlay/delayed.h>
+#include <parlay/sequence.h>
 
 // **************************************************************
 // Lasso (least absolute shrinkage and selection operator) regression.

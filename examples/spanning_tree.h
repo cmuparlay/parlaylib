@@ -13,22 +13,17 @@
 // Uses a commutative version of union-find from file union_find.h
 // It is non-deterministic.  Could find different forests on
 // different runs.
+// Takes a sequence of edges and returns the indices of edges
+// in the spanning tree.
 // **************************************************************
-
-using vertex = int;
-using edge = std::pair<vertex,vertex>;
-using edges = parlay::sequence<edge>;
-
-// **************************************************************
-// Given an sequence of edges, i.e. (u,v) pairs, return a spanning
-// forest given as indices into the sequence of edges
-// **************************************************************
-parlay::sequence<long> spanning_forest(edges const &E, vertex n) {
+template <typename edges, typename vertex>
+parlay::sequence<long> spanning_forest(edges const &E, vertex num_vertices) {
   long m = E.size();
-  union_find<vertex> UF(n);
+  union_find<vertex> UF(num_vertices);
 
   // initialize to an id out of range
-  auto hooks = parlay::tabulate<std::atomic<long>>(n, [&] (size_t i) { return m; });
+  auto hooks = parlay::tabulate<std::atomic<long>>(num_vertices,
+						   [&] (long i) { return m; });
 
   parlay::parallel_for (0, m, [&] (long i) {
     vertex u = E[i].first;
@@ -50,5 +45,5 @@ parlay::sequence<long> spanning_forest(edges const &E, vertex n) {
 
   //get the IDs of the edges in the spanning forest
   auto h = parlay::delayed::map(hooks, [] (auto&& h) {return h.load(); });
-  return parlay::filter(h, [&] (size_t a) { return a != m; });
+  return parlay::filter(h, [&] (long a) { return a != m; });
 }

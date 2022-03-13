@@ -1,6 +1,5 @@
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
-#include <parlay/sequence.h>
 
 // **************************************************************
 // Rabin-Karp string searching.

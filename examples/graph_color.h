@@ -1,5 +1,3 @@
-#include <cstddef>
-
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/delayed.h>
@@ -20,9 +18,9 @@
 
 using vertex = int;
 using vertices = parlay::sequence<vertex>;
-using Graph = parlay::sequence<vertices>;
+using graph = parlay::sequence<vertices>;
 
-parlay::sequence<int> graph_coloring(Graph const &G) {
+parlay::sequence<int> graph_coloring(graph const &G) {
   // sort vertices by reverse degree
   auto less = [] (auto& a, auto& b) {return a.size() > b.size();};
   auto Gs = parlay::sort(G, less);

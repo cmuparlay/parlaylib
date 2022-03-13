@@ -11,6 +11,7 @@
 #include "../sequence.h"
 #include "../slice.h"
 #include "../utilities.h"
+#include "../delayed.h"
 
 #include "block_delayed.h"
 #include "collect_reduce.h"
@@ -18,6 +19,7 @@
 #include "integer_sort.h"
 #include "sample_sort.h"
 #include "sequence_ops.h"
+#include "get_time.h"
 
 namespace parlay {
 
@@ -271,7 +273,7 @@ auto remove_duplicate_integers(R&& A, Integer_t max_value) {
 }
 
 template <typename Integer_t, typename R>
-auto group_by_index(R&& A, Integer_t num_buckets) {
+auto group_by_index_(R&& A, Integer_t num_buckets) {
   static_assert(is_random_access_range_v<R>);
   static_assert(std::is_integral_v<typename range_value_type_t<R>::first_type>);
   static_assert(std::is_integral_v<Integer_t>);
@@ -298,6 +300,28 @@ auto group_by_index(R&& A, Integer_t num_buckets) {
     return internal::collect_reduce(A, helper(), num_buckets);
   }
 }
+
+template <typename Integer_t, typename R>
+auto group_by_index(R&& A, Integer_t num_buckets) {
+  static_assert(is_random_access_range_v<R>);
+  static_assert(std::is_integral_v<typename range_value_type_t<R>::first_type>);
+  static_assert(std::is_integral_v<Integer_t>);
+  if (A.size() > static_cast<size_t>(num_buckets)*num_buckets) {
+    auto keys = internal::delayed_map(A, [] (auto const &kv) {return kv.first;});
+    auto vals = internal::delayed_map(A, [] (auto const &kv) {return kv.second;});
+    return internal::group_by_small_int(make_slice(vals), make_slice(keys), num_buckets);
+  } else {
+    auto [key_vals,lengths] =
+      internal::integer_sort_with_counts(make_slice(A),
+					 [] (auto p) {return p.first;},
+					 num_buckets);
+    auto [offsets,total] = scan(lengths);
+    auto values = delayed::map(key_vals, [] (auto p) {return p.second;});
+    return tabulate(num_buckets, [&, o = offsets.begin(), l = lengths.begin()] (size_t i) {
+	return to_sequence(make_slice(values).cut(o[i], o[i] + l[i]));});
+  }
+}
+			  
 
 #if defined(__clang__)
 #pragma clang diagnostic pop

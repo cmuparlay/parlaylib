@@ -1,6 +1,3 @@
-#include <utility>
-
-#include <parlay/parallel.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/delayed.h>
@@ -13,16 +10,18 @@
 // out-neighbors' out-neighbors.
 // **************************************************************
 
-using vertex = int;
-using vertices = parlay::sequence<vertex>;
-using Graph = parlay::sequence<vertices>;
+template <typename vertex>
+using graph = parlay::sequence<parlay::sequence<vertex>>;
 
-long triangle_count(const Graph &G) {
-  size_t n = G.size();
+template <typename vertex>
+long triangle_count(const graph<vertex> &G) {
+  using vertices = parlay::sequence<vertex>;
+
+  long n = G.size();
   auto ranks = parlay::rank(parlay::map(G, [] (auto& ngh) {
 	return ngh.size();}));
   
-  Graph Gf = parlay::tabulate(n, [&] (vertex u) {
+  graph<vertex> Gf = parlay::tabulate(n, [&] (vertex u) {
       return parlay::filter(G[u], [&] (vertex v) {
 	  return ranks[u] < ranks[v];});});
 

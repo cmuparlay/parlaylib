@@ -2,7 +2,6 @@
 
 #include <parlay/monoid.h>
 #include <parlay/primitives.h>
-#include <parlay/sequence.h>
 #include <parlay/delayed.h>
 
 // **************************************************************

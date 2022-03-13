@@ -4,7 +4,7 @@
 
 #include <parlay/primitives.h>
 #include <parlay/random.h>
-#include <parlay/sequence.h>
+#include <parlay/delayed.h>
 
 #include "kmeans_pp.h"
 
@@ -12,7 +12,7 @@
 // Driver
 // **************************************************************
 double euclidean_squared(const Point& a, const Point& b) {
-  return parlay::reduce(parlay::delayed_tabulate(a.size(), [&] (long i) {
+  return parlay::reduce(parlay::delayed::tabulate(a.size(), [&] (long i) {
     auto d = a[i]-b[i];
     return d*d;}));
 }

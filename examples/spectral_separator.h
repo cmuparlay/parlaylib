@@ -88,9 +88,8 @@ auto second_eigenvector(Matrix A, vector v1, double error) {
   vector v2 = rand_vector(n);
   int i = 0;
   while (true) {
-    i++;
     vector vnew = normalize(A * (v2 - dot(v2,v1) * v1));
-    if (rms_diff(v2, vnew) < error) break;
+    if (i++ % 100 == 0 && rms_diff(v2, vnew) < error) break;
     v2 = vnew;
   }
   std::cout << "number of iterations = " << i << std::endl;
@@ -103,7 +102,7 @@ auto second_eigenvector(Matrix A, vector v1, double error) {
 auto partition_graph(graph g) {
   long n = g.size();
   laplacian mat(g);
-  double error = 1e-7;
+  double error = .5e-7;
   // the first eigenvector
   vector v1 = vector(n, 1.0/sqrt((double) n));
   // and the second
