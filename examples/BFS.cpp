@@ -3,7 +3,6 @@
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
-#include <parlay/range.h>
 #include <parlay/internal/get_time.h>
 
 #include "BFS.h"
@@ -39,7 +38,7 @@ int main(int argc, char* argv[]) {
       t.next("BFS");
     }
 
-    long visited = parlay::reduce(parlay::map(result, parlay::range_size()));
+    long visited = parlay::reduce(parlay::map(result, parlay::size_of()));
     std::cout << "num vertices visited: " << visited << std::endl;
   }
 }

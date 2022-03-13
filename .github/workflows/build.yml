@@ -58,6 +58,7 @@ jobs:
       - name: Install Compiler
         if: startsWith(matrix.config.os, 'ubuntu')
         run: |
+          sudo apt-get update
           sudo apt-get -qq install ${{matrix.config.cc}} ${{matrix.config.cxx}}
 
       - name: Install libc++

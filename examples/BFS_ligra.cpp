@@ -3,7 +3,6 @@
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
-#include <parlay/range.h>
 
 #include "BFS_ligra.h"
 #include "helper/graph_utils.h"
@@ -40,7 +39,7 @@ int main(int argc, char* argv[]) {
       t.next("BFS_ligra");
     }
 
-    long visited = reduce(map(result, parlay::range_size{}));
+    long visited = reduce(map(result, parlay::size_of()));
     std::cout << "num vertices visited: " << visited << std::endl;
   }
 }

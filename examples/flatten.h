@@ -12,7 +12,7 @@
 template <typename Range>
 auto flatten(const Range& A) {
   using T = typename Range::value_type::value_type;
-  auto sizes = parlay::delayed_map(A, parlay::range_size{});
+  auto sizes = parlay::delayed_map(A, parlay::size_of{});
   auto [offsets, m] = parlay::scan(sizes);
   auto r = parlay::sequence<T>::uninitialized(m);
   parlay::parallel_for(0, A.size(), [&, &offsets = offsets] (long i) {

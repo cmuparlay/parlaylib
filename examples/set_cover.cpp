@@ -55,7 +55,6 @@ int main(int argc, char* argv[]) {
       t.next("set cover");
     }
     if (check(r, S, n)) std::cout << "all elements covered!" << std::endl;
-    long total = parlay::reduce(parlay::map(S, [] (auto s) {return s.size();}));
     std::cout << "set cover size = " << r.size() << std::endl;
   }
 }

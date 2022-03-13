@@ -60,8 +60,7 @@ struct laplacian {
   graph g;
   double diag;
   static double max_degree(const graph& g) {
-    return parlay::reduce(parlay::map(g, [] (auto& ngh) -> double {return ngh.size();}),
-                          parlay::maximum<double>());}
+    return parlay::reduce(parlay::map(g, parlay::size_of()), parlay::maximum<double>()); }
   laplacian(const graph& g) : g(g), diag(max_degree(g)+1.0) {}
   vector operator*(vector const& vec) {
     return parlay::tabulate(g.size(), [&] (long u) {

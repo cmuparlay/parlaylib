@@ -6,10 +6,10 @@
 #include <atomic>
 #include <utility>
 
-#include "parlay/primitives.h"
-#include "parlay/sequence.h"
-#include "parlay/utilities.h"
-#include "parlay/monoid.h"
+#include <parlay/monoid.h>
+#include <parlay/primitives.h>
+#include <parlay/sequence.h>
+#include <parlay/utilities.h>
 
 #include "helper/speculative_for.h"
 
@@ -99,7 +99,7 @@ struct set_cover {
     double log1e = 1.0/log(1.0 + epsilon);
     auto bucket_from_size = [=] (long n) { return floor(log(n) * log1e);};
 
-    double max_size = parlay::reduce(parlay::map(S, [] (auto& s) {return s.size();}),
+    double max_size = parlay::reduce(parlay::map(S, parlay::size_of()),
 				     parlay::maximum<idx>());
     int num_buckets = 1 + bucket_from_size(max_size);
 

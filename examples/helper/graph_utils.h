@@ -125,8 +125,8 @@ struct graph_utils {
   }
 		  
   static void print_graph_stats(const graph& G) {
-    long num_edges = reduce(map(G, parlay::range_size{}));
-    long max_degree = reduce(map(G, parlay::range_size{}), parlay::maximum<size_t>());
+    long num_edges = reduce(map(G, parlay::size_of()));
+    long max_degree = reduce(map(G, parlay::size_of()), parlay::maximum<size_t>());
     std::cout << "num vertices = " << G.size() << std::endl;
     std::cout << "num edges    = " << num_edges << std::endl;
     std::cout << "max degree   = " << max_degree << std::endl;
@@ -189,7 +189,7 @@ struct graph_utils {
 
   static void write_graph_to_file(const graph& G, const std::string& filename) {
     using lseq = parlay::sequence<long>;
-    auto lengths = map(G, [] (auto& nghs) {return (long) nghs.size();});
+    auto lengths = map(G, parlay::size_of());
     auto edges = flatten(parlay::tabulate(G.size(), [&] (long i) {
 	  auto nghs = sort(G[i]);
 	  return parlay::tabulate(nghs.size(), [&] (long j) -> long {
