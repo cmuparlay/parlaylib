@@ -316,7 +316,7 @@ auto group_by_index(R&& A, Integer_t num_buckets) {
 					 num_buckets);
     auto [offsets,total] = scan(lengths);
     auto values = delayed::map(key_vals, [] (auto p) {return p.second;});
-    return tabulate(num_buckets, [&, o = offsets.begin(), l = lengths.begin()] (size_t i) {
+    return internal::tabulate(num_buckets, [&, o = offsets.begin(), l = lengths.begin()] (size_t i) {
 	return to_sequence(make_slice(values).cut(o[i], o[i] + l[i]));});
   }
 }
