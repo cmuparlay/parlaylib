@@ -2,6 +2,7 @@
 #include <parlay/primitives.h>
 #include <parlay/parallel.h>
 #include <parlay/range.h>
+#include <parlay/internal/get_time.h>
 
 namespace delayed = parlay::delayed;
 
@@ -25,6 +26,7 @@ struct vertex_subset {
   size_t size() const {return n;}
   sparse_t sparse;
   dense_t dense;
+  vertex_subset() : is_sparse(true), n(0) {}
   vertex_subset(sparse_t x) :
     sparse(std::move(x)), is_sparse(true), n(x.size()) {}
   vertex_subset(vertex v) :
@@ -32,6 +34,12 @@ struct vertex_subset {
   vertex_subset(dense_t x) :
     dense(std::move(x)), is_sparse(false),
     n(parlay::count(x,true)) {}
+  // must be vertices not already in set
+  void add_vertices(const parlay::sequence<vertex>& V) {
+    if (is_sparse) sparse = parlay::append(sparse, V);
+    else for(auto v : V) dense[v] = true;
+    n += V.size();
+  }
   parlay::sequence<vertex> to_seq() {
     if (is_sparse) return sparse;
     else return parlay::pack_index<vertex>(dense);
@@ -87,11 +95,12 @@ struct edge_map {
   // when swithching from one to the other.
   auto operator() (vertex_subset_ const &vertices) {
     auto l = vertices.size();
+    parlay::internal::timer t;
     bool do_dense;
     if (vertices.is_sparse) {
       auto d = parlay::reduce(parlay::delayed_map(vertices.sparse, [&] (long i) {
 	    return G[i].size();}));
-      if ((l + d) > m/20) {
+      if ((l + d) > m/10) {
 	parlay::sequence<bool> d_vertices(n, false);
 	parlay::for_each(vertices.sparse, [&] (vertex i) {d_vertices[i] = true;});
 	return vertex_subset_(edge_map_dense(d_vertices));

@@ -184,7 +184,8 @@ struct graph_utils {
   static graph read_symmetric_graph_from_file(const std::string& filename) {
     auto G = read_graph_from_file(filename);
     auto GT = transpose(G);
-    return parlay::tabulate(G.size(), [&] (long i) {return parlay::append(GT[i],G[i]);});
+    return parlay::tabulate(G.size(), [&] (long i) {
+	return parlay::sort(parlay::append(GT[i],G[i]));});
   }
 
   static void write_graph_to_file(const graph& G, const std::string& filename) {

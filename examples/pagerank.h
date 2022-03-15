@@ -12,8 +12,13 @@ using vector = parlay::sequence<double>;
 template <typename sparse_matrix>
 auto mxv(sparse_matrix const& mat, vector const& vec) {
   return parlay::map(mat, [&] (auto const& r) {
+      if (r.size() < 100) {
+	double result = 0.0;
+	for(auto e : r) result += vec[e.first] * e.second;
+	return result;
+      }
       return parlay::reduce(parlay::delayed::map(r, [&] (auto e) {
-	    return vec[e.first] * e.second;}));});
+	    return vec[e.first] * e.second;}));},100);
 }
 
 // the algorithm
