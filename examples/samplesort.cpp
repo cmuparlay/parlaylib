@@ -27,8 +27,15 @@ int main(int argc, char* argv[]) {
 	auto r = gen[i];
 	return dis(r);});
 
-    auto result = data;
-    sample_sort(result);
+    parlay::internal::timer t("Time");
+    parlay::sequence<long> result;
+    for (int i=0; i < 5; i++) {
+      result = data;
+      t.start();
+      sample_sort(result);
+      t.next("samplesort");
+    }
+
     auto first_ten = result.head(10);
     std::cout << "first 10 elements: " << parlay::to_chars(first_ten) << std::endl;
   }

@@ -6,7 +6,7 @@
 #include <parlay/sequence.h>
 #include <parlay/internal/get_time.h>
 
-#include "min_spanning_tree.h"
+#include "kruskal.h"
 #include "helper/graph_utils.h"
 
 // **************************************************************
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
       n = utils::num_vertices(E);
     }
     utils::print_graph_stats(E,n);
-    auto WE = utils::add_weights(E);
+    auto WE = utils::add_weights<float>(E);
     parlay::sequence<long> result;
     parlay::internal::timer t("Time");
     for (int i=0; i < 3; i++) {

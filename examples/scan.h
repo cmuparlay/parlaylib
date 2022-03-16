@@ -19,7 +19,7 @@ auto scan(const Range& A, const BinaryOp&& binop) {
   // Avoids initializing.  Must use assign_uninitialized on it.
   auto r = parlay::sequence<T>::uninitialized(n);
   
-  auto scan_seq = [&] (long start, long end, T init) {
+  auto scan_sequential = [&] (long start, long end, T init) {
     for (long i=start; i < end; i++) {
       parlay::assign_uninitialized(r[i], init);
       init = binop(init,A[i]);
@@ -28,7 +28,7 @@ auto scan(const Range& A, const BinaryOp&& binop) {
   };
   
   if (n <= block_size)
-    return std::pair{r, scan_seq(0, n, binop.identity)};
+    return std::pair{r, scan_sequential(0, n, binop.identity)};
   else {
     long num_blocks = 1 + (n - 1) / block_size;
 
@@ -41,12 +41,14 @@ auto scan(const Range& A, const BinaryOp&& binop) {
 	return v;});
 
     // recursive call
-    auto [part, total] = scan(sums, binop); 
-
+    auto [part, total] = scan(sums, binop);
+    auto partial = part;
+    
     // expand back out
-    parlay::parallel_for(0, num_blocks, [&, prt=part] (long i) {
-	scan_seq(i*block_size, std::min((i+1)*block_size, n),
-		 prt[i]);});
+    parlay::parallel_for(0, num_blocks, [&] (long i) {
+	scan_sequential(i*block_size, std::min((i+1)*block_size, n),
+			partial[i]);});
+    
     return std::pair{std::move(r), total};
   }
 }

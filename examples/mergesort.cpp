@@ -25,11 +25,18 @@ int main(int argc, char* argv[]) {
     // generate random long values
     auto data = parlay::tabulate(n, [&] (long i) {
       auto r = gen[i];
-      return dis(r);
-    });
+      return dis(r);});
 
-    merge_sort(data);
-    auto first_ten = data.head(10);
+    parlay::internal::timer t("Time");
+    parlay::sequence<long> result;
+    for (int i=0; i < 5; i++) {
+      result = data;
+      t.start();
+      merge_sort(result);
+      t.next("mergesort");
+    }
+
+    auto first_ten = result.head(10);
 
     std::cout << "first 10 elements: " << parlay::to_chars(first_ten) << std::endl;
   }

@@ -1,17 +1,20 @@
 #include <iostream>
-#include <random>
 #include <string>
+#include <random>
 
+#include <parlay/io.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
+#include <parlay/sequence.h>
+#include <parlay/internal/get_time.h>
 
-#include "kth_smallest.h"
+#include "quicksort.h"
 
 // **************************************************************
 // Driver
 // **************************************************************
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: kth_smallest <n>";
+  auto usage = "Usage: quicksort <n>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n;
@@ -21,17 +24,20 @@ int main(int argc, char* argv[]) {
     std::uniform_int_distribution<long> dis(0, n-1);
 
     // generate random long values
-    auto data = parlay::tabulate(n, [&] (long i) -> long {
+    auto data = parlay::tabulate(n, [&] (long i) {
       auto r = gen[i];
-      return dis(r); });
+      return dis(r);
+    });
 
     parlay::internal::timer t("Time");
-    long result;
+    parlay::sequence<long> result;
     for (int i=0; i < 5; i++) {
-      result = kth_smallest(data, n/2);
-      t.next("kth_smallest");
+      result = quicksort(data);
+      t.next("quicksort");
     }
+      
+    auto first_ten = result.head(10);
 
-    std::cout << "median is: " << result << std::endl;
+    std::cout << "first 10 elements: " << parlay::to_chars(first_ten) << std::endl;
   }
 }

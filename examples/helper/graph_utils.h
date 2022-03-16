@@ -10,7 +10,9 @@ struct graph_utils {
   using edges = parlay::sequence<edge>;
   using vertices = parlay::sequence<vertex>;
   using graph = parlay::sequence<vertices>;
-  using weighted_edge = std::tuple<vertex,vertex,double>;
+
+  template <typename wtype>
+  using weighted_edge = std::tuple<vertex,vertex,wtype>;
 
   using element = std::pair<int,float>;
   using row = parlay::sequence<element>;
@@ -49,12 +51,13 @@ struct graph_utils {
 	  return map(G[u], [=] (vertex v) {return std::pair(u,v);});}));
   }
 
-  static parlay::sequence<weighted_edge> add_weights(const edges& E) {
+  template <typename wtype>
+  static parlay::sequence<weighted_edge<wtype>> add_weights(const edges& E) {
     parlay::random_generator gen;
-    std::uniform_real_distribution<double> dis(0.0, 1.0);
+    std::uniform_real_distribution<wtype> dis(0.0, 1.0);
     return parlay::tabulate(E.size(), [&] (long i) {
 	auto r = gen[i];
-	return weighted_edge(E[i].first, E[i].second, dis(r));});
+	return weighted_edge<wtype>(E[i].first, E[i].second, dis(r));});
   }
 
   static long num_vertices(const edges& E) {

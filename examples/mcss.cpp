@@ -25,7 +25,13 @@ int main(int argc, char* argv[]) {
       auto r = gen[i];
       return dis(r);});
 
-    auto result = mcss(vals);
+    parlay::internal::timer t("Time");
+    int result;
+    for (int i=0; i < 5; i++) {
+      result = mcss(vals);
+      t.next("mcss");
+    }
+
     std::cout << "mcss = " << result << std::endl;
   }
 }
