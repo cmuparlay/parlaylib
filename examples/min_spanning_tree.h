@@ -67,6 +67,6 @@ parlay::sequence<long> min_spanning_forest(w_edges<vertex> &E, long n) {
   };
 
   // Loop through edges in sorted order (in parallel)
-  speculative_for<vertex>(0, m, reserve, commit);
+  speculative_for<vertex>(0, m, reserve, commit, n/10);
   return parlay::pack_index<long>(inMST);
 }

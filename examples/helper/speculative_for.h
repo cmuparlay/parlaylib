@@ -51,10 +51,9 @@ enum status : char { done = 0, try_commit = 1, try_again = 2};
 template <class idx, class R, class C>
 void speculative_for(idx start, idx end, 
 		     R reserve, C commit,
-		     long granularity = 10) {
-  long max_round_size = (end-start)/granularity+1;
-  long current_round_size = max_round_size/4+1;
-  parlay::sequence<idx> Ihold;
+		     long start_size=1) {
+  long current_round_size = std::max(start_size, 1l); 
+  parlay::sequence<idx> carry_forward;
 
   long number_done = start; // number of iterations done
   long number_keep = 0; // number of iterations to carry to next round
@@ -64,28 +63,24 @@ void speculative_for(idx start, idx end,
 
     // try to reserve 
     parlay::sequence<status> keep = parlay::tabulate(size, [&] (long i) {
-      long j = (i < number_keep) ? Ihold[i] : number_done + i;
+      long j = (i < number_keep) ? carry_forward[i] : number_done + i;
       return reserve(j); });
 
     // try to commit
-    parlay::sequence<idx> I = parlay::tabulate(size, [&] (long i) -> idx {
-        long j = (i < number_keep) ? Ihold[i] : number_done + i;
-	if (keep[i] == try_commit) keep[i] = commit(j) ? done : try_again;
+    parlay::sequence<idx> indices = parlay::tabulate(size, [&] (long i) -> idx {
+        long j = (i < number_keep) ? carry_forward[i] : number_done + i;
+	if (keep[i] == try_commit) keep[i] = (commit(j) ? done : try_again);
 	return j;
       });
     
     // keep iterations that failed for the next round
-    auto flags = parlay::delayed_map(keep.head(size),[] (status x) {
-	return x != done;});
-    Ihold = parlay::pack(I.head(size), flags);
-    number_keep = Ihold.size();
+    auto flags = parlay::delayed_map(keep, [] (status x) {return x != done;});
+    carry_forward = parlay::pack(indices, flags);
+    number_keep = carry_forward.size();
     number_done += size - number_keep;
-    
-    // adjust round size based on number of failed attempts
-    if (float(number_keep)/float(size) > .2) // shrink
-      current_round_size
-	= std::max({number_keep, current_round_size/2, max_round_size/64});
-    else if (float(number_keep)/float(size) < .1) // grow
-      current_round_size = std::min(current_round_size * 2, max_round_size);
+
+    // if few need to be carried forward, then double the round size
+    if (float(number_keep)/float(size) < .2) 
+      current_round_size = current_round_size * 2;
   }
 }

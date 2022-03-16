@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
     utils::print_graph_stats(G);
     nested_seq result;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 3; i++) {
+    for (int i=0; i < 5; i++) {
       result = BFS(1, G, GT);
       t.next("BFS_ligra");
     }

@@ -144,7 +144,7 @@ struct graph_utils {
   }
 
   static graph read_graph_from_file_pbbs(const std::string& filename) {
-    auto str = parlay::chars_from_file(filename);
+    auto str = parlay::file_map(filename);
     auto tokens = parlay::tokens(str, [] (char c) {return c == '\n';});
     long n = parlay::chars_to_long(tokens[1]);
     long m = parlay::chars_to_long(tokens[2]);
@@ -163,18 +163,21 @@ struct graph_utils {
   }
 
   static graph read_graph_from_file(const std::string& filename) {
-    auto str = parlay::chars_from_file(filename);
-    auto tokens = parlay::tokens(str, [] (char c) {return c == '\n';});
+    auto str = parlay::file_map(filename);
+    auto tokens = parlay::tokens(str, [] (char c) {return c == '\n' || c == ' ';});
     long n = parlay::chars_to_long(tokens[0]);
     long m = parlay::chars_to_long(tokens[1]);
     if (tokens.size() != n + m + 2) {
-      std::cout << "bad file format" << std::endl;
+      std::cout << "Bad file format, read_graph_from_file expects:\n"
+		<< "<n> <m> <degree 0> <degree 1> ... <degree n-1> <edge 0> ... <edge m-1>\n"
+		<< "Edges are sorted and each difference encoded with respect to the previous one."
+		<< "First per vertex is encoded directly." << std::endl;
       return graph();
     }
-    auto lengths = parlay::tabulate(n, [&] (long i) {
+    auto lengths = parlay::delayed::tabulate(n, [&] (long i) {
 	return parlay::chars_to_double(tokens[i+2]);});
     auto edges = parlay::tabulate(m, [&] (long i) {
-	return (vertex) parlay::chars_to_double(tokens[i+n+2]);});
+		   return (vertex) parlay::chars_to_double(tokens[i+n+2]);});
     auto [offsets,total] = scan(lengths);
     return parlay::tabulate(n, [&, o=offsets.begin()] (vertex i) {
 	return scan_inclusive(edges.cut(o[i], o[i]+lengths[i]));});
@@ -184,13 +187,13 @@ struct graph_utils {
   static graph read_symmetric_graph_from_file(const std::string& filename) {
     auto G = read_graph_from_file(filename);
     auto GT = transpose(G);
-    return parlay::tabulate(G.size(), [&] (long i) {
-	return parlay::sort(parlay::append(GT[i],G[i]));});
+    return  parlay::tabulate(G.size(), [&] (long i) {
+		  return parlay::append(parlay::sort(GT[i]),G[i]);});
   }
 
   static void write_graph_to_file(const graph& G, const std::string& filename) {
     using lseq = parlay::sequence<long>;
-    auto lengths = map(G, parlay::size_of());
+    auto lengths = map(G, [] (auto& nghs) {return (long) nghs.size();});
     auto edges = flatten(parlay::tabulate(G.size(), [&] (long i) {
 	  auto nghs = sort(G[i]);
 	  return parlay::tabulate(nghs.size(), [&] (long j) -> long {

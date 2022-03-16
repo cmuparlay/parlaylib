@@ -44,7 +44,7 @@ parlay::sequence<long> maximal_matching(edges const &E, long n) {
   };
 
   // loops over edged in parallel blocks
-  speculative_for<long>(0, E.size(), reserve, commit);
+  speculative_for<long>(0, E.size(), reserve, commit, n/10);
 
   // returns the edges that successfully committed (their reservation remains in R[v]).
   return parlay::pack(parlay::delayed::map(R, [&] (auto& r) {return r.get();}),

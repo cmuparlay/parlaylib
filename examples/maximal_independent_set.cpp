@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
     utils::print_graph_stats(G);
     parlay::internal::timer t("Time");
     parlay::sequence<bool> in_set;
-    for (int i=0; i < 3; i++) {
+    for (int i=0; i < 5; i++) {
       in_set = MIS(G);
       t.next("MIS");
     }

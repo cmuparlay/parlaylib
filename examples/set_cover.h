@@ -78,7 +78,7 @@ struct set_cover {
       }
     };
 
-    speculative_for(0, (int) Si.size(), reserve, commit, 1);
+    speculative_for(0, (int) Si.size(), reserve, commit, Si.size()/4);
 
     // return sets that were not accepted
     return parlay::filter(Si, [&] (idx i) {

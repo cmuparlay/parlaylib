@@ -15,6 +15,12 @@ using vertex = int;
 using graph = parlay::sequence<parlay::sequence<vertex>>;
 using utils = graph_utils<vertex>;
 
+bool check(const graph& G, const parlay::sequence<int> colors) {
+  auto is_good = [&] (long u) {
+		return all_of(G[u], [&] (auto& v) {return colors[u] != colors[v];});};
+  return count(parlay::tabulate(G.size(), is_good), true) == G.size();
+}
+
 int main(int argc, char* argv[]) {
   auto usage = "Usage: graph_color <num_vertices>";
   if (argc != 2) std::cout << usage << std::endl;
@@ -36,8 +42,8 @@ int main(int argc, char* argv[]) {
       colors = graph_coloring(G);
       t.next("graph color");
     }
-
     int max_color = parlay::reduce(colors, parlay::maximum<int>());
-    std::cout << "number of colors: " << max_color + 1  << std::endl;
+    if (!check(G, colors)) std::cout << "bad coloring" << std::endl;
+    else std::cout << "number of colors: " << max_color + 1  << std::endl;
   }
 }
