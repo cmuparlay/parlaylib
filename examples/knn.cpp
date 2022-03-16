@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n;
-    int k = 5;
+    int k = 10;
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
     parlay::random_generator gen(0);
@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
     });
     knn_graph r;
     parlay::internal::timer t;
-    for (int i=0; i < 10; i++) {
+    for (int i=0; i < 5; i++) {
       r = build_knn_graph(points, k);
       t.next("knn");
     }

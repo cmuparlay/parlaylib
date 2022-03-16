@@ -16,14 +16,19 @@
 // Earlier edges always win, which is what gives the same
 // tree as the sequential version
 // **************************************************************
-template <typename vertex>
-using w_edges = parlay::sequence<std::tuple<vertex,vertex,double>>;
+template <typename vertex, typename wtype>
+using edges = parlay::sequence<std::tuple<vertex,vertex,wtype>>;
 
-template <typename vertex>
-parlay::sequence<long> min_spanning_forest(w_edges<vertex> &E, long n) {
-  using indexed_edge = std::tuple<double,long,vertex,vertex>;
+// each edge is a tuple<vertex,vertex,weight>
+template <typename vertex, typename wtype>
+parlay::sequence<long> min_spanning_forest(const edges<vertex,wtype>& E, long n) {
+  using indexed_edge = std::tuple<wtype,long,vertex,vertex>;
   long m = E.size();
 
+  parlay::sequence<bool> inMST(m, false); // marks if edge i in MST
+  union_find<vertex> UF(n);
+  parlay::sequence<reservation<long>> R(n); // reservations
+  
   // tag each edge with an index
   auto EI = parlay::delayed_tabulate(m, [&] (long i) {
     auto [u,v,w] = E[i];
@@ -31,16 +36,12 @@ parlay::sequence<long> min_spanning_forest(w_edges<vertex> &E, long n) {
 
   auto SEI = parlay::sort(EI);
 
-  parlay::sequence<bool> inMST(m, false); // marks if edge i in MST
-  union_find<vertex> UF(n);
-  parlay::sequence<reservation<long>> R(n); // reservations
-
   // Find roots of endpoints and reserves them.
   // Earliest edge (the min weight edge since sorted) wins.
   auto reserve = [&] (long i) {
     auto [w, id, u, v] = SEI[i];
-    u = std::get<2>(SEI[i]) = UF.find(u);
-    v = std::get<3>(SEI[i]) = UF.find(v);
+    u = UF.find(u);
+    v = UF.find(v);
     if (u != v) {
       R[v].reserve(i);
       R[u].reserve(i);
@@ -54,6 +55,8 @@ parlay::sequence<long> min_spanning_forest(w_edges<vertex> &E, long n) {
   // the maximum edge is not minimum on either side.
   auto commit = [&] (long i) {
     auto [w, id, u, v] = SEI[i];
+    u = UF.find(u);
+    v = UF.find(v);
     if (R[v].check(i)) {
       R[u].check_reset(i);
       UF.link(v, u);     // the assymetric union step
@@ -67,6 +70,8 @@ parlay::sequence<long> min_spanning_forest(w_edges<vertex> &E, long n) {
   };
 
   // Loop through edges in sorted order (in parallel)
-  speculative_for<vertex>(0, m, reserve, commit, n/10);
+  speculative_for<vertex>(0, m, reserve, commit);
+
+  // return indices of tree edges
   return parlay::pack_index<long>(inMST);
 }
