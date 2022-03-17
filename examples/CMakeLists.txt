@@ -16,4 +16,3 @@ foreach(example ${EXAMPLES})
   add_example(${example})
 endforeach()
 
-add_subdirectory(helper)
