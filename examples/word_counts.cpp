@@ -6,6 +6,7 @@
 #include <parlay/io.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
+#include <parlay/internal/get_time.h>
 
 #include "word_counts.h"
 
@@ -27,8 +28,13 @@ int main(int argc, char* argv[]) {
     str = parlay::map(str, [] (unsigned char c) -> char {
       return std::isalpha(c) ? std::tolower(c) : ' '; });
 
-    auto counts = word_counts(str);
-
+    parlay::sequence<std::pair<parlay::chars, unsigned long>> counts;
+    parlay::internal::timer t("Time");
+    for (int i=0; i < 5; i++) {
+      counts = word_counts(str);
+      t.next("word_counts");
+    }
+    
     // take first n entries
     auto head = counts.head(std::min(n, (long) counts.size()));
 

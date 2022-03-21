@@ -531,7 +531,7 @@ struct sequence_base {
       if (current < desired) {
         // Allocate a new buffer that is at least
         // 50% larger than the old capacity
-        size_t new_capacity = (std::max)(desired, (15 * current + 9) / 10);
+        size_t new_capacity = (std::max)(desired, (5 * current)/ 2);//(15 * current + 9) / 10);
         auto alloc = get_raw_allocator();
         capacitated_buffer new_buffer(new_capacity, alloc);
 

@@ -5,7 +5,8 @@ set(EXAMPLES "primes" "BFS" "word_counts" "tokens" "filter" "linefit"
   "lasso_regression" "knn" "set_cover" "scan" "flatten" "reduce"
   "BFS_ligra" "triangle_count" "graph_color" "maximal_independent_set"
   "nbody_fmm" "cartesian_tree" "kcore" "cycle_count"
-  "betweenness_centrality" "low_diameter_decomposition" "quicksort" "filter_kruskal")
+  "betweenness_centrality" "low_diameter_decomposition" "quicksort" "filter_kruskal"
+  "knuth_shuffle" "minimum_edit_distance")
 
 function(add_example NAME)
   add_executable(${NAME} ${NAME}.cpp)

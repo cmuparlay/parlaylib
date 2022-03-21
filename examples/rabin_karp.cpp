@@ -2,6 +2,7 @@
 
 #include <parlay/io.h>
 #include <parlay/primitives.h>
+#include <parlay/internal/get_time.h>
 
 #include "rabin_karp.h"
 
@@ -16,7 +17,12 @@ int main(int argc, char* argv[]) {
     parlay::chars str = parlay::chars_from_file(argv[2]);
     parlay::chars search_str = parlay::to_chars(argv[1]);
     long loc;
-    loc = rabin_karp(str, search_str);
+    parlay::internal::timer t;
+    for (int i=0; i < 5; i++) {
+      loc = rabin_karp(str, search_str);
+      t.next("rabin_karp");
+    }
+    
     if (loc < str.size())
       std::cout << "found at position: " << loc << std::endl;
     else std::cout << "not found" << std::endl;
