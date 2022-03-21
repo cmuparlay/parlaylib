@@ -34,7 +34,7 @@ void random_shuffle(Seq& s) {
   // reserve to see if earliest (min) to swap with rand[i]
   auto reserve = [&] (long i) {
     long j = rand[i];
-    if (j == i || parlay::write_min(&res[j], i, std::less()))
+    if (j == i || parlay::write_min(&res[j], i, std::less{}))
       return try_commit;
     return try_again;
   };
