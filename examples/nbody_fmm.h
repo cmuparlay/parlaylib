@@ -251,7 +251,7 @@ node* build_tree(Particles& particles, long effective_size) {
                (a.second).max(b.second));};
   auto pairs = parlay::delayed_map(particles, [&] (particle* p) {
     return box(p->pt, p->pt);});
-  box b = parlay::reduce(pairs, parlay::make_monoid(minmax,pairs[0]));
+  box b = parlay::reduce(pairs, parlay::binary_op(minmax,pairs[0]));
 
   if (en < BOXSIZE || n < 10)
     return node_pool.allocate(parlay::to_sequence(particles), b);

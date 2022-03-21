@@ -2,11 +2,9 @@
 #include <functional>
 #include <cmath>
 #include <algorithm>
-#include <limits>
 #include <atomic>
 #include <utility>
 
-#include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/utilities.h>

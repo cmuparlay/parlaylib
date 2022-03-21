@@ -1,4 +1,3 @@
-#include <parlay/monoid.h>
 #include <parlay/primitives.h>
 
 // **************************************************************

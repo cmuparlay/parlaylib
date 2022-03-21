@@ -25,7 +25,7 @@ using graph = parlay::sequence<vertices>;
 
 parlay::sequence<int> graph_coloring(graph const &G) {
   // rank vertices by degree, highest first
-  auto ranks = parlay::rank(parlay::map(G, parlay::size_of()), std::greater());
+  auto ranks = parlay::rank(parlay::map(G, parlay::size_of()), std::greater<size_t>());
   // inverse permutation of the rank
   parlay::sequence<vertex> ordering(G.size());
   parlay::parallel_for(0, G.size(), [&] (vertex i) {ordering[ranks[i]] = i;});

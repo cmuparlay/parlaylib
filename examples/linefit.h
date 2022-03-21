@@ -1,6 +1,5 @@
 #include <utility>
 
-#include <parlay/monoid.h>
 #include <parlay/primitives.h>
 #include <parlay/delayed.h>
 
