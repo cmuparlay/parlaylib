@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
     str = parlay::map(str, [] (unsigned char c) -> char {
       return std::isalpha(c) ? std::tolower(c) : ' '; });
 
-    parlay::sequence<std::pair<parlay::chars, unsigned long>> counts;
+    parlay::sequence<std::pair<parlay::chars, long>> counts;
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
       counts = word_counts(str);

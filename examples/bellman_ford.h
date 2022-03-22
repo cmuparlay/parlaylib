@@ -8,7 +8,7 @@
 // **************************************************************
 // Parallel Bellman Ford
 // Returns an optional, which is empty if there is a negative weight
-// cycle.
+// cycle, or otherwise returns the distance to each vertex.
 // **************************************************************
 template <typename wtype, typename vertex, typename weighted_graph>
 auto bellman_ford(vertex start, const weighted_graph& GT) {
