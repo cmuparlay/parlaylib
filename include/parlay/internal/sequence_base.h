@@ -201,7 +201,7 @@ struct sequence_base {
       if (!is_small()) {
         destroy_all();
         auto alloc = get_raw_allocator();
-        _data.long_mode.buffer.free_buffer(alloc);
+        _data.long_mode.free_buffer(alloc);
       }
 
       set_to_empty_representation();
@@ -246,103 +246,6 @@ struct sequence_base {
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
 
-    // A buffer of value_types with a size_t prepended
-    // to the front to store the capacity. Does not
-    // handle construction or destruction or the
-    // elements in the buffer.
-    //
-    // IMPORTANT: Memory is not freed on destruction since it
-    // requires a reference to the allocator to do so, so
-    // free_buffer(alloc) must be called manually before the
-    // buffer is destroyed!
-    struct capacitated_buffer {
-
-      // Prepended header buffer. This is the magic type that makes
-      // this all work. It works by constructing a buffer of size
-      //
-      //   offsetof(header, data) + capacity * sizeof(value_type)
-      //
-      // in order to get an array of value_types of size capacity.
-      //
-      // How/why does this work? First a disclaimer: This is still almost
-      // certainly undefined behaviour, but until C++ gets flexible array members
-      // this is probably the best we can do. The trick we use is to have a
-      // single std::byte data member that is aligned to the alignment of a
-      // value_type object to tell us how far away from capacity we should put
-      // the data. This prevents alignment issues where the data might get too
-      // close to the capacity. With this member, we can use offsetof to compute
-      // its position, at which we then allocate space for capacity elements
-      // of type value_type.
-      struct header {
-        const size_t capacity;
-        union {
-          alignas(value_type) std::byte data[1];
-        };
-
-        static header* create(size_t capacity, raw_allocator_type& a) {
-          auto buffer_size = offsetof(header, data) + capacity * sizeof(value_type);
-          std::byte* bytes = std::allocator_traits<raw_allocator_type>::allocate(a, buffer_size);
-          return new (bytes) header(capacity);
-        }
-
-        static void destroy(header* p, raw_allocator_type& a) {
-          auto buffer_size = offsetof(header, data) + p->capacity * sizeof(value_type);
-          std::byte* bytes = reinterpret_cast<std::byte*>(p);
-          std::allocator_traits<raw_allocator_type>::deallocate(a, bytes, buffer_size);
-        }
-
-        explicit header(size_t _capacity) : capacity(_capacity) {}
-        ~header() = delete;
-
-        value_type* get_data() { return reinterpret_cast<value_type*>(std::addressof(data)); }
-        const value_type* get_data() const { return reinterpret_cast<const value_type*>(std::addressof(data)); }
-      };
-
-      // Construct a capacitated buffer with the capacity to hold the given
-      // number of objects of type value_type, using the given allocator
-      capacitated_buffer(size_t capacity, raw_allocator_type& a) : buffer(header::create(capacity, a)) {
-        assert(buffer != nullptr);
-        assert(get_capacity() == capacity);
-      }
-
-      // This unfortunately can not go in the destructor and be done
-      // automatically because we need a reference to the allocator
-      // to deallocate the buffer, and we do not want to store the
-      // allocator here.
-      void free_buffer(raw_allocator_type& a) {
-        if (buffer != nullptr) {
-          header::destroy(buffer, a);
-          buffer = nullptr;
-        }
-      }
-
-      size_t get_capacity() const {
-        if (buffer != nullptr) {
-          return buffer->capacity;
-        } else {
-          return 0;
-        }
-      }
-
-      value_type* data() {
-        if (buffer != nullptr) {
-          return buffer->get_data();
-        } else {
-          return nullptr;
-        }
-      }
-
-      const value_type* data() const {
-        if (buffer != nullptr) {
-          return buffer->get_data();
-        } else {
-          return nullptr;
-        }
-      }
-
-      header* buffer;
-    } PARLAY_PACKED;
-
     // A not-short-size-optimized sequence. Elements are
     // stored in a heap-allocated buffer. We use a 48-bit
     // integer to store the size so that there is room left
@@ -353,25 +256,34 @@ struct sequence_base {
     // might not always be available, in which case this object
     // will be 16 bytes, making the entire sequence 24 bytes.
     struct long_seq {
-      capacitated_buffer buffer;
+      std::byte* buffer;
       uint64_t n : 48;
+      uint64_t c : 8;
 
-      long_seq(capacitated_buffer _buffer, uint64_t _n) : buffer(_buffer), n(_n) {}
+      long_seq(std::byte* buffer_, uint64_t n_, uint64_t c_) : buffer(buffer_), n(n_), c(c_) {}
       ~long_seq() = default;
 
       void set_size(size_t new_size) { n = new_size; }
 
       size_t get_size() const { return n; }
 
-      size_t capacity() const { return buffer.get_capacity(); }
+      size_t capacity() const { return (1ULL << c) / sizeof(value_type); }
 
-      value_type* data() { return buffer.data(); }
+      value_type* data() { return reinterpret_cast<value_type*>(buffer); }
 
-      const value_type* data() const { return buffer.data(); }
+      const value_type* data() const { return reinterpret_cast<value_type*>(buffer); }
+
+      void free_buffer(raw_allocator_type& a) {
+        if (buffer != nullptr) {
+          auto buffer_size = 1ULL << c;
+          std::allocator_traits<raw_allocator_type>::deallocate(a, buffer, buffer_size);
+          buffer = nullptr;
+        }
+      }
     } PARLAY_PACKED;
 
     // The maximum capacity of a short-size-optimized sequence
-    constexpr static size_t short_capacity = (sizeof(capacitated_buffer) + sizeof(uint64_t) - 1) / sizeof(value_type);
+    constexpr static size_t short_capacity = (sizeof(long_seq) - 1) / sizeof(value_type);
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
@@ -501,6 +413,16 @@ struct sequence_base {
 
     const value_type& at(size_t i) const { return data()[i]; }
 
+    // Return a buffer of bytes large enough to old at least capacity many
+    // items of type value_type, with the size field initially set to n
+    long_seq allocate_long_seq_for_capacity(size_t capacity, size_t n) {
+      auto alloc = get_raw_allocator();
+      size_t c = log2_up(capacity * sizeof(value_type));
+      size_t buffer_size = 1ULL << c;
+      std::byte* buffer = std::allocator_traits<raw_allocator_type>::allocate(alloc, buffer_size);
+      return long_seq(buffer, n, c);
+    }
+
     // Should only be called during intitialization. Same as
     // ensure_capacity, except does not need to copy elements
     // from the existing buffer.
@@ -508,15 +430,13 @@ struct sequence_base {
       if constexpr (use_sso) {
         // Initialize the sequence in large mode
         if (short_capacity < desired) {
-          auto alloc = get_raw_allocator();
           _data.flag = 1;
-          _data.long_mode = long_seq(capacitated_buffer(desired, alloc), 0);
+          _data.long_mode = allocate_long_seq_for_capacity(desired, 0);
         } else {
           _data.flag = 0;
         }
       } else {
-        auto alloc = get_raw_allocator();
-        _data.long_mode = long_seq(capacitated_buffer(desired, alloc), 0);
+        _data.long_mode = allocate_long_seq_for_capacity(desired, 0);
       }
       assert(capacity() >= desired);
     }
@@ -529,16 +449,15 @@ struct sequence_base {
       // Allocate a new buffer and move the current
       // contents of the sequence into the new buffer
       if (current < desired) {
-        // Allocate a new buffer that is at least
-        // 50% larger than the old capacity
-        size_t new_capacity = (std::max)(desired, (5 * current)/ 2);//(15 * current + 9) / 10);
-        auto alloc = get_raw_allocator();
-        capacitated_buffer new_buffer(new_capacity, alloc);
+        auto n = size();
+        // Make the new capacity at least three times as large as the old
+        size_t new_size = (std::max)(desired, 3 * current);
+        long_seq new_seq = allocate_long_seq_for_capacity(new_size, n);
 
         // If uninitialized debugging is enabled, mark the new memory as uninitialized
 #ifdef PARLAY_DEBUG_UNINITIALIZED
         if constexpr (std::is_same_v<value_type, internal::UninitializedTracker>) {
-          auto buffer = new_buffer.data();
+          auto buffer = new_seq.data();
           parallel_for(0, new_buffer.get_capacity(), [&](size_t i) {
             buffer[i].initialized = false;
             PARLAY_ASSERT_UNINITIALIZED(buffer[i]);
@@ -546,23 +465,22 @@ struct sequence_base {
         }
 #endif
 
-        // Move initialize the new buffer with the
-        // contents of the old buffer
-        auto n = size();
-        auto dest_buffer = new_buffer.data();
+        // Relocate the contents of the old buffer into the new buffer
+        auto dest_buffer = new_seq.data();
         auto current_buffer = data();
         uninitialized_relocate_n_a(dest_buffer, current_buffer, n, *this);
 
         // Destroy the old stuff
         if (!is_small()) {
-          _data.long_mode.buffer.free_buffer(alloc);
+          auto alloc = get_raw_allocator();
+          _data.long_mode.free_buffer(alloc);
         }
 
         // Assign the new stuff
         if constexpr (use_sso) {
           _data.flag = 1;  // mark as a large sequence
         }
-        _data.long_mode = long_seq(new_buffer, n);
+        _data.long_mode = new_seq;
       }
 
       assert(capacity() >= desired);
