@@ -24,7 +24,8 @@
 // **************************************************************
 template <typename char_range>
 auto suffix_array(const char_range& S) {
-  using index = unsigned int; 
+  using index = unsigned int;
+  using ulong = unsigned long;
   struct seg { index start; index end; };
   index n = S.size();
   int granularity = 100; // only effects performance, and not by much
