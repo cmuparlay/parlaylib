@@ -5,6 +5,7 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 #include <parlay/sequence.h>
+#include <parlay/internal/get_time.h>
 
 #include "linefit.h"
 
@@ -29,7 +30,14 @@ int main(int argc, char* argv[]) {
       double x = dis(r);
       return point(x, offset + x * slope);
     });
-    auto [offset_, slope_] = linefit(pts);
-    std::cout << "offset = " << offset_ << " slope = " << slope_ << std::endl;
+    point result;
+
+    parlay::internal::timer t("Time");
+    for (int i=0; i < 5; i++) {
+	result = linefit(pts);
+	t.next("linefit");
+    }
+
+    std::cout << "offset = " << result.first << " slope = " << result.second << std::endl;
   }
 }

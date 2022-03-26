@@ -31,7 +31,7 @@ auto lcp(Seq1 const &s, Seq2 const &SA) {
 	       long j = offset;
 	       auto ssa = s.begin() + SA[i];
 	       auto ssb = s.begin() + SA[i+1];
-	       long max_j = std::min(len + offset, n - SA[i]);
+	       long max_j = (std::min<long>)(len + offset, n - SA[i]);
 	       while (j < max_j && (ssa[j] == ssb[j])) j++;
 	       if (j < len + offset) {L[i] = j; return false;}
 	       return true;});

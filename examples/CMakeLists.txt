@@ -7,7 +7,8 @@ set(EXAMPLES "primes" "BFS" "word_counts" "tokens" "filter" "linefit"
   "nbody_fmm" "cartesian_tree" "kcore" "cycle_count"
   "betweenness_centrality" "low_diameter_decomposition" "quicksort" "filter_kruskal"
   "knuth_shuffle" "minimum_edit_distance" "bigint_add" "bellman_ford" "suffix_array"
-  "longest_common_prefix" "longest_repeated_substring" "range_min")
+  "longest_common_prefix" "longest_repeated_substring" "range_min"
+  "fast_fourier_transform")
 
 function(add_example NAME)
   add_executable(${NAME} ${NAME}.cpp)
