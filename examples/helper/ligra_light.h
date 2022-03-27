@@ -67,8 +67,8 @@ struct edge_map {
   // it returns true v is included in the returned vertex set.
   auto edge_map_sparse(vertex_subset_sparse const &vertices) {
     auto nested_edges = parlay::map(vertices, [&] (vertex v) {
-	return parlay::delayed_tabulate(G[v].size(), [&, v] (long i) {
-	    return std::pair(v, G[v][i]);});});
+	return delayed::map(G[v], [=] (vertex u) {
+	    return std::pair(v, u);});});
     auto edges = delayed::flatten(nested_edges);
     return delayed::to_sequence(delayed::map_maybe(edges, [&] (auto e) {
 	  auto [u,v] = e;

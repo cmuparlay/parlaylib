@@ -68,9 +68,16 @@ struct graph_utils {
   }
 
   template <typename wtype>
+  static auto get_distribution(wtype minw, wtype maxw) {
+    if constexpr(std::is_integral_v<wtype>) 
+	return std::uniform_int_distribution<wtype>(minw,maxw);
+    else return	std::uniform_real_distribution<wtype>(minw,maxw);	
+  }
+
+  template <typename wtype>
   static weighted_graph<wtype> add_weights(const graph& G, wtype minw, wtype maxw) {
     parlay::random_generator gen;
-    std::uniform_real_distribution<wtype> dis(minw,maxw);
+    auto dis = get_distribution(minw, maxw);
     return parlay::tabulate(G.size(), [&] (long u) {
 	auto r = gen[u];
 	return parlay::tabulate(G[u].size(), [&] (long i) {
