@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
       G = utils::read_symmetric_graph_from_file(argv[1]);
       n = G.size();
     } else {
-      G = utils::rmat_graph(n, 20*n);
+      G = utils::rmat_symmetric_graph(n, 20*n);
     }
     using wtype = float;
     utils::print_graph_stats(G);
@@ -37,13 +37,14 @@ int main(int argc, char* argv[]) {
     parlay::sequence<wtype> result;
     parlay::internal::timer t("Time");
     for (int i=0; i < 3; i++) {
-      result = *bellman_ford<wtype>(1, WG);
+      result = *bellman_ford_lazy<wtype>(1, WG, WG);
       t.next("bellman_ford");
     }
 
-    long maxd = parlay::reduce(parlay::map(result, [] (auto d) {
+    double maxd = parlay::reduce(parlay::map(result, [] (auto d) {
 	  return (d == std::numeric_limits<wtype>::max()) ? (wtype) 0 : d;}),
       parlay::maximum<wtype>());
-    std::cout << "max reachable distance: " << maxd << std::endl;
+    std::cout << "max reachable distance: " << std::setprecision(4) << maxd << std::endl;
   }
 }
+

@@ -16,8 +16,10 @@ auto BFS(vertex start, const graph& G) {
       return (i==start) ? true : false; });
 
   parlay::sequence<vertex> frontier(1,start);
-  nested_seq frontiers(1, frontier);
+  nested_seq frontiers;
   while (frontier.size() > 0) {
+    frontiers.push_back(frontier);
+
     // get out edges of the frontier and flatten
     auto out = flatten(map(frontier, [&] (vertex u) {return G[u];}));
 
@@ -25,7 +27,6 @@ auto BFS(vertex start, const graph& G) {
     frontier = filter(out, [&] (auto&& v) {
       bool expected = false;
       return (!visited[v]) && visited[v].compare_exchange_strong(expected, true);});
-    frontiers.push_back(frontier);
   }
 
   return frontiers;

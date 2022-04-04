@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
   if (argc != 2) std::cout << usage << std::endl;
   else {
     auto [AT, y] = read_file(argv[1]);
-    parlay::internal::timer t;
+    parlay::internal::timer t("Time");
     solve_lasso(AT, y, 0.5, 0.0); 
     t.next("");
   }

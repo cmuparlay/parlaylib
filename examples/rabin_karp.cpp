@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
     parlay::chars str = parlay::chars_from_file(argv[2]);
     parlay::chars search_str = parlay::to_chars(argv[1]);
     long loc;
-    parlay::internal::timer t;
+    parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
       loc = rabin_karp(str, search_str);
       t.next("rabin_karp");

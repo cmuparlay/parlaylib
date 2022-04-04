@@ -30,7 +30,7 @@ auto BFS(vertex start, const graph& G, const graph& GT) {
   auto frontier = ligra::vertex_subset(start);
   nested_seq frontiers;
   while (frontier.size() > 0) {
-    frontiers.push_back(std::move(frontier.to_seq()));
+    frontiers.push_back(frontier.to_seq());
     frontier = frontier_map(frontier);
   }
 

@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
     parlay::sequence<long> values = generate_values(n);
     parlay::sequence<long> parents;
-    parlay::internal::timer t;
+    parlay::internal::timer t("Time");
     for (int i=0; i < 3; i++) {
       parents = cartesian_tree(values);
       t.next("Cartesian Tree");

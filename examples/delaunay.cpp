@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
       auto r = gen[i];
       return point{i, dis(r), dis(r)};});
 
-    parlay::internal::timer t;
+    parlay::internal::timer t("Time");
     parlay::sequence<tri> result;
     for (int i=0; i < 5; i++) {
       result = delaunay(points);

@@ -84,7 +84,7 @@ struct hashmap {
     }
   }
 
-  std::optional<V&> find(const K& k) {
+  std::optional<V> find(const K& k) {
     index i = first_index(k);
     while (true) {
       uint64_t p = H[i].load();

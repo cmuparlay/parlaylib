@@ -58,13 +58,15 @@ struct graph_utils {
 	  return map(G[u], [=] (vertex v) {return std::pair(u,v);});}));
   }
 
+  // adds random weights so (u,v) and (v,u) have same weight
   template <typename wtype>
   static weighted_edges<wtype> add_weights(const edges& E) {
     parlay::random_generator gen;
     std::uniform_real_distribution<wtype> dis(0.0, 1.0);
     return parlay::tabulate(E.size(), [&] (long i) {
-	auto r = gen[i];
-	return weighted_edge<wtype>(E[i].first, E[i].second, dis(r));});
+	auto [u,v] = E[i];
+	auto r = gen[std::min(u,v)][std::max(u,v)];
+	return weighted_edge<wtype>(u, v, dis(r));});
   }
 
   template <typename wtype>
@@ -74,15 +76,15 @@ struct graph_utils {
     else return	std::uniform_real_distribution<wtype>(minw,maxw);	
   }
 
+  // adds random weights so (u,v) and (v,u) have same weight
   template <typename wtype>
   static weighted_graph<wtype> add_weights(const graph& G, wtype minw, wtype maxw) {
     parlay::random_generator gen;
     auto dis = get_distribution(minw, maxw);
-    return parlay::tabulate(G.size(), [&] (long u) {
-	auto r = gen[u];
-	return parlay::tabulate(G[u].size(), [&] (long i) {
-	    auto rr = r[i];
-	    return std::pair(G[u][i], dis(rr));});});
+    return parlay::tabulate(G.size(), [&] (vertex u) {
+	return parlay::map(G[u], [&] (vertex v) {
+	    auto r = gen[std::min(u,v)][std::max(u,v)];
+	    return std::pair(v, dis(r));});});
   }
 
   static long num_vertices(const edges& E) {
