@@ -2,7 +2,7 @@
 
 // **************************************************************
 // Rabin-Karp string searching.
-// Finds the first position of a search string of length m in a string
+// Finds all position of a search string of length m in a string
 // of length n.  Generates a running hash such that the difference
 // been two positions gives a hash for the string in between.  The
 // search string can then be compared with the (n - m + 1) length m
@@ -31,7 +31,7 @@ struct field {
 // Works on any range types (e.g. std::string, parlay::sequence)
 // Elements must be of integer type (e.g. char, int, unsigned char)
 template <typename Range1, typename Range2>
-long rabin_karp(const Range1& s, const Range2& str) {
+auto rabin_karp(const Range1& s, const Range2& str) {
   long n = s.size();
   long m = str.size();
   field x(500000000);
@@ -56,7 +56,7 @@ long rabin_karp(const Range1& s, const Range2& str) {
       field hash_end = (i == n - m) ? total: hashes[i+m];
       if (hash * powers[i] + hashes[i] == hash_end &&
           parlay::equal(str, s.cut(i,i+m))) // double check
-        return i;
-      return n; });
-  return parlay::reduce(y, parlay::minimum<long>());
+        return true;
+      return false; });
+  return parlay::pack_index<long>(y);
 }

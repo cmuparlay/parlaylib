@@ -24,11 +24,12 @@ int main(int argc, char* argv[]) {
       t.next("knuth_morris_pratt");
     }
 
+    std::cout << "total matches = " << locations.size() << std::endl;
     if (locations.size() > 10) {
       auto r = parlay::to_sequence(locations.cut(0,10));
-      std::cout << "found at locations: " << to_chars(r) << " ..." <<  std::endl;
+      std::cout << "at locations: " << to_chars(r) << " ..." <<  std::endl;
     } else if (locations.size() > 0) {
-      std::cout << "found at locations: " << to_chars(locations) << std::endl;
-    } else std::cout << "not found" << std::endl;
+      std::cout << "at locations: " << to_chars(locations) << std::endl;
+    } 
   }
 }
