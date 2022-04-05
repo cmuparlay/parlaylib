@@ -34,7 +34,7 @@ struct point {idx id; coords pnt;};
 using points = parlay::sequence<point>;
 using knn_graph = parlay::sequence<parlay::sequence<idx>>;
 
-constexpr int node_size_cutoff = 25;
+constexpr int node_size_cutoff = 20;
 
 // **************************************************************
 // bounding box
@@ -56,13 +56,14 @@ coords center(box b) {
 
 box bound_box(const parlay::sequence<point>& P) {
   auto pts = parlay::map(P, [] (point p) {return p.pnt;});
-  return box{parlay::reduce(pts, parlay::binary_op(minv, coords())),
+  auto x = box{parlay::reduce(pts, parlay::binary_op(minv, coords())),
              parlay::reduce(pts, parlay::binary_op(maxv, coords()))};
+  return x;
 }
 
 box bound_box(const box& b1, const box& b2) {
-  return box{min(b1.first, b2.first),
-             max(b1.second, b2.second)};
+  return box{minv(b1.first, b2.first),
+             maxv(b1.second, b2.second)};
 }
 
 // **************************************************************
@@ -102,16 +103,16 @@ node* build_recursive(slice P, int bit) {
   if (bit == 0 || n < node_size_cutoff) {
     return leaf_allocator.allocate(parlay::to_sequence(P));
   } else {
-
+    
     // binary search for the cut point on the given bit
     auto bits = parlay::delayed::map(P, [&] (const point& p) {
-      return 1 == ((p.pnt[bit%dims] >> bit/dims) & 1);});
+      return 1 == ((p.pnt[dims-bit%dims-1] >> bit/dims) & 1);});
     long pos = std::lower_bound(bits.begin(), bits.end(), 1)-bits.begin();
 
     // if all points are on one side, then move onto the next bit
     if (pos == 0 || pos == n) return build_recursive(P, bit - 1);
 
-      // otherwise recurse on the two parts, also moving to next bit
+    // otherwise recurse on the two parts, also moving to next bit
     else {
       node *L, *R;
       parlay::par_do_if(n > 1000,
@@ -151,6 +152,8 @@ void delete_tree(node* T) { // delete tree in parallel
   }
 }
 
+//parlay::sequence<long> counts;
+
 // **************************************************************
 // Search the tree
 // **************************************************************
@@ -158,6 +161,7 @@ struct search {
   using neighbor = std::pair<idx,double>;
   point p;
   int k;
+  long cnt;
   static constexpr double inf = std::numeric_limits<double>::max();
 
   // candidate nearest neighbors, sorted with furtherst first
@@ -172,6 +176,7 @@ struct search {
     leaf* TL = static_cast<leaf*>(T);
     for (int i = 0; i < TL->size; i++)
       if (TL->pts[i].id != p.id) update_nearest(TL->pts[i]);
+    cnt = 0;
 
     // move up tree searching subtrees updating candidates
     // can stop if radius to current k-th nearest point is within the box
@@ -183,6 +188,7 @@ struct search {
       else k_nearest_down(pI->right);
       T = parent;
     }
+    //counts[p.id] = cnt;
   }
 
   double distance_sq(coords q) {
@@ -193,13 +199,14 @@ struct search {
     return r; }
 
   bool within_epsilon_box(node* T, double epsilon) {
-    box bounds;
     bool result = true;
-    for (int i = 0; i < dims; i++)
+    int i;
+    for (i = 0; i < dims; i++) {
       result = (result &&
-                (bounds.first[i] - epsilon < p.pnt[i]) &&
-                (bounds.second[i] + epsilon > p.pnt[i]));
-    return result;  }
+		(T->bounds.first[i] - epsilon < p.pnt[i]) &&
+		(T->bounds.second[i] + epsilon > p.pnt[i]));
+    }
+    return result; }
 
   // if p is closer than candidates[0] then swap it in
   void update_nearest(point q) {
@@ -216,6 +223,7 @@ struct search {
   // Can return immediately if radius to current k-th nearest point
   // does not intersect the box.
   void k_nearest_down(node* T) {
+    cnt++;
     if (within_epsilon_box(T, sqrt(candidates[0].second))) {
       if (T->is_leaf) {
         leaf* TL = static_cast<leaf*>(T);
@@ -244,7 +252,7 @@ void process_points_recursive(node* T, knn_graph& knn, int k) {
       leaf* TL = static_cast<leaf*>(T);
       search s(T, TL->pts[i], k); // the main search
       knn[TL->pts[i].id] = parlay::map(s.candidates, [] (auto x) {
-        return x.first;});
+	  return x.first;}, k);
     }
   else {
     internal* TI = static_cast<internal*>(T);
@@ -257,9 +265,18 @@ void process_points_recursive(node* T, knn_graph& knn, int k) {
 }
 
 auto build_knn_graph(const parlay::sequence<coords>& P, int k) {
+  parlay::internal::timer t("knn");
   node* T = build_tree(P);
+  t.next("build");
   knn_graph r(P.size());
+  //counts = parlay::sequence<long>(P.size(), 0);
+  t.next("init");
   process_points_recursive(T, r, k);
+  t.next("process");
+  // auto av = reduce(counts)/((float)P.size());
+  // auto maxv = reduce(counts, parlay::maximum<long>());
+  // std::cout << "max internal = " << maxv << ", average internal = " << av << std::endl;
   delete_tree(T);
+  t.next("delete");
   return r;
 }

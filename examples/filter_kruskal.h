@@ -74,7 +74,7 @@ parlay::sequence<long> min_spanning_forest(const edges<vertex,wtype>& E, long n)
   int k = 1;
   auto sampled_edges = parlay::delayed::tabulate(1 + E.size()/k, [&] (long i) {
       auto [u,v,w] = E[i*k]; return w;});
-  double cut_weight = *parlay::kth_smallest(sampled_edges, 2 * n / k);
+  double cut_weight = kth_smallest(sampled_edges, 2 * n / k);
   
   // tag each edge with an index
   auto EI = parlay::delayed_tabulate(m, [&] (long i) {
