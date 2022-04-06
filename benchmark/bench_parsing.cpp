@@ -182,9 +182,10 @@ static void bench_chars_to_long_double_slowpath(benchmark::State& state) {
 
 // ------------------------- Registration -------------------------------
 
-#define BENCH(NAME, T, args...) BENCHMARK_TEMPLATE(bench_ ## NAME, T)               \
+#define BENCH(NAME, T, ...) BENCHMARK_TEMPLATE(bench_ ## NAME, T)                   \
                           ->UseRealTime()                                           \
-                          ->Unit(benchmark::kNanosecond);
+                          ->Unit(benchmark::kMillisecond)                           \
+                          ->Args({__VA_ARGS__});
 
 
 BENCH(stringstream, int);

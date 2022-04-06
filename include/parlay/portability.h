@@ -2,6 +2,17 @@
 #ifndef PARLAY_PORTABILITY_H_
 #define PARLAY_PORTABILITY_H_
 
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define PARLAY_DEFINED_NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#ifdef PARLAY_DEFINED_NOMINMAX
+#undef NOMINMAX
+#endif
+#endif
+
 namespace parlay {
 
 // PARLAY_INLINE: Ask the compiler politely to inline the given function.
@@ -29,6 +40,16 @@ namespace parlay {
 #endif
 #else
 #define PARLAY_NO_UNIQUE_ADDR
+#endif
+
+// PARLAY_PREFETCH: Prefetch data into cache
+#if defined(__GNUC__)
+#define PARLAY_PREFETCH(addr, rw, locality) __builtin_prefetch ((addr), (rw), (locality))
+#elif defined(_WIN32)
+#define PARLAY_PREFETCH(addr, rw, locality)                                                 \
+  PreFetchCacheLine(((locality) ? PF_TEMPORAL_LEVEL_1 : PF_NON_TEMPORAL_LEVEL_ALL), (addr))
+#else
+#define PARLAY_PREFETCH(addr, rw, locality)
 #endif
 
 }  // namespace parlay
