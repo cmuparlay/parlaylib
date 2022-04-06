@@ -394,25 +394,31 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 
   auto head(iterator p) { return make_slice(begin(), p); }
 
-  auto head(size_t len) { return make_slice(begin(), begin() + len); }
+  auto head(size_type len) { return make_slice(begin(), begin() + len); }
 
   auto tail(iterator p) { return make_slice(p, end()); }
 
-  auto tail(size_t len) { return make_slice(end() - len, end()); }
+  auto tail(size_type len) { return make_slice(end() - len, end()); }
 
-  auto cut(size_t s, size_t e) { return make_slice(begin() + s, begin() + e); }
+  auto cut(size_type s, size_type e) { return make_slice(begin() + s, begin() + e); }
 
   // Const versions of slices
 
   auto head(iterator p) const { return make_slice(begin(), p); }
 
-  auto head(size_t len) const { return make_slice(begin(), begin() + len); }
+  auto head(size_type len) const { return make_slice(begin(), begin() + len); }
 
   auto tail(iterator p) const { return make_slice(p, end()); }
 
-  auto tail(size_t len) const { return make_slice(end() - len, end()); }
+  auto tail(size_type len) const { return make_slice(end() - len, end()); }
 
-  auto cut(size_t s, size_t e) const { return make_slice(begin() + s, begin() + e); }
+  auto cut(size_type s, size_type e) const { return make_slice(begin() + s, begin() + e); }
+
+  auto substr(size_type pos) const { return to_sequence(cut(pos, size())); }
+
+  auto substr(size_type pos, size_type count) const { return to_sequence(cut(pos, pos + count)); }
+
+  auto subseq(size_type s, size_type e) const { return to_sequence(cut(s,e)); }
 
   // Remove all elements of the subsequence beginning at the element
   // pointed to by p, and return a new sequence consisting of those

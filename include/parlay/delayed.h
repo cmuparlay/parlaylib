@@ -7,13 +7,13 @@
 #include <tuple>
 #include <utility>
 
-#include "internal/delayed/filter.h"
-#include "internal/delayed/filter_op.h"
-#include "internal/delayed/flatten.h"
-#include "internal/delayed/map.h"
-#include "internal/delayed/scan.h"
-#include "internal/delayed/terminal.h"
-#include "internal/delayed/zip.h"
+#include "internal/delayed/filter.h"        // IWYU pragma: export
+#include "internal/delayed/filter_op.h"     // IWYU pragma: export
+#include "internal/delayed/flatten.h"       // IWYU pragma: export
+#include "internal/delayed/map.h"           // IWYU pragma: export
+#include "internal/delayed/scan.h"          // IWYU pragma: export
+#include "internal/delayed/terminal.h"      // IWYU pragma: export
+#include "internal/delayed/zip.h"           // IWYU pragma: export
 
 #include "internal/sequence_ops.h"
 
@@ -67,6 +67,24 @@ auto zip_with(NaryOperator f, Ranges_&&... rs) {
     ::parlay::internal::delayed::zip(std::forward<Ranges_>(rs)...),
     [f = std::move(f)](auto&& t) { return std::apply(f, std::forward<decltype(t)>(t)); }
   );
+}
+
+// Given a range of pair-like objects (e.g. pairs of tuples of size two),
+// returns a delayed view of the first elements of the pairs
+template<typename Range_>
+auto key_view(Range_&& r) {
+  static_assert(is_block_iterable_range_v<Range_>);
+  return ::parlay::internal::delayed::map(std::forward<Range_>(r),
+      [](auto&& x) -> decltype(auto) { return std::get<0>(std::forward<decltype(x)>(x)); });
+}
+
+// Given a range of pair-like objects (e.g. pairs of tuples of size two),
+// returns a delayed view of the second elements of the pairs
+template<typename Range_>
+auto value_view(Range_&& r) {
+  static_assert(is_block_iterable_range_v<Range_>);
+  return ::parlay::internal::delayed::map(std::forward<Range_>(r),
+      [](auto&& x) -> decltype(auto) { return std::get<1>(std::forward<decltype(x)>(x)); });
 }
 
 }

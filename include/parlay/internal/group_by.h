@@ -29,40 +29,52 @@ namespace parlay {
 #pragma clang diagnostic ignored "-Wunused-local-typedef"
 #endif
 
+namespace internal {
+// Given a comparator, return a comparator that compares pair-like types by
+// their first element using the given comparator.
+template<typename Less>
+auto compare_pairs_by_key(Less&& less) {
+  return [less = std::forward<Less>(less)](auto&& a, auto&& b) {
+    return less(std::get<0>(std::forward<decltype(a)>(a)), std::get<0>(std::forward<decltype(b)>(b)));
+  };
+}
+
+constexpr inline auto get_key = [](auto&& a) -> decltype(auto) { return std::get<0>(std::forward<decltype(a)>(a)); };
+constexpr inline auto get_val = [](auto&& a) -> decltype(auto) { return std::get<1>(std::forward<decltype(a)>(a)); };
+}
+
 template <typename Range, typename Comp>
 auto group_by_key_ordered(Range&& S, Comp&& less) {
   static_assert(is_random_access_range_v<Range>);
+  static_assert(is_pair_v<range_reference_type_t<Range>>);
 
   using KV = range_value_type_t<Range>;
-  using K = typename KV::first_type;
-  using V = typename KV::second_type;
+  using K = std::tuple_element_t<0, KV>;
+  using V = std::tuple_element_t<1, KV>;
 
   static_assert(std::is_invocable_r_v<bool, Comp, K, K>);
 
   size_t n = S.size();
 
   sequence<KV> sorted;
+  auto comp = internal::compare_pairs_by_key(less);
   if constexpr(std::is_integral_v<K> && std::is_unsigned_v<K> && sizeof(KV) <= 16) {
-    auto get_first = [] (auto&& a) -> decltype(auto) {
-      return std::forward<decltype(a)>(a).first; };
-    sorted = internal::integer_sort(make_slice(S), get_first);
+    sorted = internal::integer_sort(make_slice(S), internal::get_key);
   } else {
-    auto pair_less = [&] (auto&& a, auto&& b) {
-      return less(std::forward<decltype(a)>(a).first, std::forward<decltype(b)>(b).first);};
-    sorted = internal::sample_sort(make_slice(S), pair_less, true);
+    sorted = internal::sample_sort(make_slice(S), comp, true);
   }
 
   auto vals = sequence<V>::uninitialized(n);
 
   auto ids = internal::delayed_tabulate(n, [](size_t i) { return i; });
   auto idx = block_delayed::filter(ids, [&] (size_t i) {
-    assign_uninitialized(vals[i], sorted[i].second);
-    return (i==0) || less(sorted[i-1].first, sorted[i].first);});
+    assign_uninitialized(vals[i], internal::get_val(sorted[i]));
+    return (i==0) || comp(sorted[i-1], sorted[i]); });
 
   auto r = internal::tabulate(idx.size(), [&] (size_t i) {
     size_t start = idx[i];
     size_t end = ((i==idx.size()-1) ? n : idx[i+1]);
-    return std::pair(std::move(sorted[idx[i]].first),
+    return std::pair(std::move(internal::get_key(sorted[idx[i]])),
                      to_sequence(vals.cut(start, end)));
   });
   return r;
@@ -78,24 +90,26 @@ auto group_by_key_ordered(Range&& S) {
 template <typename arg_type, typename Monoid, typename Hash, typename Equal>
 struct reduce_by_key_helper {
   using in_type = arg_type;
-  using key_type = typename in_type::first_type;
-  using value_type = typename in_type::second_type;
-  using result_type = in_type;
+  using key_type = std::tuple_element_t<0, in_type>;
+  using value_type = std::tuple_element_t<1, in_type>;
+  using result_type = std::pair<key_type, value_type>;
   Monoid monoid; Hash hash; Equal equal;
   reduce_by_key_helper(Monoid const &m, Hash const &h, Equal const &e) :
       monoid(m), hash(h), equal(e) {};
-  static const key_type& get_key(in_type const &p) { return p.first;}
-  static key_type& get_key(in_type &p) { return p.first;}
+
+  template<typename T> static const key_type& get_key(const T& p) { return std::get<0>(p);}
+  template<typename T> static key_type& get_key(T& p) { return std::get<0>(p);}
+
   void init(result_type &p, in_type const &kv) const {
-    assign_uninitialized(p.second, kv.second);}
+    assign_uninitialized(std::get<1>(p), std::get<1>(kv));}
   void update(result_type &p, in_type const &kv) const {
-    p.second = monoid(p.second, kv.second); }
-  static void destruct_val(in_type &kv) {kv.second.~value_type();}
+    std::get<1>(p) = monoid(std::get<1>(p), std::get<1>(kv)); }
+  static void destruct_val(in_type &kv) {std::get<1>(kv).~value_type();}
   template <typename Range>
   result_type reduce(Range &S) const {
-    auto &key = S[0].first;
+    auto &key = std::get<0>(S[0]);
     auto sum = internal::reduce(internal::delayed_map(S, [&] (in_type const &kv) {
-      return kv.second;}), monoid);
+      return std::get<1>(kv);}), monoid);
     return result_type(key, sum);}
 };
 
@@ -104,8 +118,8 @@ struct reduce_by_key_helper {
 // Values are combined with a monoid, which must be on the value type.
 // Returned in an arbitrary order that depends on the hash function.
 template <typename R,
-    typename Monoid = parlay::plus<typename range_value_type_t<R>::second_type>,
-    typename Hash = parlay::hash<typename range_value_type_t<R>::first_type>,
+    typename Monoid = parlay::plus<std::tuple_element_t<1, range_value_type_t<R>>>,
+    typename Hash = parlay::hash<std::tuple_element_t<0, range_value_type_t<R>>>,
     typename Equal = std::equal_to<>>
 auto reduce_by_key(R&& A, Monoid&& monoid = {}, Hash&& hash = {}, Equal&& equal = {}) {
   static_assert(is_random_access_range_v<R>);
@@ -116,29 +130,29 @@ auto reduce_by_key(R&& A, Monoid&& monoid = {}, Hash&& hash = {}, Equal&& equal 
 template <typename arg_type, typename Hash, typename Equal>
 struct group_by_key_helper {
   using in_type = arg_type;
-  using key_type = typename in_type::first_type;
-  using val_type = typename in_type::second_type;
+  using key_type = std::tuple_element_t<0, in_type>;
+  using val_type = std::tuple_element_t<1, in_type>;
   using seq_type = sequence<val_type>;
   using result_type = std::pair<key_type,seq_type>;
   Hash hash; Equal equal;
   group_by_key_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
-  static const key_type& get_key(in_type const &p) { return p.first;}
-  static key_type& get_key(in_type &p) { return p.first;}
-  static key_type& get_key(result_type &p) {return p.first;}
+  static const key_type& get_key(in_type const &p) { return std::get<0>(p);}
+  static key_type& get_key(in_type &p) { return std::get<0>(p);}
+  static key_type& get_key(result_type &p) {return std::get<0>(p);}
   static void init(result_type &p, in_type const &kv) {
-    assign_uninitialized(p.second,sequence(1, kv.second));}
+    assign_uninitialized(std::get<1>(p),sequence(1, std::get<1>(kv)));}
   static void update(result_type &p, in_type const &kv) {
-    p.second.push_back(kv.second); }
-  static void destruct_val(in_type &kv) {kv.second.~val_type();}
+    std::get<1>(p).push_back(std::get<1>(kv)); }
+  static void destruct_val(in_type &kv) {std::get<1>(kv).~val_type();}
   template <typename Range>
   static result_type reduce(Range &S) {
-    auto &key = S[0].first;
-    auto vals = internal::map(S, [&] (in_type const &kv) {return kv.second;});
+    auto &key = std::get<0>(S[0]);
+    auto vals = internal::map(S, [&] (in_type const &kv) {return std::get<1>(kv);});
     return result_type(key, vals);}
 };
 
 template <typename R,
-    typename Hash = parlay::hash<typename range_value_type_t<R>::first_type>,
+    typename Hash = parlay::hash<std::tuple_element_t<0, range_value_type_t<R>>>,
     typename Equal = std::equal_to<>>
 auto group_by_key(R&& A, Hash&& hash = {}, Equal&& equal = {}) {
   static_assert(is_random_access_range_v<R>);
@@ -157,9 +171,9 @@ struct count_by_key_helper {
   count_by_key_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
   static const key_type& get_key(in_type const &k) {return k;}
   static key_type& get_key(in_type &k) {return k;}
-  static key_type& get_key(result_type &p) {return p.first;}
-  static void init(result_type &p, in_type const&) {p.second = 1;}
-  static void update(result_type &p, in_type const&) {p.second += 1;}
+  static key_type& get_key(result_type &p) {return std::get<0>(p);}
+  static void init(result_type &p, in_type const&) {std::get<1>(p) = 1;}
+  static void update(result_type &p, in_type const&) {std::get<1>(p) += 1;}
   static void destruct_val(in_type &) {}
   template <typename Range>
   static result_type reduce(Range &S) {return result_type(S[0], S.size());}
@@ -212,19 +226,19 @@ auto remove_duplicates(R&& A, Hash&& hash = {}, Equal&& equal = {}) {
 // Values are combined with a monoid, which must be on the value type.
 // Must specify the number of buckets and it is an error for a key to be
 // be out of range.
-template <typename R, typename Monoid = parlay::plus<typename range_value_type_t<R>::second_type>>
+template <typename R, typename Monoid = parlay::plus<std::tuple_element_t<1, range_value_type_t<R>>>>
 auto reduce_by_index(R&& A, size_t num_buckets, Monoid&& monoid = {}) {
   struct helper {
     using in_type = range_value_type_t<R>;
-    using key_type = typename in_type::first_type;
-    using val_type = typename in_type::second_type;
+    using key_type = std::tuple_element_t<0, in_type>;
+    using val_type = std::tuple_element_t<1, in_type>;
     Monoid mon;
-    static key_type get_key(const in_type& a) {return a.first;};
-    static val_type get_val(const in_type& a) {return a.second;};
+    static key_type get_key(const in_type& a) { return std::get<0>(a); };
+    static val_type get_val(const in_type& a) { return std::get<1>(a); };
     val_type init() const {return mon.identity;}
     void update(val_type& d, val_type const &a) const { d = mon(d, a); };
     void combine(val_type& d, slice<in_type*,in_type*> s) const {
-      auto vals = internal::delayed_map(s, [&] (in_type &v) {return v.second;});
+      auto vals = internal::delayed_map(s, [&] (in_type &v) { return std::get<1>(v); });
       d = internal::reduce(vals, mon);
     }
   };
@@ -240,12 +254,12 @@ auto histogram_by_index(R&& A, Integer_t num_buckets) {
     using key_type = range_value_type_t<R>;
     using val_type = Integer_t;
     size_t n;
-    static key_type get_key(const key_type& a) { return a;}
-    static val_type get_val(const key_type&) { return 1;}
+    static key_type get_key(const key_type& a) { return a; }
+    static val_type get_val(const key_type&) { return 1; }
     static val_type init() {return 0;}
-    void update(val_type& d, val_type a) const {d += a;}
+    void update(val_type& d, val_type a) const { d += a; }
     static void combine(val_type& d, slice<key_type*,key_type*> s) {
-      d = s.size();}
+      d = s.size(); }
   };
   return internal::collect_reduce(A, helper{A.size()}, num_buckets);
 }
@@ -259,12 +273,12 @@ auto remove_duplicate_integers(R&& A, Integer_t max_value) {
   struct helper {
     using key_type = range_value_type_t<R>;
     using val_type = bool;
-    static key_type get_key(const key_type& a) {return a;}
-    static val_type get_val(const key_type&) {return true;}
-    static val_type init() {return false;}
-    static void update(val_type& d, val_type) {d = true;}
+    static key_type get_key(const key_type& a) { return a; }
+    static val_type get_val(const key_type&) { return true; }
+    static val_type init() { return false; }
+    static void update(val_type& d, val_type) { d = true; }
     static void combine(val_type& d, slice<key_type*,key_type*>) {
-      d = true;}
+      d = true; }
   };
   auto flags = internal::collect_reduce(A, helper(), max_value);
   auto ids = internal::delayed_tabulate(max_value, [](size_t i) -> Integer_t { return i; });
@@ -274,27 +288,26 @@ auto remove_duplicate_integers(R&& A, Integer_t max_value) {
 template <typename Integer_t, typename R>
 auto group_by_index_(R&& A, Integer_t num_buckets) {
   static_assert(is_random_access_range_v<R>);
-  static_assert(std::is_integral_v<typename range_value_type_t<R>::first_type>);
-  static_assert(std::is_integral_v<Integer_t>);
+  static_assert(is_pair_v<range_value_type_t<R>>);
 
   if (A.size() > static_cast<size_t>(num_buckets)*num_buckets) {
-    auto keys = internal::delayed_map(A, [] (auto const &kv) {return kv.first;});
-    auto vals = internal::delayed_map(A, [] (auto const &kv) {return kv.second;});
+    auto keys = internal::delayed_map(A, [] (auto const &kv) { return std::get<0>(kv); });
+    auto vals = internal::delayed_map(A, [] (auto const &kv) { return std::get<1>(kv); });
     return internal::group_by_small_int(make_slice(vals), make_slice(keys), num_buckets);
   } else {
     struct helper {
       using in_type = range_value_type_t<R>;
-      using key_type = typename in_type::first_type;
-      using val_type = typename in_type::second_type;
+      using key_type = std::tuple_element_t<0, in_type>;
+      using val_type = std::tuple_element_t<1, in_type>;
       using result_type = sequence<val_type>;
-      static key_type get_key(const in_type& a) {return a.first;}
-      static val_type get_val(const in_type& a) {return a.second;}
-      static result_type init() {return result_type();}
-      static void update(result_type& d, const val_type& v) {d.push_back(v);}
+      static key_type get_key(const in_type& a) { return std::get<0>(a); }
+      static val_type get_val(const in_type& a) { return std::get<1>(a); }
+      static result_type init() { return result_type(); }
+      static void update(result_type& d, const val_type& v) { d.push_back(v); }
       static void update(result_type& d, const result_type& v) {
         abort(); d.append(std::move(v));}
       static void combine(result_type& d, slice<in_type*,in_type*> s) {
-        d = internal::map(s, [&] (in_type const &kv) {return get_val(kv);});}
+        d = internal::map(s, [&] (in_type const &kv) { return get_val(kv); });}
     };
     return internal::collect_reduce(A, helper(), num_buckets);
   }
@@ -303,21 +316,20 @@ auto group_by_index_(R&& A, Integer_t num_buckets) {
 template <typename Integer_t, typename R>
 auto group_by_index(R&& A, Integer_t num_buckets) {
   static_assert(is_random_access_range_v<R>);
-  static_assert(std::is_integral_v<typename range_value_type_t<R>::first_type>);
-  static_assert(std::is_integral_v<Integer_t>);
+  static_assert(is_pair_v<range_value_type_t<R>>);
+
   if (A.size() > static_cast<size_t>(num_buckets)*num_buckets) {
-    auto keys = internal::delayed_map(A, [] (auto const &kv) {return kv.first;});
-    auto vals = internal::delayed_map(A, [] (auto const &kv) {return kv.second;});
+    auto keys = internal::delayed_map(A, [] (auto const &kv) { return std::get<0>(kv); });
+    auto vals = internal::delayed_map(A, [] (auto const &kv) { return std::get<1>(kv); });
     return internal::group_by_small_int(make_slice(vals), make_slice(keys), num_buckets);
-  } else {
-    auto [key_vals,lengths] =
-      internal::integer_sort_with_counts(make_slice(A),
-					 [] (auto p) {return p.first;},
-					 num_buckets);
+  }
+  else {
+    auto [key_vals,lengths] = internal::integer_sort_with_counts(make_slice(A),
+      [] (auto p) { return std::get<0>(p); }, num_buckets);
     auto [offsets,total] = scan(lengths);
-    auto values = delayed::map(key_vals, [] (auto p) {return p.second;});
+    auto values = delayed::map(key_vals, [] (auto p) { return std::get<1>(p); });
     return internal::tabulate(num_buckets, [&, o = offsets.begin(), l = lengths.begin()] (size_t i) {
-	return to_sequence(make_slice(values).cut(o[i], o[i] + l[i]));});
+      return to_sequence(make_slice(values).cut(o[i], o[i] + l[i]));});
   }
 }
 			  

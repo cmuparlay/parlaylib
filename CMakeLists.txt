@@ -169,4 +169,31 @@ else()
   message(STATUS "benchmarks: Disabled (enable with -DPARLAY_BENCHMARK=On)")
 endif()
 
-add_subdirectory(examples)
+# -------------------------------------------------------------------
+#                          Examples
+
+message(STATUS "------------------- Examples --------------------")
+
+# User option to build benchmarks
+option(PARLAY_EXAMPLES    "Build examples"  OFF)
+
+if (PARLAY_EXAMPLES)
+  message(STATUS "examples: Enabled")
+  add_subdirectory(examples)
+else()
+  message(STATUS "examples: Disabled (enable with -DPARLAY_EXAMPLES=On)")
+endif()
+
+option(PARLAY_EXAMPLE_DATA  "Download example data"  OFF)
+
+if (PARLAY_EXAMPLE_DATA)
+  message(STATUS "example data: On")
+  FetchContent_Declare(
+    exampleData
+    URL http://www.cs.cmu.edu/~parlay/data.tar.gz
+    SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/data
+  )
+  FetchContent_MakeAvailable(exampleData)
+else()
+  message(STATUS "example data: Off (add -DPARLAY_EXAMPLE_DATA=On to download)")
+endif()

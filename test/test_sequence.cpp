@@ -628,6 +628,30 @@ TEST(TestSequence, TestCutConst) {
   ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
 }
 
+TEST(TestSequence, TestSubstrToEnd) {
+  const auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  const auto s2 = parlay::sequence<int>{4,5,6,7,8,9};
+  auto ss = s.substr(3);
+  ASSERT_EQ(ss.size(), 6);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
+}
+
+TEST(TestSequence, TestSubstr) {
+  const auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  const auto s2 = parlay::sequence<int>{4,5,6,7};
+  auto ss = s.substr(3,4);
+  ASSERT_EQ(ss.size(), 4);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
+}
+
+TEST(TestSequence, TestSubseq) {
+  const auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  const auto s2 = parlay::sequence<int>{4,5,6,7};
+  auto ss = s.subseq(3,7);
+  ASSERT_EQ(ss.size(), 4);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
+}
+
 TEST(TestSequence, TestHeadConst) {
   auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
   auto s2 = parlay::sequence<int>{1,2,3,4,5};

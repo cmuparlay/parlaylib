@@ -14,7 +14,6 @@
 #include <type_traits>
 #include <utility>
 
-  #include "internal/get_time.h"
 #include "internal/counting_sort.h"
 #include "internal/integer_sort.h"
 #include "internal/group_by.h"            // IWYU pragma: export
@@ -29,6 +28,7 @@
 #include "internal/delayed/terminal.h"
 #include "internal/delayed/zip.h"
 
+#include "delayed.h"
 #include "delayed_sequence.h"
 #include "monoid.h"                       // IWYU pragma: export
 #include "parallel.h"
@@ -484,6 +484,16 @@ auto counting_sort_inplace(Range&& in, size_t num_buckets, Key&& key) {
   static_assert(std::is_unsigned_v<key_type>);
   auto keys = internal::delayed_map(in, std::forward<Key>(key));
   return internal::count_sort_inplace(make_slice(in), keys, num_buckets);
+}
+
+template<typename Range>
+[[nodiscard]] auto counting_sort_by_keys(Range&& in, size_t num_buckets) {
+  static_assert(is_random_access_range_v<Range>);
+  static_assert(is_pair_v<range_reference_type_t<Range>>);
+  static_assert(std::is_integral_v<std::tuple_element_t<0, range_reference_type_t<Range>>>);
+  static_assert(std::is_unsigned_v<std::tuple_element_t<0, range_reference_type_t<Range>>>);
+  auto values = delayed::value_view(in);
+  return internal::count_sort(make_slice(values), delayed::key_view(in), num_buckets);
 }
 
 /* -------------------- Internal count and find -------------------- */
@@ -1232,7 +1242,6 @@ auto kth_smallest_copy(Range&& in, size_t k, Compare&& less = {}) {
   static_assert(std::is_invocable_r_v<bool, Compare, range_reference_type_t<Range>, range_reference_type_t<Range>>);
 
   size_t n = parlay::size(in);
-  std::cout << n << std::endl;
   if (n <= 1000) return parlay::sort(std::forward<Range>(in), std::forward<Compare>(less))[k];
 
   auto it = std::begin(in);
@@ -1246,27 +1255,21 @@ auto kth_smallest_copy(Range&& in, size_t k, Compare&& less = {}) {
   auto pivots = parlay::sort(parlay::tabulate(sample_size*over, [&] (size_t i) {
     auto r = gen[i];
     return it[dis(r)];
-  }));
+  }), less);
   pivots = parlay::tabulate(sample_size,[&] (size_t i) { return pivots[i*over]; });
 
-  
-  parlay::internal::timer t;
   // Determine which of the 32 buckets each key belongs in
   internal::heap_tree ss(pivots);
   auto ids = parlay::tabulate(n, [&] (long i) -> unsigned char {
     return ss.rank(it[i], less);});
 
-  t.next("a");
   // Count how many in keys are each bucket
   auto sums = parlay::histogram_by_index(ids, sample_size+1);
-  t.next("b");
-
   
   // find which bucket k belongs in, and pack the keys in that bucket into next
   auto [offsets, total] = parlay::scan(sums);
   auto id = std::upper_bound(offsets.begin(), offsets.end(), k) - offsets.begin() - 1;
   auto next = parlay::pack(in, parlay::delayed_map(ids, [=] (auto b) {return b == id;}));
-  t.next("c");
   
   // recurse on much smaller set, adjusting k as needed
   return kth_smallest_copy(next, k - offsets[id], less);

@@ -68,7 +68,7 @@ jobs:
       - name: Configure
         run: |
           mkdir build && cd build
-          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DUSE_LIBCXX=${{matrix.config.libcxx}} ..
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On -DUSE_LIBCXX=${{matrix.config.libcxx}} ..
 
       - name: Build
         run: |

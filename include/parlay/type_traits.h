@@ -125,6 +125,21 @@ struct is_binary_operator_for<BinaryOperator_, T1, T2, std::void_t<
 template<typename BinaryOperator_, typename T1, typename T2 = T1&&>
 inline constexpr bool is_binary_operator_for_v = is_binary_operator_for<BinaryOperator_, T1, T2>::value;
 
+// Defines the member value true if T is a pair or a tuple of length two
+template<typename T, typename = void>
+struct is_pair : public std::false_type {};
+
+template<typename T>
+struct is_pair<T, std::void_t<
+  decltype( std::get<0>(std::declval<T>()) ),
+  decltype( std::get<1>(std::declval<T>()) ),
+  std::enable_if_t< 2 == std::tuple_size_v<std::decay_t<T>> >
+>> : public std::true_type {};
+
+// True if T is a pair or a tuple of length two
+template<typename T>
+inline constexpr bool is_pair_v = is_pair<T>::value;
+
 /*  --------------------- Priority tags. -------------------------
     Priority tags are an easy way to force template resolution to
     pick the "best" option in the presence of multiple valid
