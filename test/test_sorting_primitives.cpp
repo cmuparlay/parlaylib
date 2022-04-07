@@ -297,7 +297,6 @@ TEST(TestSortingPrimitives, TestStableIntegerSortInplaceNonContiguous) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
-/*
 TEST(TestSortingPrimitives, TestCountingSort) {
   constexpr size_t num_buckets = size_t{1} << 16;
   auto s = parlay::tabulate(100000, [](unsigned long long i) -> unsigned long long {
@@ -325,18 +324,6 @@ TEST(TestSortingPrimitives, TestCountingSortUnstable) {
 
   ASSERT_EQ(s.size(), sorted.size());
   std::stable_sort(std::begin(s), std::end(s));
-  ASSERT_EQ(s, sorted);
-  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
-}
-*/
-
-TEST(TestSortingPrimitives, TestCountingSort) {
-  auto s = parlay::tabulate(100000, [](unsigned long long i) -> unsigned long long {
-    return (50021 * i + 61) % (1 << 16);
-  });
-  auto sorted = parlay::counting_sort(s, 1 << 16).first;
-  ASSERT_EQ(s.size(), sorted.size());
-  std::sort(std::begin(s), std::end(s));
   ASSERT_EQ(s, sorted);
   ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
 }
@@ -409,6 +396,7 @@ TEST(TestSortingPrimitives, TestCountingSortInplaceNonContiguous) {
   ASSERT_EQ(s, s2);
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
+
 
 TEST(TestSortingPrimitives, TestCountingSortByKeys) {
   auto s = parlay::tabulate(100000, [](unsigned int i) -> UnstablePair {

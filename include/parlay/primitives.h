@@ -23,11 +23,6 @@
 #include "internal/sequence_ops.h"        // IWYU pragma: export
 #include "internal/sample_sort.h"
 
-#include "internal/delayed/filter_op.h"
-#include "internal/delayed/scan.h"
-#include "internal/delayed/terminal.h"
-#include "internal/delayed/zip.h"
-
 #include "delayed.h"
 #include "delayed_sequence.h"
 #include "monoid.h"                       // IWYU pragma: export
@@ -492,8 +487,8 @@ template<typename Range>
   static_assert(is_pair_v<range_reference_type_t<Range>>);
   static_assert(std::is_integral_v<std::tuple_element_t<0, range_reference_type_t<Range>>>);
   static_assert(std::is_unsigned_v<std::tuple_element_t<0, range_reference_type_t<Range>>>);
-  auto values = delayed::value_view(in);
-  return internal::count_sort(make_slice(values), delayed::key_view(in), num_buckets);
+  auto values = delayed::values_view(in);
+  return internal::count_sort(make_slice(values), delayed::keys_view(in), num_buckets);
 }
 
 /* -------------------- Internal count and find -------------------- */

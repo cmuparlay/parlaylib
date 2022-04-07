@@ -57,6 +57,15 @@ using maybe_const = std::conditional<Const, std::add_const_t<T>, T>;
 template<bool Const, typename T>
 using maybe_const_t = typename maybe_const<Const, T>::type;
 
+// Provides the member type std::decay_t<T> if Decay is
+// true, otherwise provides the member type T
+template<bool Decay, typename T>
+using maybe_decay = std::conditional<Decay, std::decay_t<T>, T>;
+
+// Decays the given type if Decay is true
+template<bool Decay, typename T>
+using maybe_decay_t = typename maybe_decay<Decay, T>::type;
+
 // Provides the member value true if the given type is an instance of std::optional
 template <typename T>
 struct is_optional : std::false_type {};

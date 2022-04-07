@@ -5,6 +5,7 @@
 #include <cstddef>
 
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 #include "internal/delayed/filter.h"        // IWYU pragma: export
@@ -19,6 +20,7 @@
 
 #include "delayed_sequence.h"
 #include "range.h"
+#include "type_traits.h"
 
 namespace parlay {
 namespace delayed {
@@ -69,22 +71,30 @@ auto zip_with(NaryOperator f, Ranges_&&... rs) {
   );
 }
 
-// Given a range of pair-like objects (e.g. pairs of tuples of size two),
-// returns a delayed view of the first elements of the pairs
-template<typename Range_>
-auto key_view(Range_&& r) {
+template<size_t N, typename Range_>
+auto elements_view(Range_&& r) {
   static_assert(is_block_iterable_range_v<Range_>);
+  static_assert(N < std::tuple_size_v<range_value_type_t<Range_>>);
+  using return_type = maybe_decay_t<!std::is_reference_v<range_reference_type_t<Range_>>,
+        decltype(std::get<N>(std::declval<range_reference_type_t<Range_>>()))>;
   return ::parlay::internal::delayed::map(std::forward<Range_>(r),
-      [](auto&& x) -> decltype(auto) { return std::get<0>(std::forward<decltype(x)>(x)); });
+    [](auto&& x) -> return_type { return std::get<N>(std::forward<decltype(x)>(x)); });
 }
 
-// Given a range of pair-like objects (e.g. pairs of tuples of size two),
+// Given a range of pair-like objects (e.g. pairs or tuples of size two),
+// returns a delayed view of the first elements of the pairs
+template<typename Range_>
+auto keys_view(Range_&& r) {
+  static_assert(is_block_iterable_range_v<Range_>);
+  return elements_view<0>(std::forward<Range_>(r));
+}
+
+// Given a range of pair-like objects (e.g. pairs or tuples of size two),
 // returns a delayed view of the second elements of the pairs
 template<typename Range_>
-auto value_view(Range_&& r) {
+auto values_view(Range_&& r) {
   static_assert(is_block_iterable_range_v<Range_>);
-  return ::parlay::internal::delayed::map(std::forward<Range_>(r),
-      [](auto&& x) -> decltype(auto) { return std::get<1>(std::forward<decltype(x)>(x)); });
+  return elements_view<1>(std::forward<Range_>(r));
 }
 
 }
