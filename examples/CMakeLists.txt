@@ -8,8 +8,8 @@ set(EXAMPLES "primes" "BFS" "word_counts" "tokens" "filter" "linefit"
   "betweenness_centrality" "low_diameter_decomposition" "quicksort" "filter_kruskal"
   "knuth_shuffle" "minimum_edit_distance" "bigint_add" "bellman_ford" "suffix_array"
   "longest_common_prefix" "longest_repeated_substring" "range_min"
-  "fast_fourier_transform" "sssp_integer" "push_relabel_max_flow" 
-  "knuth_morris_pratt" "huffman_tree")
+  "fast_fourier_transform" "bucketed_dijkstra" "push_relabel_max_flow" 
+  "knuth_morris_pratt" "huffman_tree" "decision_tree_c45")
 
 function(add_example NAME)
   add_executable(${NAME} ${NAME}.cpp)

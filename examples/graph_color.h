@@ -14,8 +14,8 @@
 // order by degree (largest first).
 // To respect serial ordering, uses "deterministic reservations".
 // Returns the same coloring as the sequential algorithm.  See:
-// "Internally deterministic parallel algorithms can be fast"
-// Blelloch, Fineman, Gibbons, and Shun.
+//    "Internally deterministic parallel algorithms can be fast"
+//    Blelloch, Fineman, Gibbons, and Shun.
 // Will generate same matching as a greedy sequential matching.
 // **************************************************************
 
@@ -24,14 +24,18 @@ using vertices = parlay::sequence<vertex>;
 using graph = parlay::sequence<vertices>;
 
 parlay::sequence<int> graph_coloring(graph const &G) {
+  long n = G.size(); // number of vertices
+  
   // rank vertices by degree, highest first
-  auto ranks = parlay::rank(parlay::map(G, parlay::size_of()), std::greater{});
+  auto ranks = parlay::rank(parlay::map(G, parlay::size_of()),
+			    std::greater{});
+
   // inverse permutation of the rank
-  parlay::sequence<vertex> ordering(G.size());
-  parlay::parallel_for(0, G.size(), [&] (vertex i) {ordering[ranks[i]] = i;});
+  parlay::sequence<vertex> ordering(n);
+  parlay::parallel_for(0, n, [&] (vertex i) {ordering[ranks[i]] = i;});
 
   // -1 means unknown
-  parlay::sequence<int> colors(G.size(), -1);
+  parlay::sequence<int> colors(n, -1);
 
   // checks all earlier neighbors by rank ordering have been colored
   auto is_ok = [&] (vertex i) {
@@ -59,6 +63,6 @@ parlay::sequence<int> graph_coloring(graph const &G) {
   };
 
   // loops over the vertices
-  speculative_for<vertex>(0, G.size(), is_ok, succeeded);
+  speculative_for<vertex>(0, n, is_ok, succeeded);
   return colors;
 }
