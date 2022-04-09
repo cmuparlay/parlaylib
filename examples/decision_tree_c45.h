@@ -159,17 +159,18 @@ auto build_tree(features &A) {
   // target A[0] based on each feature A[i+1].  Returns a tuple of the
   // information, the feature id, and, if A[i+1] is cotinuous, the cut
   // point.
+  using results = std::tuple<double,int,int>;
   auto costs = tabulate(num_features - 1, [&] (int i) {
       if (A[i+1].discrete) {
 	return std::tuple(cond_info_discrete(A[0], A[i+1]), i+1, -1);
       } else {
 	auto [info, cut] = cond_info_continuous(A[0], A[i+1]);
-	return std::tuple(info, i+1, cut);
+	return results(info, i+1, cut);
       }},1);
 
   // Now find the feature which gives minimum conditional information
   // for the target A[0].
-  auto minf = [&] (auto a, auto b) {return (std::get<0>(a) < std::get<0>(b)) ? a : b;};
+  auto minf = [&] (results a, results b) {return (std::get<0>(a) < std::get<0>(b)) ? a : b;};
   auto min_m = binary_op(minf, std::tuple(infinity, 0, 0));
   auto [best_info, best_i, cutx] = reduce(costs, min_m);
   auto cut = cutx;
