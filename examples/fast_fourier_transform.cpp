@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     parlay::sequence<complex> results2;
 
     parlay::internal::timer t("Time");
-    for (int i=0; i < 3; i++) {
+    for (int i=0; i < 5; i++) {
       // results = complex_fft(points);
       // t.next("fast_fourier_transform");
       results2 = complex_fft_transpose(points);

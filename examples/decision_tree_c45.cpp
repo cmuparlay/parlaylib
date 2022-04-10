@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
     parlay::internal::timer t("Time");
     tree* T;
     parlay::sequence<value> predicted_labels;
-    for (int i=0; i < 3; i++) {
+    for (int i=0; i < 5; i++) {
       T = build_tree(train_data);
       t.next("decision_tree_c45, build    80%");
       predicted_labels = classify(T, test_data);

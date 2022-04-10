@@ -36,7 +36,7 @@ bigint add(const Bigint1& a, const Bigint2& b, bool extra_one=false) {
   auto c = parlay::tabulate(na, [&] (long i) {
       auto s = a[i] + static_cast<unsigned long>(B(i));
       s += (i == 0 && extra_one);
-      return (s >> 32) ? yes : (s == mask ? propagate : no);}, 1000);
+      return (s >> 32) ? yes : (s == mask ? propagate : no);});
 
   // use scan to do the propagation
   auto f = [] (carry a, carry b) {return (b == propagate) ? a : b;};
@@ -52,7 +52,7 @@ bigint add(const Bigint1& a, const Bigint2& b, bool extra_one=false) {
   return parlay::tabulate(na + add_digit, [&] (long i) -> uint {
       return (i == na 
 	      ? (a_sign ? mask : 1u)
-	      : (a[i] + B(i) + (c[i] == yes)));}, 1000);
+	      : (a[i] + B(i) + (c[i] == yes)));});
 }
 
 template <typename Bigint1, typename Bigint2>
