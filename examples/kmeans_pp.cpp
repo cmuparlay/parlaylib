@@ -18,7 +18,7 @@ double euclidean_squared(const Point& a, const Point& b) {
 }
 
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: kmeans <n>";
+  auto usage = "Usage: kmeans_pp <n>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     int dims = 10;
