@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
       G = utils::rmat_symmetric_graph(n, 20*n);
     }
     utils::print_graph_stats(G);
-    parlay::internal::timer t;
+    parlay::internal::timer t("Time");
     parlay::sequence<vertex> degrees;
     for (int i=0; i < 1; i++) {
       degrees = kcore(G);

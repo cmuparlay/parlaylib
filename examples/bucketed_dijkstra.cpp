@@ -5,7 +5,7 @@
 #include <parlay/sequence.h>
 #include <parlay/internal/get_time.h>
 
-#include "sssp_integer.h"
+#include "bucketed_dijkstra.h"
 #include "helper/graph_utils.h"
 
 // **************************************************************
@@ -17,7 +17,7 @@ using graph = nested_seq;
 using utils = graph_utils<vertex>;
 
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: sssp_integer <n> || sssp_integer <filename>";
+  auto usage = "Usage: bucketed_dijkstra <n> || bucketed_dijkstra <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n = 0;
@@ -35,8 +35,8 @@ int main(int argc, char* argv[]) {
     nested_seq result;
     parlay::internal::timer t("Time");
     for (int i=0; i < 3; i++) {
-      result = sssp_integer(1, GW);
-      t.next("sssp_integer");
+      result = bucketed_dijkstra(1, GW);
+      t.next("bucketed_dijkstra");
     }
 
     long visited = parlay::reduce(parlay::map(result, parlay::size_of()));

@@ -38,12 +38,12 @@ auto read_file(const std::string& filename) {
 }
 
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: tokens <filename>";
+  auto usage = "Usage: lasso_regression <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     auto [AT, y] = read_file(argv[1]);
-    parlay::internal::timer t;
+    parlay::internal::timer t("Time");
     solve_lasso(AT, y, 0.5, 0.0); 
-    t.next("");
+    t.next("lasso_regression");
   }
 }

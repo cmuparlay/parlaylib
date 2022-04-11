@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     catch (...) { std::cout << usage << std::endl; return 1; }
 
     auto permutation = parlay::random_permutation(n);
-    parlay::internal::timer t;
+    parlay::internal::timer t("Time");
     long count;
     for (int i=0; i < 3; i++) {
       count = cycle_count(permutation);

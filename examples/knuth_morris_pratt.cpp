@@ -5,14 +5,14 @@
 #include <parlay/sequence.h>
 #include <parlay/internal/get_time.h>
 
-#include "rabin_karp.h"
+#include "knuth_morris_pratt.h"
 
 // **************************************************************
 // Driver code
 // **************************************************************
 
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: rabin_karp <search_string> <filename>";
+  auto usage = "Usage: knuth_morris_pratt <search_string> <filename>";
   if (argc != 3) std::cout << usage << std::endl;
   else {
     parlay::chars str = parlay::chars_from_file(argv[2]);
@@ -20,8 +20,8 @@ int main(int argc, char* argv[]) {
     parlay::sequence<long> locations;
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
-      locations = rabin_karp(str, search_str);
-      t.next("rabin_karp");
+      locations = knuth_morris_pratt(str, search_str);
+      t.next("knuth_morris_pratt");
     }
 
     std::cout << "total matches = " << locations.size() << std::endl;

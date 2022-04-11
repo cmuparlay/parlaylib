@@ -7,20 +7,31 @@
 namespace delayed = parlay::delayed;
 
 // **************************************************************
-// Parallel Single Source Shortest Path with small integer weights
+// Bucketed version of Dijkstra's algorithm for single source shortest
+// paths.  Maintains the priority Q as integer buckets and sweeps
+// through all of them.  All edge weights must be non-negative
+// integers.  If the longest shortest path is l, the algorithm has
+// cost:
+//    Work = O(m + l), Span = O(l * log n)
+// Works best for low-diameter graphs with small integer weights.
+// The particular code limits l <= n.
 // **************************************************************
+
 template <typename vertex, typename weighted_graph>
-auto sssp_integer(vertex start, const weighted_graph& G) {
+auto bucketed_dijkstra(vertex start, const weighted_graph& G) {
   using seq = parlay::sequence<vertex>;
   using nested_seq = parlay::sequence<seq>;
   auto distances = parlay::tabulate<std::atomic<int>>(G.size(), [&] (long i) {
       return (i==start) ? 0 : G.size(); });
+
+  // the bucketed "priority queue"
   parlay::sequence<nested_seq> buckets(G.size());
   buckets[0] = nested_seq(1, seq(1, start));
   nested_seq frontiers;
-  int max_distance = 0;
+  int max_distance = 0; // maximum distance seen so far
+
+  // sweep through buckets starting at 0
   int d = 0;
-  
   while (d <= max_distance) {
     // get vertices from bucket and check if still min distance
     auto frontier = filter(flatten(buckets[d]), [&] (auto v) {
