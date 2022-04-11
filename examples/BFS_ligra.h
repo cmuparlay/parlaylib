@@ -14,6 +14,10 @@
 // Returns a sequence of sequences, with the ith element corresponding to
 // all vertices at distance i (i.e. the i-th frontier during the search).
 // This version uses the ligra interface.  See: helper/ligra_light.h
+// Importantly it supports the forward-backwards optimization.  See:
+//  Julian Shun, Guy E. Blelloch:
+//  Ligra: a lightweight graph processing framework for shared memory.
+//  PPOPP 2013:
 // **************************************************************
 template <typename vertex, typename graph>
 auto BFS(vertex start, const graph& G, const graph& GT) {

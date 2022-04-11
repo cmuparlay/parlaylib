@@ -8,11 +8,14 @@ namespace delayed = parlay::delayed;
 
 // **************************************************************
 // A lightweight implementation of the Ligra interface
-// supports vertex_subset and edge_map.
+// Supports vertex_subset and edge_map.
+// Implementation supports the forward sparse traversal, and backwards
+// dense traversal.
 // See:
 //  Julian Shun, Guy E. Blelloch:
 //  Ligra: a lightweight graph processing framework for shared memory.
 //  PPOPP 2013:
+// Interface for edge_map described below.
 // **************************************************************
 
 namespace ligra {
