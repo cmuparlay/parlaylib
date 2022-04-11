@@ -19,6 +19,7 @@ using bigint = parlay::sequence<unsigned int>;
 template <typename Bigint1, typename Bigint2>
 bigint add(const Bigint1& a, const Bigint2& b, bool extra_one=false) {
   using uint = unsigned int;
+  using ulong = unsigned long;
   long na = a.size();  long nb = b.size();
   // flip order if a is smaller than b
   if (na < nb) return add(b, a, extra_one);
@@ -26,7 +27,7 @@ bigint add(const Bigint1& a, const Bigint2& b, bool extra_one=false) {
   enum carry : char { no, yes, propagate};
   bool a_sign = a[na - 1] >> 31;
   bool b_sign = b[nb - 1] >> 31;
-  uint mask = (1l << 32) - 1;
+  ulong mask = (1l << 32) - 1;
 
   // used to extend b if it is shorter than a
   uint pad = b_sign ? mask : 0;
@@ -34,7 +35,7 @@ bigint add(const Bigint1& a, const Bigint2& b, bool extra_one=false) {
 
   // check which digits will carry or propagate
   auto c = parlay::tabulate(na, [&] (long i) {
-      auto s = a[i] + static_cast<unsigned long>(B(i));
+      ulong s = a[i] + static_cast<ulong>(B(i));
       s += (i == 0 && extra_one);
       return (s >> 32) ? yes : (s == mask ? propagate : no);});
 

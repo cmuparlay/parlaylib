@@ -17,11 +17,11 @@ template <typename Bigint1, typename Bigint2>
 bigint small_multiply(const Bigint1& a, const Bigint2& b) {
   long na = a.size();  long nb = b.size();
   if (na < nb) return small_multiply(b, a);
-  uint mask = (1l << 32) - 1;
+  unsigned long int mask = (1l << 32) - 1;
   
   bigint result(na + nb, 0);
 
-  // caculate the result digits one by one
+  // caculate the result digits one by one propagating carry
   for (long i = 0; i < na + nb -1; i++) {
     unsigned long int accum = result[i];
     for (long j = std::max(0l, i-nb+1); j < std::min(i + 1, nb); j++)
@@ -34,6 +34,7 @@ bigint small_multiply(const Bigint1& a, const Bigint2& b) {
 
 template <typename Bigint>
 auto shift(const Bigint& a, int n) {
+  // use delayed version to avoid materializing result
   return parlay::delayed_tabulate(a.size() + n, [&,n] (long i) {
       return (i < n) ? 0 : a[i-n];});
 }

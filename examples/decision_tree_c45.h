@@ -36,7 +36,7 @@ struct feature {
 using features = parlay::sequence<feature>;
 
 using namespace parlay;
-double infinity = std::numeric_limits<double>::infinity();
+double inf = std::numeric_limits<double>::infinity();
 
 struct tree {
   bool is_leaf;
@@ -99,7 +99,7 @@ auto cond_info_continuous(feature const &a, feature const &b) {
   sequence<int> high_counts(a.num, 0);
   for (int i=0; i < b.num; i++) 
     for (int j=0; j < a.num; j++) high_counts[j] += sums[a.num*i + j];
-  double cur_e = infinity;
+  double cur_e = inf;
   int cur_i = 0;
   int m = 0;
   for (int i=0; i < b.num-1; i++) {
@@ -171,7 +171,7 @@ auto build_tree(features &A) {
   // Now find the feature which gives minimum conditional information
   // for the target A[0].
   auto minf = [&] (results a, results b) {return (std::get<0>(a) < std::get<0>(b)) ? a : b;};
-  auto min_m = binary_op(minf, std::tuple(infinity, 0, 0));
+  auto min_m = binary_op(minf, std::tuple(inf, 0, 0));
   auto [best_info, best_i, cutx] = reduce(costs, min_m);
   auto cut = cutx;
 
