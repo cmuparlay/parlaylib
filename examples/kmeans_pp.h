@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <utility>
 #include <random>
-#include <math.h>
+#include <cmath>
 
 #include <parlay/primitives.h>
 #include <parlay/random.h>
