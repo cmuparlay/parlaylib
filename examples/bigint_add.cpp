@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
     parlay::random_generator gen;
-    std::uniform_int_distribution<unsigned int> dis(0,std::numeric_limits<int>::max());
+    std::uniform_int_distribution<digit> dis(0,std::numeric_limits<digit>::max());
 
     long m = n/32;
     
