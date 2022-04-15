@@ -160,6 +160,15 @@ auto filter_into_uninitialized(RangeIn&& in, RangeOut&& out, UnaryPredicate&& f)
 
 **filter_into_uninitialized** does the same thing but writes the output into the given range of uninitialized memory and returns the number of elements that were kept.
 
+### Map maybe
+
+```c++
+template<typename Range, typename UnaryOperator>
+auto map_maybe(Range&& v, UnaryOperator&& p)
+```
+
+**map_maybe** takes as input, a range and a function of the elements of that range that produces an `optional`. The result of `map_maybe` is a sequence consisting of the values that were present inside the non-empty optionals when the function is applied over the range. It is essentially a more efficient fusion of a map and a filter.
+
 ### Unique
 
 ```c++
@@ -311,6 +320,24 @@ auto map_split_at(Range&& r, BoolRange&& flags, UnaryOperator&& f)
 
 `map_split_at` is essentially equivalent to `parlay::map(parlay::split_at(r, flags), f)`, but is more efficient because the subsequences do not have to be copied into new memory, but are instead acted upon by `f` in place.
 
+### Append
+
+```c++
+template <typename R1, typename R2>
+auto append(R1&& s1, R2&& s2)
+```
+
+**append** takes two random-access ranges and produces a sequence consisting of the elements of the first range followed by the elements of the second range. The type of the resulting sequence is the value type of the first sequence.
+
+### Zip
+
+```c++
+template<typename... Ranges>
+auto zip(Ranges&&... rs)
+```
+
+**zip** takes a list of (at least two) random-access ranges `rs` and produces a sequence of tuples, where the i'th tuple contains the i'th element of each input range. The length of the zipped sequence is the length of the shortest range in `rs`.
+
 ## Sorting and grouping
 
 ### Sort
@@ -410,6 +437,24 @@ auto group_by_index(Range&& r, Integer_t num_buckets)
 
 **group_by_index** takes a random-access range of key-value pairs `r` and produces a sequence of sequences, where the i'th sequence in the result consists of copies of each value element of `r` with key i. The type of the keys must be integers, and a second parameter, `num_buckets` must be supplied, which indicates the value of the largest possible key.
 
+### Rank
+
+```c++
+template<typename Range>
+auto rank(Range&& r)
+
+template<typename Range, typename BinaryPredicate>
+auto rank(Range&& r, BinaryPredicate&& compare)
+
+template<typename size_type, typename Range>
+auto rank(Range&& r)
+
+template<typename size_type, typename Range, typename BinaryPredicate>
+auto rank(Range&& r, BinaryPredicate&& compare)
+```
+
+**rank** takes a random-access range and produces a sequence of indices denoting the rank of each corresponding item in the input range. The rank of an element is its position in the corresponding stably sorted list of the same elements. It optionally takes a custom comparator object, which is a binary predicate that evaluates to true if the first of the given elements should compare less than the second. Also optionally, the type of the resulting indices can be specified as a template parameter. By default, the type of the indices is `size_t`.
+
 ## Reduction operations
 
 ### Reduce
@@ -422,7 +467,7 @@ template<typename Range, typename BinaryOperator>
 auto reduce(Range&& r, BinaryOperator&& m)
 ```
 
-**reduce** takes a random-access range and returns the reduction with respect some associative binary operation (addition by default). The associative operation is specified by a [monoid.md](binary operator) object. The type of the result is the value type of the range if no operator is supplied, otherwise it is the type returned by the binary operator.
+**reduce** takes a random-access range and returns the reduction with respect some associative binary operation (addition by default). The associative operation is specified by a [binary operator](monoid.md) object. The type of the result is the value type of the range if no operator is supplied, otherwise it is the type returned by the binary operator.
 
 
 ### Scan
@@ -460,7 +505,7 @@ auto scan_inclusive_inplace(Range&& r, BinaryOperator&& m)
 ```
 
 
-**scan** takes a random-access range `r` and computes a scan (aka prefix sum) with respect to an associative binary operation (addition by default).  The associative operation is specified by a [monoid.md](binary operator) object. Scan returns a pair, consisting of a `parlay::sequence` containing the partial sums, and the total sum. The type of the resulting sums is the value type of `r` if no binary operator is specified, otherwise it is the type of the binary operator.
+**scan** takes a random-access range `r` and computes a scan (aka prefix sum) with respect to an associative binary operation (addition by default).  The associative operation is specified by a [binary operator](monoid.md) object. Scan returns a pair, consisting of a `parlay::sequence` containing the partial sums, and the total sum. The type of the resulting sums is the value type of `r` if no binary operator is specified, otherwise it is the type of the binary operator.
 
 By default, scan considers prefix sums excluding the final element. There is also **scan_inclusive**, which is inclusive of the final element of each prefix. There are also inplace versions of each of these (**scan_inplace**, **scan_inclusive_inplace**), which write the sums into the input and return the total.
 
@@ -510,9 +555,9 @@ template <typename Range, typename BinaryOperator>
 auto reduce_by_index(Range&& r, size_t num_buckets, BinaryOperator&& op)
 ```
 
-**reduce_by_key** takes a random-access sequence `r` of key-value pairs and returns a random-access sequence of key-value pairs. The returned sequence consists of pairs with distinct keys from `r`, and values that are the sum of all of the value elements of `r` with the given key. By default, the sum is taken as addition, but the second version of the function can be supplied with a commutative [monoid.md](binary operator) object. The results are computed as type `T`, which defaults to `range_value_type_t<R>::second_type` for the first version, or the type of the binary operator for the second. The key type must be hashable and equality comparable. The third version of the function can be supplied a custom hash function and equality predicate. The hash function should return identical hashes for any pair of elements that the equality predicate deems equal. The order of the returned sequence is unspecified, as it depends on the hash function.
+**reduce_by_key** takes a random-access sequence `r` of key-value pairs and returns a random-access sequence of key-value pairs. The returned sequence consists of pairs with distinct keys from `r`, and values that are the sum of all of the value elements of `r` with the given key. By default, the sum is taken as addition, but the second version of the function can be supplied with a commutative [binary operator](monoid.md) object. The results are computed as type `T`, which defaults to `range_value_type_t<R>::second_type` for the first version, or the type of the binary operator for the second. The key type must be hashable and equality comparable. The third version of the function can be supplied a custom hash function and equality predicate. The hash function should return identical hashes for any pair of elements that the equality predicate deems equal. The order of the returned sequence is unspecified, as it depends on the hash function.
 
-**reduce_by_index** similarly takes a random-access sequence `r` of key-value pairs and returns a sequence of values. The i'th element of the returned sequence consists of the sum of all of the value elements of `r` with key `i`. The type of the keys must be integers, and a second parameter, `num_buckets` must be supplied, which indicates the value of the largest possible key. As with reduce by key, an optional commutative [monoid.md](binary operator) may be supplied with which to perform the reduction (see `reduce_by_key`).
+**reduce_by_index** similarly takes a random-access sequence `r` of key-value pairs and returns a sequence of values. The i'th element of the returned sequence consists of the sum of all of the value elements of `r` with key `i`. The type of the keys must be integers, and a second parameter, `num_buckets` must be supplied, which indicates the value of the largest possible key. As with reduce by key, an optional commutative [binary operator](monoid.md) may be supplied with which to perform the reduction (see `reduce_by_key`).
 
 ## Searching operations
 
@@ -520,7 +565,7 @@ auto reduce_by_index(Range&& r, size_t num_buckets, BinaryOperator&& op)
 ### Count
 
 ```c++
-template <typename Range, class T>
+template <typename Range, typename T>
 size_t count(Range&& r, T const &value)
 ```
 
@@ -652,6 +697,28 @@ auto minmax_element(Range&& r, BinaryPredicate&& less)
 
 **min_element** and **max_element** return an iterator to the minimum or maximum element in the given random-access range respectively. In the case of duplicates, the leftmost element is always selected. **minmax_element** returns a pair consisting of iterators to both the minimum and maximum element. An optional binary predicate can be supplied to specify how two elements should compare.
 
+### k'th smallest
+
+```c++
+template <typename Range>
+auto kth_smallest(Range&& in, size_t k)
+
+template <typename Range, typename BinaryPredicate>
+auto kth_smallest(Range&& in, size_t k, BinaryPredicate&& less)
+```
+
+```c++
+template <typename Range>
+auto kth_smallest_copy(Range&& in, size_t k)
+
+template <typename Range, typename BinaryPredicate>
+auto kth_smallest_copy(Range&& in, size_t k, BinaryPredicate&& less)
+```
+
+**kth_smallest** takes a random-access range and a position `k` and returns an iterator to the k'th smallest element in the range. It optionally takes a custom comparator object, which is a binary predicate that evaluates to true if the first of the given elements should compare less than the second.
+
+**kth_smallest_copy** similarly takes a random-access range and a position `k` and returns a copy of the k'th smallest element in the range. Unlike `kth_smallest`, the elements of the range must therefore be copy-constructible. `kth_smallest_copy` is considerably more efficient than `kth_smallest` when the element type is cheap to copy. It optionally takes a custom comparator object, which is a binary predicate that evaluates to true if the first of the given elements should compare less than the second.
+
 ## Sequence comparison
 
 ### Equal
@@ -660,7 +727,7 @@ auto minmax_element(Range&& r, BinaryPredicate&& less)
 template <typename Range1, typename Range2>
 bool equal(Range1&& r1, Range2&& r2)
 
-template <typename Range1, typename Range2, class BinaryPredicate>
+template <typename Range1, typename Range2, typename BinaryPredicate>
 bool equal(Range1&& r1, Range2&& r2, BinaryPredicate&& p)
 ```
 
@@ -672,7 +739,7 @@ bool equal(Range1&& r1, Range2&& r2, BinaryPredicate&& p)
 template <typename Range1, typename Range2>
 bool lexicographical_compare(Range1&& r1, Range2&& r2)
 
-template <typename Range1, typename Range2, class BinaryPredicate>
+template <typename Range1, typename Range2, typename BinaryPredicate>
 bool lexicographical_compare(Range1&& r1, Range2&& r2, BinaryPredicate&& less)
 ```
 
