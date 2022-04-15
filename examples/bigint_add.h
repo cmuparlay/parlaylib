@@ -35,9 +35,9 @@ bigint add(const Bigint1& a, const Bigint2& b, bool extra_one=false) {
 
   // check which digits will carry or propagate
   auto c = parlay::tabulate(na, [&] (long i) {
-      ulong s = a[i] + static_cast<ulong>(B(i));
-      s += (i == 0 && extra_one);
-      return (s >> 32) ? yes : (s == mask ? propagate : no);});
+    ulong s = a[i] + static_cast<ulong>(B(i));
+    s += (i == 0 && extra_one);
+    return (s >> 32) ? yes : (s == mask ? propagate : no);});
 
   // use scan to do the propagation
   auto f = [] (carry a, carry b) {return (b == propagate) ? a : b;};
@@ -51,14 +51,13 @@ bigint add(const Bigint1& a, const Bigint2& b, bool extra_one=false) {
 
   // final result -- add together digits of a, b and carry bit
   return parlay::tabulate(na + add_digit, [&] (long i) -> uint {
-      return (i == na 
-	      ? (a_sign ? mask : 1u)
-	      : (a[i] + B(i) + (c[i] == yes)));});
+    return (i == na
+            ? (a_sign ? mask : 1u)
+            : (a[i] + B(i) + (c[i] == yes)));});
 }
 
 template <typename Bigint1, typename Bigint2>
 bigint subtract(const Bigint1& a, const Bigint2& b) {
   // effectively negate b and add
-  return add(a, parlay::delayed_map(b, [] (auto bv) {return ~bv;}),
-	     true);
+  return add(a, parlay::delayed_map(b, [] (auto bv) { return ~bv; }), true);
 }

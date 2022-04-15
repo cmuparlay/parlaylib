@@ -23,13 +23,13 @@ void random_shuffle(Seq& s) {
 
   // initialize to an id out of range
   auto res = parlay::tabulate<std::atomic<long>>(n, [&] (long i) {
-		 return -1; });
+    return -1; });
 
   // every position i pick a "random" number in range [0,..,i].
   auto gen = parlay::random_generator(0);
   auto rand = parlay::tabulate(n, [&] (long i) {
-	         auto r = gen[i];
-		 return r() % (i + 1);});
+    auto r = gen[i];
+    return r() % (i + 1);});
 
   // reserve to see if earliest (min) to swap with rand[i]
   auto reserve = [&] (long i) {
@@ -49,6 +49,6 @@ void random_shuffle(Seq& s) {
     }
     return false;
   };
-  
+
   speculative_for((long) 0, n, reserve, commit);
 }

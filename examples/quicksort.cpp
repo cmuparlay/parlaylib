@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
       result = quicksort(data);
       t.next("quicksort");
     }
-      
+
     auto first_ten = result.head(10);
 
     std::cout << "first 10 elements: " << parlay::to_chars(first_ten) << std::endl;

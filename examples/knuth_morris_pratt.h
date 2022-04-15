@@ -36,7 +36,7 @@ auto knuth_morris_pratt(const chars& str, const chars& pattern) {
     parlay::sequence<long> out;
     for (int i=start; i < end2 && (i-tail) <= end; i++) {
       while (tail != -1 && str_p[i] != pattern_p[tail+1])
-	tail = failure_p[tail];
+        tail = failure_p[tail];
       if (str_p[i] == pattern_p[tail+1]) tail++;
       if (tail == n-1) out.push_back(i - tail);
     }

@@ -1,6 +1,6 @@
 # Parlaylib Examples
 
-A collection of parallel algorithms based on parlaylib.
+A collection of parallel algorithms based on ParlayLib.
 
 Each example contains a .h file which contains the implementation, and
 a .cpp file which has some test code to run it.

@@ -19,8 +19,8 @@ struct union_find {
 
   // initialize n elements all as roots
   union_find(size_t n) :
-    parents(parlay::tabulate<std::atomic<vertex>>(n, [] (long) {
-	  return -1;})) { }
+      parents(parlay::tabulate<std::atomic<vertex>>(n, [] (long) {
+        return -1;})) { }
 
   vertex find(vertex i) {
     if (is_root(i)) return i;

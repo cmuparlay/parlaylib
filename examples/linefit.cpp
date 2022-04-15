@@ -34,8 +34,8 @@ int main(int argc, char* argv[]) {
 
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
-	result = linefit(pts);
-	t.next("linefit");
+      result = linefit(pts);
+      t.next("linefit");
     }
 
     std::cout << "offset = " << result.first << " slope = " << result.second << std::endl;

@@ -19,10 +19,10 @@ void report_correct(row result, row labels) {
     return;
   }
   size_t num_correct = parlay::reduce(parlay::tabulate(n, [&] (size_t i) {
-         return (result[i] == labels[i]) ? 1 : 0;}));
+    return (result[i] == labels[i]) ? 1 : 0;}));
   float percent_correct = (100.0 * num_correct)/n;
   std::cout << num_correct << " correct out of " << n
-	    << ", " << percent_correct << " percent" << std::endl;
+            << ", " << percent_correct << " percent" << std::endl;
 }
 
 // Read from a csv file with one entry (sample) per line.  First line
@@ -40,15 +40,16 @@ auto read_data(std::string filename) {
   auto types = parlay::map(parlay::tokens(head, is_item), [] (auto str) {return str[0];});
 
   auto process_line = [&] (auto line) {
-      auto to_int = [&] (auto x) -> value {
-	  int v = parlay::chars_to_int(parlay::to_sequence(x));
-	  if (v < 0 || v > max_value) {
-	    std::cout << "entry out range: value = " << v << std::endl;
-	    return 0;
-	  }
-	  return v;};
-      return parlay::map_tokens(line, to_int, is_item);};
-  
+    auto to_int = [&] (auto x) -> value {
+      int v = parlay::chars_to_int(parlay::to_sequence(x));
+      if (v < 0 || v > max_value) {
+        std::cout << "entry out range: value = " << v << std::endl;
+        return 0;
+      }
+      return v;
+    };
+    return parlay::map_tokens(line, to_int, is_item);};
+
   return std::pair(types, parlay::map_tokens(rest, process_line, is_line));
 }
 
@@ -75,7 +76,7 @@ auto read_features(std::string filename) {
   auto train_rows = parlay::to_sequence(rows.cut(0,num_train));
   auto test_rows = parlay::to_sequence(rows.cut(num_train,rows.size()));
   auto test_labels = parlay::map(test_rows, [&] (auto& row) {
-      return row[row.size()-1];});
+    return row[row.size()-1]; });
   return std::tuple(rows_to_features(types, train_rows), test_rows, test_labels);
 }
 

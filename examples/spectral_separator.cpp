@@ -28,10 +28,10 @@ int main(int argc, char* argv[]) {
       partition = partition_graph(G);
       t.next("spectral_separator");
     }
-    
+
     auto E = utils::to_edges(G);
     long num_in_cut = parlay::count(parlay::map(E, [&] (auto e) {
-	  return partition[e.first] != partition[e.second];}), true);
+      return partition[e.first] != partition[e.second];}), true);
     std::cout << "number of edges across the cut: " << num_in_cut << std::endl;
   }
 }

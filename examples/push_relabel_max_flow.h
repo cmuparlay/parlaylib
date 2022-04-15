@@ -56,7 +56,7 @@ struct max_flow {
     parlay::sequence<vertex_id> pushes; // pushes to add to active list for next round
     std::atomic<bool> pushed; // used to check if already pushed onto active list
     vertex() : label(0), excess(0), current(0),
-      new_excess(0), new_label(0), pushed(false) {}
+               new_excess(0), new_label(0), pushed(false) {}
   };
 
   parlay::sequence<vertex> vertices;
@@ -71,13 +71,13 @@ struct max_flow {
       edge& e = u.edges[u.current];
       vertex& v = vertices[e.v];
       if (e.flow < e.capacity && u.label > v.label) {
-	int release = std::min(e.capacity - e.flow, u.excess);
-	if (release == e.capacity - e.flow) u.current++; // saturating
-	e.flow += release;
-	e.partner->flow -= release;
-	u.excess -= release;
-	v.new_excess += release; // atomic write with add
-	push_active(u.pushes, e.v);
+        int release = std::min(e.capacity - e.flow, u.excess);
+        if (release == e.capacity - e.flow) u.current++; // saturating
+        e.flow += release;
+        e.partner->flow -= release;
+        u.excess -= release;
+        v.new_excess += release; // atomic write with add
+        push_active(u.pushes, e.v);
       } else u.current++;
     }
     if (u.excess > 0) push_active(u.pushes, ui);
@@ -88,31 +88,31 @@ struct max_flow {
     vertex& u = vertices[ui];
     u.current = 0; // reset edge pointer to start
     int min_neighbor = reduce(delayed_map(u.edges, [&] (edge& e) {
-	  return (e.flow < e.capacity) ? vertices[e.v].label : n;}),
-      parlay::minimum<int>());
+                                return (e.flow < e.capacity) ? vertices[e.v].label : n;}),
+                              parlay::minimum<int>());
     u.new_label = std::min(n, min_neighbor + 1);
   }
 
   void push_relabel() {
     // do push and relabel in parallel for each active vertex
     parlay::for_each(active, [&] (vertex_id ui) {
-	vertex& u = vertices[ui];
-	if (u.label < n && u.label > 0 && push(ui))
-	  relabel(ui);});
+      vertex& u = vertices[ui];
+      if (u.label < n && u.label > 0 && push(ui))
+        relabel(ui);});
 
     // update principle copies of variables, returning new active vertices
     active = parlay::flatten(parlay::map(active, [&] (vertex_id ui) {
-	vertex& u = vertices[ui];
-	u.label = u.new_label;
-	for (vertex_id vi : u.pushes) {
-	  vertex&v = vertices[vi];
-	  v.excess += v.new_excess;
-	  v.new_excess = 0;
-	  v.pushed = false;
-	}
-	return std::move(u.pushes);})); 
+      vertex& u = vertices[ui];
+      u.label = u.new_label;
+      for (vertex_id vi : u.pushes) {
+        vertex&v = vertices[vi];
+        v.excess += v.new_excess;
+        v.new_excess = 0;
+        v.pushed = false;
+      }
+      return std::move(u.pushes);}));
   }
-  
+
   int compute_max_flow(const weighted_graph& G, vertex_id source, vertex_id sink) {
     parlay::internal::timer tt("max flow");
     s = source;
@@ -130,11 +130,11 @@ struct max_flow {
       // Runs global_relabel when the push_relabels have taken three times
       // the time of the previous global_relabel.
       if (current_time() - last_time > 3 * relabel_time) {
-	global_relabel();
-	last_time = current_time();
-	std::cout << "current flow: " << vertices[t].excess
-		  << " num rounds: " << rounds << std::endl;
-	rounds = 0;
+        global_relabel();
+        last_time = current_time();
+        std::cout << "current flow: " << vertices[t].excess
+                  << " num rounds: " << rounds << std::endl;
+        rounds = 0;
       }
       rounds++;
     }
@@ -161,19 +161,19 @@ struct max_flow {
     vertex_id cur_level = 0;
     //the distances from the target, initially all n, except target at 0
     auto d = parlay::tabulate<std::atomic<vertex_id>>(n, [&] (long i) {
-	return (i==t) ? 0 : n; });
+      return (i==t) ? 0 : n; });
 
     // Need to generate a graph in the ligra format (sequence of sequences).
     auto G = parlay::delayed_map(vertices, [] (auto& vtx) {
-	return vtx.edges;}); 
-    
+      return vtx.edges;});
+
     // set up an edge map for the BFS
     auto edge_f = [&] (vertex_id u, vertex_id v, edge e, bool back) -> bool {
       vertex_id expected = n;
       bool saturated = ((back && (e.capacity == e.flow)) ||
-			(!back && (e.partner_capacity == -e.flow)));
+                        (!back && (e.partner_capacity == -e.flow)));
       return (!saturated
-	      && d[v].compare_exchange_strong(expected, cur_level));};
+              && d[v].compare_exchange_strong(expected, cur_level));};
     auto cond_f = [&] (vertex_id v) { return d[v] == n;};
     auto get_f = [] (edge e) { return e.v;};
     auto frontier_map = ligra::edge_map(G, G, edge_f, cond_f, get_f);
@@ -185,16 +185,16 @@ struct max_flow {
       frontier = frontier_map(frontier);
     }
     tt.next("BFS");
- 
+
     parlay::parallel_for(0, n, [&] (int u) {
-    	vertices[u].current = 0;
-	vertices[u].new_label = d[u];
-	vertices[u].label = d[u];});
-  
+      vertices[u].current = 0;
+      vertices[u].new_label = d[u];
+      vertices[u].label = d[u];});
+
     //determine new active vertices
     active = parlay::filter(parlay::iota<vertex_id>(n), [&] (vertex_id vi) {
-    	vertex& v = vertices[vi];
-    	return v.label != 0 && v.label < n && v.excess > 0;});
+      vertex& v = vertices[vi];
+      return v.label != 0 && v.label < n && v.excess > 0;});
     tt.next("Rest");
     relabel_time = current_time() - start;
   }
@@ -203,26 +203,26 @@ struct max_flow {
     parlay::internal::timer tt("initialize", false);
     n = G.size();
     m = parlay::reduce(parlay::map(G, parlay::size_of{}));
-    
+
     // create augmented vertices and edges from graph
     vertices = parlay::sequence<vertex>(n);
     parlay::parallel_for(0, n, [&] (int u) {
-    	vertices[u].edges = parlay::tabulate(G[u].size(), [&] (int i) {
-    	    auto [v, w] = G[u][i];
-    	    return edge{v, 0, w, 0, nullptr};});});
+      vertices[u].edges = parlay::tabulate(G[u].size(), [&] (int i) {
+        auto [v, w] = G[u][i];
+        return edge{v, 0, w, 0, nullptr};});});
     tt.next("create graph");
 
     // Cross link the edges
     auto x = parlay::flatten(parlay::tabulate(n, [&] (vertex_id u) {
-	  return parlay::delayed_map(vertices[u].edges, [&, u] (edge& e) {
-	      auto p = std::pair{std::min(u,e.v), std::max(u,e.v)};
-	      return std::pair{p, &e};});}));
+      return parlay::delayed_map(vertices[u].edges, [&, u] (edge& e) {
+        auto p = std::pair{std::min(u,e.v), std::max(u,e.v)};
+        return std::pair{p, &e};});}));
     auto y = sort(std::move(x), [&] (auto a, auto b) {return a.first < b.first;});
     parlay::parallel_for(0, m/2, [&] (long i) {
-	y[2*i].second->partner = y[2*i+1].second;
-	y[2*i].second->partner_capacity = y[2*i+1].second->capacity;
-	y[2*i+1].second->partner = y[2*i].second;
-	y[2*i+1].second->partner_capacity = y[2*i].second->capacity;});
+      y[2*i].second->partner = y[2*i+1].second;
+      y[2*i].second->partner_capacity = y[2*i+1].second->capacity;
+      y[2*i+1].second->partner = y[2*i].second;
+      y[2*i+1].second->partner_capacity = y[2*i].second->capacity;});
     tt.next("cross link");
 
     // initialize excess of source to "infinity"
@@ -237,25 +237,25 @@ struct max_flow {
   //   o preservation of excess: ie., total equals original
   void check_correctness() {
     auto total = parlay::reduce(parlay::tabulate(n, [&] (int vi) {
-	vertex& v = vertices[vi];
-	long total_flow = parlay::reduce(parlay::map(v.edges, [] (edge e) {
-	      return e.flow;}));
-	if (vi != s && total_flow != -v.excess) {
-	  std::cout << "flow does not match excess at " << vi << std::endl; abort();}
-	long capacity_failed = parlay::reduce(parlay::map(v.edges, [] (edge e) {
-	      return (int) e.flow > e.capacity;}));
-	if (capacity_failed > 0) {
-	  std::cout << "capacity oversubsribed from: " << vi << std::endl; abort();}
-	long invalid_label = parlay::reduce(parlay::map(v.edges, [&] (edge e) {
-	      return (e.flow < e.capacity && v.label > vertices[e.v].label + 1);}));
-	if (invalid_label > 0) {
-	  std::cout << "invalid label at: " << vi << std::endl; abort();}
-	if (v.label != 0 && v.label < n && v.excess > 0) {
-	  std::cout << "left over excess at " << vi
-		    << "excess = " << v.excess << "label = " << v.label << std::endl;
-	  abort();
-	}
-	return v.excess;}));
+      vertex& v = vertices[vi];
+      long total_flow = parlay::reduce(parlay::map(v.edges, [] (edge e) {
+        return e.flow;}));
+      if (vi != s && total_flow != -v.excess) {
+        std::cout << "flow does not match excess at " << vi << std::endl; abort();}
+      long capacity_failed = parlay::reduce(parlay::map(v.edges, [] (edge e) {
+        return (int) e.flow > e.capacity;}));
+      if (capacity_failed > 0) {
+        std::cout << "capacity oversubsribed from: " << vi << std::endl; abort();}
+      long invalid_label = parlay::reduce(parlay::map(v.edges, [&] (edge e) {
+        return (e.flow < e.capacity && v.label > vertices[e.v].label + 1);}));
+      if (invalid_label > 0) {
+        std::cout << "invalid label at: " << vi << std::endl; abort();}
+      if (v.label != 0 && v.label < n && v.excess > 0) {
+        std::cout << "left over excess at " << vi
+                  << "excess = " << v.excess << "label = " << v.label << std::endl;
+        abort();
+      }
+      return v.excess;}));
 
     int expected = std::numeric_limits<int>::max();
     if (total != expected)

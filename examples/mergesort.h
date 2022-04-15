@@ -48,8 +48,8 @@ void merge_sort_(Range in, Range out, bool inplace, Less less) {
     if (!inplace) parlay::copy(in, out);
   } else {
     parlay::par_do(
-      [&] () {merge_sort_(in.cut(0, n/2), out.cut(0, n/2), !inplace, less);},
-      [&] () {merge_sort_(in.cut(n/2, n), out.cut(n/2, n), !inplace, less);});
+        [&] () {merge_sort_(in.cut(0, n/2), out.cut(0, n/2), !inplace, less);},
+        [&] () {merge_sort_(in.cut(n/2, n), out.cut(n/2, n), !inplace, less);});
     if (inplace)
       merge(out.cut(0,n/2), out.cut(n/2, n), in.cut(0, n), less);
     else merge(in.cut(0,n/2), in.cut(n/2, n), out.cut(0, n), less);

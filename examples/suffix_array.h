@@ -32,11 +32,11 @@ auto suffix_array(const char_range& S) {
 
   // pack 12 chars starting at each index, and index into two unsigned longs and sort.
   auto s = [&] (index i) -> index {return (i < n) ? (unsigned char) S[i] : 0;};
-  auto Clx = parlay::delayed_tabulate(n, [&] (ulong i) { 
-      ulong high = 0, low = 0;
-      for (int j=0; j < 8; j++) high = (high << 8) + s(i+j);
-      for (int j=0; j < 4; j++) low = (low << 8) + s(8+i+j);
-      return std::pair{high, (low << 32) + i};});
+  auto Clx = parlay::delayed_tabulate(n, [&] (ulong i) {
+    ulong high = 0, low = 0;
+    for (int j=0; j < 8; j++) high = (high << 8) + s(i+j);
+    for (int j=0; j < 4; j++) low = (low << 8) + s(8+i+j);
+    return std::pair{high, (low << 32) + i};});
   auto Cl = parlay::sort(Clx);
 
   // Unpack sorted pairs placing index in sorted, and marking where
@@ -45,25 +45,25 @@ auto suffix_array(const char_range& S) {
   auto ranks = parlay::sequence<index>::uninitialized(n);
   auto flags = parlay::sequence<bool>::uninitialized(n);
   parlay::parallel_for(0, n, [&] (long j) {
-      auto [high,low] = Cl[j];
-      sorted[j] = low & ((1ul << 32) - 1);
-      flags[j] = ((j == 0) || (high != Cl[j-1].first) ||
-		  (low >> 32) != (Cl[j-1].second >> 32));});
+    auto [high,low] = Cl[j];
+    sorted[j] = low & ((1ul << 32) - 1);
+    flags[j] = ((j == 0) || (high != Cl[j-1].first) ||
+                (low >> 32) != (Cl[j-1].second >> 32));});
 
   // Given flags indicating segment boundaries within a segment,
   // creates an new segment.  See below for definition of segments.
   auto segs_from_flags = [&] (parlay::sequence<bool>& flags, index seg_start) {
     auto offsets = parlay::pack_index(flags);
     auto segs = parlay::tabulate(offsets.size(), [&] (long j) {
-	index start = seg_start + offsets[j];
-	index end = seg_start + ((j == offsets.size()-1) ? flags.size() : offsets[j+1]);
-	parlay::parallel_for(start, end, [&] (index i) {ranks[sorted[i]] = start;}, granularity);
-	return seg{start, end};}, granularity);
+      index start = seg_start + offsets[j];
+      index end = seg_start + ((j == offsets.size()-1) ? flags.size() : offsets[j+1]);
+      parlay::parallel_for(start, end, [&] (index i) {ranks[sorted[i]] = start;}, granularity);
+      return seg{start, end};}, granularity);
     return filter(segs, [] (seg s) {return (s.end - s.start) > 1;});};
 
   auto segments = segs_from_flags(flags, 0);
-  index offset = 12; 
-  
+  index offset = 12;
+
   // This loop has the following invariants at the start of each iteration
   //   the suffixes are sorted up to the first "offset" characters
   //   "sorted" maintains the sorted indices of suffixes so far (eventually the result)
@@ -78,21 +78,21 @@ auto suffix_array(const char_range& S) {
     // for suffixes in live segments grabs ranks from offset away and sorts within segment.
     // mark in flags where the keys now differ.
     auto flags = parlay::map(segments, [&] (seg segment) {
-	index s = segment.start;
-	index l = segment.end - segment.start;
-	auto p = parlay::tabulate(l, [&] (long i) {
-	    index k = sorted[s + i];
-	    return std::pair{(k + offset >= n) ? 0 : ranks[k + offset], k};}, granularity);
-	parlay::sort_inplace(p);
-	parlay::sequence<bool> flags(l);
-	parlay::parallel_for(0, l, [&] (long i) {
-	    sorted[s + i] = p[i].second;
-	    flags[i] = (i == 0) || p[i].first != p[i-1].first;}, granularity);
-	return flags;}, 1);
+      index s = segment.start;
+      index l = segment.end - segment.start;
+      auto p = parlay::tabulate(l, [&] (long i) {
+        index k = sorted[s + i];
+        return std::pair{(k + offset >= n) ? 0 : ranks[k + offset], k};}, granularity);
+      parlay::sort_inplace(p);
+      parlay::sequence<bool> flags(l);
+      parlay::parallel_for(0, l, [&] (long i) {
+        sorted[s + i] = p[i].second;
+        flags[i] = (i == 0) || p[i].first != p[i-1].first;}, granularity);
+      return flags;}, 1);
 
     // break segments into smaller ones and throw away ones of length 1
     segments = parlay::flatten(parlay::tabulate(segments.size(), [&] (long i) {
-		   return segs_from_flags(flags[i], segments[i].start);}, 1));
+      return segs_from_flags(flags[i], segments[i].start);}, 1));
 
     offset = 2 * offset;
   }

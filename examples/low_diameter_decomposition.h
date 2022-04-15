@@ -30,14 +30,14 @@ auto LDD(float beta, const graph<vertex>& G, const graph<vertex>& GT) {
 
   // generate exp distribution and bucket based on it
   auto exps = parlay::tabulate(n, [&] (long i) {
-      auto r = g[i]; return (int) std::floor(exp(r));});
+    auto r = g[i]; return (int) std::floor(exp(r));});
   int max_e = parlay::reduce(exps, parlay::maximum<int>());
   auto buckets = parlay::group_by_index(parlay::delayed::tabulate(n, [&] (vertex i) {
-	return std::pair(max_e - exps[i], i);}), max_e + 1);
+    return std::pair(max_e - exps[i], i);}), max_e + 1);
 
   // -1 indicates unvisited
   auto labels = parlay::tabulate<std::atomic<vertex>>(n, [] (long i) {
-      return -1;});
+    return -1;});
 
   auto edge_f = [&] (vertex u, vertex v) -> bool {
     vertex expected = -1;
@@ -49,9 +49,9 @@ auto LDD(float beta, const graph<vertex>& G, const graph<vertex>& GT) {
   for (int i = 0; i <= max_e; i++) {
     // add unvisited vertices from the next bucket to the frontier on each step
     frontier.add_vertices(parlay::filter(buckets[i], [&] (vertex v) {
-     	  if (labels[v] != -1) return false;
-     	  labels[v] = v;
-     	  return true;}));
+      if (labels[v] != -1) return false;
+      labels[v] = v;
+      return true;}));
     frontier = frontier_map(frontier);
   }
 

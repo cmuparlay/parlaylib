@@ -28,26 +28,26 @@ long cycle_count(parlay::sequence<long>& permutation) {
   std::uniform_int_distribution<long> dis(0, n-1);
   parlay::sequence<lnk> links(n);
   parlay::parallel_for(0, n, [&] (long i) {
-      links[i].next = &links[permutation[i]];
-      links[permutation[i]].prev = &links[i];
-      auto r = gen[i];
-      links[i].p = dis(r);
-    });
+    links[i].next = &links[permutation[i]];
+    links[permutation[i]].prev = &links[i];
+    auto r = gen[i];
+    links[i].p = dis(r);
+  });
 
   parlay::parallel_for(0, n, [&] (long i) {
-      links[i].degree = ((links[i].prev->p < links[i].p) +
-			 (links[i].next->p <= links[i].p));
-      links[i].is_leaf = links[i].degree == 0;});
+    links[i].degree = ((links[i].prev->p < links[i].p) +
+                       (links[i].next->p <= links[i].p));
+    links[i].is_leaf = links[i].degree == 0;});
 
   auto roots = parlay::tabulate(n, [&] (long i) {
-      if (!links[i].is_leaf) return 0;
-      lnk* l = &links[i];
-      do {
-	l->next->prev = l->prev;
-	l->prev->next = l->next;
-	l = (l->prev->p < l->next->p) ? l->prev : l->next;
-      } while (l->prev != l && l->degree.fetch_add(-1) == 1);
-      return (l->prev == l) ? 1 : 0;});
+    if (!links[i].is_leaf) return 0;
+    lnk* l = &links[i];
+    do {
+      l->next->prev = l->prev;
+      l->prev->next = l->next;
+      l = (l->prev->p < l->next->p) ? l->prev : l->next;
+    } while (l->prev != l && l->degree.fetch_add(-1) == 1);
+    return (l->prev == l) ? 1 : 0;});
 
   return parlay::reduce(roots);
 }

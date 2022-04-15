@@ -53,8 +53,8 @@ void cartesian_tree(const seq& V, seq& P, long s, long e) {
   } else {
     long mid = (s+e)/2;
     parlay::par_do_if((e-s) > 100,
-	  [&] {cartesian_tree(V, P, s, mid);},
-          [&] {cartesian_tree(V, P, mid, e);});
+                      [&] {cartesian_tree(V, P, s, mid);},
+                      [&] {cartesian_tree(V, P, mid, e);});
     spine_merge(V, P, mid-1, mid);
   }
 }

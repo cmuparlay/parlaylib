@@ -52,11 +52,11 @@ auto rabin_karp(const Range1& s, const Range2& str) {
 
   // find matches
   auto y = parlay::delayed_tabulate(n-m+1,
-    [&, &powers = powers, &hashes = hashes, total = total] (long i) {
-      field hash_end = (i == n - m) ? total: hashes[i+m];
-      if (hash * powers[i] + hashes[i] == hash_end &&
-          parlay::equal(str, s.cut(i,i+m))) // double check
-        return true;
-      return false; });
+                                    [&, &powers = powers, &hashes = hashes, total = total] (long i) {
+                                      field hash_end = (i == n - m) ? total: hashes[i+m];
+                                      if (hash * powers[i] + hashes[i] == hash_end &&
+                                          parlay::equal(str, s.cut(i,i+m))) // double check
+                                        return true;
+                                      return false; });
   return parlay::pack_index<long>(y);
 }

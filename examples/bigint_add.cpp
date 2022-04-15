@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     std::uniform_int_distribution<unsigned int> dis(0,std::numeric_limits<int>::max());
 
     long m = n/32;
-    
+
     auto a = parlay::tabulate(m, [&] (long i) {
       auto r = gen[i]; return dis(r);});
 

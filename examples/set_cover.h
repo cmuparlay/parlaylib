@@ -28,13 +28,13 @@
 
 template <typename idx>
 struct set_cover {
-    // Type definitions
+  // Type definitions
   using sets = parlay::sequence<parlay::sequence<idx>>;
   using set_ids = parlay::sequence<idx>;
   using elements = parlay::sequence<std::atomic<idx>>;
   using buckets = parlay::sequence<parlay::sequence<idx>>;
   using bool_seq = parlay::sequence<bool>;
-    static constexpr idx covered = -1;
+  static constexpr idx covered = -1;
   static constexpr idx not_covered = std::numeric_limits<idx>::max();
 
   // **************************************************************
@@ -44,18 +44,18 @@ struct set_cover {
   // size m shares at most 2 * epsilon * m with others.
   // **************************************************************
   static set_ids manis(const set_ids& Si, sets& S, elements& E, bool_seq& in_result,
-		       float low, float high) {
+                       float low, float high) {
     auto reserve = [&] (idx i) {
       idx sid = Si[i];
       if (S[sid].size() < high) return done;
-    
+
       // keep just elements that are not covered
       S[sid] = parlay::filter(S[sid], [&] (idx e) {return E[e] > 0;});
 
       // if enough elements remain then reserve them with priority i
       if (S[sid].size() >= high) {
-	for (idx e : S[sid]) parlay::write_min(&E[e], i, std::less<idx>());
-	return try_commit;
+        for (idx e : S[sid]) parlay::write_min(&E[e], i, std::less<idx>());
+        return try_commit;
       } else return done;
     };
 
@@ -68,11 +68,11 @@ struct set_cover {
       // if enough are reserved, then add set i to the Set Cover and
       // mark elements as covered
       if (k >= low) {
-	for (idx e : S[sid]) if (E[e] == i) E[e] = covered;
-	return in_result[sid] = true;
+        for (idx e : S[sid]) if (E[e] == i) E[e] = covered;
+        return in_result[sid] = true;
       } else {
-	for (idx e : S[sid]) if (E[e] == i) E[e] = not_covered;
-	return false;
+        for (idx e : S[sid]) if (E[e] == i) E[e] = not_covered;
+        return false;
       }
     };
 
@@ -80,7 +80,7 @@ struct set_cover {
 
     // return sets that were not accepted
     return parlay::filter(Si, [&] (idx i) {
-	return !in_result[i] && S[i].size() > 0;});
+      return !in_result[i] && S[i].size() > 0;});
   }
 
   // **************************************************************
@@ -98,24 +98,24 @@ struct set_cover {
     auto bucket_from_size = [=] (long n) { return floor(log(n) * log1e);};
 
     double max_size = parlay::reduce(parlay::map(S, parlay::size_of()),
-				     parlay::maximum<idx>());
+                                     parlay::maximum<idx>());
     int num_buckets = 1 + bucket_from_size(max_size);
 
     auto bucket_sets_by_size = [&] (const set_ids& Si) {
       auto B = parlay::tabulate(Si.size(), [&] (idx i) -> std::pair<int,idx> {
-	  return std::pair(bucket_from_size(S[Si[i]].size()), Si[i]);});
+        return std::pair(bucket_from_size(S[Si[i]].size()), Si[i]);});
       return parlay::group_by_index(B, num_buckets);
     };
 
     // initial bucketing
     set_ids ids = parlay::filter(parlay::iota<idx>(num_sets), [&] (idx i) {
-	  return S[i].size() > 0;});
+      return S[i].size() > 0;});
     buckets Bs = bucket_sets_by_size(ids);
     auto B = parlay::map(Bs, [] (set_ids& si) {return buckets(1,si);});
 
     // initial sequences for tracking element coverage, and if set is in result
     elements E = parlay::tabulate<std::atomic<idx>>(num_elements, [&] (long i) {
-	return not_covered; });
+      return not_covered; });
     bool_seq in_result(num_sets);
 
     // loop over all buckets, largest size first
@@ -133,7 +133,7 @@ struct set_cover {
       // buckets the not accepted sets by size and add to B
       buckets bs = bucket_sets_by_size(remain);
       for (int i = 0; i < num_buckets; i++)
-	if (bs[i].size() > 0) B[i].push_back(std::move(bs[i]));
+        if (bs[i].size() > 0) B[i].push_back(std::move(bs[i]));
     }
     return parlay::pack_index<idx>(in_result);
   }

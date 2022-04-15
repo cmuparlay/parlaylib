@@ -17,7 +17,7 @@ using utils = graph_utils<vertex>;
 
 bool check(const graph& G, const parlay::sequence<int> colors) {
   auto is_good = [&] (long u) {
-		return all_of(G[u], [&] (auto& v) {return colors[u] != colors[v];});};
+    return all_of(G[u], [&] (auto& v) {return colors[u] != colors[v];});};
   return count(parlay::tabulate(G.size(), is_good), true) == G.size();
 }
 

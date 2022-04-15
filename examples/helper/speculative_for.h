@@ -49,10 +49,10 @@ enum status : char { done = 0, try_commit = 1, try_again = 2};
 // Lower iterations will win over higher ones during a reservation.
 // Completes when all iterations from start to end have completed.
 template <class idx, class R, class C>
-void speculative_for(idx start, idx end, 
-		     R reserve, C commit,
-		     long start_size=1) {
-  long current_round_size = std::max(start_size, 1l); 
+void speculative_for(idx start, idx end,
+                     R reserve, C commit,
+                     long start_size=1) {
+  long current_round_size = std::max(start_size, 1l);
   parlay::sequence<idx> carry_forward;
 
   long number_done = start; // number of iterations done
@@ -68,11 +68,11 @@ void speculative_for(idx start, idx end,
 
     // try to commit
     parlay::sequence<idx> indices = parlay::tabulate(size, [&] (long i) -> idx {
-        long j = (i < number_keep) ? carry_forward[i] : number_done + i;
-	if (keep[i] == try_commit) keep[i] = (commit(j) ? done : try_again);
-	return j;
-      });
-    
+      long j = (i < number_keep) ? carry_forward[i] : number_done + i;
+      if (keep[i] == try_commit) keep[i] = (commit(j) ? done : try_again);
+      return j;
+    });
+
     // keep iterations that failed for the next round
     auto flags = parlay::delayed_map(keep, [] (status x) {return x != done;});
     carry_forward = parlay::pack(indices, flags);
@@ -80,7 +80,7 @@ void speculative_for(idx start, idx end,
     number_done += size - number_keep;
 
     // if few need to be carried forward, then double the round size
-    if (float(number_keep)/float(size) < .2) 
+    if (float(number_keep)/float(size) < .2)
       current_round_size = current_round_size * 2;
   }
 }

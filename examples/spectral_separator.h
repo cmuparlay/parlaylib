@@ -39,7 +39,7 @@ auto rand_vector(long n) {
   parlay::random_generator gen;
   std::uniform_real_distribution<> dis(0.0, 1.0);
   return normalize(parlay::tabulate(n, [&] (long i) {
-	auto r = gen[i]; return dis(r); }));}
+    auto r = gen[i]; return dis(r); }));}
 
 // **************************************************************
 // Graph Laplacian Matrix 

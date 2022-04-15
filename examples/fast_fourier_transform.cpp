@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 
     auto points = parlay::tabulate(n, [&] (long i) {
       auto r = gen[i];
-        return complex{dis(r), dis(r)};});
+      return complex{dis(r), dis(r)};});
 
     //parlay::sequence<complex> results;
     parlay::sequence<complex> results2;
@@ -41,13 +41,13 @@ int main(int argc, char* argv[]) {
       // t.next("fast_fourier_transform");
       results2 = complex_fft_transpose(points);
       t.next("fast_fourier_transform_transpose");
-      
+
     }
     // std::cout << "first five points " << std::endl;
     // for (long i=0; i < std::min(5l,n); i++) 
     //   std::cout << results[i] << std::endl;
     std::cout << "first five points transpose" << std::endl;
-    for (long i=0; i < std::min(5l,n); i++) 
+    for (long i=0; i < std::min(5l,n); i++)
       std::cout << results2[i] << std::endl;
   }
 }

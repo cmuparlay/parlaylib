@@ -16,11 +16,11 @@
 parlay::sequence<long> generate_values(long n) {
   parlay::random_generator gen;
   std::uniform_int_distribution<long> dis(0, n-1);
-  
+
   return parlay::tabulate(n, [&] (long i) {
-      auto r = gen[i];
-      return dis(r);
-    });
+    auto r = gen[i];
+    return dis(r);
+  });
 }
 
 int main(int argc, char* argv[]) {
@@ -40,15 +40,15 @@ int main(int argc, char* argv[]) {
     }
 
     auto h = parlay::tabulate(n, [&] (long i) {
-	long depth = 1;
-	while (i != parents[i]) {
-	  i = parents[i];
-	  depth++;
-	}
-	return depth;});
+      long depth = 1;
+      while (i != parents[i]) {
+        i = parents[i];
+        depth++;
+      }
+      return depth;});
 
-    std::cout << "depth of tree: " 
-	      << parlay::reduce(h, parlay::maximum<long>())
-	      << std::endl;
+    std::cout << "depth of tree: "
+              << parlay::reduce(h, parlay::maximum<long>())
+              << std::endl;
   }
 }

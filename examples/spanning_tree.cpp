@@ -37,10 +37,10 @@ int main(int argc, char* argv[]) {
     parlay::sequence<long> result;
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
-     result = spanning_forest(E, n);
-     t.next("spanning_forest");
+      result = spanning_forest(E, n);
+      t.next("spanning_forest");
     }
-    
+
     std::cout << "number of edges in forest: " << result.size() << std::endl;
   }
 }

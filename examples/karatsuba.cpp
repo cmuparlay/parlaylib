@@ -26,9 +26,9 @@ int main(int argc, char* argv[]) {
       auto maxv = std::numeric_limits<unsigned int>::max();
       std::uniform_int_distribution<unsigned int> dis(0, maxv);
       return parlay::tabulate(m, [&] (long i) {
-	  auto r = gen[i];
-	  if (i == m-1) return dis(r)/2; // to ensure it is not negative
-	  else return dis(r);});
+        auto r = gen[i];
+        if (i == m-1) return dis(r)/2; // to ensure it is not negative
+        else return dis(r);});
     };
 
     bigint a = randnum(m, 0);

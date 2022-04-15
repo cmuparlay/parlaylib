@@ -13,7 +13,7 @@ template <typename vertex, typename graph>
 auto BFS(vertex start, const graph& G) {
   using nested_seq = parlay::sequence<parlay::sequence<vertex>>;
   auto visited = parlay::tabulate<std::atomic<bool>>(G.size(), [&] (long i) {
-      return (i==start) ? true : false; });
+    return (i==start) ? true : false; });
 
   parlay::sequence<vertex> frontier(1,start);
   nested_seq frontiers;

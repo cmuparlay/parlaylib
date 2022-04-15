@@ -22,7 +22,7 @@ auto bucketed_dijkstra(vertex start, const weighted_graph& G) {
   using seq = parlay::sequence<vertex>;
   using nested_seq = parlay::sequence<seq>;
   auto distances = parlay::tabulate<std::atomic<int>>(G.size(), [&] (long i) {
-      return (i==start) ? 0 : G.size(); });
+    return (i==start) ? 0 : G.size(); });
 
   // the bucketed "priority queue"
   parlay::sequence<nested_seq> buckets(G.size());
@@ -35,30 +35,30 @@ auto bucketed_dijkstra(vertex start, const weighted_graph& G) {
   while (d <= max_distance) {
     // get vertices from bucket and check if still min distance
     auto frontier = filter(flatten(buckets[d]), [&] (auto v) {
-	return distances[v] == d;});
+      return distances[v] == d;});
     frontiers.push_back(frontier);
 
     if (frontier.size() > 0) {
       // get out edges of the frontier with distance to other side
       auto edges = delayed::flatten(parlay::map(frontier, [&] (vertex u) {
-      	    return delayed::map(G[u], [=] (auto v) {
-		return std::pair{d + v.second, v.first};});}));
+        return delayed::map(G[u], [=] (auto v) {
+          return std::pair{d + v.second, v.first};});}));
 
       // keep edges whose distance reduces the current best
       auto keep = delayed::to_sequence(delayed::filter(edges, [&] (auto p) {
-      	  auto [dv,v] = p;
-      	  return parlay::write_min(&distances[v], dv, std::less<int>());}));
+        auto [dv,v] = p;
+        return parlay::write_min(&distances[v], dv, std::less<int>());}));
 
       if (keep.size() > 0) {
-	// maximum distance of kept edges
-	int max_d = parlay::reduce(delayed::map(keep, [] (auto p) {return p.first;}),
-				   parlay::maximum<int>());
+        // maximum distance of kept edges
+        int max_d = parlay::reduce(delayed::map(keep, [] (auto p) {return p.first;}),
+                                   parlay::maximum<int>());
 
-	// group by distance and add to buckets
-	nested_seq nb = parlay::group_by_index(keep, max_d+1);
-	parlay::parallel_for(0,max_d+1, [&] (long i) {
-	    if (nb[i].size() > 0) buckets[i].push_back(nb[i]);});
-	max_distance = std::max(max_distance, max_d);
+        // group by distance and add to buckets
+        nested_seq nb = parlay::group_by_index(keep, max_d+1);
+        parlay::parallel_for(0,max_d+1, [&] (long i) {
+          if (nb[i].size() > 0) buckets[i].push_back(nb[i]);});
+        max_distance = std::max(max_distance, max_d);
       }
     }
     d++;

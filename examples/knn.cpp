@@ -25,14 +25,14 @@ long check(const parlay::sequence<coords>& points, const knn_graph& G, int k) {
       r += diff*diff; }
     return r; };
   return parlay::reduce(parlay::tabulate(num_trials, [&] (long a) -> long {
-      auto r = gen[a];
-      idx i = dis(r);
-      coords p = points[i];
-      auto x = parlay::to_sequence(parlay::sort(parlay::map(points, [&] (auto q) {
-	      return distance_sq(p, q);})).cut(1,k+1));
-      auto y = parlay::reverse(parlay::map(G[i], [&] (long j) {
-	    return distance_sq(p,points[j]);}));
-      return y != x;}));
+    auto r = gen[a];
+    idx i = dis(r);
+    coords p = points[i];
+    auto x = parlay::to_sequence(parlay::sort(parlay::map(points, [&] (auto q) {
+      return distance_sq(p, q);})).cut(1,k+1));
+    auto y = parlay::reverse(parlay::map(G[i], [&] (long j) {
+      return distance_sq(p,points[j]);}));
+    return y != x;}));
 }
 
 int main(int argc, char* argv[]) {
@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
       std::cout << "found error" << std::endl;
     else
       std::cout << "generated " << k << " nearest neighbor graph for " << r.size()
-		<< " points." << std::endl;
+                << " points." << std::endl;
   }
 }
 

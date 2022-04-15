@@ -24,15 +24,15 @@ auto read_file(const std::string& filename) {
     std::cout << "bad file format" << std::endl;
     abort();
   }
-  
+
   auto y = parlay::tabulate(ny, [&] (long i) {
-      return parlay::chars_to_double(tokens[i+2]);});
+    return parlay::chars_to_double(tokens[i+2]);});
 
   auto entries = parlay::tabulate(n, [&] (long i) {
-       long a = parlay::chars_to_long(tokens[ny+6 + 2*i])-1;
-       double v = parlay::chars_to_double(tokens[ny+6 + 2*i + 1]);
-       if (a/ny >= nx) {std::cout << a/ny << ", " << i << std::endl; abort();}
-       return std::pair{a/ny, non_zero{a%ny, v}};});
+    long a = parlay::chars_to_long(tokens[ny+6 + 2*i])-1;
+    double v = parlay::chars_to_double(tokens[ny+6 + 2*i + 1]);
+    if (a/ny >= nx) {std::cout << a/ny << ", " << i << std::endl; abort();}
+    return std::pair{a/ny, non_zero{a%ny, v}};});
 
   return std::pair(parlay::group_by_index(entries, nx), y);
 }
@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
   else {
     auto [AT, y] = read_file(argv[1]);
     parlay::internal::timer t("Time");
-    solve_lasso(AT, y, 0.5, 0.0); 
+    solve_lasso(AT, y, 0.5, 0.0);
     t.next("lasso_regression");
   }
 }

@@ -28,13 +28,13 @@ auto lcp(Seq1 const &s, Seq2 const &SA) {
     work += remain.size();
     // compare next len characters of adjacent strings from SA.
     auto keep = parlay::map(remain, [&] (long i) {
-	       long j = offset;
-	       auto ssa = s.begin() + SA[i];
-	       auto ssb = s.begin() + SA[i+1];
-	       long max_j = (std::min<long>)(len + offset, n - SA[i]);
-	       while (j < max_j && (ssa[j] == ssb[j])) j++;
-	       if (j < len + offset) {L[i] = j; return false;}
-	       return true;});
+      long j = offset;
+      auto ssa = s.begin() + SA[i];
+      auto ssb = s.begin() + SA[i+1];
+      long max_j = (std::min<long>)(len + offset, n - SA[i]);
+      while (j < max_j && (ssa[j] == ssb[j])) j++;
+      if (j < len + offset) {L[i] = j; return false;}
+      return true;});
     remain = parlay::pack(remain, keep);
     offset += len;
     if (remain.size() == 0) return L;
@@ -55,13 +55,13 @@ auto lcp(Seq1 const &s, Seq2 const &SA) {
     // see if next offset chars resolves LCP
     // set L for those that do, and keep those that do not for next round
     remain = parlay::filter(remain, [&] (long i) {
-		if (SA[i] + offset >= n) {L[i] = offset; return false;};
-		long i1 = ISA[SA[i]+offset];
-		long i2 = ISA[SA[i+1]+offset];
-		long l = L[rq.query(i1, i2-1)];
-		if (l < offset) {L[i] = offset + l; return false;}
-		else return true;
-	     });
+      if (SA[i] + offset >= n) {L[i] = offset; return false;};
+      long i1 = ISA[SA[i]+offset];
+      long i2 = ISA[SA[i+1]+offset];
+      long l = L[rq.query(i1, i2-1)];
+      if (l < offset) {L[i] = offset + l; return false;}
+      else return true;
+    });
     offset *= 2;
   } while (remain.size() > 0);
   return L;

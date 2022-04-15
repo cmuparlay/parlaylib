@@ -22,12 +22,12 @@ void fft_recursive(long n, long s, T const* in, T* out, T const* w) {
     out[0] = in[0];
   else {
     parlay::par_do([&] {fft_recursive(n/2, 2*s, in, out, w);},
-		   [&] {fft_recursive(n/2, 2*s, in+s, out+n/2, w);});
+                   [&] {fft_recursive(n/2, 2*s, in+s, out+n/2, w);});
     parlay::parallel_for(0, n/2, [&] (long i) {
-	T p = out[i];
-	T q = out[i+n/2] * w[i * s]; 
-	out[i] = p + q;
-	out[i+n/2] = p - q;}, 1000);
+      T p = out[i];
+      T q = out[i+n/2] * w[i * s];
+      out[i] = p + q;
+      out[i+n/2] = p - q;}, 1000);
   }
 }
 
@@ -35,7 +35,7 @@ void fft_recursive(long n, long s, T const* in, T* out, T const* w) {
 template <typename T>
 auto powers(T val, long n) {
   return parlay::scan(parlay::delayed_tabulate(n, [&] (long i) {
-	return val;}), parlay::multiplies<T>()).first;}
+    return val;}), parlay::multiplies<T>()).first;}
 
 template <typename T>
 auto fft(const parlay::sequence<T>& in, T nth_root) {
@@ -73,24 +73,24 @@ auto fft_transpose(const parlay::sequence<T>& in, T nth_root) {
   long num_rows = in.size() / num_columns;
 
   auto columns = parlay::tabulate(num_columns, [&] (long i) {
-      // transpose 1
-      auto ai = parlay::tabulate(num_rows, [&] (long j) {
-	  return in[j * num_columns + i];});
-      auto r = fft(ai, std::pow(nth_root, num_columns));
-      auto w = powers(std::pow(nth_root, i), num_rows);
-      return parlay::tabulate(num_rows, [&] (long j) {
-      	  return r[j]*w[j];});}, 1);
+    // transpose 1
+    auto ai = parlay::tabulate(num_rows, [&] (long j) {
+      return in[j * num_columns + i];});
+    auto r = fft(ai, std::pow(nth_root, num_columns));
+    auto w = powers(std::pow(nth_root, i), num_rows);
+    return parlay::tabulate(num_rows, [&] (long j) {
+      return r[j]*w[j];});}, 1);
 
   auto rows = parlay::tabulate(num_rows, [&] (long j) {
-      // transpose 2
-      auto aj = parlay::tabulate(num_columns, [&] (long i) {
-	  return columns[i][j];});
-      return fft(aj, std::pow(nth_root, num_rows));}, 1);
+    // transpose 2
+    auto aj = parlay::tabulate(num_columns, [&] (long i) {
+      return columns[i][j];});
+    return fft(aj, std::pow(nth_root, num_rows));}, 1);
 
   // transpose 3
   return parlay::flatten(parlay::tabulate(num_columns, [&] (long i) {
-  	return parlay::delayed::tabulate(num_rows, [&, i] (long j) {
-  	    return rows[j][i];});}));
+    return parlay::delayed::tabulate(num_rows, [&, i] (long j) {
+      return rows[j][i];});}));
 }
 
 complex_seq complex_fft_transpose(const complex_seq& a) {
