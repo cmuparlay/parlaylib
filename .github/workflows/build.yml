@@ -147,49 +147,49 @@ jobs:
           cd build
           ../cmake-3.18.2-Linux-x86_64/bin/ctest -C Debug --no-tests=error --output-on-failure
 
-  msys:
-    strategy:
-      matrix:
-        include:
-          - { sys: mingw64 }
-          - { sys: ucrt64 }
-          - { sys: clang64 }
-
-    name: windows-latest MSYS2 ${{ matrix.sys }} (Debug)
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-      - uses: actions/checkout@v2
-      - name: '${{ matrix.icon }} Setup MSYS2'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: ${{matrix.sys}}
-          update: true
-          install: >-
-            git
-            make
-          pacboy: >-
-            toolchain:p
-            cmake:p
-            ninja:p
-
-      - name: Configure
-        run: |
-          mkdir build
-          cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
-
-      - name: Build
-        run: |
-          cd build
-          cmake --build .
-
-      - name: Test
-        run: |
-          cd build
-          ctest -C Debug --no-tests=error --output-on-failure
+#  msys:
+#    strategy:
+#      matrix:
+#        include:
+#          - { sys: mingw64 }
+#          - { sys: ucrt64 }
+#          - { sys: clang64 }
+#
+#    name: windows-latest MSYS2 ${{ matrix.sys }} (Debug)
+#    runs-on: windows-latest
+#    defaults:
+#      run:
+#        shell: msys2 {0}
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: '${{ matrix.icon }} Setup MSYS2'
+#        uses: msys2/setup-msys2@v2
+#        with:
+#          msystem: ${{matrix.sys}}
+#          update: true
+#          install: >-
+#            git
+#            make
+#          pacboy: >-
+#            toolchain:p
+#            cmake:p
+#            ninja:p
+#
+#      - name: Configure
+#        run: |
+#          mkdir build
+#          cd build
+#          cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+#
+#      - name: Build
+#        run: |
+#          cd build
+#          cmake --build .
+#
+#      - name: Test
+#        run: |
+#          cd build
+#          ctest -C Debug --no-tests=error --output-on-failure
 
   cygwin:
     strategy:
@@ -209,11 +209,12 @@ jobs:
         with:
           packages: git,make,gcc-core,gcc-g++,cmake,clang,libiconv-devel,cygwin32-libiconv-1.14-2
 
+      # Note: The benchmarks are currently not compiled on Cygwin because Google Benchmark's CMake configuration fails for some reason...
       - name: Configure
         run: |
           mkdir build
           cd build
-          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         run: |
