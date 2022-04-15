@@ -32,22 +32,32 @@ int main(int argc, char* argv[]) {
       auto r = gen[i];
         return complex{dis(r), dis(r)};});
 
-    //parlay::sequence<complex> results;
-    parlay::sequence<complex> results2;
+    long lg2 = lg/2;
+    long num_columns = 1 << lg2;
+    long num_rows = n / num_columns;
+    
+    auto columns = parlay::tabulate(num_columns, [&] (long i) {
+	return parlay::tabulate(num_rows, [&] (long j) {
+	    return points[j * num_columns + i];});});
+
+    std::cout << points[1] << std::endl;
+    
+    parlay::sequence<complex> results;
+    parlay::sequence<parlay::sequence<complex>> results_c;
 
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
-      // results = complex_fft(points);
-      // t.next("fast_fourier_transform");
-      results2 = complex_fft_transpose(points);
+      results = complex_fft(points);
+      t.next("fast_fourier_transform");
+      results_c = complex_fft_transpose(columns);
       t.next("fast_fourier_transform_transpose");
       
     }
-    // std::cout << "first five points " << std::endl;
-    // for (long i=0; i < std::min(5l,n); i++) 
-    //   std::cout << results[i] << std::endl;
-    std::cout << "first five points transpose" << std::endl;
+    std::cout << "first five points " << std::endl;
     for (long i=0; i < std::min(5l,n); i++) 
-      std::cout << results2[i] << std::endl;
+      std::cout << results[i] << std::endl;
+    std::cout << "first five points transpose" << std::endl;
+    for (long i=0; i < std::min(5l,num_columns); i++) 
+      std::cout << results_c[i][0] << std::endl;
   }
 }
