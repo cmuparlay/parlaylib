@@ -2,10 +2,10 @@
 #                      Build system for ParlayLib
 # -------------------------------------------------------------------
 # Requirements:
-#   - CMake version 3.13+
+#   - CMake version 3.14+
 # -------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.14)
 project(PARLAY VERSION 2.0.0
         DESCRIPTION "A collection of parallel algorithms and other support for parallelism in C++"
         LANGUAGES CXX)

@@ -630,52 +630,60 @@ static void bench_group_by_index_256(benchmark::State& state) {
                           ->Unit(benchmark::kMillisecond)                           \
                           ->Args({__VA_ARGS__});
 
-BENCH(map, long, 100000000);
-BENCH(tabulate, long, 100000000);
-BENCH(reduce_add, long, 100000000);
-BENCH(scan_add, long, 100000000);
-BENCH(pack, long, 100000000);
-BENCH(gather, long, 100000000);
-BENCH(scatter, long, 100000000);
-BENCH(scatter, int, 100000000);
-BENCH(write_add, long, 100000000);
-BENCH(write_min, long, 100000000);
-BENCH(count_sort, long, 100000000, 4);
-BENCH(count_sort, long, 100000000, 8);
-BENCH(integer_sort, unsigned int, 100000000);
-BENCH(integer_sort_pair, unsigned int, 100000000);
-BENCH(sort, unsigned int, 100000000);
-BENCH(sort, long, 100000000);
-BENCH(sort, parlay::sequence<char>, 100000000);
-BENCH(sort_inplace, unsigned int, 100000000);
-BENCH(sort_inplace, long, 100000000);
-BENCH(merge, long, 100000000);
-BENCH(merge_sort, long, 100000000);
-BENCH(quicksort, long, 100000000);
-BENCH(random_shuffle, long, 100000000);
-BENCH(histogram, unsigned int, 100000000);
-BENCH(histogram_same, unsigned int, 100000000);
-BENCH(histogram_few, unsigned int, 100000000);
-BENCH(reduce_by_index_256, unsigned int, 100000000);
-BENCH(reduce_by_index, unsigned int, 100000000);
-BENCH(remove_duplicate_integers, unsigned int, 100000000);
-BENCH(group_by_index_256, unsigned int, 100000000);
-BENCH(group_by_index, unsigned int, 100000000);
-BENCH(reduce_by_key, unsigned long, 100000000);
-BENCH(histogram_by_key, unsigned long, 100000000);
-BENCH(histogram_by_key, unsigned int, 100000000);
-BENCH(remove_duplicates, unsigned long, 100000000);
-BENCH(remove_duplicates, unsigned int, 100000000);
-BENCH(group_by_key, unsigned long, 100000000);
-BENCH(group_by_key, unsigned int, 100000000);
-BENCH(group_by_key_sorted, unsigned long, 100000000);
-BENCH(group_by_key_sorted, unsigned int, 100000000);
-BENCH(histogram_by_key, parlay::sequence<char>, 100000000);
-BENCH(remove_duplicates, parlay::sequence<char>, 100000000);
-BENCH(group_by_key, parlay::sequence<char>, 100000000);
+// If compiling in debug mode, use 1000x smaller inputs
+// or they will run forever or run out of RAM
+#ifndef NDEBUG
+#define PSIZE_FACTOR 1000
+#else
+#define PSIZE_FACTOR 1
+#endif
+
+BENCH(map, long, 100000000/PSIZE_FACTOR);
+BENCH(tabulate, long, 100000000/PSIZE_FACTOR);
+BENCH(reduce_add, long, 100000000/PSIZE_FACTOR);
+BENCH(scan_add, long, 100000000/PSIZE_FACTOR);
+BENCH(pack, long, 100000000/PSIZE_FACTOR);
+BENCH(gather, long, 100000000/PSIZE_FACTOR);
+BENCH(scatter, long, 100000000/PSIZE_FACTOR);
+BENCH(scatter, int, 100000000/PSIZE_FACTOR);
+BENCH(write_add, long, 100000000/PSIZE_FACTOR);
+BENCH(write_min, long, 100000000/PSIZE_FACTOR);
+BENCH(count_sort, long, 100000000/PSIZE_FACTOR, 4);
+BENCH(count_sort, long, 100000000/PSIZE_FACTOR, 8);
+BENCH(integer_sort, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(integer_sort_pair, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(sort, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(sort, long, 100000000/PSIZE_FACTOR);
+BENCH(sort, parlay::sequence<char>, 100000000/PSIZE_FACTOR);
+BENCH(sort_inplace, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(sort_inplace, long, 100000000/PSIZE_FACTOR);
+BENCH(merge, long, 100000000/PSIZE_FACTOR);
+BENCH(merge_sort, long, 100000000/PSIZE_FACTOR);
+BENCH(quicksort, long, 100000000/PSIZE_FACTOR);
+BENCH(random_shuffle, long, 100000000/PSIZE_FACTOR);
+BENCH(histogram, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(histogram_same, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(histogram_few, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(reduce_by_index_256, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(reduce_by_index, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(remove_duplicate_integers, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(group_by_index_256, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(group_by_index, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(reduce_by_key, unsigned long, 100000000/PSIZE_FACTOR);
+BENCH(histogram_by_key, unsigned long, 100000000/PSIZE_FACTOR);
+BENCH(histogram_by_key, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(remove_duplicates, unsigned long, 100000000/PSIZE_FACTOR);
+BENCH(remove_duplicates, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(group_by_key, unsigned long, 100000000/PSIZE_FACTOR);
+BENCH(group_by_key, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(group_by_key_sorted, unsigned long, 100000000/PSIZE_FACTOR);
+BENCH(group_by_key_sorted, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(histogram_by_key, parlay::sequence<char>, 100000000/PSIZE_FACTOR);
+BENCH(remove_duplicates, parlay::sequence<char>, 100000000/PSIZE_FACTOR);
+BENCH(group_by_key, parlay::sequence<char>, 100000000/PSIZE_FACTOR);
 
 #if defined(__GNUC__)
-BENCH(sort, __int128, 100000000);
-BENCH(sort_inplace, __int128, 100000000);
-BENCH(integer_sort, __int128, 100000000);
+BENCH(sort, __int128, 100000000/PSIZE_FACTOR);
+BENCH(sort_inplace, __int128, 100000000/PSIZE_FACTOR);
+BENCH(integer_sort, __int128, 100000000/PSIZE_FACTOR);
 #endif
