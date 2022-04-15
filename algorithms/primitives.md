@@ -355,9 +355,7 @@ void stable_sort_inplace(Range&& in, BinaryPredicate&& less)
 ```c++
 template<typename Range>
 auto integer_sort(Range&& in)
-```
 
-```c++
 template<typename Range, typename Key>
 auto integer_sort(Range&& in, Key&& key)
 ```
@@ -365,9 +363,7 @@ auto integer_sort(Range&& in, Key&& key)
 ```c++
 template<typename Range>
 void integer_sort_inplace(Range&& in)
-```
 
-```c++
 template<typename Range, typename Key>
 void integer_sort_inplace(Range&& in, Key&& key)
 ```
@@ -392,7 +388,7 @@ template <typename Range>
 auto group_by_key(Range&& r)
 
 template <typename Range, typename Hash>, typename Equal>
-auto group_by_key(Range&& r, Hash&& hash, Equal&&equal)
+auto group_by_key(Range&& r, Hash&& hash, Equal&& equal)
 ```
 
 ```c++
@@ -421,14 +417,12 @@ auto group_by_index(Range&& r, Integer_t num_buckets)
 ```c++
 template<typename Range>
 auto reduce(Range&& r)
+
+template<typename Range, typename BinaryOperator>
+auto reduce(Range&& r, BinaryOperator&& m)
 ```
 
-```c++
-template<typename Range, typename Monoid>
-auto reduce(Range&& r, Monoid&& m)
-```
-
-**reduce** takes a random-access range and returns the reduction with respect some associative binary operation (addition by default). The associative operation is specified by a monoid object which is an object that has a `.identity` field of some type `T`, and a binary operator `f` on two values of type `T`. The type of the result is the value type of the range if no monoid is supplied, otherwise it is `T`.
+**reduce** takes a random-access range and returns the reduction with respect some associative binary operation (addition by default). The associative operation is specified by a [monoid.md](binary operator) object. The type of the result is the value type of the range if no operator is supplied, otherwise it is the type returned by the binary operator.
 
 
 ### Scan
@@ -436,44 +430,37 @@ auto reduce(Range&& r, Monoid&& m)
 ```c++
 template<typename Range>
 auto scan(Range&& r)
+
+template<typename Range, typename BinaryOperator>
+auto scan(Range&& r, BinaryOperator&& m)
 ```
 
 ```c++
 template<typename Range>
 auto scan_inclusive(Range&& r)
+
+template<typename Range, typename BinaryOperator>
+auto scan_inclusive(Range&& r, BinaryOperator&& m)
 ```
 
 ```c++
 template<typename Range>
 auto scan_inplace(Range&& r)
+
+template<typename Range, typename BinaryOperator>
+auto scan_inplace(Range&& r, BinaryOperator&& m)
 ```
 
 ```c++
 template<typename Range>
 auto scan_inclusive_inplace(Range&& r)
+
+template<typename Range, typename BinaryOperator>
+auto scan_inclusive_inplace(Range&& r, BinaryOperator&& m)
 ```
 
-```c++
-template<typename Range, typename Monoid>
-auto scan(Range&& r, Monoid&& m)
-```
 
-```c++
-template<typename Range, typename Monoid>
-auto scan_inclusive(Range&& r, Monoid&& m)
-```
-
-```c++
-template<typename Range, typename Monoid>
-auto scan_inplace(Range&& r, Monoid&& m)
-```
-
-```c++
-template<typename Range, typename Monoid>
-auto scan_inclusive_inplace(Range&& r, Monoid&& m)
-```
-
-**scan** takes a random-access range `r` and computes a scan (aka prefix sum) with respect to an associative binary operation (addition by default).  The associative operation is specified by a monoid object which is an object that has a `.identity` field of some type `T`, and a binary operator `f` on two values of type `T`. Scan returns a pair, consisting of a `parlay::sequence` containing the partial sums, and the total sum. The type of the resulting sums is the value type of `r` if no monoid is specified, otherwise it is `T`.
+**scan** takes a random-access range `r` and computes a scan (aka prefix sum) with respect to an associative binary operation (addition by default).  The associative operation is specified by a [monoid.md](binary operator) object. Scan returns a pair, consisting of a `parlay::sequence` containing the partial sums, and the total sum. The type of the resulting sums is the value type of `r` if no binary operator is specified, otherwise it is the type of the binary operator.
 
 By default, scan considers prefix sums excluding the final element. There is also **scan_inclusive**, which is inclusive of the final element of each prefix. There are also inplace versions of each of these (**scan_inplace**, **scan_inclusive_inplace**), which write the sums into the input and return the total.
 
@@ -485,7 +472,7 @@ By default, scan considers prefix sums excluding the final element. There is als
 template<typename Range>
 auto histogram_by_key(Range&& r)
 
-template <typename sum_type = size_t, typename Range, typename Hash, typename Equal>
+template <typename sum_type, typename Range, typename Hash, typename Equal>
 auto histogram_by_key(Range&& r, Hash&& hash, Equal&& equal)
 ```
 
@@ -494,7 +481,7 @@ template<typename Integer_, typename Range>
 auto histogram_by_index(Range&& r, Integer_ m)
 ```
 
-**histogram_by_key** takes a random-access range `A` and returns a sequence of key-value pairs, where the keys are the unique elements of `A`, and the values are the number of occurrences of the corresponding key in `A`. The key elements of `r` must be hashable and equality comparable. The second version of the function allows a custom hash function and equality predicate to be supplied. The hash function should return identical hashes for any pair of elements that the equality predicate deems equal. The order of the returned sequence is unspecified, as it depends on the hash function. An optional template argument, `sum_type` allows the type of the counter values to be customized. 
+**histogram_by_key** takes a random-access range `A` and returns a sequence of key-value pairs, where the keys are the unique elements of `A`, and the values are the number of occurrences of the corresponding key in `A`. The key elements of `r` must be hashable and equality comparable. The second version of the function allows a custom hash function and equality predicate to be supplied. The hash function should return identical hashes for any pair of elements that the equality predicate deems equal. The order of the returned sequence is unspecified, as it depends on the hash function. An optional template argument, `sum_type` allows the type of the counter values to be customized. The default type is `size_t`. 
 
 **histogram_by_index** takes an integer-valued random-access range `r` and a maximum value `m` and returns a sequence of length `m`, such that the i''th value of the sequence contains the number of occurrences of `i` in `r`. Every element in `r` must be at most `m`.
 
@@ -508,24 +495,24 @@ auto histogram_by_index(Range&& r, Integer_ m)
 template <typename Range>
 auto reduce_by_key(Range&& r)
 
-template <typename Range, typename Monoid>
-auto reduce_by_key(Range&& r, Monoid&& monoid)
+template <typename Range, typename BinaryOperator>
+auto reduce_by_key(Range&& r, BinaryOperator&& op)
 
-template <typename Range, typename Monoid, typename Hash, typename Equal>
-auto reduce_by_key(Range&& r, Monoid&& monoid, Hash&& hash, Equal&& equal)
+template <typename Range, typename BinaryOperator, typename Hash, typename Equal>
+auto reduce_by_key(Range&& r, BinaryOperator&& op, Hash&& hash, Equal&& equal)
 ```
 
 ```c++
 template <typename Range>
 auto reduce_by_index(Range&& r, size_t num_buckets)
 
-template <typename Range, typename Monoid>
-auto reduce_by_index(Range&& r, size_t num_buckets, Monoid&& monoid)
+template <typename Range, typename BinaryOperator>
+auto reduce_by_index(Range&& r, size_t num_buckets, BinaryOperator&& op)
 ```
 
-**reduce_by_key** takes a random-access sequence `r` of key-value pairs and returns a random-access sequence of key-value pairs. The returned sequence consists of pairs with distinct keys from `r`, and values that are the sum of all of the value elements of `r` with the given key. By default, the sum is taken as addition, but the second version of the function can be given a commutative monoid with which to perform the reduction. The `monoid` object must have a `.identity` field of some type `T`, and a binary operator `.f`, which computes the sum of two given elements. The results are computed as type `T`, which defaults to `range_value_type_t<R>::second_type` for the first version. The key type must be hashable and equality comparable. The third version of the function can be supplied a custom hash function and equality predicate. The hash function should return identical hashes for any pair of elements that the equality predicate deems equal. The order of the returned sequence is unspecified, as it depends on the hash function.
+**reduce_by_key** takes a random-access sequence `r` of key-value pairs and returns a random-access sequence of key-value pairs. The returned sequence consists of pairs with distinct keys from `r`, and values that are the sum of all of the value elements of `r` with the given key. By default, the sum is taken as addition, but the second version of the function can be supplied with a commutative [monoid.md](binary operator) object. The results are computed as type `T`, which defaults to `range_value_type_t<R>::second_type` for the first version, or the type of the binary operator for the second. The key type must be hashable and equality comparable. The third version of the function can be supplied a custom hash function and equality predicate. The hash function should return identical hashes for any pair of elements that the equality predicate deems equal. The order of the returned sequence is unspecified, as it depends on the hash function.
 
-**reduce_by_index** similarly takes a random-access sequence `r` of key-value pairs and returns a sequence of values. The i'th element of the returned sequence consists of the sum of all of the value elements of `r` with key `i`. The type of the keys must be integers, and a second parameter, `num_buckets` must be supplied, which indicates the value of the largest possible key. As with reduce by key, an optional commutative monoid may be supplied with which to perform the reduction (see `reduce_by_key`).
+**reduce_by_index** similarly takes a random-access sequence `r` of key-value pairs and returns a sequence of values. The i'th element of the returned sequence consists of the sum of all of the value elements of `r` with key `i`. The type of the keys must be integers, and a second parameter, `num_buckets` must be supplied, which indicates the value of the largest possible key. As with reduce by key, an optional commutative [monoid.md](binary operator) may be supplied with which to perform the reduction (see `reduce_by_key`).
 
 ## Searching operations
 
@@ -594,9 +581,7 @@ auto find_first_of(Range1&& r1, Range2&& r2, BinaryPredicate&& p)
 ```c++
 template <typename Range>
 auto adjacent_find(R&& r)
-```
 
-```c++
 template <typename Range, typename BinaryPredicate>
 auto adjacent_find(Range&& r, BinaryPredicate&& p)
 ```
@@ -608,9 +593,7 @@ auto adjacent_find(Range&& r, BinaryPredicate&& p)
 ```c++
 template <typename Range1, typename Range2>
 size_t mismatch(Range1&& r1, Range2&& r2)
-```
 
-```c++
 template <typename Range1, typename Range2, typename BinaryPredicate>
 auto mismatch(Range1&& r1, Range2&& r2, BinaryPredicate&& p)
 ```
@@ -622,9 +605,7 @@ auto mismatch(Range1&& r1, Range2&& r2, BinaryPredicate&& p)
 ```c++
 template <typename Range1, typename Range2>
 size_t search(Range1&& r1, Range2&& r2)
-```
 
-```c++
 template <typename Range1, typename Range2, typename BinaryPredicate>
 auto search(Range1&& r1, Range2&& r2, BinaryPredicate&& pred)
 ```
@@ -636,9 +617,7 @@ auto search(Range1&& r1, Range2&& r2, BinaryPredicate&& pred)
 ```c++
 template <typename Range1, typename Range2>
 auto find_end(Range1&& r1, Range2&& r2)
-```
 
-```c++
 template <typename Range1, typename Range2, typename BinaryPredicate>
 auto find_end(Range1&& r1, Range2&& r2, BinaryPredicate&& p)
 ```
@@ -650,9 +629,7 @@ auto find_end(Range1&& r1, Range2&& r2, BinaryPredicate&& p)
 ```c++
 template <typename Range>
 auto min_element(Range&& r)
-```
 
-```c++
 template <typename Range, typename BinaryPredicate>
 auto min_element(Range&& r, BinaryPredicate&& less)
 ```
@@ -660,9 +637,7 @@ auto min_element(Range&& r, BinaryPredicate&& less)
 ```c++
 template <typename Range>
 auto max_element(Range&& r)
-```
 
-```c++
 template <typename Range, typename BinaryPredicate>
 auto max_element(Range&& r, BinaryPredicate&& less)
 ```
@@ -670,9 +645,7 @@ auto max_element(Range&& r, BinaryPredicate&& less)
 ```c++
 template <typename Range>
 auto minmax_element(Range&& r)
-```
 
-```c++
 template <typename Range, typename BinaryPredicate>
 auto minmax_element(Range&& r, BinaryPredicate&& less)
 ```
@@ -686,9 +659,7 @@ auto minmax_element(Range&& r, BinaryPredicate&& less)
 ```c++
 template <typename Range1, typename Range2>
 bool equal(Range1&& r1, Range2&& r2)
-```
 
-```c++
 template <typename Range1, typename Range2, class BinaryPredicate>
 bool equal(Range1&& r1, Range2&& r2, BinaryPredicate&& p)
 ```
@@ -698,20 +669,21 @@ bool equal(Range1&& r1, Range2&& r2, BinaryPredicate&& p)
 ### Lexicographical compare
 
 ```c++
+template <typename Range1, typename Range2>
+bool lexicographical_compare(Range1&& r1, Range2&& r2)
+
 template <typename Range1, typename Range2, class BinaryPredicate>
 bool lexicographical_compare(Range1&& r1, Range2&& r2, BinaryPredicate&& less)
 ```
 
-**lexicographical_compare** returns true if the first random-access range compares lexicographically less than the second random-access range. A range is considered lexicographically less than another if it is a prefix of the other or the first mismatched element compares less than the corresponding element in the other range.
+**lexicographical_compare** returns true if the first random-access range compares lexicographically less than the second random-access range. A range is considered lexicographically less than another if it is a prefix of the other or the first mismatched element compares less than the corresponding element in the other range. An optional binary predicate can be supplied to specify how two elements should compare.
 
 ### Is sorted
 
 ```c++
 template <typename Range>
 bool is_sorted(Range&& r)
-```
 
-```c++
 template <typename Range, typename BinaryPredicate>
 bool is_sorted(Range&& r, BinaryPredicate&& less)
 ```
@@ -719,9 +691,7 @@ bool is_sorted(Range&& r, BinaryPredicate&& less)
 ```c++
 template <typename Range>
 auto is_sorted_until(Range&& r)
-```
 
-```c++
 template <typename Range, typename BinaryPredicate>
 auto is_sorted_until(Range&& r, BinaryPredicate&& less)
 ```

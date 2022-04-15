@@ -64,6 +64,36 @@ inline long double chars_to_long_double(const parlay::sequence<char>& s)
 
 **chars_to_int** attempts to interpret a signed integer value from the given character sequence. Similarly, **chars_to_uint** attempts to interpret an unsigned integer value, and **chars_to_double** attempts to interpret a `double`. The other listed methods do what you would expect given their name.
 
+## Formatting
+
+```c++
+inline parlay::sequence<char> to_chars(char c)
+inline parlay::sequence<char> to_chars(bool v)
+inline parlay::sequence<char> to_chars(long v)
+inline parlay::sequence<char> to_chars(int v)
+inline parlay::sequence<char> to_chars(unsigned long v)
+inline parlay::sequence<char> to_chars(unsigned int v)
+inline parlay::sequence<char> to_chars(long long v)
+inline parlay::sequence<char> to_chars(unsigned long long v)
+inline parlay::sequence<char> to_chars(double v)
+inline parlay::sequence<char> to_chars(float v)
+inline parlay::sequence<char> to_chars(const std::string& s)
+inline parlay::sequence<char> to_chars(const char* s)
+
+template<typename A, typename B>
+parlay::sequence<char> to_chars(const std::pair<A, B>& P)
+
+template<typename A, long unsigned int N>
+parlay::sequence<char> to_chars(const std::array<A, N>& P)
+
+template<typename T>
+parlay::sequence<char> to_chars(const slice<T, T>& A)
+
+template<class T>
+parlay::sequence<char> to_chars(const sequence<T>& A)
+```
+
+**to_chars** converts the given type to a string representation stored as a character sequence. Pairs are surrounded by round brackets with comma-separated elements, while sequences and other range-like types are surrounded by square brackets with comma-separated elements (i.e., Python style).
 
 ## Memory-mapped files
 

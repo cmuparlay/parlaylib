@@ -87,7 +87,7 @@ using bignum = parlay::sequence<digit>;
 constexpr unsigned char BASE = 128;
 
 auto big_add(const bignum& A, const bignum & B) {
-size_t n = A.size();
+  size_t n = A.size();
   auto sums = parlay::tabulate(n, [&] (size_t i) -> digit {
     return A[i] + B[i];  });
   auto f = [] (digit a, digit b) -> digit { // carry propagate
@@ -293,7 +293,7 @@ The value type of the range is the value type of the optional returned by `f` on
 
 ```c++
 template<typename... Ranges>
-auto zip(Range&&... rs)
+auto zip(Ranges&&... rs)
 ```
 
 The **zip** operation takes a list of (at least two) ranges `rs` and produces a range of tuples, where the i'th tuple contains the i'th element of each input range. The length of the zipped range is the length of the shortest range in `rs`. If all of the ranges `rs` are random-access ranges, then the result is a random-access range. Otherwise, all of the ranges in `rs` must be random-access ranges or block-iterable ranges, and the result is a block-iterable range.

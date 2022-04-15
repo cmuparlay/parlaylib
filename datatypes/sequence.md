@@ -118,9 +118,12 @@ Function | Description
 `view_type head(size_type len)` | Returns a slice corresponding to the first `len` elements of the sequence
 `view_type tail(iterator p)` | Returns a slice corresponding to all elements from `p` onwards
 `view_type tail(size_type len)` | Returns a slice corresponding to the final `len` elements of the sequence
-`view_type cut(size_type begin, size_type end)` | Returns a slice corresponding to the elements at between indices `begin` and `end`
+`view_type cut(size_type begin, size_type end)` | Returns a slice corresponding to the elements between indices `begin` and `end`
+`sequence subseq(size_type begin, size_type end)` | Returns a new sequence containing the elements between indices `begin` and `end`
+`sequence substr(size_type begin)` | Returns a new sequence containing the elements from position `begin` until the end of the sequence
+`sequence substr(size_type begin, size_type len)` | Returns a new sequence containing the next `len` elements starting at position `begin`
 
-If the sequence is mutable, the resulting slice is also mutable. Each of these also has a corresponding const overload.
+For all of the methods that returns a slice, if the sequence is mutable, the resulting slice is also mutable. Each of the slice methods also has a corresponding const overload.
 
 **Insertion**
 
