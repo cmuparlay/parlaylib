@@ -2,7 +2,7 @@
 # Associative Operations (Monoids)
 
 Many of Parlay's algorithms, such as reduce and scan, can take an optional argument that specifies
-how elements should be combined. This argument should be a binary [https://en.wikipedia.org/wiki/Associative_property](associative operation) $f$
+how elements should be combined. This argument should be a binary [https://en.wikipedia.org/wiki/Associative_property](associative operation) `f`
 with an identity element (an element `I` such that `f(x,I) = f(I,x) = x` for any `x`), sometimes called a [monoid](https://en.wikipedia.org/wiki/Monoid).
 
 ## Built-in associative operations
@@ -16,7 +16,7 @@ Operation | Default Identity | Description
 `logical_and<T>` | `T{true}` | Multiplies two elements using `operator&&`
 `logical_or<T>` | `T{false}` | Adds two element using `operator||`
 `bit_or<T>` | `T{0}` | Adds two elements using `operator|`
-`bit_xor<T>` | T{0}` | Adds two element using `operator^`
+`bit_xor<T>` | `T{0}` | Adds two element using `operator^`
 `bit_and<T>` | `~T{0}` | Multiplies two elements using `operator&`
 `maximum<T>` | `numeric_limits<T>::lowest()` | Returns the greater of two elements using `operator>`
 `minimum<T>` | `numeric_limits<T>::max()` | Returns the lesser of two elements using `operator<`
