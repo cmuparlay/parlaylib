@@ -19,7 +19,9 @@ template <typename Bigint>
 bigint small_multiply(const Bigint& a, const Bigint& b);
 
 // shift a left by n digits (i.e multiply a by d^n).
-auto shift(const bigint& a, int n);
+auto shift(const bigint& a, int n) {
+  return parlay::delayed::tabulate(a.size() + n, [&,n] (long i) {
+      return (i < n) ? 0 : a[i-n];});}
 
 // borrowed from the wikipedia page
 template <typename Bigint>
@@ -60,7 +62,4 @@ bigint small_multiply(const Bigint& a, const Bigint& b) {
   return result;
 }
 
-auto shift(const bigint& a, int n) {
-  return parlay::delayed::tabulate(a.size() + n, [&,n] (long i) {
-      return (i < n) ? 0 : a[i-n];});}
 
