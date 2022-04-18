@@ -54,29 +54,28 @@ struct ngram_table {
       abort();
     } else {
       int i=0;
-      while (! ifile.eof()) {
-	tableEntry x;
-	ifile >> x.str >> x.len;
-	float probSum = 0.0;
-	for (int j=0; j < x.len; j++) {
-	  float prob;
-	  ifile >> x.chars[j] >> prob;
-	  probSum += prob;
-	  if (j == x.len-1) x.probs[j] = 1.0;
-	  else x.probs[j] = probSum;
-	}
-	int i0 = index(x.str[0]);
-	int i1 = index(x.str[1]);
-	if (i0 > 26 || i1 > 26) abort();
-	S[i0][i1] = x;
-	i++;
+      tableEntry x;
+      while (ifile >> x.str >> x.len) {
+        float probSum = 0.0;
+        for (int j=0; j < x.len; j++) {
+          float prob;
+          ifile >> x.chars[j] >> prob;
+          probSum += prob;
+          if (j == x.len-1) x.probs[j] = 1.0;
+          else x.probs[j] = probSum;
+        }
+        int i0 = index(x.str[0]);
+        int i1 = index(x.str[1]);
+        if (i0 > 26 || i1 > 26) abort();
+        S[i0][i1] = x;
+        i++;
       }
       len = i;
     }
   }
 
   using uint = unsigned int;
-  
+
   char next(char c0, char c1, int i) {
     int j=0;
     tableEntry E = S[index(c0)][index(c1)];

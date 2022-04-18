@@ -5,18 +5,20 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 
 #include <algorithm>
 #include <atomic>
 #include <iterator>
+#include <functional>
 #include <memory>
 #include <new>
 #include <type_traits>
 #include <utility>
 
+#include "portability.h"
 #include "parallel.h"
+#include "range.h"           // IWYU pragma: keep
 #include "type_traits.h"
 
 #include "internal/debug_uninitialized.h"
@@ -64,19 +66,19 @@ const flags fl_conservative = 8;
 const flags fl_inplace = 16;
 
 template <typename T>
-inline void assign_uninitialized(T& a, const T& b) {
+inline void assign_uninitialized(T& a, const type_identity_t<T>& b) {
   PARLAY_ASSERT_UNINITIALIZED(a);
   new (static_cast<T*>(std::addressof(a))) T(b);
 }
 
 template <typename T>
-inline auto assign_uninitialized(T& a, T&& b) -> typename std::enable_if_t<std::is_rvalue_reference_v<T&&>> {
+inline auto assign_uninitialized(T& a, type_identity_t<T>&& b) {
   PARLAY_ASSERT_UNINITIALIZED(a);
-  new (static_cast<T*>(std::addressof(a))) T(std::move(b));  // NOLINT: b is guaranteed to be an rvalue reference
+  new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
 
 template <typename T>
-inline void move_uninitialized(T& a, T& b) {
+inline void move_uninitialized(T& a, type_identity_t<T>& b) {
   PARLAY_ASSERT_UNINITIALIZED(a);
   new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
@@ -132,6 +134,27 @@ inline uint64_t hash64_2(uint64_t x) {
   return x;
 }
 
+// Combine two hash values into a single hash value. Formula borrowed from Boost
+inline void hash_combine(size_t& seed, size_t v) {
+  seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+// parlay::hash provides a customization point for hashing that allows
+// us to override the hash for standard types, or to provide specializations
+// for standard types that do not have a std::hash specialization themselves.
+template<typename T>
+struct hash : public std::hash<T> { };
+
+// Hashing for std::pairs
+template<typename U, typename V>
+struct hash<std::pair<U,V>> {
+  size_t operator()(const std::pair<U,V>& p) const {
+    size_t h = parlay::hash<U>{}(p.first);
+    hash_combine(h, parlay::hash<V>{}(p.second));
+    return h;
+  }
+};
+
 /* Atomic write-add, write-min, and write-max */
 
 template <typename T, typename EV>
@@ -178,8 +201,83 @@ size_t log2_up(T i) {
 }
 
 inline size_t granularity(size_t n) {
-  return (n > 100) ? static_cast<size_t>(ceil(pow(n, 0.5))) : 100;
+  return (n > 100) ? static_cast<size_t>(std::ceil(std::sqrt(n))) : 100;
 }
+
+//  A copyable_function_wrapper allows an object to store a function (e.g., a lambda,
+//  or any callable object) as a member while still being default copy-assignable.
+//
+//  As long as the function type is copy constructible (which it needs to be in
+//  order to event initialize the member), this wrapper will be copy assignable.
+template<typename F>
+struct copyable_function_wrapper {
+
+  static_assert(std::is_copy_constructible_v<F>);
+
+  explicit copyable_function_wrapper(F _f) : f(std::move(_f)) {}
+
+  copyable_function_wrapper(const copyable_function_wrapper&) = default;
+  copyable_function_wrapper(copyable_function_wrapper&&)
+    noexcept(std::is_nothrow_move_constructible_v<F>) = default;
+
+  copyable_function_wrapper& operator=(const copyable_function_wrapper& other) {
+    if constexpr (std::is_copy_assignable_v<F>) {
+      f = other.f;
+    }
+    else {
+      f.~F();
+      new (std::addressof(f)) F(other.f);
+    }
+    return *this;
+  }
+
+  copyable_function_wrapper& operator=(copyable_function_wrapper&& other)
+    noexcept(std::is_nothrow_move_assignable_v<F> && std::is_nothrow_move_constructible_v<F>) {
+    if constexpr (std::is_move_assignable_v<F>) {
+      f = std::move(other.f);
+    }
+    else {
+      f.~F();
+      new (std::addressof(f)) F(std::move(other.f));
+    }
+    return *this;
+  }
+
+  ~copyable_function_wrapper() = default;
+
+  template<typename... Args>
+  PARLAY_INLINE decltype(auto) operator()(Args&&... args) noexcept(std::is_nothrow_invocable_v<F&, Args...>) {
+    static_assert(std::is_invocable_v<F&, Args...>);
+    return std::invoke(f, std::forward<Args>(args)...);
+  }
+
+  template<typename... Args>
+  PARLAY_INLINE decltype(auto) operator()(Args&&... args) const noexcept(std::is_nothrow_invocable_v<const F&, Args...>) {
+    static_assert(std::is_invocable_v<const F&, Args...>);
+    return std::invoke(f, std::forward<Args>(args)...);
+  }
+
+  // Special case for when the argument is just a size_t. This is the common case since this is what
+  // all of the functions in delayed_sequence are. This should in theory make absolutely no difference
+  // compared to the templates whatsoever but for some reason it's faster???
+  PARLAY_INLINE decltype(auto) operator()(size_t i) noexcept(std::is_nothrow_invocable_v<F&, size_t>) {
+    static_assert(std::is_invocable_v<F&, size_t>);
+    return std::invoke(f, i);
+  }
+
+  PARLAY_INLINE decltype(auto) operator()(size_t i) const noexcept(std::is_nothrow_invocable_v<const F&, size_t>) {
+    static_assert(std::is_invocable_v<const F&, size_t>);
+    return std::invoke(f, i);
+  }
+
+  F* get() { return std::addressof(f); }
+  const F* get() const { return std::addressof(f); }
+
+ private:
+  F f;
+};
+
+
 
 /* Relocation (a.k.a. "destructive move")
 
@@ -261,9 +359,7 @@ inline void uninitialized_relocate_n_a(It1 to, It2 from, size_t n, Alloc& alloc)
   constexpr bool trivially_relocatable = is_trivially_relocatable_v<T>;
   constexpr bool trivial_alloc = is_trivial_allocator_v<Alloc, T>;
   constexpr bool contiguous = is_contiguous_iterator_v<It1> && is_contiguous_iterator_v<It2>;
-  constexpr bool random_access =
-      std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It1>::iterator_category> &&
-      std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It2>::iterator_category>;
+  constexpr bool random_access = is_random_access_iterator_v<It1> && is_random_access_iterator_v<It2>;
 
   // The most efficient scenario -- The objects are trivially relocatable, the allocator
   // has no special behaviour, and the iterators point to contiguous memory so we can
@@ -368,25 +464,25 @@ struct uninitialized_relocate_tag {};
 
 // Move dispatch -- move val into dest
 template<typename T>
-void assign_dispatch(T& dest, T& val, move_assign_tag) {
+void assign_dispatch(T& dest, type_identity_t<T>& val, move_assign_tag) {
   dest = std::move(val);
 }
 
 // Copy dispatch -- copy val into dest
 template<typename T>
-void assign_dispatch(T& dest, const T& val, copy_assign_tag) {
+void assign_dispatch(T& dest, const type_identity_t<T>& val, copy_assign_tag) {
   dest = val;
 }
 
 // Uninitialized move dispatch -- move construct dest with val
 template<typename T>
-void assign_dispatch(T& dest, T& val, uninitialized_move_tag) {
+void assign_dispatch(T& dest, type_identity_t<T>& val, uninitialized_move_tag) {
   assign_uninitialized(dest, std::move(val));
 }
 
 // Uninitialized copy dispatch -- copy initialize dest with val
 template<typename T>
-void assign_dispatch(T& dest, const T& val, uninitialized_copy_tag) {
+void assign_dispatch(T& dest, const type_identity_t<T>& val, uninitialized_copy_tag) {
   assign_uninitialized(dest, val);
 }
 

@@ -41,6 +41,22 @@ TEST(TestFormatting, TestLongToChars) {
        x += (std::numeric_limits<long>::max)() / 10000) { check(x); }
 }
 
+TEST(TestFormatting, TestLongLongToChars) {
+  auto check = [](long long x) {
+    auto seq = parlay::to_chars(x);
+    auto str = std::to_string(x);
+    ASSERT_EQ(std::string_view(seq.data(), seq.size()), std::string_view(str.data(), str.size()));
+  };
+
+  check(0);
+  check((std::numeric_limits<long long>::min)());
+  check((std::numeric_limits<long long>::max)());
+
+  for (long long x = (std::numeric_limits<long long>::min)() / 2;
+       x < (std::numeric_limits<long long>::max)() / 2;
+       x += (std::numeric_limits<long long>::max)() / 10000) { check(x); }
+}
+
 TEST(TestFormatting, TestIntToChars) {
   auto check = [](int x) {
     auto seq = parlay::to_chars(x);
@@ -71,6 +87,22 @@ TEST(TestFormatting, TestULongToChars) {
   for (unsigned long x = (std::numeric_limits<unsigned long>::min)() / 2;
        x < (std::numeric_limits<unsigned long>::max)() / 2;
        x += (std::numeric_limits<unsigned long>::max)() / 10000) { check(x); }
+}
+
+TEST(TestFormatting, TestULongLongToChars) {
+  auto check = [](unsigned long long x) {
+    auto seq = parlay::to_chars(x);
+    auto str = std::to_string(x);
+    ASSERT_EQ(std::string_view(seq.data(), seq.size()), std::string_view(str.data(), str.size()));
+  };
+
+  check(0);
+  check((std::numeric_limits<unsigned long long>::min)());
+  check((std::numeric_limits<unsigned long long>::max)());
+
+  for (unsigned long long x = (std::numeric_limits<unsigned long long>::min)() / 2;
+       x < (std::numeric_limits<unsigned long long>::max)() / 2;
+       x += (std::numeric_limits<unsigned long long>::max)() / 10000) { check(x); }
 }
 
 TEST(TestFormatting, TestUIntToChars) {

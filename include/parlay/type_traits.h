@@ -8,22 +8,146 @@
 //
 // Includes:
 //  - priority_tag
-//  - is_contiguous_iterator / is_random_access_iterator
 //  - is_trivial_allocator
 //  - is_trivially_relocatable / is_nothrow_relocatable
 //
 
-#ifndef PARLAY_TYPE_TRAITS_H
-#define PARLAY_TYPE_TRAITS_H
+#ifndef PARLAY_TYPE_TRAITS_H_
+#define PARLAY_TYPE_TRAITS_H_
 
 #include <cstddef>
 
-#include <iterator>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <type_traits>
-#include <utility>
+#include <utility>       // IWYU pragma: keep
+
+// IWYU pragma: no_include <iterator>
 
 namespace parlay {
+
+// Provides the member type T
+template<typename T>
+struct type_identity {
+  using type = T;
+};
+
+// Equal to the type T, i.e., the identity transformation
+template<typename T>
+using type_identity_t = typename type_identity<T>::type;
+
+// Given a pointer-to-member (object or function), returns
+// the type of the class in which the member lives
+template<typename T>
+struct member_pointer_class;
+
+template<typename T, typename U>
+struct member_pointer_class<T U::*> : public type_identity<U> {};
+
+template<typename T>
+using member_pointer_class_t = typename member_pointer_class<T>::type;
+
+// Provides the member type std::add_const_t<T> if Const is
+// true, otherwise provides the member type T
+template<bool Const, typename T>
+using maybe_const = std::conditional<Const, std::add_const_t<T>, T>;
+
+// Adds const to the given type if Const is true
+template<bool Const, typename T>
+using maybe_const_t = typename maybe_const<Const, T>::type;
+
+// Provides the member type std::decay_t<T> if Decay is
+// true, otherwise provides the member type T
+template<bool Decay, typename T>
+using maybe_decay = std::conditional<Decay, std::decay_t<T>, T>;
+
+// Decays the given type if Decay is true
+template<bool Decay, typename T>
+using maybe_decay_t = typename maybe_decay<Decay, T>::type;
+
+// Provides the member value true if the given type is an instance of std::optional
+template <typename T>
+struct is_optional : std::false_type {};
+
+template <typename T>
+struct is_optional<std::optional<T>> : std::true_type {};
+
+// true if the given type is an instance of std::optional
+template<typename T>
+inline constexpr bool is_optional_v = is_optional<T>::value;
+
+template<typename T, typename U = T>
+using is_less_than_comparable = std::conjunction<
+                                  std::is_invocable_r<bool, std::less<>, T, U>,
+                                  std::is_invocable_r<bool, std::less<>, U, T>
+                                >;
+
+template<typename T, typename U = T>
+inline constexpr bool is_less_than_comparable_v = is_less_than_comparable<T, U>::value;
+
+template<typename T, typename U = T>
+using is_equality_comparable = std::conjunction<
+                                 std::is_invocable_r<bool, std::equal_to<>, T, U>,
+                                 std::is_invocable_r<bool, std::equal_to<>, U, T>,
+                                 std::is_invocable_r<bool, std::not_equal_to<>, T, U>,
+                                 std::is_invocable_r<bool, std::not_equal_to<>, U, T>
+                               >;
+
+template<typename T, typename U = T>
+inline constexpr bool is_equality_comparable_v = is_equality_comparable<T, U>::value;
+
+// Defines a member value true if the given type BinaryOperator_ can be invoked on types
+// T1&& and T2 to yield a result of a type that is convertible to T1.
+//
+// This requirement corresponds to the needs of a left fold over the operator BinaryOperator_
+// with an identity and result type of T1, where the intermediate elements being reduced over
+// are potentially of type T2.
+template<typename BinaryOperator_, typename T1, typename T2, typename = void, typename = void>
+struct is_binary_operator_for : public std::false_type {};
+
+template<typename BinaryOperator_, typename T1, typename T2>
+struct is_binary_operator_for<BinaryOperator_, T1, T2, std::void_t<
+  std::enable_if_t< std::is_move_constructible_v<T1> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, T1&&, T1&&> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, T1&&, T2> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, T2, T2> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, T2, T1&&> >
+>, std::enable_if_t<!std::is_member_function_pointer_v<BinaryOperator_>>> : public std::true_type{};
+
+// Handle the case where BinaryOperator_ is a member function pointer
+template<typename BinaryOperator_, typename T1, typename T2>
+struct is_binary_operator_for<BinaryOperator_, T1, T2, std::void_t<
+  std::enable_if_t< std::is_move_constructible_v<T1> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, const member_pointer_class_t<BinaryOperator_>&, T1&&, T1&&> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, const member_pointer_class_t<BinaryOperator_>&, T1&&, T2> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, const member_pointer_class_t<BinaryOperator_>&, T2, T2> >,
+  std::enable_if_t< std::is_invocable_r_v<T1, BinaryOperator_, const member_pointer_class_t<BinaryOperator_>&, T2, T1&&> >
+>, std::enable_if_t<std::is_member_function_pointer_v<BinaryOperator_>>> : public std::true_type{};
+
+// True if the given type BinaryOperator_ can be invoked on types T1&& and T2 to yield a result
+// of a type that is convertible to T1. T2 defaults to T1&& if not specified.
+//
+// This requirement corresponds to the needs of a left fold over the operator BinaryOperator_
+// with an identity and result type of T1, where the intermediate elements being reduced over
+// are potentially of type T2.
+template<typename BinaryOperator_, typename T1, typename T2 = T1&&>
+inline constexpr bool is_binary_operator_for_v = is_binary_operator_for<BinaryOperator_, T1, T2>::value;
+
+// Defines the member value true if T is a pair or a tuple of length two
+template<typename T, typename = void>
+struct is_pair : public std::false_type {};
+
+template<typename T>
+struct is_pair<T, std::void_t<
+  decltype( std::get<0>(std::declval<T>()) ),
+  decltype( std::get<1>(std::declval<T>()) ),
+  std::enable_if_t< 2 == std::tuple_size_v<std::decay_t<T>> >
+>> : public std::true_type {};
+
+// True if T is a pair or a tuple of length two
+template<typename T>
+inline constexpr bool is_pair_v = is_pair<T>::value;
 
 /*  --------------------- Priority tags. -------------------------
     Priority tags are an easy way to force template resolution to
@@ -41,33 +165,6 @@ struct priority_tag : priority_tag<K-1> {};
 template<>
 struct priority_tag<0> {};
 
-/*  --------------------- Contiguous iterators -----------------------
-    An iterator is a contiguous iterator if it points to memory that
-    is contiguous. More specifically, it means that given an iterator
-    a, and an index n such that a+n is a valid, dereferencable iterator,
-    then *(a + n) is equivalent to *(std::addressof(*a) + n).
-
-    C++20 will introduce a concept for detecting contiguous iterators.
-    Until then, we just do the conservative thing and deduce that any
-    iterators represented as pointers are contiguous.
-
-    We also supply a convenient trait for checking whether an iterator
-    is a random access iterator. This can be done using current C++,
-    but is too verbose to type frequently, so we shorten it here.
-*/
-
-template<typename It>
-struct is_contiguous_iterator : std::is_pointer<It> {};
-
-template<typename It>
-inline constexpr bool is_contiguous_iterator_v = is_contiguous_iterator<It>::value;
-
-template<typename It>
-struct is_random_access_iterator : std::bool_constant<
-    std::is_base_of_v<std::random_access_iterator_tag, typename std::iterator_traits<It>::iterator_category>> {};
-
-template<typename It>
-inline constexpr bool is_random_access_iterator_v = is_random_access_iterator<It>::value;
 
 /*  ----------------- Trivial allocators. ---------------------
     Allocator-aware containers and algorithms need to know whether
@@ -102,21 +199,21 @@ inline constexpr bool is_random_access_iterator_v = is_random_access_iterator<It
 
 namespace internal {
 
-  // Detect the existence of the .destroy method of the type Alloc
-  template<typename Alloc, typename T>
-  auto trivial_allocator(Alloc& a, T *p, priority_tag<2>)
-    -> decltype(void(a.destroy(p)), std::false_type());
+// Detect the existence of the .destroy method of the type Alloc
+template<typename Alloc, typename T>
+auto trivial_allocator(Alloc& a, T* p, priority_tag<2>)
+  -> decltype(void(a.destroy(p)), std::false_type());
 
-  // Detect the existence of the .construct method of the type Alloc
-  template<typename Alloc, typename T>
-  auto trivial_allocator(Alloc& a, T *p, priority_tag<1>)
-    -> decltype(void(a.construct(p, std::declval<T&&>())), std::false_type());
+// Detect the existence of the .construct method of the type Alloc
+template<typename Alloc, typename T>
+auto trivial_allocator(Alloc& a, T* p, priority_tag<1>)
+  -> decltype(void(a.construct(p, std::declval<T&&>())), std::false_type());
 
-  // By default, if no .construct or .destroy methods are found, assume
-  // that the allocator is trivial
-  template<typename Alloc, typename T>
-  auto trivial_allocator(Alloc& a, T* p, priority_tag<0>)
-    -> std::true_type;
+// By default, if no .construct or .destroy methods are found, assume
+// that the allocator is trivial
+template<typename Alloc, typename T>
+auto trivial_allocator(Alloc& a, T* p, priority_tag<0>)
+  -> std::true_type;
 
 }  // namespace internal
 
@@ -186,4 +283,4 @@ struct is_trivially_relocatable<std::pair<T1,T2>> :
 
 }  // namespace parlay
 
-#endif //PARLAY_TYPE_TRAITS_H
+#endif //PARLAY_TYPE_TRAITS_H_

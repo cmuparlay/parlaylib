@@ -30,7 +30,7 @@
 
 #include <iterator>
 
-#include "range.h"
+#include "range.h"    // IWYU pragma: keep
 
 namespace parlay {
 
@@ -44,14 +44,17 @@ auto make_slice(It it, S s) {
 }
 
 // Create a slice from a range.
-template<PARLAY_RANGE_TYPE R>
+template<typename R>
 auto make_slice(R&& r) {
   return make_slice(std::begin(r), std::end(r));
 }
 
-// A slice is a non-owning view of a range defined by an iterator pair.
+// A slice is a non-owning view of a random-access range defined by an iterator pair.
 template <typename It, typename S>  
 struct slice {
+  static_assert(is_random_access_iterator_v<It>);
+  static_assert(is_sentinel_for_v<It, S>);
+
  public:
  
   // Note the distinction -- value_type is the underlying type pointed to

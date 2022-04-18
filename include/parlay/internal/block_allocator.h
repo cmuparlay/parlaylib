@@ -26,7 +26,7 @@ namespace parlay {
 struct block_allocator {
 private:
 
-  static const size_t default_list_bytes = (1 << 22) - 64; // in bytes
+  static const size_t default_list_bytes = (1 << 18) - 64; // in bytes
   static const size_t pad_size = 256;
 
   struct block {
@@ -109,7 +109,7 @@ public:
     parallel_for(0, num_lists, [&] (size_t i) {
       block_p offset = reinterpret_cast<block_p>(start + i * list_length * block_size_);
       global_stack.push(initialize_list(offset));
-   });
+      },1,true);
   }
 
   void print_stats() {

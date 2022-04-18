@@ -229,7 +229,7 @@ auto collect_reduce(Seq const &A, Helper const &helper, size_t num_buckets) {
 
 template <typename assignment_tag, typename Slice, typename Helper>
 auto seq_collect_reduce_sparse(Slice A, Helper const &helper) {
-  size_t table_size = 1.5 * A.size();
+  size_t table_size = 3 * A.size() / 2;
   //using in_type = typename Helper::in_type;
   using key_type = typename Helper::key_type;
   using result_type = typename Helper::result_type;
@@ -290,8 +290,8 @@ auto collect_reduce_sparse_(Slice A, Helper const &helper) {
   //   assuming an L3 cache of size 1M per thread
   // the counting sort uses 2 x input size due to copy
   size_t cache_per_thread = 1000000;
-  size_t bits = log2_up(
-      (size_t)(1 + (1.2 * 2 * sizeof(in_type) * n) / (float)cache_per_thread));
+  size_t bits = log2_up(static_cast<size_t>(
+      1 + (1.2 * 2 * sizeof(in_type) * static_cast<double>(n)) / static_cast<double>(cache_per_thread)));
   bits = std::max<size_t>(bits, 4);
   size_t num_buckets = (1 << bits);
 

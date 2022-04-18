@@ -58,6 +58,7 @@ jobs:
       - name: Install Compiler
         if: startsWith(matrix.config.os, 'ubuntu')
         run: |
+          sudo apt-get update
           sudo apt-get -qq install ${{matrix.config.cc}} ${{matrix.config.cxx}}
 
       - name: Install libc++
@@ -67,7 +68,7 @@ jobs:
       - name: Configure
         run: |
           mkdir build && cd build
-          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DUSE_LIBCXX=${{matrix.config.libcxx}} ..
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On -DUSE_LIBCXX=${{matrix.config.libcxx}} ..
 
       - name: Build
         run: |
@@ -92,7 +93,7 @@ jobs:
         run: |
           md build
           cd build
-          cmake -A x64 -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DCMAKE_CXX_FLAGS=" /bigobj " -DPARLAY_TEST=On ..
+          cmake -A x64 -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DCMAKE_CXX_FLAGS=" /bigobj " -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         run: |
@@ -111,8 +112,8 @@ jobs:
           - { cc: "gcc-11", cxx: "g++-11" }
           - { cc: "clang-12", cxx: "clang++-12" }
 
-    name: windows-latest WSL ${{ matrix.config.cxx }} (Debug)
-    runs-on: windows-latest
+    name: windows-2019 WSL ${{ matrix.config.cxx }} (Debug)
+    runs-on: windows-2019
     defaults:
       run:
         shell: wsl-bash {0}
@@ -134,7 +135,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} ../cmake-3.18.2-Linux-x86_64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DWSL=True ..
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} ../cmake-3.18.2-Linux-x86_64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On -DWSL=True ..
 
       - name: Build
         run: |
@@ -153,7 +154,7 @@ jobs:
 #          - { sys: mingw64 }
 #          - { sys: ucrt64 }
 #          - { sys: clang64 }
-
+#
 #    name: windows-latest MSYS2 ${{ matrix.sys }} (Debug)
 #    runs-on: windows-latest
 #    defaults:
@@ -178,7 +179,7 @@ jobs:
 #        run: |
 #          mkdir build
 #          cd build
-#          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -DPARLAY_SEQUENTIAL " -DPARLAY_TEST=On  ..
+#          cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 #
 #      - name: Build
 #        run: |
@@ -208,11 +209,12 @@ jobs:
         with:
           packages: git,make,gcc-core,gcc-g++,cmake,clang,libiconv-devel,cygwin32-libiconv-1.14-2
 
+      # Note: The benchmarks are currently not compiled on Cygwin because Google Benchmark's CMake configuration fails for some reason...
       - name: Configure
         run: |
           mkdir build
           cd build
-          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On ..
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         run: |
@@ -239,7 +241,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fcilkplus -DPARLAY_CILKPLUS" -DCMAKE_EXE_LINKER_FLAGS="-fcilkplus -ldl" -DPARLAY_BENCHMARK=On ..
+          CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fcilkplus -DPARLAY_CILKPLUS" -DCMAKE_EXE_LINKER_FLAGS="-fcilkplus -ldl" -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash
@@ -275,7 +277,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_C_COMPILER=$PWD/../OpenCilk-12.0.0-Linux/bin/clang -DCMAKE_CXX_COMPILER=$PWD/../OpenCilk-12.0.0-Linux/bin/clang++ -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fopencilk -DPARLAY_OPENCILK" -DCMAKE_EXE_LINKER_FLAGS="-fopencilk -ldl" -DPARLAY_BENCHMARK=On ..
+          cmake -DCMAKE_C_COMPILER=$PWD/../OpenCilk-12.0.0-Linux/bin/clang -DCMAKE_CXX_COMPILER=$PWD/../OpenCilk-12.0.0-Linux/bin/clang++ -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fopencilk -DPARLAY_OPENCILK" -DCMAKE_EXE_LINKER_FLAGS="-fopencilk -ldl" -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash
@@ -304,7 +306,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-11 CXX=clang++-11 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-DPARLAY_TBB" -DCMAKE_EXE_LINKER_FLAGS="-ltbb" DPARLAY_BENCHMARK=On ..
+          CC=clang-11 CXX=clang++-11 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-DPARLAY_TBB" -DCMAKE_EXE_LINKER_FLAGS="-ltbb" DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash

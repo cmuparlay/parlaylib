@@ -87,8 +87,8 @@ template <typename>
 struct is_delayed_base : std::false_type {};
 template <typename IDS>
 struct is_delayed_base<block_delayed_sequence<IDS>> : std::true_type {};
-template <typename T, typename F>
-struct is_delayed_base<parlay::delayed_sequence<T,F>> : std::true_type {};
+template <typename T, typename V, typename F>
+struct is_delayed_base<parlay::delayed_sequence<T,V,F>> : std::true_type {};
 template<typename T>
 struct is_delayed : is_delayed_base<std::remove_cv_t<T>> {};
 
@@ -235,7 +235,7 @@ auto flatten(Seq &seq) {
   //using T = typename Seq::value_type::value_type;
   auto sizes = internal::map(seq, [] (auto const& s) -> size_t {
     return s.size();});
-  auto res = internal::scan(sizes,addm<size_t>());
+  auto res = internal::scan(sizes, parlay::plus<size_t>());
   auto offsets = res.first;
   auto n = res.second;
   auto [num_blocks, block_size] = num_blocks_and_size(n);
@@ -268,7 +268,7 @@ auto filter_map(Seq A, F const &f, G const &g) {
   t.next("tabulate");
   auto sizes = internal::map(seqs, [&] (parlay::sequence<T> const& x) {
     return x.size();});
-  auto [r, total]  = internal::scan(sizes, addm<size_t>());
+  auto [r, total]  = internal::scan(sizes, parlay::plus<size_t>());
   parlay::sequence<T> out = parlay::sequence<T>::uninitialized(total);
   parlay::parallel_for(0, num_blocks, [&, ri = r.begin(), oi = out.begin()] (size_t i) {
     for (size_t j = 0; j < sizes[i]; j++)

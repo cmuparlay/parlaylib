@@ -10,15 +10,19 @@
 #include <new>
 #include <optional>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "parallel.h"
+#include "type_traits.h"  // IWYU pragma: keep
 #include "utilities.h"
 
 #include "internal/concurrent_stack.h"
 #include "internal/memory_size.h"
 #include "internal/block_allocator.h"
+
+// IWYU pragma: no_forward_declare is_trivially_relocatable
 
 namespace parlay {
 
@@ -232,7 +236,6 @@ extern inline std::pair<size_t,size_t> memory_usage() {
   return get_default_allocator().stats();
 }
 
-// pair of total currently used space, and total unused space the allocator has in reserve
 extern inline void memory_clear() {
   return get_default_allocator().clear();
 }
@@ -255,9 +258,12 @@ struct allocator {
     internal::get_default_allocator().deallocate((void*) ptr, n * sizeof(T));
   }
 
-  constexpr allocator() = default;
+  constexpr allocator() noexcept { internal::get_default_allocator(); };
   template <class U> constexpr allocator(const allocator<U>&) noexcept { }
 };
+
+template<typename T>
+struct is_trivially_relocatable<allocator<T>> : std::true_type {};
 
 template <class T, class U>
 bool operator==(const allocator<T>&, const allocator<U>&) { return true; }
@@ -316,6 +322,18 @@ public:
 
   static T* alloc() { return static_cast<T*>(get_allocator().alloc()); }
   static void free(T* ptr) { get_allocator().free(static_cast<void*>(ptr)); }
+
+  template <typename ... Args>
+  static T* allocate(Args... args) {
+    T* r = alloc();
+    new (r) T(args...);
+    return r;
+  }
+
+  static void retire(T* ptr) {
+    ptr->~T();
+    free(ptr);
+  }
 
   // for backward compatibility
   static void init(size_t, size_t) {};

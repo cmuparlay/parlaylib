@@ -15,12 +15,12 @@
 
 #include <initializer_list>
 #include <iterator>
-#include <functional>
 #include <limits>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 // Falsely suggested for std::hash
 // IWYU pragma: no_include <string_view>
@@ -31,6 +31,7 @@
 #include "range.h"
 #include "slice.h"
 #include "type_traits.h"      // IWYU pragma: keep  // for is_trivially_relocatable
+#include "utilities.h"
 
 #include "internal/sequence_base.h"
 
@@ -64,9 +65,10 @@ using sequence_default_allocator = std::allocator<T>;
 template<typename T, typename Allocator = internal::sequence_default_allocator<T>, bool EnableSSO = std::is_same<T, char>::value>
 class sequence : protected sequence_internal::sequence_base<T, Allocator, EnableSSO> {
 
-  // Ensure that T is not const or volatile
-  static_assert(std::is_same<typename std::remove_cv<T>::type, T>::value,
-                "sequences must have a non-const, non-volatile value_type");
+  static_assert(std::is_same_v<typename std::remove_cv_t<T>, T>, "sequences must have a non-const, non-volatile value_type");
+  static_assert(std::is_same_v<typename std::decay_t<T>, T>, "sequences must not have an array, reference, or function value_type");
+  static_assert(!std::is_void_v<T>, "sequences must not have a void value_type");
+  static_assert(std::is_destructible_v<T>, "sequences must have a destructible value_type");
 
  public:
 
@@ -198,9 +200,9 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 
   // Constructs a sequence consisting of the elements
   // in the given iterator range
-  template<typename _Iterator>
-  sequence(_Iterator i, _Iterator j) : sequence_base_type() {
-    initialize_dispatch(i, j, std::is_integral<_Iterator>());
+  template<typename Iterator_>
+  sequence(Iterator_ i, Iterator_ j) : sequence_base_type() {
+    initialize_dispatch(i, j, std::is_integral<Iterator_>());
   }
 
   // Constructs a sequence from the elements of the given initializer list
@@ -254,9 +256,9 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 
   iterator push_back(value_type&& v) { return emplace_back(std::move(v)); }
 
-  template<typename _Iterator>
-  iterator append(_Iterator first, _Iterator last) {
-    return append_dispatch(first, last, std::is_integral<_Iterator>());
+  template<typename Iterator_>
+  iterator append(Iterator_ first, Iterator_ last) {
+    return append_dispatch(first, last, std::is_integral<Iterator_>());
   }
 
   template<typename R>
@@ -285,9 +287,9 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 
   iterator insert(iterator p, size_t n, const value_type& t) { return insert_n(p, n, t); }
 
-  template<typename _Iterator>
-  iterator insert(iterator p, _Iterator i, _Iterator j) {
-    return insert_dispatch(p, i, j, std::is_integral<_Iterator>());
+  template<typename Iterator_>
+  iterator insert(iterator p, Iterator_ i, Iterator_ j) {
+    return insert_dispatch(p, i, j, std::is_integral<Iterator_>());
   }
 
   template<typename R>
@@ -364,10 +366,10 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 
   size_t capacity() const { return storage.capacity(); }
 
-  template<typename _Iterator>
-  void assign(_Iterator i, _Iterator j) {
+  template<typename Iterator_>
+  void assign(Iterator_ i, Iterator_ j) {
     storage.clear();
-    initialize_dispatch(i, j, std::is_integral<_Iterator>());
+    initialize_dispatch(i, j, std::is_integral<Iterator_>());
   }
 
   void assign(size_t n, const value_type& v) {
@@ -392,25 +394,31 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 
   auto head(iterator p) { return make_slice(begin(), p); }
 
-  auto head(size_t len) { return make_slice(begin(), begin() + len); }
+  auto head(size_type len) { return make_slice(begin(), begin() + len); }
 
   auto tail(iterator p) { return make_slice(p, end()); }
 
-  auto tail(size_t len) { return make_slice(end() - len, end()); }
+  auto tail(size_type len) { return make_slice(end() - len, end()); }
 
-  auto cut(size_t s, size_t e) { return make_slice(begin() + s, begin() + e); }
+  auto cut(size_type s, size_type e) { return make_slice(begin() + s, begin() + e); }
 
   // Const versions of slices
 
   auto head(iterator p) const { return make_slice(begin(), p); }
 
-  auto head(size_t len) const { return make_slice(begin(), begin() + len); }
+  auto head(size_type len) const { return make_slice(begin(), begin() + len); }
 
   auto tail(iterator p) const { return make_slice(p, end()); }
 
-  auto tail(size_t len) const { return make_slice(end() - len, end()); }
+  auto tail(size_type len) const { return make_slice(end() - len, end()); }
 
-  auto cut(size_t s, size_t e) const { return make_slice(begin() + s, begin() + e); }
+  auto cut(size_type s, size_type e) const { return make_slice(begin() + s, begin() + e); }
+
+  auto substr(size_type pos) const { return to_sequence(cut(pos, size())); }
+
+  auto substr(size_type pos, size_type count) const { return to_sequence(cut(pos, pos + count)); }
+
+  auto subseq(size_type s, size_type e) const { return to_sequence(cut(s,e)); }
 
   // Remove all elements of the subsequence beginning at the element
   // pointed to by p, and return a new sequence consisting of those
@@ -464,7 +472,11 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 #pragma warning(pop)
 #endif
 
-   private:
+  std::vector<T> to_vector() const {
+    return {begin(), end()};
+  }
+
+ private:
   struct _uninitialized_tag {};
   struct _from_function_tag {};
 
@@ -474,7 +486,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 
     // If uninitialized memory debugging is turned on, make sure that
     // a buffer of UninitializedTracker is appropriately set to its
-    // uninitialized state by creating and immediately destroying.
+    // uninitialized state.
 #ifdef PARLAY_DEBUG_UNINITIALIZED
     if constexpr (std::is_same_v<value_type, internal::UninitializedTracker>) {
       auto buffer = storage.data();
@@ -492,8 +504,9 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     storage.initialize_capacity(n);
     storage.set_size(n);
     auto buffer = storage.data();
-    parallel_for(
-        0, n, [&](size_t i) { storage.initialize(&buffer[i], f(i)); }, granularity);
+    parallel_for(0, n, [&](size_t i) {
+      storage.initialize(&buffer[i], f(i));
+    }, granularity);
   }
 
   // Implement initialize_default manually rather than
@@ -503,82 +516,82 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   void initialize_default(size_t n) {
     storage.initialize_capacity(n);
     auto buffer = storage.data();
-    parallel_for(
-        0, n,
-        [&](size_t i) {                 // Calling initialize with
-          storage.initialize(buffer + i);  // no arguments performs
-        },
-        initialization_granularity(n));  // value initialization
+    parallel_for(0, n, [&](size_t i) {      // Calling initialize with
+      storage.initialize(buffer + i);       // no arguments performs
+    }, initialization_granularity(n));      // value initialization
     storage.set_size(n);
   }
 
   void initialize_fill(size_t n, const value_type& v) {
     storage.initialize_capacity(n);
     auto buffer = storage.data();
-    parallel_for(
-        0, n, [&](size_t i) { storage.initialize_explicit(buffer + i, v); }, copy_granularity(n));
+    parallel_for(0, n, [&](size_t i) {
+      storage.initialize_explicit(buffer + i, v);
+    }, copy_granularity(n));
     storage.set_size(n);
   }
 
-  template<typename _InputIterator>
-  void initialize_range(_InputIterator first, _InputIterator last, std::input_iterator_tag) {
-    for (; first != last; first++) {
+  template<typename InputIterator_>
+  void initialize_range(InputIterator_ first, InputIterator_ last, std::input_iterator_tag) {
+    for (; first != last; ++first) {
       push_back(*first);
     }
   }
 
-  template<typename _ForwardIterator>
-  void initialize_range(_ForwardIterator first, _ForwardIterator last, std::forward_iterator_tag) {
+  template<typename ForwardIterator_>
+  void initialize_range(ForwardIterator_ first, ForwardIterator_ last, std::forward_iterator_tag) {
     auto n = std::distance(first, last);
     storage.initialize_capacity(n);
     auto buffer = storage.data();
-    for (size_t i = 0; first != last; i++, first++) {
+    for (size_t i = 0; first != last; i++, ++first) {
       storage.initialize_explicit(buffer + i, *first);
     }
     storage.set_size(n);
   }
 
-  template<typename _RandomAccessIterator>
-  void initialize_range(_RandomAccessIterator first, _RandomAccessIterator last, std::random_access_iterator_tag) {
+  template<typename RandomAccessIterator_>
+  void initialize_range(RandomAccessIterator_ first, RandomAccessIterator_ last, std::random_access_iterator_tag) {
     auto n = std::distance(first, last);
     storage.initialize_capacity(n);
     auto buffer = storage.data();
-    parallel_for(
-        0, n, [&](size_t i) { storage.initialize_explicit(buffer + i, first[i]); }, copy_granularity(n));
+    parallel_for(0, n, [&](size_t i) {
+      storage.initialize_explicit(buffer + i, first[i]);
+    }, copy_granularity(n));
     storage.set_size(n);
   }
 
   // Use tag dispatch to distinguish between the (n, value)
   // constructor and the iterator pair constructor
 
-  template<typename _Integer>
-  void initialize_dispatch(_Integer n, _Integer v, std::true_type) {
+  template<typename Integer_>
+  void initialize_dispatch(Integer_ n, Integer_ v, std::true_type) {
     initialize_fill(n, v);
   }
 
-  template<typename _Iterator>
-  void initialize_dispatch(_Iterator first, _Iterator last, std::false_type) {
-    initialize_range(first, last, typename std::iterator_traits<_Iterator>::iterator_category());
+  template<typename Iterator_>
+  void initialize_dispatch(Iterator_ first, Iterator_ last, std::false_type) {
+    initialize_range(first, last, typename std::iterator_traits<Iterator_>::iterator_category());
   }
 
   // Use tag dispatch to distinguish between the (n, value)
   // append operation and the iterator pair append operation
 
-  template<typename _Integer>
-  iterator append_dispatch(_Integer first, _Integer last, std::true_type) {
+  template<typename Integer_>
+  iterator append_dispatch(Integer_ first, Integer_ last, std::true_type) {
     return append_n(first, last);
   }
 
-  template<typename _Iterator>
-  iterator append_dispatch(_Iterator first, _Iterator last, std::false_type) {
-    return append_range(first, last, typename std::iterator_traits<_Iterator>::iterator_category());
+  template<typename Iterator_>
+  iterator append_dispatch(Iterator_ first, Iterator_ last, std::false_type) {
+    return append_range(first, last, typename std::iterator_traits<Iterator_>::iterator_category());
   }
 
   iterator append_n(size_t n, const value_type& t) {
     storage.ensure_capacity(size() + n);
     auto it = end();
-    parallel_for(
-        0, n, [&](size_t i) { storage.initialize_explicit(it + i, t); }, this->copy_granularity(n));
+    parallel_for(0, n, [&](size_t i) {
+      storage.initialize_explicit(it + i, t);
+    }, this->copy_granularity(n));
     storage.set_size(size() + n);
     return it;
   }
@@ -587,8 +600,8 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   // InputIterators ad FowardIterators can not be used
   // in parallel, so they operate sequentially.
 
-  template<typename _InputIterator>
-  iterator append_range(_InputIterator first, _InputIterator last, std::input_iterator_tag) {
+  template<typename InputIterator_>
+  iterator append_range(InputIterator_ first, InputIterator_ last, std::input_iterator_tag) {
     size_t n = 0;
     for (; first != last; first++, n++) {
       push_back(*first);
@@ -596,8 +609,8 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     return end() - n;
   }
 
-  template<typename _ForwardIterator>
-  iterator append_range(_ForwardIterator first, _ForwardIterator last, std::forward_iterator_tag) {
+  template<typename ForwardIterator_>
+  iterator append_range(ForwardIterator_ first, ForwardIterator_ last, std::forward_iterator_tag) {
     auto n = std::distance(first, last);
     storage.ensure_capacity(size() + n);
     auto it = end();
@@ -606,13 +619,14 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     return it;
   }
 
-  template<typename _RandomAccessIterator>
-  iterator append_range(_RandomAccessIterator first, _RandomAccessIterator last, std::random_access_iterator_tag) {
+  template<typename RandomAccessIterator_>
+  iterator append_range(RandomAccessIterator_ first, RandomAccessIterator_ last, std::random_access_iterator_tag) {
     auto n = std::distance(first, last);
     storage.ensure_capacity(size() + n);
     auto it = end();
-    parallel_for(
-        0, n, [&](size_t i) { storage.initialize_explicit(it + i, first[i]); }, copy_granularity(n));
+    parallel_for(0, n, [&](size_t i) {
+      storage.initialize_explicit(it + i, first[i]);
+    }, copy_granularity(n));
     storage.set_size(size() + n);
     return it;
   }
@@ -620,13 +634,13 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   // Use tag dispatch to distinguish between the (n, value)
   // insert operation and the iterator pair insert operation
 
-  template<typename _Integer>
-  iterator insert_dispatch(iterator p, _Integer n, _Integer v, std::true_type) {
+  template<typename Integer_>
+  iterator insert_dispatch(iterator p, Integer_ n, Integer_ v, std::true_type) {
     return insert_n(p, n, v);
   }
 
-  template<typename _Iterator>
-  iterator insert_dispatch(iterator p, _Iterator first, _Iterator last, std::false_type) {
+  template<typename Iterator_>
+  iterator insert_dispatch(iterator p, Iterator_ first, Iterator_ last, std::false_type) {
     return insert_range(p, first, last);
   }
 
@@ -647,8 +661,8 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     return it;
   }
 
-  template<typename _Iterator>
-  iterator insert_range(iterator p, _Iterator first, _Iterator last) {
+  template<typename Iterator_>
+  iterator insert_range(iterator p, Iterator_ first, Iterator_ last) {
     auto the_tail = pop_tail(p);
     auto it = append(first, last);
     auto pos = it - begin();
@@ -665,8 +679,8 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   // Return true if this sequence compares equal to the sequence
   // beginning at other. The sequence beginning at other must be
   // of at least the same length as this sequence.
-  template<typename _Iterator>
-  bool compare_equal(_Iterator other, size_t granularity = 0) const {
+  template<typename Iterator_>
+  bool compare_equal(Iterator_ other, size_t granularity = 0) const {
     if (granularity == 0) {
       granularity = 1024 * sizeof(size_t) / sizeof(value_type);
     }
@@ -681,12 +695,9 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     bool matches = true;
     while (start < n) {
       size_t last = (std::min)(n, start + block_size);
-      parallel_for(
-          start, last,
-          [&](size_t j) {
-            if (!(self[j] == other[j])) matches = false;
-          },
-          granularity);
+      parallel_for(start, last, [&](size_t j) {
+        if (!(self[j] == other[j])) matches = false;
+      }, granularity);
       if (!matches) return false;
       start += block_size;
       block_size *= 2;
@@ -719,15 +730,43 @@ using short_sequence = sequence<T, Allocator, true>;
 // heap, and support update and query operations in parallel.
 using chars = sequence<char, internal::sequence_default_allocator<char>, true>;
 
-// Convert an arbitrary range into a sequence
+// Convert an arbitrary range into a sequence.
+//
+// The value type is deduced from the value type of the range, and the
+// default allocator is used.
 template<typename R>
 inline auto to_sequence(R&& r) -> sequence<range_value_type_t<R>> {
+  static_assert(is_random_access_range_v<R> || !is_block_iterable_range_v<R>,
+      "You called parlay::to_sequence on a delayed (block-iterable) range. You probably meant to call parlay::delayed::to_sequence");
   return {std::begin(r), std::end(r)};
 }
 
 // Convert an arbitrary range into a (short) sequence
+//
+// The value type is deduced from the value type of the range, and the
+// default allocator is used.
 template<typename R>
 inline auto to_short_sequence(R&& r) -> short_sequence<range_value_type_t<R>> {
+  static_assert(is_random_access_range_v<R> || !is_block_iterable_range_v<R>,
+      "You called parlay::to_sequence on a delayed (block-iterable) range. You probably meant to call parlay::delayed::to_sequence");
+  return {std::begin(r), std::end(r)};
+}
+
+// Convert an arbitrary range into a sequence of type T, and optionally
+// specify the allocator to use for the sequence.
+template<typename T, typename Alloc = internal::sequence_default_allocator<T>, typename R>
+inline auto to_sequence(R&& r) -> sequence<T, Alloc> {
+  static_assert(is_random_access_range_v<R> || !is_block_iterable_range_v<R>,
+      "You called parlay::to_sequence on a delayed (block-iterable) range. You probably meant to call parlay::delayed::to_sequence");
+  return {std::begin(r), std::end(r)};
+}
+
+// Convert an arbitrary range into a (short) sequence of type T, and optionally
+// specify the allocator to use for the sequence.
+template<typename T, typename Alloc = internal::sequence_default_allocator<T>, typename R>
+inline auto to_short_sequence(R&& r) -> short_sequence<T, Alloc> {
+  static_assert(is_random_access_range_v<R> || !is_block_iterable_range_v<R>,
+      "You called parlay::to_sequence on a delayed (block-iterable) range. You probably meant to call parlay::delayed::to_sequence");
   return {std::begin(r), std::end(r)};
 }
 
@@ -753,15 +792,13 @@ inline void swap(parlay::sequence<T, Allocator, EnableSSO>& a, parlay::sequence<
   a.swap(b);
 }
 
-
-
-// exchange the values of a and b
+// compute a suitable hash value for a sequence
 template<typename T, typename Allocator, bool EnableSSO>
 struct hash<parlay::sequence<T, Allocator, EnableSSO>> {
   std::size_t operator()(parlay::sequence<T, Allocator, EnableSSO> const& s) const noexcept {
     size_t hash = 5381;
       for (size_t i = 0; i < s.size(); i++) {
-        hash = ((hash << 5) + hash) + std::hash<T>{}(s[i]);
+        hash = ((hash << 5) + hash) + parlay::hash<T>{}(s[i]);
       }
       return hash;
   }

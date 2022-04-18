@@ -5,9 +5,11 @@
 #include <benchmark/benchmark.h>
 
 #include <parlay/monoid.h>
+#include <parlay/portability.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 #include <parlay/io.h>
+
 #include "trigram_words.h"
 
 using benchmark::Counter;
@@ -120,7 +122,7 @@ static void bench_gather(benchmark::State& state) {
   auto idx_slice = parlay::make_slice(idx);
   auto f = [&] (size_t i) -> T {
     // prefetching helps significantly
-    __builtin_prefetch (&in[idx[i+4]], 0, 1);
+    PARLAY_PREFETCH(&in[idx[i+4]], 0, 1);
     return in_slice[idx_slice[i]];
   };
   
@@ -143,7 +145,7 @@ static void bench_scatter(benchmark::State& state) {
   auto idx_slice = parlay::make_slice(idx);
   auto f = [&] (size_t i) {
     // prefetching makes little if any difference
-    //__builtin_prefetch (&out[idx[i+4]], 1, 1);
+    //PARLAY_PREFETCH (&out[idx[i+4]], 1, 1);
       out_slice[idx_slice[i]] = i;
   };
 
@@ -169,7 +171,7 @@ static void bench_write_add(benchmark::State& state) {
 
   auto f = [&] (size_t i) {
     // putting write prefetch in slows it down
-    //__builtin_prefetch (&out[idx[i+4]], 0, 1);
+    //PARLAY_PREFETCH (&out[idx[i+4]], 0, 1);
     //__sync_fetch_and_add(&out[idx[i]],1);};
     parlay::write_add(&out_slice[idx_slice[i]],1);
   };
@@ -196,7 +198,7 @@ static void bench_write_min(benchmark::State& state) {
 
   auto f = [&] (size_t i) {
     // putting write prefetch in slows it down
-    //__builtin_prefetch (&out[idx[i+4]], 1, 1);
+    //PARLAY_PREFETCH (&out[idx[i+4]], 1, 1);
     parlay::write_min(&out_slice[idx_slice[i]], (T) i, std::less<T>());
   };
   
@@ -315,28 +317,10 @@ static void bench_integer_sort(benchmark::State& state) {
 }
 
 template<typename T>
-static void bench_integer_sort_128(benchmark::State& state) {
-  size_t n = state.range(0);
-  parlay::random r(0);
-  size_t bits = parlay::log2_up(n);
-  auto S = parlay::tabulate(n, [&] (size_t i) -> __int128 {
-      return r.ith_rand(2*i) + (((__int128) r.ith_rand(2*i+1)) << 64) ;});
-  auto identity = [] (auto a) {return a;};
-
-  while (state.KeepRunningBatch(10)) {
-    for (int i = 0; i < 10; i++) {
-      RUN_AND_CLEAR(parlay::internal::integer_sort(parlay::make_slice(S), identity, bits));
-    }
-  }
-
-  REPORT_STATS(n, 0, 0);
-}
-
-template<typename T>
 static void bench_sort(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
-  auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
+  auto in = parlay::tabulate(n, [&] (size_t i) -> T { return r.ith_rand(i) % n; });
 
   while (state.KeepRunningBatch(10)) {
     for (int i = 0; i < 10; i++) {
@@ -367,7 +351,7 @@ template<typename T>
 static void bench_sort_inplace(benchmark::State& state) {
   size_t n = state.range(0);
   parlay::random r(0);
-  auto in = parlay::tabulate(n, [&] (size_t i) -> T {return r.ith_rand(i)%n;});
+  auto in = parlay::tabulate(n, [&] (size_t i) -> T { return r.ith_rand(i) % n; });
   auto out = in;
 
   while (state.KeepRunningBatch(10)) {
@@ -451,7 +435,7 @@ static void bench_reduce_by_index_256(benchmark::State& state) {
       return par(r.ith_rand(i) % num_buckets, 1);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::addm<T>()));
+    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::plus<T>()));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -467,7 +451,7 @@ static void bench_reduce_by_index(benchmark::State& state) {
       return par(r.ith_rand(i) % num_buckets, 1);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::addm<T>()));
+    RUN_AND_CLEAR(parlay::reduce_by_index(S, num_buckets, parlay::plus<T>()));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -497,7 +481,7 @@ static void bench_reduce_by_key(benchmark::State& state) {
       return par((T) r.ith_rand(i) % (n/2), (T) 1);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::reduce_by_key(S, parlay::addm<T>())); 
+    RUN_AND_CLEAR(parlay::reduce_by_key(S, parlay::plus<T>()));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -601,7 +585,7 @@ static void bench_group_by_key_sorted(benchmark::State& state) {
       return par(r.ith_rand(i) % (n/20), i);});
 
   for (auto _ : state) {
-    RUN_AND_CLEAR(parlay::group_by_key_sorted(S));
+    RUN_AND_CLEAR(parlay::group_by_key_ordered(S));
   }
 
   REPORT_STATS(n, 0, 0);
@@ -641,50 +625,65 @@ static void bench_group_by_index_256(benchmark::State& state) {
 
 // ------------------------- Registration -------------------------------
 
-#define BENCH(NAME, T, args...) BENCHMARK_TEMPLATE(bench_ ## NAME, T)               \
+#define BENCH(NAME, T, ...) BENCHMARK_TEMPLATE(bench_ ## NAME, T)                   \
                           ->UseRealTime()                                           \
                           ->Unit(benchmark::kMillisecond)                           \
-                          ->Args({args});
+                          ->Args({__VA_ARGS__});
 
-BENCH(map, long, 100000000);
-BENCH(tabulate, long, 100000000);
-BENCH(reduce_add, long, 100000000);
-BENCH(scan_add, long, 100000000);
-BENCH(pack, long, 100000000);
-BENCH(gather, long, 100000000);
-BENCH(scatter, long, 100000000);
-BENCH(scatter, int, 100000000);
-BENCH(write_add, long, 100000000);
-BENCH(write_min, long, 100000000);
-BENCH(count_sort, long, 100000000, 4);
-BENCH(count_sort, long, 100000000, 8);
-BENCH(integer_sort, unsigned int, 100000000);
-BENCH(integer_sort_pair, unsigned int, 100000000);
-BENCH(integer_sort_128, __int128, 100000000);
-BENCH(sort, unsigned int, 100000000);
-BENCH(sort, long, 100000000);
-BENCH(sort, __int128, 100000000);
-BENCH(sort, parlay::sequence<char>, 100000000);
-BENCH(sort_inplace, unsigned int, 100000000);
-BENCH(sort_inplace, long, 100000000);
-BENCH(sort_inplace, __int128, 100000000);
-BENCH(merge, long, 100000000);
-BENCH(merge_sort, long, 100000000);
-BENCH(quicksort, long, 100000000);
-BENCH(random_shuffle, long, 100000000);
-BENCH(histogram, unsigned int, 100000000);
-BENCH(histogram_same, unsigned int, 100000000);
-BENCH(histogram_few, unsigned int, 100000000);
-BENCH(reduce_by_index_256, unsigned int, 100000000);
-BENCH(reduce_by_index, unsigned int, 100000000);
-BENCH(remove_duplicate_integers, unsigned int, 100000000);
-BENCH(group_by_index_256, unsigned int, 100000000);
-BENCH(group_by_index, unsigned int, 100000000);
-BENCH(reduce_by_key, unsigned long, 100000000);
-BENCH(histogram_by_key, unsigned long, 100000000);
-BENCH(remove_duplicates, unsigned long, 100000000);
-BENCH(group_by_key, unsigned long, 100000000);
-BENCH(group_by_key_sorted, unsigned long, 100000000);
-BENCH(histogram_by_key, parlay::sequence<char>, 100000000);
-BENCH(remove_duplicates, parlay::sequence<char>, 100000000);
-BENCH(group_by_key, parlay::sequence<char>, 100000000);
+// If compiling in debug mode, use 1000x smaller inputs
+// or they will run forever or run out of RAM
+#ifndef NDEBUG
+#define PSIZE_FACTOR 1000
+#else
+#define PSIZE_FACTOR 1
+#endif
+
+BENCH(map, long, 100000000/PSIZE_FACTOR);
+BENCH(tabulate, long, 100000000/PSIZE_FACTOR);
+BENCH(reduce_add, long, 100000000/PSIZE_FACTOR);
+BENCH(scan_add, long, 100000000/PSIZE_FACTOR);
+BENCH(pack, long, 100000000/PSIZE_FACTOR);
+BENCH(gather, long, 100000000/PSIZE_FACTOR);
+BENCH(scatter, long, 100000000/PSIZE_FACTOR);
+BENCH(scatter, int, 100000000/PSIZE_FACTOR);
+BENCH(write_add, long, 100000000/PSIZE_FACTOR);
+BENCH(write_min, long, 100000000/PSIZE_FACTOR);
+BENCH(count_sort, long, 100000000/PSIZE_FACTOR, 4);
+BENCH(count_sort, long, 100000000/PSIZE_FACTOR, 8);
+BENCH(integer_sort, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(integer_sort_pair, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(sort, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(sort, long, 100000000/PSIZE_FACTOR);
+BENCH(sort, parlay::sequence<char>, 100000000/PSIZE_FACTOR);
+BENCH(sort_inplace, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(sort_inplace, long, 100000000/PSIZE_FACTOR);
+BENCH(merge, long, 100000000/PSIZE_FACTOR);
+BENCH(merge_sort, long, 100000000/PSIZE_FACTOR);
+BENCH(quicksort, long, 100000000/PSIZE_FACTOR);
+BENCH(random_shuffle, long, 100000000/PSIZE_FACTOR);
+BENCH(histogram, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(histogram_same, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(histogram_few, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(reduce_by_index_256, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(reduce_by_index, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(remove_duplicate_integers, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(group_by_index_256, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(group_by_index, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(reduce_by_key, unsigned long, 100000000/PSIZE_FACTOR);
+BENCH(histogram_by_key, unsigned long, 100000000/PSIZE_FACTOR);
+BENCH(histogram_by_key, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(remove_duplicates, unsigned long, 100000000/PSIZE_FACTOR);
+BENCH(remove_duplicates, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(group_by_key, unsigned long, 100000000/PSIZE_FACTOR);
+BENCH(group_by_key, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(group_by_key_sorted, unsigned long, 100000000/PSIZE_FACTOR);
+BENCH(group_by_key_sorted, unsigned int, 100000000/PSIZE_FACTOR);
+BENCH(histogram_by_key, parlay::sequence<char>, 100000000/PSIZE_FACTOR);
+BENCH(remove_duplicates, parlay::sequence<char>, 100000000/PSIZE_FACTOR);
+BENCH(group_by_key, parlay::sequence<char>, 100000000/PSIZE_FACTOR);
+
+#if defined(__GNUC__)
+BENCH(sort, __int128, 100000000/PSIZE_FACTOR);
+BENCH(sort_inplace, __int128, 100000000/PSIZE_FACTOR);
+BENCH(integer_sort, __int128, 100000000/PSIZE_FACTOR);
+#endif

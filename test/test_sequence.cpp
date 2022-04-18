@@ -7,6 +7,7 @@
 
 #include <parlay/alloc.h>
 #include <parlay/sequence.h>
+#include <parlay/primitives.h>
 #include <parlay/type_traits.h>
 #include <parlay/utilities.h>
 
@@ -627,6 +628,30 @@ TEST(TestSequence, TestCutConst) {
   ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
 }
 
+TEST(TestSequence, TestSubstrToEnd) {
+  const auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  const auto s2 = parlay::sequence<int>{4,5,6,7,8,9};
+  auto ss = s.substr(3);
+  ASSERT_EQ(ss.size(), 6);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
+}
+
+TEST(TestSequence, TestSubstr) {
+  const auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  const auto s2 = parlay::sequence<int>{4,5,6,7};
+  auto ss = s.substr(3,4);
+  ASSERT_EQ(ss.size(), 4);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
+}
+
+TEST(TestSequence, TestSubseq) {
+  const auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  const auto s2 = parlay::sequence<int>{4,5,6,7};
+  auto ss = s.subseq(3,7);
+  ASSERT_EQ(ss.size(), 4);
+  ASSERT_TRUE(std::equal(s2.begin(), s2.end(), ss.begin()));
+}
+
 TEST(TestSequence, TestHeadConst) {
   auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
   auto s2 = parlay::sequence<int>{1,2,3,4,5};
@@ -831,6 +856,17 @@ TEST(TestSequence, TestGetAllocator) {
   parlay::sequence<int, std::allocator<int>> s;
   auto alloc = s.get_allocator();
   ASSERT_EQ(alloc, std::allocator<int>());
+}
+
+TEST(TestSequence, TestLessThan) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5};
+  auto s3 = parlay::sequence<int>{1,2,3,4,5,6,7,8,10};
+  auto s4 = parlay::sequence<int>{1,2,3,4,6};
+
+  ASSERT_LT(s2, s);
+  ASSERT_LT(s, s3);
+  ASSERT_LT(s, s4);
 }
 
 // TODO: More thorough tests with custom allocators

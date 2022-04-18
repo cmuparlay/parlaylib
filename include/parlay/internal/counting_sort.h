@@ -2,17 +2,23 @@
 #ifndef PARLAY_COUNTING_SORT_H_
 #define PARLAY_COUNTING_SORT_H_
 
-#include <math.h>
-#include <stdio.h>
+#include <cassert>
 
-#include <chrono>
-#include <thread>
+#include <cstddef>
+#include <cstdint>
+#include <algorithm>
+#include <iterator>
+#include <limits>
+#include <type_traits>
+#include <utility>
 
 #include "sequence_ops.h"
-#include "transpose.h"
 #include "uninitialized_sequence.h"
-#include "get_time.h"
 
+#include "../monoid.h"
+#include "../parallel.h"
+#include "../sequence.h"
+#include "../slice.h"
 #include "../utilities.h"
 
 
@@ -113,7 +119,6 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                                               size_t num_buckets,
                                               float parallelism = 1.0,
                                               bool skip_if_in_one = false) {
-  timer t("count sort", false);
   using T = typename slice<InIterator, InIterator>::value_type;
   size_t n = In.size();
   size_t num_threads = num_workers();
@@ -149,7 +154,6 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                             counts.begin() + i * num_buckets, num_buckets);
                },
                1, is_nested);
-  t.next("first loop");
 
   auto bucket_offsets = sequence<size_t>::uninitialized(num_buckets + 1);
   parallel_for(0, num_buckets,
@@ -166,7 +170,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
   size_t num_non_zero = 0;
   for (size_t i = 0; i < num_buckets; i++)
     num_non_zero += (bucket_offsets[i] > 0);
-  [[maybe_unused]] size_t total = scan_inplace(make_slice(bucket_offsets), addm<size_t>());
+  [[maybe_unused]] size_t total = scan_inplace(make_slice(bucket_offsets), plus<size_t>());
   if (skip_if_in_one && num_non_zero == 1) {
     return std::make_pair(std::move(bucket_offsets), true);
   }
@@ -193,7 +197,6 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
 					    num_buckets);
                },
                1, is_nested);
-  t.next("last loop");
 
   return std::make_pair(std::move(bucket_offsets), false);
 }
@@ -202,15 +205,34 @@ template <typename InIterator, typename KeyIterator>
 auto group_by_small_int(slice<InIterator, InIterator> In,
 			slice<KeyIterator, KeyIterator> Keys,
 			size_t num_buckets) {
-  timer t("group by small int", false);
   using T = typename slice<InIterator, InIterator>::value_type;
   size_t n = In.size();
   using s_size_t = size_t;
 
   size_t num_blocks = 1 + n * sizeof(T) / std::max<size_t>(num_buckets * 500, 5000);
-  
   size_t block_size = ((n - 1) / num_blocks) + 1;
   size_t m = num_blocks * num_buckets;
+
+  if (num_buckets == 2) {
+    sequence<size_t> Sums(num_blocks);
+    sliced_for(n, block_size, [&](size_t i, size_t s, size_t e) {
+	size_t c = 0;
+	for (size_t j = s; j < e; j++) c += (Keys[j] == 0);
+	Sums[i] = c; });
+    size_t m = scan_inplace(make_slice(Sums), plus<size_t>());
+    auto r0 = sequence<T>::uninitialized(m);
+    auto r1 = sequence<T>::uninitialized(n-m);
+    sliced_for(n, block_size, [&](size_t i, size_t s, size_t e) {
+	size_t c0 = Sums[i];
+	size_t c1 = s - c0;
+	for (size_t j = s; j < e; j++) {
+	  if (Keys[j] == 0)
+	    assign_uninitialized(r0[c0++], In[j]);
+	  else
+	    assign_uninitialized(r1[c1++], In[j]);
+	}});
+    return parlay::sequence<sequence<T>>{std::move(r0), std::move(r1)};
+  }
 
   auto counts = sequence<s_size_t>::uninitialized(m);
 
@@ -223,16 +245,15 @@ auto group_by_small_int(slice<InIterator, InIterator> In,
                             counts.begin() + i * num_buckets, num_buckets);
                },
                1);
-  t.next("first loop");
 
-  auto total_counts = sequence<size_t>::uninitialized(num_buckets + 1);
+  auto total_counts = sequence<size_t>::uninitialized(num_buckets);
   parallel_for(0, num_buckets, [&](size_t i) {
     size_t v = 0;
     for (size_t j = 0; j < num_blocks; j++)
       v += counts[j * num_buckets + i];
     total_counts[i] = v;
   }, 1 + 1024 / num_blocks);
-  total_counts[num_buckets] = 0;
+  //total_counts[num_buckets] = 0;
 
   auto dest_offsets = sequence<T*>::uninitialized(num_blocks * num_buckets);
   auto results = map(total_counts, [](size_t cnt) { return sequence<T>::uninitialized(cnt); });
@@ -252,7 +273,6 @@ auto group_by_small_int(slice<InIterator, InIterator> In,
          dest_offsets.begin() + i * num_buckets,
          num_buckets);
   }, 1);
-  t.next("last loop");
 
   return results;
 }
@@ -286,13 +306,11 @@ auto count_sort(slice<InIterator, InIterator> In,
                              skip_if_in_one);
 }
 
-
-    
 template <typename InIterator, typename KeyS>
 auto count_sort(slice<InIterator, InIterator> In, KeyS const& Keys, size_t num_buckets) {
   using value_type = typename slice<InIterator, InIterator>::value_type;
   auto Out = sequence<value_type>::uninitialized(In.size());
-  auto a = count_sort<copy_assign_tag>(In, make_slice(Out), make_slice(Keys), num_buckets);
+  auto a = count_sort<uninitialized_copy_tag>(In, make_slice(Out), make_slice(Keys), num_buckets);
   return std::make_pair(std::move(Out), std::move(a.first));
 }
 

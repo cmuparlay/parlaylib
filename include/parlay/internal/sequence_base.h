@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "../parallel.h"
+#include "../portability.h"
 #include "../type_traits.h"      // IWYU pragma: keep  // for is_trivially_relocatable
 #include "../utilities.h"
 
@@ -340,11 +341,7 @@ struct sequence_base {
       }
 
       header* buffer;
-    }
-#if defined(__GNUC__)
-    __attribute__((packed))
-#endif
-    ;
+    } PARLAY_PACKED;
 
     // A not-short-size-optimized sequence. Elements are
     // stored in a heap-allocated buffer. We use a 48-bit
@@ -371,11 +368,7 @@ struct sequence_base {
       value_type* data() { return buffer.data(); }
 
       const value_type* data() const { return buffer.data(); }
-    }
-#if defined(__GNUC__)
-    __attribute__((packed))
-#endif
-    ;
+    } PARLAY_PACKED;
 
     // The maximum capacity of a short-size-optimized sequence
     constexpr static size_t short_capacity = (sizeof(capacitated_buffer) + sizeof(uint64_t) - 1) / sizeof(value_type);
@@ -411,11 +404,7 @@ struct sequence_base {
       union {
         typename std::conditional<use_sso, short_seq, void*>::type short_mode;
         long_seq long_mode;
-      }
-#if defined(__GNUC__)
-      __attribute__((packed))
-#endif
-      ;
+      } PARLAY_PACKED;
 
       uint8_t small_n : 7;
       uint8_t flag : 1;
@@ -542,7 +531,7 @@ struct sequence_base {
       if (current < desired) {
         // Allocate a new buffer that is at least
         // 50% larger than the old capacity
-        size_t new_capacity = (std::max)(desired, (15 * current + 9) / 10);
+        size_t new_capacity = (std::max)(desired, (5 * current)/ 2);//(15 * current + 9) / 10);
         auto alloc = get_raw_allocator();
         capacitated_buffer new_buffer(new_capacity, alloc);
 

@@ -135,7 +135,8 @@ void sample_sort_inplace_(slice<InIterator, InIterator> In,
     // of a Knuth shuffle.
     for (size_t i = 0; i < sample_set_size; i++) {
       size_t j = i + hash64(i) % (n - i);
-      std::swap(In[i], In[j]);
+      using std::swap;
+      swap(In[i], In[j]);
     }
 
     // sort the samples

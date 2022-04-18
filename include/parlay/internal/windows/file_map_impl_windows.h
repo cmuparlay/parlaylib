@@ -8,9 +8,18 @@
 #include <algorithm>
 #include <string>
 
+#ifndef NOMINMAX
+#define PARLAY_DEFINED_NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <tchar.h>
 #include <strsafe.h>
 #include <windows.h>
+
+#ifdef PARLAY_DEFINED_NOMINMAX
+#undef NOMINMAX
+#endif
 
 namespace parlay {
 

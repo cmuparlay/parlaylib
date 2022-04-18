@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include <parlay/internal/group_by.h>
+#include <parlay/primitives.h>
 
 #include "sorting_utils.h"
 
@@ -31,7 +31,7 @@ TEST(TestGroupBy, TestGroupByKeySorted) {
       {2,21},
       {1,10}
   };
-  auto grouped = parlay::group_by_key_sorted(a);
+  auto grouped = parlay::group_by_key_ordered(a);
 
   ASSERT_EQ(grouped.size(), 3);
   ASSERT_EQ(grouped[0].first, 1);
@@ -47,8 +47,8 @@ TEST_P(TestGroupByP, TestGroupByKeySortedLarge) {
     return (50021 * i + 61) % (1 << 20);
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
-  auto result = parlay::group_by_key_sorted(key_vals);
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x % num_buckets, x); } );
+  auto result = parlay::group_by_key_ordered(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
 
@@ -66,9 +66,9 @@ TEST_P(TestGroupByP, TestGroupByKeySortedLarge) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 
   std::multiset<unsigned long long> values;
@@ -76,14 +76,16 @@ TEST_P(TestGroupByP, TestGroupByKeySortedLarge) {
   ASSERT_EQ(values, std::multiset<unsigned long long>(std::begin(s), std::end(s)));
 }
 
+
+
 TEST_P(TestGroupByP, TestGroupByKeySortedNonContiguous) {
   auto ss = parlay::tabulate(50000, [](unsigned long long i) -> unsigned long long {
     return (50021 * i + 61) % (1 << 20);
   });
   std::deque<unsigned long long> s(std::begin(ss), std::end(ss));
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
-  auto result = parlay::group_by_key_sorted(key_vals);
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x % num_buckets, x); } );
+  auto result = parlay::group_by_key_ordered(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
 
@@ -101,9 +103,9 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonContiguous) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 
   std::multiset<unsigned long long> values;
@@ -118,8 +120,8 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonTrivial) {
     return std::string(24, ' ') + std::to_string((50021 * i + 61) % (1 << 20));
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(std::to_string(std::stoull(x) % num_buckets), x); } );
-  auto result = parlay::group_by_key_sorted(key_vals);
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(std::to_string(std::stoull(x) % num_buckets), x); } );
+  auto result = parlay::group_by_key_ordered(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
 
@@ -133,9 +135,9 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonTrivial) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 
   std::multiset<std::string> values;
@@ -143,13 +145,14 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonTrivial) {
   ASSERT_EQ(values, std::multiset<std::string>(std::begin(s), std::end(s)));
 }
 
+
 TEST_P(TestGroupByP, TestGroupByKeySortedNonRelocatable) {
   auto s = parlay::tabulate(100000, [](unsigned long long i) {
     return SelfReferentialThing((50021 * i + 61) % (1 << 20));
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
-  auto result = parlay::group_by_key_sorted(key_vals);
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x.x % num_buckets, x); } );
+  auto result = parlay::group_by_key_ordered(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
 
@@ -163,9 +166,9 @@ TEST_P(TestGroupByP, TestGroupByKeySortedNonRelocatable) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 
   std::multiset<SelfReferentialThing> values;
@@ -217,8 +220,8 @@ TEST_P(TestGroupByP, TestReduceByKeyLarge) {
     return (50021 * i + 61) % (1 << 20);
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
-  auto result = parlay::reduce_by_key(key_vals, parlay::addm<unsigned long long>{});
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x % num_buckets, x); } );
+  auto result = parlay::reduce_by_key(key_vals, parlay::plus<unsigned long long>{});
 
   ASSERT_LE(result.size(), num_buckets);
 
@@ -230,9 +233,9 @@ TEST_P(TestGroupByP, TestReduceByKeyLarge) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 }
 
@@ -242,8 +245,8 @@ TEST_P(TestGroupByP, TestReduceByKeyNonContiguous) {
   });
   std::deque<unsigned long long> s(std::begin(ss), std::end(ss));
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
-  auto result = parlay::reduce_by_key(key_vals, parlay::addm<unsigned long long>{});
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x % num_buckets, x); } );
+  auto result = parlay::reduce_by_key(key_vals, parlay::plus<unsigned long long>{});
 
   ASSERT_LE(result.size(), num_buckets);
 
@@ -255,9 +258,9 @@ TEST_P(TestGroupByP, TestReduceByKeyNonContiguous) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 }
 
@@ -267,20 +270,20 @@ TEST_P(TestGroupByP, TestReduceByKeyNonTrivial) {
     return std::string(24, ' ') + std::to_string((50021 * i + 61) % (1 << 20));
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(std::stoull(x) % num_buckets, x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(std::stoull(x) % num_buckets, x); } );
 
   struct string_concat_monoid {
     std::string identity{};
-    static std::string f(const std::string& a, const std::string& b) { return a + b; }
+    auto operator()(const std::string& a, const std::string& b) const { return a + b; }
   };
 
   auto result = parlay::reduce_by_key(key_vals, string_concat_monoid{});
   ASSERT_LE(result.size(), num_buckets);
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 }
 
@@ -289,10 +292,10 @@ TEST_P(TestGroupByP, TestReduceByKeyNonRelocatable) {
     return SelfReferentialThing((50021 * i + 61) % (1 << 10));
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x.x % num_buckets, x); } );
   struct add_monoid {
     SelfReferentialThing identity{0};
-    static SelfReferentialThing f(const SelfReferentialThing& a, const SelfReferentialThing& b) {
+    SelfReferentialThing operator()(const SelfReferentialThing& a, const SelfReferentialThing& b) const {
       return SelfReferentialThing(a.x + b.x);
     }
   };
@@ -308,11 +311,12 @@ TEST_P(TestGroupByP, TestReduceByKeyNonRelocatable) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 }
+
 
 // -----------------------------------------------------------------------
 //                             group_by_key
@@ -355,7 +359,7 @@ TEST_P(TestGroupByP, TestGroupByKeyLarge) {
     return (50021 * i + 61) % (1 << 20);
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x % num_buckets, x); } );
   auto result = parlay::group_by_key(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
@@ -369,9 +373,9 @@ TEST_P(TestGroupByP, TestGroupByKeyLarge) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 
   std::multiset<unsigned long long> values;
@@ -379,36 +383,7 @@ TEST_P(TestGroupByP, TestGroupByKeyLarge) {
   ASSERT_EQ(values, std::multiset<unsigned long long>(std::begin(s), std::end(s)));
 }
 
-/*
-TEST_P(TestGroupByP, TestGroupByKeyUncopyable) {
-  auto s = parlay::tabulate(50000, [](unsigned long long i) {
-    return (50021 * i + 61) % (1 << 20);
-  });
-  size_t num_buckets = GetParam();
-  auto key_vals = parlay::map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, std::make_unique<unsigned long long>(x)); } );
-  auto result = parlay::group_by_key(std::move(key_vals));
 
-  ASSERT_LE(result.size(), num_buckets);
-
-  for (size_t i = 0; i < result.size(); i++) {
-    size_t bucket = result[i].first;
-    auto num = std::count_if(std::begin(s), std::end(s),
-                             [num_buckets, bucket](auto x) { return x % num_buckets == bucket; });
-    ASSERT_GE(num, 1);
-    ASSERT_EQ(result[i].second.size(), num);
-  }
-
-  std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
-  std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
-  ASSERT_EQ(keys, ret_keys);
-
-  std::multiset<unsigned long long> values;
-  for (const auto& kv : result) for (const auto& v : kv.second) values.insert(*v);
-  ASSERT_EQ(values, std::multiset<unsigned long long>(std::begin(s), std::end(s)));
-}
-*/
 
 TEST_P(TestGroupByP, TestGroupByKeyNonContiguous) {
   auto ss = parlay::tabulate(50000, [](unsigned long long i) -> unsigned long long {
@@ -416,7 +391,7 @@ TEST_P(TestGroupByP, TestGroupByKeyNonContiguous) {
   });
   std::deque<unsigned long long> s(std::begin(ss), std::end(ss));
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x % num_buckets, x); } );
   auto result = parlay::group_by_key(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
@@ -430,9 +405,9 @@ TEST_P(TestGroupByP, TestGroupByKeyNonContiguous) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 
   std::multiset<unsigned long long> values;
@@ -447,7 +422,7 @@ TEST_P(TestGroupByP, TestGroupByKeyNonTrivial) {
     return std::string(24, ' ') + std::to_string((50021 * i + 61) % (1 << 20));
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(std::to_string(std::stoull(x) % num_buckets), x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(std::to_string(std::stoull(x) % num_buckets), x); } );
   auto result = parlay::group_by_key(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
@@ -461,9 +436,9 @@ TEST_P(TestGroupByP, TestGroupByKeyNonTrivial) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 
   std::multiset<std::string> values;
@@ -476,7 +451,7 @@ TEST_P(TestGroupByP, TestGroupByKeyNonRelocatable) {
     return SelfReferentialThing((50021 * i + 61) % (1 << 20));
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x.x % num_buckets, x); } );
   auto result = parlay::group_by_key(key_vals);
 
   ASSERT_LE(result.size(), num_buckets);
@@ -490,9 +465,9 @@ TEST_P(TestGroupByP, TestGroupByKeyNonRelocatable) {
   }
 
   std::set<decltype(result[0].first)> keys;
-  for (const auto& kv : key_vals) keys.insert(kv.first);
+  for (const auto& kv : key_vals) keys.insert(std::get<0>(kv));
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keys, ret_keys);
 
   std::multiset<SelfReferentialThing> values;
@@ -556,7 +531,7 @@ TEST_P(TestGroupByP, TestHistogramByKeyLarge) {
   std::set<decltype(result[0].first)> keyset;
   for (const auto& k : keys) keyset.insert(k);
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keyset, ret_keys);
 }
 
@@ -581,7 +556,7 @@ TEST_P(TestGroupByP, TestHistogramByKeyNonContiguous) {
   std::set<decltype(result[0].first)> keyset;
   for (const auto& k : keys) keyset.insert(k);
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keyset, ret_keys);
 }
 
@@ -605,7 +580,7 @@ TEST_P(TestGroupByP, TestHistogramByKeyNonTrivial) {
   std::set<decltype(result[0].first)> keyset;
   for (const auto& k : keys) keyset.insert(k);
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keyset, ret_keys);
 }
 
@@ -629,7 +604,7 @@ TEST_P(TestGroupByP, TestHistogramByKeyNonRelocatable) {
   std::set<decltype(result[0].first)> keyset;
   for (const auto& k : keys) keyset.insert(k);
   std::set<decltype(result[0].first)> ret_keys;
-  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(kv.first).second);
+  for (const auto& kv : result) ASSERT_TRUE(ret_keys.insert(std::get<0>(kv)).second);
   ASSERT_EQ(keyset, ret_keys);
 }
 
@@ -732,8 +707,8 @@ TEST_P(TestGroupByP, TestReduceByIndexLarge) {
     return (50021 * i + 61) % (1 << 20);
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
-  auto result = parlay::reduce_by_index(key_vals, num_buckets, parlay::addm<unsigned long long>{});
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x % num_buckets, x); } );
+  auto result = parlay::reduce_by_index(key_vals, num_buckets, parlay::plus<unsigned long long>{});
 
   ASSERT_EQ(result.size(), num_buckets);
 
@@ -751,8 +726,8 @@ TEST_P(TestGroupByP, TestReduceByIndexNonContiguous) {
   });
   std::deque<unsigned long long> s(std::begin(ss), std::end(ss));
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
-  auto result = parlay::reduce_by_index(key_vals, num_buckets, parlay::addm<unsigned long long>{});
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x % num_buckets, x); } );
+  auto result = parlay::reduce_by_index(key_vals, num_buckets, parlay::plus<unsigned long long>{});
 
   ASSERT_EQ(result.size(), num_buckets);
 
@@ -769,11 +744,11 @@ TEST_P(TestGroupByP, TestReduceByIndexNonTrivial) {
     return std::string(24, ' ') + std::to_string((50021 * i + 61) % (1 << 20));
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(std::stoull(x) % num_buckets, x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(std::stoull(x) % num_buckets, x); } );
 
   struct string_concat_monoid {
     std::string identity{};
-    static std::string f(const std::string& a, const std::string& b) { return a + b; }
+    auto operator()(const std::string& a, const std::string& b) const { return a + b; }
   };
 
   auto result = parlay::reduce_by_index(key_vals, num_buckets, string_concat_monoid{});
@@ -923,7 +898,7 @@ TEST_P(TestGroupByP, TestGroupByIndexLarge) {
     return (50021 * i + 61) % (1 << 20);
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x % num_buckets, x); } );
   auto result = parlay::group_by_index(key_vals, num_buckets);
 
   ASSERT_GE(result.size(), num_buckets);
@@ -947,7 +922,7 @@ TEST_P(TestGroupByP, TestGroupByIndexNonContiguous) {
   });
   std::deque<unsigned long long> s(std::begin(ss), std::end(ss));
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x % num_buckets, x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x % num_buckets, x); } );
   auto result = parlay::group_by_index(key_vals, num_buckets);
 
   ASSERT_GE(result.size(), num_buckets);
@@ -970,7 +945,7 @@ TEST_P(TestGroupByP, TestGroupByIndexNonTrivial) {
     return std::string(24, ' ') + std::to_string((50021 * i + 61) % (1 << 20));
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](const auto& x) { return std::make_pair(std::stoull(x) % num_buckets, x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](const auto& x) { return std::make_tuple(std::stoull(x) % num_buckets, x); } );
   auto result = parlay::group_by_index(key_vals, num_buckets);
 
   ASSERT_GE(result.size(), num_buckets);
@@ -993,7 +968,7 @@ TEST_P(TestGroupByP, TestGroupByIndexNonRelocatable) {
     return SelfReferentialThing((50021 * i + 61) % (1 << 20));
   });
   size_t num_buckets = GetParam();
-  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_pair(x.x % num_buckets, x); } );
+  auto key_vals = parlay::delayed_map(s, [num_buckets](auto x) { return std::make_tuple(x.x % num_buckets, x); } );
   auto result = parlay::group_by_index(key_vals, num_buckets);
 
   ASSERT_GE(result.size(), num_buckets);

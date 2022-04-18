@@ -8,7 +8,6 @@
 #include <iostream>
 
 #include "delayed_sequence.h"
-#include "monoid.h"
 #include "parallel.h"
 #include "sequence.h"
 #include "slice.h"
@@ -64,7 +63,7 @@ class hashtable {
   // Size is the maximum number of values the hash table will hold.
   // Overfilling the table could put it into an infinite loop.
   hashtable(size_t size, HASH hashF, double load = 1.5)
-    : m(100 + static_cast<size_t>(load * size)),
+    : m(100 + static_cast<size_t>(load * static_cast<double>(size))),
       empty(hashF.empty()),
       hashStruct(hashF),
       TA(sequence<eType>(m, empty)) {
