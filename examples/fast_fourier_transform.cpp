@@ -24,7 +24,6 @@ int main(int argc, char* argv[]) {
     catch (...) { std::cout << usage << std::endl; return 1; }
     int lg = std::floor(std::log2(n));
     n = 1 << lg;
-    std::cout << n << std::endl;
     parlay::random_generator gen(0);
     std::uniform_real_distribution<double> dis(0.0,1.0);
 
@@ -40,23 +39,21 @@ int main(int argc, char* argv[]) {
 	return parlay::tabulate(num_rows, [&] (long j) {
 	    return points[j * num_columns + i];});});
 
-    std::cout << points[1] << std::endl;
-    
     parlay::sequence<complex> results;
     parlay::sequence<parlay::sequence<complex>> results_c;
 
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
-      results = complex_fft(points);
-      t.next("fast_fourier_transform");
+    for (int i=0; i < 20; i++) {
+      //results = complex_fft(points);
+      //t.next("fast_fourier_transform");
       results_c = complex_fft_transpose(columns);
       t.next("fast_fourier_transform_transpose");
       
     }
-    std::cout << "first five points " << std::endl;
-    for (long i=0; i < std::min(5l,n); i++) 
-      std::cout << results[i] << std::endl;
-    std::cout << "first five points transpose" << std::endl;
+    // std::cout << "first five points " << std::endl;
+    // for (long i=0; i < std::min(5l,n); i++) 
+    //   std::cout << results[i] << std::endl;
+    std::cout << "first five points of fft on length " << n << std::endl;
     for (long i=0; i < std::min(5l,num_columns); i++) 
       std::cout << results_c[i][0] << std::endl;
   }

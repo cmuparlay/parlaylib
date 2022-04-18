@@ -117,7 +117,7 @@ auto fft_transpose(const parlay::sequence<parlay::sequence<T>>& cols, T nth_root
   return parlay::tabulate(num_rows, [&] (long j) {
       auto row = parlay::tabulate(num_cols, [&] (long i) {
 	  return columns[i][i+j & (num_rows - 1)];}); // transpose
-      auto r = parlay::tabulate(num_rows, [&] (long i) {
+      auto r = parlay::tabulate(num_cols, [&] (long i) {
 	  return row[br[i]];});
       fft_base(r, wr);
       return r;});
