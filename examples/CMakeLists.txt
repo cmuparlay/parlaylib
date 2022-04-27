@@ -9,7 +9,8 @@ set(EXAMPLES "primes" "BFS" "word_counts" "tokens" "filter" "linefit"
   "knuth_shuffle" "minimum_edit_distance" "bigint_add" "bellman_ford" "suffix_array"
   "longest_common_prefix" "longest_repeated_substring" "range_min"
   "fast_fourier_transform" "bucketed_dijkstra" "push_relabel_max_flow" 
-  "knuth_morris_pratt" "huffman_tree" "decision_tree_c45" "karatsuba" "suffix_tree")
+  "knuth_morris_pratt" "huffman_tree" "decision_tree_c45" "karatsuba" "suffix_tree"
+  "2d_linear_program")
 
 function(add_example NAME)
   add_executable(${NAME} ${NAME}.cpp)
