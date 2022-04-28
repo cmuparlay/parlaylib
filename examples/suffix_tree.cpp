@@ -30,12 +30,14 @@ int main(int argc, char* argv[]) {
     charseq str = parlay::chars_from_file(argv[1]);
     using index = unsigned int;
     long n = str.size();
-    suffix_tree<uint>* result;
+    suffix_tree<uint> result;
 
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
-      result = suffix_tree<uint>::build(str);
+      t.start();
+      result = suffix_tree<uint>(str);
       t.next("suffix_tree");
+      result = suffix_tree<uint>();
     }
   }
 }

@@ -13,13 +13,13 @@
 // Each constraint (h_i) is represented as a triple (A_{i,0}, A_{i,1}, b_i).
 // 
 // Uses the linear work and O(log^2) span with randomized parallel algorithm from:
-//   Parallelism in Randomized Incremental Algorithms
+//   Parallelism in Randomized Incremental Algorithms.
 //   Blelloch, Gu, Shun, Sun.
-//   JACM, 2020,
+//   JACM, 2020.
 // which in turn is based on the sequential algorithm in:
 //   Small-dimensional linear programming and convex hulls made easy.
 //   Seidel.
-//   Discrete & Computational Geometry,  6(3):423–434, 1991.
+//   Discrete & Computational Geometry, 1991.
 // **************************************************************
 
 using coord = double;
@@ -70,7 +70,7 @@ auto linear_program_2d(const constraints& H_in, constraint c) {
   if (right - H.begin() == n) return point{infty,infty}; // unbounded
   swap(*right, H[1]);
 
-  // used to keep current best point
+  // p keeps current best point, i is the index of constraints considered so far
   point p = intersect(H[0], H[1]);
   long i = 2;
   t.next("head");
@@ -83,9 +83,9 @@ auto linear_program_2d(const constraints& H_in, constraint c) {
     long loc = parlay::reduce(parlay::delayed_tabulate(top-i, [&] (long j) {
 	  return violate(p, H[i+j]) ? i+j : n;}), parlay::minimum<long>());
 
-    if (loc == n) i = top; // no violing constraint found, repeat
+    if (loc == n) i = top; // no violing constraint found, repeat and double again
     else { // found a violating constraint at location loc
-      // identify constraints h up to loc that together with H[loc] bound the solution
+      // select constraints h up to loc that jointly with H[loc] bound the solution
       // i.e. H[loc] x c and h x c have opposite signs
       coord cr = cross(H[loc],c);
       auto Hf = parlay::filter(H.cut(0,loc), [&] (constraint h) {
