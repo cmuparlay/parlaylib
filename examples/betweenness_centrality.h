@@ -27,19 +27,19 @@ auto BC_single_source(vertex start, const graph &G, const graph &GT) {
   parlay::sequence<vtx> V(G.size(), vtx{-1, 0.0, 0.0});
   V[start] = vtx{0, 1.0, 0.0};
   for_each(parlay::iota(levels.size()), [&] (long i) {
-      for_each(levels[i], [&] (vertex v) {V[v].level = i;});});
-  
+    for_each(levels[i], [&] (vertex v) {V[v].level = i;});});
+
   // forward pass over the levels to calculate sigma
-  for (long i = 1; i < levels.size(); i++) 
+  for (long i = 1; i < levels.size(); i++)
     for_each(levels[i], [&] (vertex v) {
-	V[v].sigma = reduce(delayed::map(GT[v], [&] (vertex u) {
-	      return (V[u].level == i-1) ? V[u].sigma : 0.0;}));});
+      V[v].sigma = reduce(delayed::map(GT[v], [&] (vertex u) {
+        return (V[u].level == i-1) ? V[u].sigma : 0.0;}));});
 
   // backward pass over the levels to calculate delta
   for (long i = levels.size()-2; i > 0; i--) {
     for_each(levels[i], [&] (vertex u) {
-	V[u].delta = V[u].sigma * reduce(delayed::map(G[u], [&] (vertex v) {
-	      return (V[v].level == i+1) ? 1/V[v].sigma * (1 + V[v].delta) : 0.0;}));});
+      V[u].delta = V[u].sigma * reduce(delayed::map(G[u], [&] (vertex v) {
+        return (V[v].level == i+1) ? 1/V[v].sigma * (1 + V[v].delta) : 0.0;}));});
   }
 
   return map(V, [] (vtx& v) {return v.delta;});

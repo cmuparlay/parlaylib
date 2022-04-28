@@ -15,14 +15,14 @@
 int main(int argc, char* argv[]) {
   using vertex = int;
   using graph = parlay::sequence<parlay::sequence<vertex>>;
-  
+
   using element = std::pair<vertex,float>;
   using row = parlay::sequence<element>;
   using sparse_matrix = parlay::sequence<row>;
   using vector = parlay::sequence<double>;
 
   using utils = graph_utils<vertex>;
-  
+
   auto usage = "Usage: pagerank <n> || pagerank <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {

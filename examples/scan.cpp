@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "first 10 elements for scan on 1s: "
-	      << parlay::to_chars(parlay::to_sequence(result.first.head(10)))
-	      << std::endl;
+              << parlay::to_chars(parlay::to_sequence(result.first.head(10)))
+              << std::endl;
   }
 }

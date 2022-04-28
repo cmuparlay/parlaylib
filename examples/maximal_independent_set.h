@@ -22,8 +22,8 @@ parlay::sequence<bool> MIS(const graph &G) {
   auto check_if_ready = [&] (vertex u) {
     for (vertex v : G[u])
       if (v < u) {
-	if (!decided[v]) return try_again;
-	else if (in_set[v]) return try_commit;
+        if (!decided[v]) return try_again;
+        else if (in_set[v]) return try_commit;
       }
     in_set[u] = true;
     return try_commit;

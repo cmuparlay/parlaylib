@@ -16,7 +16,7 @@ using point = std::pair<double,double>;
 // a binary associative operator that elementwise adds two points
 auto f = [] (point a, point b) {
   return point{a.first + b.first, a.second + b.second};};
-auto add_points = parlay::binary_op(f, point(0,0)); 
+auto add_points = parlay::binary_op(f, point(0,0));
 
 // The algorithm
 template <class Seq>

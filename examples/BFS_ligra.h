@@ -23,14 +23,14 @@ template <typename vertex, typename graph>
 auto BFS(vertex start, const graph& G, const graph& GT) {
   using nested_seq = parlay::sequence<parlay::sequence<vertex>>;
   auto visited = parlay::tabulate<std::atomic<bool>>(G.size(), [&] (long i) {
-      return (i==start) ? true : false; });
+    return (i==start) ? true : false; });
 
   auto edge_f = [&] (vertex u, vertex v) -> bool {
     bool expected = false;
     return visited[v].compare_exchange_strong(expected, true);};
   auto cond_f = [&] (vertex v) { return !visited[v];};
   auto frontier_map = ligra::edge_map(G, GT, edge_f, cond_f);
-    
+
   auto frontier = ligra::vertex_subset(start);
   nested_seq frontiers;
   while (frontier.size() > 0) {

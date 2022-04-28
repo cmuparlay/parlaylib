@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <deque>
 #include <numeric>
+#include <tuple>
+#include <utility>
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
@@ -295,10 +297,9 @@ TEST(TestSortingPrimitives, TestStableIntegerSortInplaceNonContiguous) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
-/*
 TEST(TestSortingPrimitives, TestCountingSort) {
   constexpr size_t num_buckets = size_t{1} << 16;
-  auto s = parlay::tabulate(100000, [](unsigned long long i) -> unsigned long long {
+  auto s = parlay::tabulate(100000, [num_buckets](unsigned long long i) -> unsigned long long {
     return (50021 * i + 61) % num_buckets;
   });
 
@@ -311,7 +312,7 @@ TEST(TestSortingPrimitives, TestCountingSort) {
 
 TEST(TestSortingPrimitives, TestCountingSortUnstable) {
   constexpr size_t num_buckets = size_t{1} << 16;
-  auto s = parlay::tabulate(100000, [](long long i) -> UnstablePair {
+  auto s = parlay::tabulate(100000, [num_buckets](long long i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % num_buckets;
     x.y = 0;
@@ -323,18 +324,6 @@ TEST(TestSortingPrimitives, TestCountingSortUnstable) {
 
   ASSERT_EQ(s.size(), sorted.size());
   std::stable_sort(std::begin(s), std::end(s));
-  ASSERT_EQ(s, sorted);
-  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
-}
-*/
-
-TEST(TestSortingPrimitives, TestCountingSort) {
-  auto s = parlay::tabulate(100000, [](unsigned long long i) -> unsigned long long {
-    return (50021 * i + 61) % (1 << 16);
-  });
-  auto sorted = parlay::counting_sort(s, 1 << 16).first;
-  ASSERT_EQ(s.size(), sorted.size());
-  std::sort(std::begin(s), std::end(s));
   ASSERT_EQ(s, sorted);
   ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
 }
@@ -406,5 +395,39 @@ TEST(TestSortingPrimitives, TestCountingSortInplaceNonContiguous) {
   std::sort(std::begin(s2), std::end(s2));
   ASSERT_EQ(s, s2);
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
+}
+
+TEST(TestSortingPrimitives, TestCountingSortByKeys) {
+  auto s = parlay::tabulate(100000, [](unsigned int i) -> UnstablePair {
+    UnstablePair x;
+    x.x = (53 * i + 61) % (1 << 10);
+    x.y = 0;
+    return x;
+  });
+  auto key_val_pairs = parlay::delayed_map(s, [](UnstablePair x) {
+    return std::make_pair((unsigned int)x.x, x);
+  });
+  auto sorted = parlay::counting_sort_by_keys(key_val_pairs, 1 << 10).first;
+  ASSERT_EQ(s.size(), sorted.size());
+  std::stable_sort(std::begin(s), std::end(s));
+  ASSERT_EQ(s, sorted);
+  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
+}
+
+TEST(TestSortingPrimitives, TestCountingSortByKeysWithTuples) {
+  auto s = parlay::tabulate(100000, [](unsigned int i) -> UnstablePair {
+    UnstablePair x;
+    x.x = (53 * i + 61) % (1 << 10);
+    x.y = 0;
+    return x;
+  });
+  auto key_val_pairs = parlay::delayed_map(s, [](UnstablePair x) {
+    return std::make_tuple((unsigned int)x.x, x);
+  });
+  auto sorted = parlay::counting_sort_by_keys(key_val_pairs, 1 << 10).first;
+  ASSERT_EQ(s.size(), sorted.size());
+  std::stable_sort(std::begin(s), std::end(s));
+  ASSERT_EQ(s, sorted);
+  ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
 }
 

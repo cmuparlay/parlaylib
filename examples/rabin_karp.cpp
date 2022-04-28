@@ -30,6 +30,6 @@ int main(int argc, char* argv[]) {
       std::cout << "at locations: " << to_chars(r) << " ..." <<  std::endl;
     } else if (locations.size() > 0) {
       std::cout << "at locations: " << to_chars(locations) << std::endl;
-    } 
+    }
   }
 }

@@ -42,6 +42,6 @@ int main(int argc, char* argv[]) {
       t.next("huffman_tree");
       delete_tree(std::get<1>(result));
     }
-    
+
   }
 }

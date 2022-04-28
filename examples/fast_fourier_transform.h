@@ -4,7 +4,6 @@
 #include <parlay/sequence.h>
 #include <parlay/primitives.h>
 #include <parlay/delayed.h>
-#include <parlay/io.h>
 
 // **************************************************************
 // Fast Fourier transform
@@ -38,7 +37,7 @@ void fft_recursive(long n, long s, T const* in, T* out, T const* w) {
 template <typename T>
 auto powers(T val, long n) {
   return parlay::scan(parlay::delayed_tabulate(n, [&] (long i) {
-	return val;}), parlay::multiplies<T>()).first;}
+    return val;}), parlay::multiplies<T>()).first;}
 
 template <typename T>
 auto fft(const parlay::sequence<T>& in, T nth_root) {

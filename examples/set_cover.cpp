@@ -22,16 +22,16 @@ bool check(const set_ids& SI, const sets& S, long num_elements) {
 
   // set all that could be covered by original sets to false
   parlay::parallel_for(0, S.size(), [&] (long i) {
-      for (idx j : S[i]) a[j] = false;});
+    for (idx j : S[i]) a[j] = false;});
 
   // set all that are covered by SI back to true
   parlay::parallel_for(0, SI.size(), [&] (long i) {
-      for (idx j : S[SI[i]]) a[j] = true;});
+    for (idx j : S[SI[i]]) a[j] = true;});
 
   // check that all are covered
   return (parlay::count(a, true) == num_elements);
 }
-    
+
 int main(int argc, char* argv[]) {
   auto usage = "Usage: set_cover <n> || set_cover <filename>";
   if (argc != 2) std::cout << usage << std::endl;

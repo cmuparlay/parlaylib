@@ -23,7 +23,7 @@ parlay::sequence<long> spanning_forest(edges const &E, vertex num_vertices) {
 
   // initialize to an id out of range
   auto hooks = parlay::tabulate<std::atomic<long>>(num_vertices,
-						   [&] (long i) { return m; });
+                                                   [&] (long i) { return m; });
 
   parlay::parallel_for (0, m, [&] (long i) {
     vertex u = E[i].first;

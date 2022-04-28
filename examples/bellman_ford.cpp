@@ -42,8 +42,8 @@ int main(int argc, char* argv[]) {
     }
 
     double maxd = parlay::reduce(parlay::map(result, [] (auto d) {
-	  return (d == std::numeric_limits<wtype>::max()) ? (wtype) 0 : d;}),
-      parlay::maximum<wtype>());
+                                   return (d == std::numeric_limits<wtype>::max()) ? (wtype) 0 : d;}),
+                                 parlay::maximum<wtype>());
     std::cout << "max reachable distance: " << std::setprecision(4) << maxd << std::endl;
   }
 }

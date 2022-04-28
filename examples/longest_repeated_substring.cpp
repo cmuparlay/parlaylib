@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
     auto [len, l1, l2] = result;
     std::cout << "longest match has length = " << len
-	      << " at positions " << l1 << " and " << l2 << std::endl;
+              << " at positions " << l1 << " and " << l2 << std::endl;
     std::cout << to_chars(to_sequence(str.cut(l1, l1 + std::min(2000u,len)))) << std::endl;
     if (len > 2000) std::cout << "...." << std::endl;
   }

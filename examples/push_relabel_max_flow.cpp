@@ -38,9 +38,9 @@ int main(int argc, char* argv[]) {
     GW.push_back(s_e);
     GW.push_back(t_e);
     parlay::parallel_for(0, n/4, [&] (long i) {
-	GW[i].push_back(edge(n, n));
-	GW[n - n/4 + i].push_back(edge(n+1, n));
-      });
+      GW[i].push_back(edge(n, n));
+      GW[n - n/4 + i].push_back(edge(n+1, n));
+    });
 
     int result;
     //parlay::internal::timer t("Time");

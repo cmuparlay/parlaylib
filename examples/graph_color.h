@@ -25,10 +25,10 @@ using graph = parlay::sequence<vertices>;
 
 parlay::sequence<int> graph_coloring(graph const &G) {
   long n = G.size(); // number of vertices
-  
+
   // rank vertices by degree, highest first
   auto ranks = parlay::rank(parlay::map(G, parlay::size_of()),
-			    std::greater{});
+                            std::greater{});
 
   // inverse permutation of the rank
   parlay::sequence<vertex> ordering(n);
@@ -39,7 +39,7 @@ parlay::sequence<int> graph_coloring(graph const &G) {
 
   // checks all earlier neighbors by rank ordering have been colored
   auto is_ok = [&] (vertex i) {
-    vertex u = ordering[i];		 
+    vertex u = ordering[i];
     for (vertex v : G[u])
       if (colors[v] == -1 && ranks[v] < i) return try_again;
     return try_commit;
@@ -47,11 +47,11 @@ parlay::sequence<int> graph_coloring(graph const &G) {
 
   // if so color this vertex
   auto succeeded = [&] (vertex i) {
-    vertex u = ordering[i];		     
+    vertex u = ordering[i];
     auto ngh_colors = parlay::map(G[u], [&] (vertex v) {
       return colors[v];});
     std::sort(ngh_colors.begin(),ngh_colors.end());
-    
+
     // find a color unused by any neighbor
     int color = -1;
     for (int c : ngh_colors) {

@@ -22,9 +22,9 @@ template <class Seq1, class Seq2, class Seq3>
 auto check(const Seq1 &s, const Seq2 &SA, const Seq3& lcp) {
   long n = s.size();
   long l = parlay::count(parlay::tabulate(lcp.size(), [&] (long i) {
-	       long j = 0;
-	       while (j < n - SA[i] && (s[SA[i]+j] == s[SA[i+1]+j])) j++;
-	       return j == lcp[i];}), true);
+    long j = 0;
+    while (j < n - SA[i] && (s[SA[i]+j] == s[SA[i+1]+j])) j++;
+    return j == lcp[i];}), true);
   return l == lcp.size();
 }
 

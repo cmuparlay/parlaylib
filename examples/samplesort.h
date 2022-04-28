@@ -44,8 +44,8 @@ void sample_sort_(Range in, Range out, Less less, int level=1) {
   parlay::random_generator gen;
   std::uniform_int_distribution<long> dis(0, n-1);
   auto oversample = parlay::tabulate(num_buckets * over_ratio, [&] (long i) {
-      auto r = gen[i];
-      return in[dis(r)];});
+    auto r = gen[i];
+    return in[dis(r)];});
   std::sort(oversample.begin(), oversample.end());
 
   // sub sample to pick final pivots (num_buckets - 1 of them)

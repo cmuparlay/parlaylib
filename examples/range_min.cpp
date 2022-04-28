@@ -26,10 +26,10 @@ int main(int argc, char* argv[]) {
     std::uniform_int_distribution<uint> dis(0,n-1);
 
     auto vals = parlay::tabulate(n, [&] (long i) {
-				      return (i < n/2) ? i : n - i - 1;});
+      return (i < n/2) ? i : n - i - 1;});
     auto queries = parlay::tabulate(n, [&] (long i) {
-				      auto r = gen[i];
-				      return std::pair{dis(r), dis(r)};});
+      auto r = gen[i];
+      return std::pair{dis(r), dis(r)};});
 
     parlay::sequence<uint> result;
 
@@ -37,8 +37,8 @@ int main(int argc, char* argv[]) {
     for (int i=0; i < 3; i++) {
       range_min x(vals);
       result = parlay::tabulate(n, [&] (long i) {
-				     auto [a,b] = queries[i];
-				     return x.query(a, b);});
+        auto [a,b] = queries[i];
+        return x.query(a, b);});
       t.next("range_min");
     }
 

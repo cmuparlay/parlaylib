@@ -34,17 +34,17 @@ int main(int argc, char* argv[]) {
       counts = word_counts(str);
       t.next("word_counts");
     }
-    
+
     // take first n entries
     auto head = counts.head(std::min(n, (long) counts.size()));
 
     // format each line as word-space-count-newline
     auto b = parlay::map(head, [&] (auto&& w) {
       parlay::sequence<charseq> s = {
-        w.first,
-        parlay::to_chars(" "),
-        parlay::to_chars(w.second),
-        parlay::to_chars("\n")
+          w.first,
+          parlay::to_chars(" "),
+          parlay::to_chars(w.second),
+          parlay::to_chars("\n")
       };
       return parlay::flatten(s);
     });

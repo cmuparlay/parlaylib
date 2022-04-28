@@ -35,9 +35,9 @@ long intersect_size(Slice a, Slice b) {
   auto mb = std::lower_bound(b.begin(), b.end(), a[ma]) - b.begin();
   int match = (mb < b.size() && b[mb] == a[ma]);
   return (match +
-	  intersect_size(a.cut(0, ma), b.cut(0, mb)) +
-  	  intersect_size(a.cut(ma + 1, a.size()),
-			 b.cut(mb + match, b.size())));
+          intersect_size(a.cut(0, ma), b.cut(0, mb)) +
+          intersect_size(a.cut(ma + 1, a.size()),
+                         b.cut(mb + match, b.size())));
 }
 
 template <typename vertex>
@@ -46,17 +46,17 @@ long triangle_count(const graph<vertex> &G) {
 
   long n = G.size();
   auto ranks = parlay::rank(parlay::map(G, [] (auto& ngh) {
-	return ngh.size();}));
+    return ngh.size();}));
 
   // orient edges from lower degree (rank) to higher degree (rank)
   graph<vertex> Gf = parlay::tabulate(n, [&] (vertex u) {
-      return parlay::filter(G[u], [&] (vertex v) {
-	  return ranks[u] < ranks[v];});});
+    return parlay::filter(G[u], [&] (vertex v) {
+      return ranks[u] < ranks[v];});});
 
   auto count_from_a = [&] (const vertices& a) {
     auto as = parlay::make_slice(a);
     return parlay::reduce(parlay::delayed::map(as, [&] (vertex v) {
-	  return intersect_size(as, parlay::make_slice(G[v]));}));};
+      return intersect_size(as, parlay::make_slice(G[v]));}));};
 
   return parlay::reduce(parlay::map(Gf, count_from_a, 1));
 }

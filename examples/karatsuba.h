@@ -34,8 +34,8 @@ bigint karatsuba(const Bigint& a, const Bigint& b) {
   auto low_b = b.cut(0, nhalf);  auto high_b = b.cut(nhalf, nb);
   bigint z0, z1, z2;
   parlay::par_do3([&] {z0 = karatsuba(low_a, low_b);},
-		  [&] {z1 = karatsuba(add(low_a, high_a), add(low_b, high_b));},
-		  [&] {z2 = karatsuba(high_a, high_b);});
+                  [&] {z1 = karatsuba(add(low_a, high_a), add(low_b, high_b));},
+                  [&] {z2 = karatsuba(high_a, high_b);});
 
   auto mid = subtract(z1, add(z0, z2));
   return add(shift(z2, 2 * nhalf), add(shift(mid, nhalf), z0));
@@ -61,5 +61,3 @@ bigint small_multiply(const Bigint& a, const Bigint& b) {
   }
   return result;
 }
-
-

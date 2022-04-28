@@ -28,7 +28,7 @@ parlay::sequence<long> min_spanning_forest(const edges<vertex,wtype>& E, long n)
   parlay::sequence<bool> inMST(m, false); // marks if edge i in MST
   union_find<vertex> UF(n);
   parlay::sequence<reservation<long>> R(n); // reservations
-  
+
   // tag each edge with an index
   auto EI = parlay::delayed_tabulate(m, [&] (long i) {
     auto [u,v,w] = E[i];

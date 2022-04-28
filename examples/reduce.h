@@ -22,6 +22,6 @@ auto reduce(const Range& A, const BinaryOp&& binop) {
 
   T L, R;
   parlay::par_do([&] {L = reduce(parlay::make_slice(A).cut(0,n/2), binop);},
-		 [&] {R = reduce(parlay::make_slice(A).cut(n/2,n), binop);});
+                 [&] {R = reduce(parlay::make_slice(A).cut(n/2,n), binop);});
   return binop(L,R);
 }

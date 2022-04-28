@@ -48,7 +48,6 @@ int main(int argc, char* argv[]) {
       //t.next("fast_fourier_transform");
       results_c = complex_fft_transpose(columns);
       t.next("fast_fourier_transform_transpose");
-      
     }
     // std::cout << "first five points " << std::endl;
     // for (long i=0; i < std::min(5l,n); i++) 

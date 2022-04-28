@@ -1,8 +1,8 @@
 #include <cmath>
-#include <algorithm> 
-#include <array>     
-#include <string>    
-#include <utility>   
+#include <algorithm>
+#include <array>
+#include <string>
+#include <utility>
 #include <vector>
 #include <complex>
 

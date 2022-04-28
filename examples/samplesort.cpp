@@ -24,8 +24,8 @@ int main(int argc, char* argv[]) {
 
     // generate random long values
     auto data = parlay::tabulate(n, [&] (long i) {
-	auto r = gen[i];
-	return dis(r);});
+      auto r = gen[i];
+      return dis(r);});
 
     parlay::internal::timer t("Time");
     parlay::sequence<long> result;

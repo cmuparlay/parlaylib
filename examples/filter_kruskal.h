@@ -40,9 +40,9 @@ parlay::sequence<long> min_spanning_forest(const edges<vertex,wtype>& E, long n)
       u = UF.find(u);
       v = UF.find(v);
       if (u != v) {
-	R[v].reserve(i);
-	R[u].reserve(i);
-	return try_commit;
+        R[v].reserve(i);
+        R[u].reserve(i);
+        return try_commit;
       } else return done;
     };
 
@@ -55,14 +55,14 @@ parlay::sequence<long> min_spanning_forest(const edges<vertex,wtype>& E, long n)
       u = UF.find(u);
       v = UF.find(v);
       if (R[v].check(i)) { // won on v
-	R[u].check_reset(i);
-	UF.link(v, u);     // the assymetric union step
-	in_mst[id] = true; // mark as in the mst
-	return true;}
+        R[u].check_reset(i);
+        UF.link(v, u);     // the assymetric union step
+        in_mst[id] = true; // mark as in the mst
+        return true;}
       else if (R[u].check(i)) { // won on u
-	UF.link(u, v);    
-	in_mst[id] = true;
-	return true; }
+        UF.link(u, v);
+        in_mst[id] = true;
+        return true; }
       else return false; // lost on both
     };
 
@@ -73,9 +73,9 @@ parlay::sequence<long> min_spanning_forest(const edges<vertex,wtype>& E, long n)
   // find the 2*n smallest edge weight (approximately)
   int k = 1;
   auto sampled_edges = parlay::delayed::tabulate(1 + E.size()/k, [&] (long i) {
-      auto [u,v,w] = E[i*k]; return w;});
+    auto [u,v,w] = E[i*k]; return w;});
   double cut_weight = kth_smallest(sampled_edges, 2 * n / k);
-  
+
   // tag each edge with an index
   auto EI = parlay::delayed_tabulate(m, [&] (long i) {
     auto [u,v,w] = E[i];
@@ -83,14 +83,14 @@ parlay::sequence<long> min_spanning_forest(const edges<vertex,wtype>& E, long n)
 
   // Process lightest 2*n edges using Kruskal.
   auto SEI = parlay::sort(filter(EI, [=] (indexed_edge e) {
-	auto [w,i,u,v] = e; return w < cut_weight;}));
+    auto [w,i,u,v] = e; return w < cut_weight;}));
   process_edges(SEI);
 
   // Filter rest of edges keeping those whose endpoints are in
   // different components, and process those edge using Kruskal.
   SEI = parlay::sort(filter(EI, [&] (indexed_edge e) {
-	auto [w,i,u,v] = e;
-	return (UF.find(u) != UF.find(v));}));  
+    auto [w,i,u,v] = e;
+    return (UF.find(u) != UF.find(v));}));
   process_edges(SEI);
 
   // return indices of tree edges

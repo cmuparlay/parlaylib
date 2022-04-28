@@ -13,11 +13,11 @@
 //   Query takes O(block_size) time
 // **************************************************************
 template <typename Seq, typename Less = std::less<typename Seq::value_type>,
-	  typename Uint=unsigned int>
+    typename Uint=unsigned int>
 class range_min {
-public:
+ public:
   range_min(Seq &a, Less&& less = {}, long block_size=32)
-    :  a(a), less(less), n(a.size()), block_size(block_size) {
+      :  a(a), less(less), n(a.size()), block_size(block_size) {
     if (a.size() == 0) return;
     m = 1 + (n-1)/block_size;
     preprocess();
@@ -31,7 +31,7 @@ public:
     if (block_i >= block_j - 1) {
       Uint r = i;
       for (long k = i+1; k <= j; k++)
-	r = min_index(r, k);
+        r = min_index(r, k);
       return r;
     }
 
@@ -61,7 +61,7 @@ public:
     return min_index(minl, min_index(between_min, minr));
   }
 
-private:
+ private:
   Seq &a;
   parlay::sequence<parlay::sequence<Uint>> table;
   Less less;
@@ -77,7 +77,7 @@ private:
     table.push_back(parlay::tabulate(m, [&] (long i) {
       Uint k = i * block_size;
       for (Uint j = k+1; j < std::min((i+1)*block_size, n); j++)
-	k = min_index(j, k);
+        k = min_index(j, k);
       return k;}));
 
     // minimum across increasing power of two blocks: 2, 4, 8, ...
@@ -85,8 +85,8 @@ private:
     for (long j = 1; j < depth; j++) {
       table.push_back(parlay::tabulate(m, [&] (long i) {
         return ((i < m - dist)
-		? min_index(table[j-1][i], table[j-1][i+dist])
-		: table[j-1][i]);}));
+                ? min_index(table[j-1][i], table[j-1][i+dist])
+                : table[j-1][i]);}));
       dist*=2;
     }
   }

@@ -25,7 +25,7 @@ auto kth_smallest(Range&& in, long k, Less less = {}) {
   std::uniform_int_distribution<long> dis(0, n-1);
   auto pivots = parlay::sort(parlay::tabulate(sample_size*over, [&] (long i) {
     auto r = gen[i];
-    return in[dis(r)];}));
+    return in[dis(r)];}), less);
   pivots = parlay::tabulate(sample_size,[&] (long i) {return pivots[i*over];});
 
   // Determine which of the 32 buckets each key belongs in
