@@ -50,7 +50,6 @@ auto group_by_key_ordered(Range&& S, Comp&& less) {
 
   using KV = range_value_type_t<Range>;
   using K = std::tuple_element_t<0, KV>;
-  using V = std::tuple_element_t<1, KV>;
 
   static_assert(std::is_invocable_r_v<bool, Comp, K, K>);
 
@@ -64,7 +63,7 @@ auto group_by_key_ordered(Range&& S, Comp&& less) {
     sorted = internal::sample_sort(make_slice(S), comp, true);
   }
 
-  auto ids = internal::delayed_tabulate(n, [](size_t i) -> K { return i; });
+  auto ids = internal::delayed_tabulate(n, [](size_t i) { return i; });
   auto idx = block_delayed::filter(ids, [&] (size_t i) {
     return (i==0) || comp(sorted[i-1], sorted[i]); });
 
@@ -316,7 +315,7 @@ auto group_by_index(R&& A, Integer_t num_buckets) {
   static_assert(is_random_access_range_v<R>);
   static_assert(is_pair_v<range_value_type_t<R>>);
   static_assert(std::is_integral_v<Integer_t>);
-  using V = typename range_value_type_t<R>::second_type;
+  using V = std::tuple_element_t<1, range_value_type_t<R>>;
   size_t n = A.size();
   
   if (n > static_cast<size_t>(num_buckets)*num_buckets) {
