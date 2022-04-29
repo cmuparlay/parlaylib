@@ -25,12 +25,13 @@ struct suffix_tree {
   // There are exactly n leaves corresponding to the n suffixes
   // Internal nodes go first, then leaves
   // The root is the index of the root node
+  template <typename uint>
   struct node {
     uint depth;
     uint start;
     parlay::sequence<uint> children;
   };
-  parlay::sequence<node> tree;
+  parlay::sequence<node<uint>> tree;
   uint root;
 
   template <typename Str>
@@ -75,8 +76,8 @@ struct suffix_tree {
     // Internal nodes that are not roots are unused.
     tree = parlay::tabulate(2*n - 1, [&] (uint i) {
 	return ((i < n - 1) ?
-		node{LCP[i], SA[i], std::move(groups[i])} :
-		node{n-SA[i-n+1], SA[i-n+1], parlay::sequence<uint>()});});
+		node<uint>{LCP[i], SA[i], std::move(groups[i])} :
+		node<uint>{n-SA[i-n+1], SA[i-n+1], parlay::sequence<uint>()});});
   }
 
   suffix_tree() {}
