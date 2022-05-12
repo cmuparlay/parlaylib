@@ -14,14 +14,6 @@
 // Driver code
 // **************************************************************
 using charseq = parlay::sequence<char>;
-using uint = unsigned int;
-
-auto check(parlay::sequence<char>& str) {
-  auto ustr = parlay::map(str, [] (char x) {return (unsigned char) x;});
-  auto less = [&] (uint i, uint j) {
-    return parlay::lexicographical_compare(ustr.cut(i,ustr.size()),ustr.cut(j,ustr.size()));};
-  return parlay::sort(parlay::iota<uint>(ustr.size()), less);
-}
 
 int main(int argc, char* argv[]) {
   auto usage = "Usage: suffix_tree <filename>";
@@ -30,14 +22,19 @@ int main(int argc, char* argv[]) {
     charseq str = parlay::chars_from_file(argv[1]);
     using index = unsigned int;
     long n = str.size();
-    suffix_tree<uint> result;
+    radix_tree<index> result;
 
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
+      result = radix_tree<index>();
       t.start();
-      result = suffix_tree<uint>(str);
+      result = suffix_tree<index>(str);
       t.next("suffix_tree");
-      result = suffix_tree<uint>();
     }
+
+    if (find(result, str, str) != 0)
+      std::cout << "Error: string not found" << std::endl;
+    else
+      std::cout << "Found string in itself" << std::endl;
   }
 }

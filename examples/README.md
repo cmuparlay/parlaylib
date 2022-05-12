@@ -58,6 +58,7 @@ The examples are as follows, broken down into categories.
 - minimum_edit_distance : report the minimum number of inserts and deletes to covert one string to another
 - rabin_karp : string search using the Rabin-Karp algorithm
 - suffix_array : for a string generate array of indices sorted by the suffix starting at that index
+- suffix_tree : for a string generate its suffix tree
 - tokens : given a string, break into a sequence of tokens given separator characters
 - word_counts : given a string, count the number of occurrences of each token in the string
 
@@ -69,6 +70,7 @@ The examples are as follows, broken down into categories.
 
 ## Geometry and Graphics
 
+- 2d_linear_program : solve linear program max c^Tx, Ax <= b, in 2 dimensions.
 - delaunay : Delaunay triangulation in 2 dimensions
 - knn : k-nearest-neighbors of a set of points in constant dimension
 - quickhull : convex hull of points in 2 dimensions using quickhull algorithm
