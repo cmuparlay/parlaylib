@@ -86,7 +86,7 @@ struct tree_node {
     for (index_t i = 0; i < _n; i++) 
       if (events[i].is_start()) box_indices[k++] = events[i].get_index();
     n = _n/2;
-    num_leaves = _n/2;
+    num_leaves = 1;
   }
 
   static parlay::type_allocator<tree_node> node_allocator;
@@ -119,7 +119,7 @@ cut_info best_cut(parlay::sequence<event> const &E, range r, range r1, range r2)
 
   // length of the perimeter of the orthogonal faces
   float orthog_perimeter = 2 * ((r1[1]-r1[0]) + (r2[1]-r2[0]));
-
+  
   // count number that end before i
   auto is_end = delayed::tabulate(n, [&] (index_t i) -> index_t {return E[i].is_end();});
   auto end_counts = delayed::scan_inclusive(is_end);
@@ -209,7 +209,7 @@ tree_node* generate_node(Ranges &boxes,
   parlay::parallel_for (0, 3, [&] (size_t d) {
       std::tie(left_events[d], right_events[d]) = split_events(boxes[cut_dim], events[d], cut_off);
     }, 10000/n + 1);
-  
+
   // free (i.e. clear) old events and make recursive calls
   for (int i=0; i < 3; i++) events[i] = parlay::sequence<event>();
   tree_node *L, *R;

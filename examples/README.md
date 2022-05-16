@@ -57,6 +57,7 @@ The examples are as follows, broken down into categories.
 - longest_repeated_substring : find the LRS in a string
 - minimum_edit_distance : report the minimum number of inserts and deletes to covert one string to another
 - rabin_karp : string search using the Rabin-Karp algorithm
+- radix_tree : a trie with vertices with a single child contracted out
 - suffix_array : for a string generate array of indices sorted by the suffix starting at that index
 - suffix_tree : for a string generate its suffix tree
 - tokens : given a string, break into a sequence of tokens given separator characters
@@ -75,6 +76,7 @@ The examples are as follows, broken down into categories.
 - knn : k-nearest-neighbors of a set of points in constant dimension
 - quickhull : convex hull of points in 2 dimensions using quickhull algorithm
 - nbody_fmm : n-body force calculations based on Callahan-Kosaraju's variant of the fast-multipole-method.
+- box_kdtree : builds a kd_tree over a set of 3d boxes using the surface area heuristic (SAH)
 
 ## Sorting etc.
 
