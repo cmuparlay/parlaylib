@@ -142,15 +142,32 @@ inline void hash_combine(size_t& seed, size_t v) {
 // parlay::hash provides a customization point for hashing that allows
 // us to override the hash for standard types, or to provide specializations
 // for standard types that do not have a std::hash specialization themselves.
-template<typename T>
+template<typename T, typename Enable = void>
 struct hash : public std::hash<T> { };
 
+template <typename T>
+struct hash<T,typename std::enable_if_t<std::is_integral_v<T>>> {
+  size_t operator()(const T& p) const {
+    return hash64_2(p);}
+};
+    
 // Hashing for std::pairs
 template<typename U, typename V>
 struct hash<std::pair<U,V>> {
   size_t operator()(const std::pair<U,V>& p) const {
     size_t h = parlay::hash<U>{}(p.first);
     hash_combine(h, parlay::hash<V>{}(p.second));
+    return h;
+  }
+};
+
+template<typename V, std::size_t n>
+struct hash<std::array<V,n>> {
+  size_t operator()(const std::array<V,n>& a) const {
+    size_t h = 1;
+    for (int i=0; i < n; i++) {
+      hash_combine(h, parlay::hash<V>{}(a[i]));
+    }
     return h;
   }
 };
