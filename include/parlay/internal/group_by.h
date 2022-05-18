@@ -11,7 +11,8 @@
 #include "../sequence.h"
 #include "../slice.h"
 #include "../utilities.h"
-#include "../delayed.h"
+//#include "../delayed.h"
+#include "../parallel.h"
 
 #include "block_delayed.h"
 #include "collect_reduce.h"
