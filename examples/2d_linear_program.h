@@ -53,13 +53,10 @@ coord project(constraint a, constraint b) {
 // The main algorithm
 // **************************************************************
 auto linear_program_2d(const constraints& H_in, constraint c) {
-  parlay::internal::timer t;
   // remove constraints that face away from c, and random shuffle
   constraints Hx = parlay::filter(H_in, [&] (constraint h) {
       return dot(h,c) > 0;});
-  t.next("filter");
   constraints H = parlay::random_shuffle(Hx);
-  t.next("shuffle");
   long n = H.size();
 
   // find two bounding constraints and swap to front of H
@@ -73,7 +70,6 @@ auto linear_program_2d(const constraints& H_in, constraint c) {
   // p keeps current best point, i is the index of constraints considered so far
   point p = intersect(H[0], H[1]);
   long i = 2;
-  t.next("head");
 
   // a "doubling" search, takes O(log n) rounds whp
   while (i < n) {
@@ -99,7 +95,6 @@ auto linear_program_2d(const constraints& H_in, constraint c) {
       // update the optimal point and the index i
       p = intersect(H[loc], cx);
       i = loc + 1;
-      t.next("loop");
     }
   }
   return p;

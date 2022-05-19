@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
       t.start();
       r = kdtree_from_boxes(boxes);
       t.next("box_kdtree");
-      num_leaves = r->num_leaves;
+      num_leaves = r->n;
       tree_node::node_allocator.retire(r);
     }
 

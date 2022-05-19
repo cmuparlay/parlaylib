@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
     
     parlay::sequence<index_t> r;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 10; i++) {
       r = ray_cast(triangles, rays);
       t.next("ray_trace");
     }

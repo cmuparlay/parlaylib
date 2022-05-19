@@ -2,10 +2,12 @@
 #ifndef PARLAY_UTILITIES_H_
 #define PARLAY_UTILITIES_H_
 
+#include <cstddef>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 #include <algorithm>
 #include <atomic>
