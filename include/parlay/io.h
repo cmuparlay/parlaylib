@@ -344,15 +344,6 @@ inline chars to_chars(const char* s) {
   return chars::from_function(l, [&](size_t i) -> char { return s[i]; });
 }
 
-template<typename A, typename B>
-chars to_chars(const std::pair<A, B>& P) {
-  sequence<chars> s = {
-      to_chars('('), to_chars(P.first),
-      to_chars(std::string(", ")),
-      to_chars(P.second), to_chars(')')};
-  return flatten(s);
-}
-
 template<typename A, long unsigned int N>
 chars to_chars(const std::array<A, N>& P) {
   if (N == 0) return to_chars(std::string("[]"));
@@ -363,6 +354,15 @@ chars to_chars(const std::array<A, N>& P) {
     if (i & 1) return to_chars(P[i / 2]);
     return separator;
   }));
+}
+
+template<typename A, typename B>
+chars to_chars(const std::pair<A, B>& P) {
+  sequence<chars> s = {
+      to_chars('('), to_chars(P.first),
+      to_chars(std::string(", ")),
+      to_chars(P.second), to_chars(')')};
+  return flatten(s);
 }
 
 template<typename T>

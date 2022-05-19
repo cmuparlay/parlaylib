@@ -79,6 +79,8 @@ The examples are as follows, broken down into categories.
 - nbody_fmm : n-body force calculations based on Callahan-Kosaraju's variant of the fast-multipole-method.
 - box_kdtree : builds a kd_tree over a set of 3d boxes using the surface area heuristic (SAH)
 - ray_trace : traces a set of rays to first triangle they intersect (also called ray-casting)
+- 3d_range : for a set of points reports all points within a radius r.
+- rectangle_intersection : for a set of rectangles in 3d reports all pairs that intersect
 
 ## Sorting etc.
 
