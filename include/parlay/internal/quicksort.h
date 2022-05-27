@@ -70,14 +70,14 @@ void insertion_sort(Iterator A, size_t n, const BinPred& f) {
   }
 }
 
-// sorts 5 elements taken at even stride and puts them at the front
+// Sorts 5 sampled elements and puts them at the front.
 template <class Iterator, class BinPred>
 void sort5(Iterator A, size_t n, const BinPred& f) {
   size_t size = 5;
-  size_t m = n / (size + 1);
-  for (size_t l = 0; l < size; l++) {
-    using std::swap;
-    swap(A[l], A[m * (l + 1)]);
+  for (size_t i = 0; i < size; ++i) {
+    size_t j = i + parlay::hash64(i) % (n - i);
+    using std::swap;  // enable ADL.
+    swap(A[i], A[j]);
   }
   insertion_sort(A, size, f);
 }
