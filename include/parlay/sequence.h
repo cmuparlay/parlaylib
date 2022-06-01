@@ -292,8 +292,11 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     return insert_dispatch(p, i, j, std::is_integral<Iterator_>());
   }
 
-  template<typename R>
-  iterator insert(iterator p, R&& r) {
+  template<typename Range,
+    std::enable_if_t<!std::is_same_v<std::decay_t<Range>, value_type> &&
+                      is_input_range_v<Range> &&
+                      std::is_constructible_v<value_type, range_reference_type_t<Range>>, int> = 0>
+  iterator insert(iterator p, Range&& r) {
     return insert(p, std::begin(r), std::end(r));
   }
 
