@@ -38,7 +38,7 @@ namespace sequence_internal {
 //  Allocator = An allocator for elements of type T
 //  EnableSSO = True to enable small-size optimization
 template<typename T, typename Allocator, bool EnableSSO>
-struct sequence_base {
+struct alignas(uint64_t) sequence_base {
 
   // Only use SSO for trivial types
   constexpr static bool use_sso = EnableSSO && std::is_trivial<T>::value;

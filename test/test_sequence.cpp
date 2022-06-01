@@ -24,6 +24,8 @@ static_assert(sizeof(parlay::sequence<int>) <= 16);
 static_assert(sizeof(parlay::short_sequence<int>) <= 16);
 #endif
 
+static_assert(alignof(parlay::sequence<int>) >= 8);
+
 
 TEST(TestSequence, TestDefaultConstruct) {
   auto s = parlay::sequence<int>();
@@ -416,6 +418,15 @@ TEST(TestSequence, TestInsert) {
   auto s2 = parlay::sequence<int>{1,2,3,4,5};
   ASSERT_FALSE(s.empty());
   s.insert(s.begin() + 2, 3);
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestInsertRef) {
+  auto s = parlay::sequence<int>{1,2,4,5};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5};
+  ASSERT_FALSE(s.empty());
+  int x = 3;
+  s.insert(s.begin() + 2, x);
   ASSERT_EQ(s, s2);
 }
 
