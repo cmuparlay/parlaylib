@@ -43,7 +43,7 @@ struct transpose {
       };
       par_do(left, right);
     } else {
-      size_t l1 = split(cCount);
+      size_t l1 = split(rCount);
       size_t l2 = rCount - l1;
       auto left = [&]() {
         transR(rStart, l1, rLength, cStart, cCount, cLength);
