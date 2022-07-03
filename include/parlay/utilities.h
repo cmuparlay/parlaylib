@@ -492,6 +492,23 @@ void assign_dispatch(T& dest, T& val, uninitialized_relocate_tag) {
   uninitialized_relocate(&dest, &val);
 }
 
+// Padded types to avoid false sharing. Takes a type T and makes its size
+// at least Size bytes by over-aligning it. Size must be a valid alignment.
+template<typename T, size_t Size = 64, typename Sfinae = void>
+struct padded;
+
+// Use user-defined conversions to pad primitive types
+template<typename T, size_t Size>
+struct alignas(Size) padded<T, Size, typename std::enable_if_t<std::is_fundamental<T>::value>> {
+  padded() = default;
+  /* implicit */ padded(T _x) : x(_x) { }
+  /* implicit */ operator T() { return x; }
+  T x;
+};
+
+// Use inheritance to pad class types
+template<typename T, size_t Size>
+struct alignas(128) padded<T, Size, typename std::enable_if_t<std::is_class<T>::value>> : public T { };
 
 }  // namespace parlay
 
