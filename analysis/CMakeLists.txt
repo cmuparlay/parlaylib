@@ -24,6 +24,7 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/scan.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/terminal.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/zip.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/concurrency/sticky_counter.h
     ${PARLAY_INCLUDE_DIR}/parlay/alloc.h
     ${PARLAY_INCLUDE_DIR}/parlay/delayed.h
     ${PARLAY_INCLUDE_DIR}/parlay/delayed_sequence.h

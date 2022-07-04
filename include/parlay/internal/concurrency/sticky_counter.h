@@ -2,6 +2,9 @@
 #ifndef PARLAY_INTERNAL_CONCURRENCY_STICKY_COUNTER_H
 #define PARLAY_INTERNAL_CONCURRENCY_STICKY_COUNTER_H
 
+#include <atomic>
+#include <type_traits>  // IWYU pragma: keep
+
 namespace parlay {
 namespace internal {
 namespace concurrency {
@@ -53,8 +56,8 @@ class sticky_counter {
   bool decrement(T arg, std::memory_order order = std::memory_order_seq_cst) noexcept {
     if (x.fetch_sub(arg, order) == arg) {
       T expected = 0;
-      if (x.compare_exchange_strong(expected, zero_flag)) [[likely]] return true;
-      else if ((expected & zero_pending_flag) && (x.exchange(zero_flag) & zero_pending_flag)) return true;
+      if (x.compare_exchange_strong(expected, zero_flag) ||
+          ((expected & zero_pending_flag) && (x.exchange(zero_flag) & zero_pending_flag))) return true;
     }
     return false;
   }
@@ -63,7 +66,7 @@ class sticky_counter {
   // to remain zero until the counter is reset
   T load(std::memory_order order = std::memory_order_seq_cst) const noexcept {
     auto val = x.load(order);
-    if (val == 0 && x.compare_exchange_strong(val, zero_flag | zero_pending_flag)) [[unlikely]] return 0;
+    if (val == 0 && x.compare_exchange_strong(val, zero_flag | zero_pending_flag)) return 0;
     return (val & zero_flag) ? 0 : val;
   }
 
@@ -85,6 +88,5 @@ class sticky_counter {
 }  // namespace concurrency
 }  // namespace internal
 }  // namespace parlay
-
 
 #endif  // PARLAY_INTERNAL_CONCURRENCY_STICKY_COUNTER_H

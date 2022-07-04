@@ -39,6 +39,10 @@ add_dtests(NAME test_random FILES test_random.cpp LIBS parlay)
 add_dtests(NAME test_group_by FILES test_group_by.cpp LIBS parlay)
 add_dtests(NAME test_monoid FILES test_monoid.cpp LIBS parlay)
 
+# -------------------------------- Concurrency ----------------------------------
+
+add_dtests(NAME test_hp_stack FILES test_hp_stack.cpp LIBS parlay)
+
 # -------------------------- Uninitialized memory testing ---------------------------
 
 add_dtests(NAME test_uninitialized_memory FILES test_uninitialized_memory.cpp LIBS parlay NO_SANITIZE)
