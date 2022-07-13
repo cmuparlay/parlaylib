@@ -38,6 +38,7 @@ add_dtests(NAME test_sorting_primitives FILES test_sorting_primitives.cpp LIBS p
 add_dtests(NAME test_random FILES test_random.cpp LIBS parlay)
 add_dtests(NAME test_group_by FILES test_group_by.cpp LIBS parlay)
 add_dtests(NAME test_monoid FILES test_monoid.cpp LIBS parlay)
+add_dtests(NAME test_transpose FILES test_transpose.cpp LIBS parlay)
 
 # -------------------------- Uninitialized memory testing ---------------------------
 

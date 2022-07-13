@@ -1,8 +1,17 @@
 
-#ifndef PARLAY_TRANSPOSE_H_
-#define PARLAY_TRANSPOSE_H_
+#ifndef PARLAY_INTERNAL_TRANSPOSE_H_
+#define PARLAY_INTERNAL_TRANSPOSE_H_
 
+#include <cassert>
+#include <cstddef>
+
+#include "../monoid.h"
+#include "../parallel.h"
+#include "../sequence.h"
+#include "../slice.h"
 #include "../utilities.h"
+
+#include "sequence_ops.h"
 
 namespace parlay {
 namespace internal {
@@ -21,17 +30,37 @@ constexpr const size_t NON_CACHE_OBLIVIOUS_THRESHOLD = 1 << 22;
 
 inline size_t split(size_t n) { return n / 2; }
 
-template <typename assignment_tag, typename Iterator>
+// Given a flat matrix represented in row-major order (i.e., a matrix where
+// each row is written one after the other in a 1D sequence), computes the
+// transpose of that matrix.
+//
+// E.g., given [1,2,3,1,2,3,1,2,3] which represents the matrix
+//
+//  1 2 3
+//  1 2 3
+//  1 2 3
+//
+// it computes [1,1,1,2,2,2,3,3,3] which represents the transpose matrix
+//
+//  1 1 1
+//  2 2 2
+//  3 3 3
+//
+// Alternatively, you can think of it as swapping to column-major
+// representation when starting from row-major representation
+//
+template <typename assignment_tag, typename InIterator, typename OutIterator>
 struct transpose {
-  Iterator A, B;
-  transpose(Iterator AA, Iterator BB) : A(AA), B(BB) {}
+  InIterator In;
+  OutIterator Out;
+  transpose(InIterator In_, OutIterator Out_) : In(std::move(In_)), Out(std::move(Out_)) {}
 
   void transR(size_t rStart, size_t rCount, size_t rLength, size_t cStart,
               size_t cCount, size_t cLength) {
     if (cCount * rCount < TRANS_THRESHHOLD) {
       for (size_t i = rStart; i < rStart + rCount; i++)
         for (size_t j = cStart; j < cStart + cCount; j++)
-          assign_dispatch(B[j * cLength + i], A[i * rLength + j], assignment_tag());
+          assign_dispatch(Out[j * cLength + i], In[i * rLength + j], assignment_tag());
     } else if (cCount > rCount) {
       size_t l1 = split(cCount);
       size_t l2 = cCount - l1;
@@ -43,7 +72,7 @@ struct transpose {
       };
       par_do(left, right);
     } else {
-      size_t l1 = split(cCount);
+      size_t l1 = split(rCount);
       size_t l2 = rCount - l1;
       auto left = [&]() {
         transR(rStart, l1, rLength, cStart, cCount, cLength);
@@ -64,27 +93,57 @@ struct transpose {
   }
 };
 
+// Given a flat matrix represented in row-major order, in which the rows are divided
+// into contiguous chunks, computes the matrix resulting from transposing those chunks,
+// in row-major order. Note that as the matrix is represented in row-major order, it
+// may have rows of different lengths, so it might not be a real matrix.
+//
+// For example, consider the following matrix in which the rows are chunked
+//
+// [ ( 1  2) ( 3  4  5) ( 6  7  8  9) ]
+// [ (10 11) (12 13 14) (15 16 17 18) ]
+//
+// Its block-transpose is
+//
+// [ ( 1  2) (10 11) ]
+// [ ( 3  4  5) (12 13 14) ]
+// [ (6  7  8  9) (15 16 17 18) ]
+//
+// (which of course is represented in row-major order because it isn't a real matrix
+// as it has imbalanced rows)
+//
+// The input to the problem is given in the form of the input matrix in row-major order,
+// the output destination, and the offsets that define where each chunk begins in the
+// input and output. For example, the input offsets for the matrix above are
+//
+// [ 0 2 5 ]
+// [ 0 2 5 ]
+//
+// again, given in row-major order. You can think of the offsets as the prefix sum of
+// the chunk sizes.
+//
 template <typename assignment_tag, typename InIterator, typename OutIterator, typename CountIterator, typename DestIterator>
 struct blockTrans {
-  InIterator A;
-  OutIterator B;
-  CountIterator OA;
-  DestIterator OB;
+  InIterator In;
+  OutIterator Out;
+  CountIterator InOffset;
+  DestIterator OutOffset;
 
-  blockTrans(InIterator AA, OutIterator BB, CountIterator OOA, DestIterator OOB)
-      : A(AA), B(BB), OA(OOA), OB(OOB) {}
+  blockTrans(InIterator In_, OutIterator Out_, CountIterator InOffset_, DestIterator OutOffset_)
+      : In(std::move(In_)), Out(std::move(Out_)), InOffset(std::move(InOffset_)), OutOffset(std::move(OutOffset_)) {}
 
   void transR(size_t rStart, size_t rCount, size_t rLength, size_t cStart,
               size_t cCount, size_t cLength) {
     if (cCount * rCount < TRANS_THRESHHOLD * 16) {
       parallel_for(rStart, rStart + rCount, [&](size_t i) {
         for (size_t j = cStart; j < cStart + cCount; j++) {
-          size_t sa = OA[i * rLength + j];
-          size_t sb = OB[j * cLength + i];
-          size_t l = OA[i * rLength + j + 1] - sa;
-          for (size_t k = 0; k < l; k++) assign_dispatch(B[k + sb], A[k + sa], assignment_tag());
+          size_t sa = InOffset[i * rLength + j];
+          size_t sb = OutOffset[j * cLength + i];
+          size_t l = InOffset[i * rLength + j + 1] - sa;
+          for (size_t k = 0; k < l; k++) {
+            assign_dispatch(Out[k + sb], In[k + sa], assignment_tag());
+          }
         }
-
       });
     } else if (cCount > rCount) {
       size_t l1 = split(cCount);
@@ -97,7 +156,7 @@ struct blockTrans {
       };
       par_do(left, right);
     } else {
-      size_t l1 = split(cCount);
+      size_t l1 = split(rCount);
       size_t l2 = rCount - l1;
       auto left = [&]() {
         transR(rStart, l1, rLength, cStart, cCount, cLength);
@@ -121,9 +180,9 @@ struct blockTrans {
 // Moves values from blocks to buckets
 // From is sorted by key within each block, in block major
 // counts is the # of keys in each bucket for each block, in block major
-// From and To are of lenght n
+// From and To are of length n
 // counts is of length num_blocks * num_buckets
-// Data is memcpy'd into To avoiding initializers and overloaded =
+//
 template <typename assignment_tag, typename InIterator, typename OutIterator, typename s_size_t>
 sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
                                    sequence<s_size_t>& counts, size_t n,
@@ -161,10 +220,9 @@ sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
     };
     parallel_for(0, num_blocks, f, 1);
   } else {  // for larger input do cache efficient transpose
-    // sequence<s_size_t> source_offsets(counts,m+1);
-    dest_offsets = sequence<s_size_t>(m);
-    transpose<assignment_tag, typename sequence<s_size_t>::iterator>(counts.begin(), dest_offsets.begin())
-        .trans(num_blocks, num_buckets);
+    dest_offsets = sequence<s_size_t>::uninitialized(m);
+    transpose<uninitialized_copy_tag, decltype(counts.begin()), decltype(dest_offsets.begin())>
+      (counts.begin(), dest_offsets.begin()).trans(num_blocks, num_buckets);
 
     // do both scans inplace
     [[maybe_unused]] size_t total = scan_inplace(make_slice(dest_offsets), add);
@@ -189,4 +247,4 @@ sequence<size_t> transpose_buckets(InIterator From, OutIterator To,
 }  // namespace internal
 }  // namespace parlay
 
-#endif  // PARLAY_TRANSPOSE_H_
+#endif  // PARLAY_INTERNAL_TRANSPOSE_H_

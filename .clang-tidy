@@ -12,10 +12,12 @@
 #       value:           'some value'
 
 Checks:            'bugprone-*,
+                      -bugprone-easily-swappable-parameters,
                     clang-analyzer-*,
                     performance-*,
                     portability-*'
 WarningsAsErrors:  'bugprone-*,
+                      -bugprone-easily-swappable-parameters,
                     clang-analyzer-*,
                     performance-*,
                     portability-*'
