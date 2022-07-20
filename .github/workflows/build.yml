@@ -164,7 +164,7 @@ jobs:
           - { sys: clang64 }
 
 
-    name: windows-latest MSYS2 ${{ matrix.sys }} (Release)
+    name: windows-latest MSYS2 ${{ matrix.sys }} (MinSizeRel)
     runs-on: windows-latest
     defaults:
       run:
@@ -188,7 +188,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          cmake -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         run: |

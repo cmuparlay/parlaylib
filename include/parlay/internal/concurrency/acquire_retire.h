@@ -4,13 +4,13 @@
 
 #include <cstddef>
 
-#include <algorithm>
+#include <algorithm>      // IWYU pragma: keep
 #include <atomic>
 #include <memory>
 #include <tuple>
-#include <type_traits>   // IWYU pragma: keep
+#include <type_traits>    // IWYU pragma: keep
 #include <unordered_set>
-#include <utility>
+#include <utility>        // IWYU pragma: keep
 #include <vector>
 
 #include "../../parallel.h"

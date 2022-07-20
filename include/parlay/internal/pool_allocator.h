@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <atomic>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <new>
 #include <optional>
@@ -107,9 +108,7 @@ struct pool_allocator {
       num_buckets(sizes_.size()),
       sizes(std::make_unique<size_t[]>(num_buckets)) {
 
-    for (size_t i = 0; i < num_buckets; i++) {
-      sizes[i] = sizes_[i];
-    }
+    std::copy(std::begin(sizes_), std::end(sizes_), &sizes[0]);
     max_size = sizes[num_buckets-1];
     num_small = 0;
     while (num_small < num_buckets && sizes[num_small] < large_threshold)
