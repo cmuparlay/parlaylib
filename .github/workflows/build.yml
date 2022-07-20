@@ -187,7 +187,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         run: |
@@ -300,7 +300,7 @@ jobs:
           ctest --no-tests=error --output-on-failure
 
   tbb:
-    name: ubuntu-latest TBB Clang 11 (Debug)
+    name: ubuntu-latest TBB Clang 13 (Debug)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -340,7 +340,6 @@ jobs:
       - name: Install Cppcheck
         shell: bash
         run: |
-          sudo apt-get -qq install clang-10
           wget --quiet https://github.com/danmar/cppcheck/archive/refs/tags/2.8.tar.gz
           tar -xf 2.8.tar.gz
           mkdir cppcheck-2.8/build && pushd cppcheck-2.8/build
@@ -352,7 +351,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-10 CXX=clang++-10 cmake -DENABLE_CPPCHECK=On ..
+          cmake -DENABLE_CPPCHECK=On ..
           make cppcheck-all
 
   clang-tidy:
@@ -405,7 +404,8 @@ jobs:
           make iwyu-all
 
   asan:
-    name: ubuntu-latest ASAN Clang 13 (Debug)
+    # Running with old Clang 10 because GoogleTest triggers ASAN on Clang 13 for some reason
+    name: ubuntu-latest ASAN Clang 10 (Debug)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -416,13 +416,13 @@ jobs:
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
           sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
           sudo apt-get update
-          sudo apt-get -qq install clang-13 libc++1-13 libc++abi1-13 libc++-13-dev libc++abi-13-dev
+          sudo apt-get -qq install clang-10 libc++1-10 libc++abi1-10 libc++-10-dev libc++abi-10-dev
 
       - name: Configure
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-13 CXX=clang++-13 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..
+          CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..
 
       - name: Build
         shell: bash

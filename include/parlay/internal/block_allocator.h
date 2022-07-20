@@ -31,7 +31,6 @@
 #include "memory_size.h"
 
 // IWYU pragma: no_include <vector>
-// IWYU pragma: no_include <__stddef_max_align_t.h>
 
 namespace parlay {
 namespace internal {
