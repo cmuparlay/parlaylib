@@ -163,9 +163,8 @@ jobs:
           - { sys: ucrt64 }
           - { sys: clang64 }
 
-    # The reason we compile in RelWithDebInfo here is that MinGW runs
-    # out of string table space when compiling in DEBUG on Windows...
-    name: windows-latest MSYS2 ${{ matrix.sys }} (RelWithDebInfo)
+
+    name: windows-latest MSYS2 ${{ matrix.sys }} (Release)
     runs-on: windows-latest
     defaults:
       run:
@@ -189,7 +188,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         run: |
@@ -208,7 +207,7 @@ jobs:
           - { cc: "gcc", cxx: "g++" }
           - { cc: "clang", cxx: "clang++" }
 
-    name: windows-latest Cygwin ${{ matrix.config.cxx }} (Debug)
+    name: windows-latest Cygwin ${{ matrix.config.cxx }} (Release)
     runs-on: windows-latest
     defaults:
       run:
@@ -224,7 +223,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_EXAMPLES=On ..
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         run: |

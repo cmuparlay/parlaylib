@@ -4,11 +4,13 @@
 
 #include <cstddef>
 
+#include <algorithm>
 #include <atomic>
 #include <memory>
 #include <tuple>
 #include <type_traits>   // IWYU pragma: keep
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "../../parallel.h"
@@ -156,23 +158,6 @@ class acquire_retire {
   std::unique_ptr<padded<size_t>[]> amortized_work;
 };
 
-extern inline auto& get_default_acquire_retire() {
-  struct deleter { void operator()(void* ptr) const noexcept { ::operator delete(ptr); } };
-  static acquire_retire<void, deleter> instance;
-  return instance;
-}
-
-template<size_t Align>
-extern inline auto& get_aligned_acquire_retire() {
-  struct deleter { void operator()(void* ptr) const noexcept { ::operator delete(ptr, std::align_val_t{Align}); } };
-  static acquire_retire<void, deleter> instance;
-  return instance;
-}
-
-template<typename T>
-inline auto& get_default_acquire_retire_for_type() {
-  return get_aligned_acquire_retire<alignof(T)>();
-}
 
 }  // namespace internal
 }  // namespace parlay
