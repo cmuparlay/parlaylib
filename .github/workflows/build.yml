@@ -50,7 +50,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Set up toolchain repositories
-      - run: |
+        run: |
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
           if [[ ${{ matrix.config.os }} == 'ubuntu-18.04' ]]; then
