@@ -114,11 +114,11 @@ class acquire_retire {
       std::unordered_multiset<T*> announced;
       scan_slots([&](auto reserved) { announced.insert(reserved); });
 
-      // For a given deferred decrement, we first check if it is announced, and, if so,
+      // For a given deferred destruct, we first check if it is announced, and, if so,
       // we defer it again. If it is not announced, it can be safely applied. If an
       // object is deferred / announced multiple times, each announcement only protects
-      // against one of the deferred decrements, so for each object, the amount of
-      // decrements applied in total will be #deferred - #announced
+      // against one of the deferred destructs, so for each object, the amount of
+      // destructs applied in total will be #deferred - #announced
       auto f = [&](auto x) {
         auto it = announced.find(x);
         if (it == announced.end()) {
@@ -130,7 +130,7 @@ class acquire_retire {
         }
       };
 
-      // Remove the deferred decrements that are successfully applied
+      // Remove the deferred destructs that are successfully applied
       deferred.erase(remove_if(deferred.begin(), deferred.end(), f), deferred.end());
       retired[id].insert(retired[id].end(), deferred.begin(), deferred.end());
       in_progress[id] = false;

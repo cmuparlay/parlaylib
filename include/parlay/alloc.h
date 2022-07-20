@@ -44,11 +44,11 @@ extern inline internal::pool_allocator& get_default_allocator() {
 }
 
 // pair of total currently used space, and total unused space the allocator has in reserve
-extern inline std::pair<size_t,size_t> memory_usage() {
+inline std::pair<size_t,size_t> memory_usage() {
   return get_default_allocator().stats();
 }
 
-extern inline void memory_clear() {
+inline void memory_clear() {
   return get_default_allocator().clear();
 }
 

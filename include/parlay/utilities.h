@@ -552,6 +552,8 @@ struct alignas(Size) padded<T, Size, typename std::enable_if_t<std::is_scalar_v<
 // Use inheritance to pad class types
 template<typename T, size_t Size>
 struct alignas(Size) padded<T, Size, typename std::enable_if_t<std::is_class_v<T>>> : public T {
+  static_assert(std::is_same_v<T, std::remove_cv_t<T>>,
+      "padded<T> requires T be non-const-volatile qualified. Use const padded<T> instead of padded<const T>");
   using T::T;                                   // inherit (non-special) constructors
   padded() = default;                           // implement non-inherited special constructors
   /* implicit */ padded(const T& t) : T(t) {}         // cppcheck-suppress noExplicitConstructor          // NOLINT

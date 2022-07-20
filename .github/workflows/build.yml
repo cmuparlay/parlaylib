@@ -330,9 +330,9 @@ jobs:
         shell: bash
         run: |
           sudo apt-get -qq install clang-10
-          wget --quiet https://github.com/danmar/cppcheck/archive/refs/tags/2.6.tar.gz
-          tar -xf 2.6.tar.gz
-          mkdir cppcheck-2.6/build && pushd cppcheck-2.6/build
+          wget --quiet https://github.com/danmar/cppcheck/archive/refs/tags/2.8.tar.gz
+          tar -xf 2.8.tar.gz
+          mkdir cppcheck-2.8/build && pushd cppcheck-2.8/build
           CC=clang-10 CXX=clang++-10 cmake .. -DCMAKE_BUILD_TYPE=Release
           make && sudo make install
           popd

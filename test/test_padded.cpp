@@ -31,12 +31,9 @@ TEST(TestPadded, TestTypeApplicability) {
   padded<int*> ia = &x;
   ASSERT_EQ(ia, &x);
   padded<std::nullptr_t> np = nullptr;
-  // For some reason, implicit conversion to std::nullptr_t doesn't work in operator== on MSVC??
-#if defined(_MSC_VER)
+  // For some reason, implicit conversion to std::nullptr_t
+  // doesn't work in operator== on MSVC, or GCC 10 and below?
   ASSERT_EQ(std::nullptr_t{np}, nullptr);
-#else
-  ASSERT_EQ(np, nullptr);
-#endif
   padded<E> e = Ea;
   ASSERT_EQ(e, Ea);
   padded<EC> ec = EC::a;
@@ -364,12 +361,4 @@ TEST(TestPadded, TestClassOperatorOverloads) {
 TEST(TestPadded, TestScalarConst) {
   padded<const int> p{5};
   ASSERT_EQ(p, 5);
-}
-
-TEST(TestPadded, TestClassConst) {
-  padded<const std::vector<int>> p{1,2,3,4,5};
-  ASSERT_EQ(p, (std::vector<int>{1,2,3,4,5}));
-  ASSERT_FALSE(p.empty());
-  ASSERT_EQ(p.size(), 5);
-  ASSERT_EQ(p[3], 4);
 }
