@@ -13,14 +13,18 @@ jobs:
           function version { echo "$@" | awk -F. '{ printf("%04d%04d%04d\n", $1,$2,$3); }'; }
 
           source_version=`echo CMakeLists.txt | grep -o "PARLAY VERSION [0-9].[0-9].[0-9]" | grep -o "[0-9].[0-9].[0-9]"`
+          echo "Source version is $source_version"
           source_major_version=`echo $source_version | awk '{split($0,a,"."); print a[1]}'`
           source_minor_version=`echo $source_version | awk '{split($0,a,"."); print a[2]}'`
           source_patch_version=`echo $source_version | awk '{split($0,a,"."); print a[3]}'`
+          echo "  Major: $source_major_version, Minor: $source_minor_version, Patch: $source_patch_version"
           
           master_version=`git show refs/remotes/origin/master:CMakeLists.txt | grep -o "PARLAY VERSION [0-9].[0-9].[0-9]" | grep -o "[0-9].[0-9].[0-9]"`
+          echo "Master version is $master_version"
           master_major_version=`echo $source_version | awk '{split($0,a,"."); print a[1]}'`
           master_minor_version=`echo $source_version | awk '{split($0,a,"."); print a[2]}'`
           master_patch_version=`echo $source_version | awk '{split($0,a,"."); print a[3]}'`
+          echo "  Major: $master_major_version, Minor: $master_minor_version, Patch: $master_patch_version"
 
           if [ $(version $source_version) -le $(version $master_version) ]; then
             echo "Version number on the source branch ($source_version) must be greater than the master branch ($master_version)"
@@ -45,3 +49,5 @@ jobs:
             echo "Patch version number on the source branch ($source_version) increased by more than one compared to the master branch ($master_version)"
             exit 1
           fi
+
+          echo "New version number looks good. Success"
