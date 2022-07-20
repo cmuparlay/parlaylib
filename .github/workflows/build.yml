@@ -51,12 +51,14 @@ jobs:
 
       - name: Set up toolchain repositories
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          if [[ ${{ matrix.config.os }} == 'ubuntu-18.04' ]]; then
+          if [[ "${{ matrix.config.os }}" == "ubuntu-18.04" ]]; then
+            sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
             sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-6.0 main"
-          elif [[ ${{ matrix.config.os }} == 'ubuntu-20.04' ]]; then
-            sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          elif [[ "${{ matrix.config.os }}" == "ubuntu-latest" ]]; then
+            sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+            sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
           fi
 
       - name: Install Compiler
@@ -131,7 +133,7 @@ jobs:
         run: |
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
           sudo apt-get -qq update
           sudo apt-get -y install make ${{matrix.config.cc}} ${{matrix.config.cxx}}
           wget --quiet https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2-Linux-x86_64.tar.gz
@@ -307,7 +309,7 @@ jobs:
         shell: bash
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
           sudo apt-get update
           sudo apt-get -qq install clang-13 libtbb-dev
 
@@ -363,7 +365,7 @@ jobs:
         shell: bash
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
           sudo apt-get update
           sudo apt-get -qq install clang-13 clang-tidy-13
 
@@ -385,7 +387,7 @@ jobs:
         shell: bash
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
           sudo apt-get -qq install clang-13 libc++1-13 libc++-13-dev libc++abi1-13 libc++abi-13-dev llvm-13-dev libclang-13-dev
           git clone https://github.com/include-what-you-use/include-what-you-use.git
           mkdir include-what-you-use/build && pushd include-what-you-use/build
@@ -412,7 +414,7 @@ jobs:
         shell: bash
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
           sudo apt-get update
           sudo apt-get -qq install clang-13 libc++1-13 libc++abi1-13 libc++-13-dev libc++abi-13-dev
 
@@ -444,7 +446,7 @@ jobs:
         shell: bash
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
           sudo apt-get -qq install clang-13 libc++1-13 libc++abi1-13 libc++-13-dev libc++abi-13-dev
 
       - name: Configure
