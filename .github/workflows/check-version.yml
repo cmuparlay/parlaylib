@@ -12,8 +12,6 @@ jobs:
         run: |
           function version { echo "$@" | awk -F. '{ printf("%04d%04d%04d\n", $1,$2,$3); }'; }
 
-          mkdir build
-          cd build
           source_version=`echo CMakeLists.txt | grep -o "PARLAY VERSION [0-9].[0-9].[0-9]" | grep -o "[0-9].[0-9].[0-9]"`
           source_major_version=`echo $source_version | awk '{split($0,a,"."); print a[1]}'`
           source_minor_version=`echo $source_version | awk '{split($0,a,"."); print a[2]}'`
