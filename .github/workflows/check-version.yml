@@ -14,13 +14,12 @@ jobs:
 
           mkdir build
           cd build
-          source_version=`cmake .. | grep -o "PARLAY VERSION [0-9].[0-9].[0-9]" | grep -o "[0-9].[0-9].[0-9]"`
+          source_version=`echo CMakeLists.txt | grep -o "PARLAY VERSION [0-9].[0-9].[0-9]" | grep -o "[0-9].[0-9].[0-9]"`
           source_major_version=`echo $source_version | awk '{split($0,a,"."); print a[1]}'`
           source_minor_version=`echo $source_version | awk '{split($0,a,"."); print a[2]}'`
           source_patch_version=`echo $source_version | awk '{split($0,a,"."); print a[3]}'`
           
-          git checkout origin/master
-          master_version=`cmake .. | grep -o "PARLAY VERSION [0-9].[0-9].[0-9]" | grep -o "[0-9].[0-9].[0-9]"`
+          master_version=`git show refs/remotes/origin/master:CMakeLists.txt | grep -o "PARLAY VERSION [0-9].[0-9].[0-9]" | grep -o "[0-9].[0-9].[0-9]"`
           master_major_version=`echo $source_version | awk '{split($0,a,"."); print a[1]}'`
           master_minor_version=`echo $source_version | awk '{split($0,a,"."); print a[2]}'`
           master_patch_version=`echo $source_version | awk '{split($0,a,"."); print a[3]}'`
