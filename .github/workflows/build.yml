@@ -163,7 +163,9 @@ jobs:
           - { sys: ucrt64 }
           - { sys: clang64 }
 
-    name: windows-latest MSYS2 ${{ matrix.sys }} (Debug)
+    # The reason we compile in RelWithDebInfo here is that MinGW runs
+    # out of string table space when compiling in DEBUG on Windows...
+    name: windows-latest MSYS2 ${{ matrix.sys }} (RelWithDebInfo)
     runs-on: windows-latest
     defaults:
       run:
