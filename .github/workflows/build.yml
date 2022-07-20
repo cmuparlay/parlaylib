@@ -28,7 +28,7 @@ jobs:
           }
           - {
             os: ubuntu-latest,
-            cc: "clang-12", cxx: "clang++-12"
+            cc: "clang-13", cxx: "clang++-13"
           }
           - {
             os: ubuntu-latest,
@@ -50,10 +50,14 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Set up toolchain repositories
-        if: ${{ matrix.config.os == 'ubuntu-18.04' }}
-        run: |
+      - run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-6.0 main"
+          if [[ ${{ matrix.config.os }} == 'ubuntu-18.04' ]]; then
+            sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-6.0 main"
+          elif [[ ${{ matrix.config.os }} == 'ubuntu-20.04' ]]; then
+            sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          fi
 
       - name: Install Compiler
         if: startsWith(matrix.config.os, 'ubuntu')
@@ -110,7 +114,7 @@ jobs:
       matrix:
         config:
           - { cc: "gcc-11", cxx: "g++-11" }
-          - { cc: "clang-12", cxx: "clang++-12" }
+          - { cc: "clang-13", cxx: "clang++-13" }
 
     name: windows-2019 WSL ${{ matrix.config.cxx }} (Debug)
     runs-on: windows-2019
@@ -126,6 +130,8 @@ jobs:
       - name: Install
         run: |
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
           sudo apt-get -qq update
           sudo apt-get -y install make ${{matrix.config.cc}} ${{matrix.config.cxx}}
           wget --quiet https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2-Linux-x86_64.tar.gz
@@ -147,49 +153,49 @@ jobs:
           cd build
           ../cmake-3.18.2-Linux-x86_64/bin/ctest -C Debug --no-tests=error --output-on-failure
 
-#  msys:
-#    strategy:
-#      matrix:
-#        include:
-#          - { sys: mingw64 }
-#          - { sys: ucrt64 }
-#          - { sys: clang64 }
-#
-#    name: windows-latest MSYS2 ${{ matrix.sys }} (Debug)
-#    runs-on: windows-latest
-#    defaults:
-#      run:
-#        shell: msys2 {0}
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: '${{ matrix.icon }} Setup MSYS2'
-#        uses: msys2/setup-msys2@v2
-#        with:
-#          msystem: ${{matrix.sys}}
-#          update: true
-#          install: >-
-#            git
-#            make
-#          pacboy: >-
-#            toolchain:p
-#            cmake:p
-#            ninja:p
-#
-#      - name: Configure
-#        run: |
-#          mkdir build
-#          cd build
-#          cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
-#
-#      - name: Build
-#        run: |
-#          cd build
-#          cmake --build .
-#
-#      - name: Test
-#        run: |
-#          cd build
-#          ctest -C Debug --no-tests=error --output-on-failure
+  msys:
+    strategy:
+      matrix:
+        include:
+          - { sys: mingw64 }
+          - { sys: ucrt64 }
+          - { sys: clang64 }
+
+    name: windows-latest MSYS2 ${{ matrix.sys }} (Debug)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v2
+      - name: '${{ matrix.icon }} Setup MSYS2'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{matrix.sys}}
+          update: true
+          install: >-
+            git
+            make
+          pacboy: >-
+            toolchain:p
+            cmake:p
+            ninja:p
+
+      - name: Configure
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+
+      - name: Build
+        run: |
+          cd build
+          cmake --build .
+
+      - name: Test
+        run: |
+          cd build
+          ctest -C Debug --no-tests=error --output-on-failure
 
   cygwin:
     strategy:
@@ -214,7 +220,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_EXAMPLES=On ..
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         run: |
@@ -300,13 +306,16 @@ jobs:
       - name: Install TBB
         shell: bash
         run: |
-          sudo apt-get -qq install clang-11 libtbb-dev
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-get update
+          sudo apt-get -qq install clang-13 libtbb-dev
 
       - name: Configure
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-11 CXX=clang++-11 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-DPARLAY_TBB" -DCMAKE_EXE_LINKER_FLAGS="-ltbb" DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          CC=clang-13 CXX=clang++-13 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-DPARLAY_TBB" -DCMAKE_EXE_LINKER_FLAGS="-ltbb" DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash
@@ -333,7 +342,7 @@ jobs:
           wget --quiet https://github.com/danmar/cppcheck/archive/refs/tags/2.8.tar.gz
           tar -xf 2.8.tar.gz
           mkdir cppcheck-2.8/build && pushd cppcheck-2.8/build
-          CC=clang-10 CXX=clang++-10 cmake .. -DCMAKE_BUILD_TYPE=Release
+          cmake .. -DCMAKE_BUILD_TYPE=Release
           make && sudo make install
           popd
 
@@ -353,14 +362,17 @@ jobs:
       - name: Intall Clang Tidy
         shell: bash
         run: |
-          sudo apt-get -qq install clang-10 clang-tidy-10
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-get update
+          sudo apt-get -qq install clang-13 clang-tidy-13
 
       - name: Run Clang Tidy
         shell: bash
         run: |
           mkdir build
           cd build
-          CC=clang-10 CXX=clang++-10 cmake -DENABLE_CLANG_TIDY=On -DCLANG_TIDY_EXE=/usr/bin/clang-tidy-10 ..
+          CC=clang-13 CXX=clang++-13 cmake -DENABLE_CLANG_TIDY=On -DCLANG_TIDY_EXE=/usr/bin/clang-tidy-13 ..
           make clang-tidy-all
 
   iwyu:
@@ -372,11 +384,13 @@ jobs:
       - name: Install IWYU
         shell: bash
         run: |
-          sudo apt-get -qq install clang-10 libc++1-10 libc++-10-dev libc++abi1-10 libc++abi-10-dev llvm-10-dev libclang-10-dev
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-get -qq install clang-13 libc++1-13 libc++-13-dev libc++abi1-13 libc++abi-13-dev llvm-13-dev libclang-13-dev
           git clone https://github.com/include-what-you-use/include-what-you-use.git
           mkdir include-what-you-use/build && pushd include-what-you-use/build
-          git checkout clang_10
-          cmake -DCMAKE_PREFIX_PATH=/usr/lib/llvm-10 ..
+          git checkout clang_13
+          cmake -DCMAKE_PREFIX_PATH=/usr/lib/llvm-13 ..
           make && sudo make install
           popd
 
@@ -385,11 +399,11 @@ jobs:
         run: |
           mkdir build
           cd build
-          CC=clang-10 CXX=clang++-10 cmake -DENABLE_IWYU=On ..
+          CC=clang-13 CXX=clang++-13 cmake -DENABLE_IWYU=On ..
           make iwyu-all
 
   asan:
-    name: ubuntu-latest ASAN Clang 10 (Debug)
+    name: ubuntu-latest ASAN Clang 13 (Debug)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -397,13 +411,16 @@ jobs:
       - name: Install
         shell: bash
         run: |
-          sudo apt-get -qq install clang-10 libc++1-10 libc++abi1-10 libc++-10-dev libc++abi-10-dev
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-get update
+          sudo apt-get -qq install clang-13 libc++1-13 libc++abi1-13 libc++-13-dev libc++abi-13-dev
 
       - name: Configure
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..
+          CC=clang-13 CXX=clang++-13 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..
 
       - name: Build
         shell: bash
@@ -418,7 +435,7 @@ jobs:
           ctest --no-tests=error --output-on-failure -R asan
 
   ubsan:
-    name: ubuntu-latest UBSAN Clang 10 (Debug)
+    name: ubuntu-latest UBSAN Clang 13 (Debug)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -426,13 +443,15 @@ jobs:
       - name: Install
         shell: bash
         run: |
-          sudo apt-get -qq install clang-10 libc++1-10 libc++abi1-10 libc++-10-dev libc++abi-10-dev
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13.0 main"
+          sudo apt-get -qq install clang-13 libc++1-13 libc++abi1-13 libc++-13-dev libc++abi-13-dev
 
       - name: Configure
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-10 CXX=clang++-10 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_UBSAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..
+          CC=clang-13 CXX=clang++-13 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_UBSAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..
 
       - name: Build
         shell: bash
