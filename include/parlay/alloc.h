@@ -65,10 +65,19 @@ template <typename T>
 struct allocator {
   using value_type = T;
   T* allocate(size_t n) {
-    return (T*) internal::get_default_allocator().allocate(n * sizeof(T));
+#if defined(_OPENMP)
+    // OpenMP doesn't work with Parlay's allocators
+    return static_cast<T*>(::operator new(n * sizeof(T)));
+#else
+    return static_cast<T*>(internal::get_default_allocator().allocate(n * sizeof(T)));
+#endif
   }
-  void deallocate(T* ptr, size_t n) {
-    internal::get_default_allocator().deallocate((void*) ptr, n * sizeof(T));
+  void deallocate(T* ptr, [[maybe_unused]] size_t n) {
+#if defined(_OPENMP)
+    ::operator delete(ptr);
+#else
+    internal::get_default_allocator().deallocate(static_cast<void*>(ptr), n * sizeof(T));
+#endif
   }
 
   constexpr allocator() noexcept { internal::get_default_allocator(); };
@@ -103,15 +112,23 @@ inline size_t alloc_header_size(size_t n) {  // in bytes
 
 // allocates and tags with a header (8, 16 or 64 bytes) that contains the size
 inline void* p_malloc(size_t n) {
+#if defined(_OPENMP)
+  // OpenMP doesn't work with Parlay's allocators
+  return ::operator new(n);
+#else
   size_t hsize = internal::alloc_header_size(n);
   void* ptr = internal::get_default_allocator().allocate(n + hsize);
   void* r = (void*) (((char*) ptr) + hsize);
   *(((size_t*) r) - internal::alloc_size_offset) = n; // puts size in header
   return r;
+#endif
 }
 
 // reads the size, offsets the header and frees
 inline void p_free(void* ptr) {
+#if defined(_OPENMP)
+  ::operator delete(ptr);
+#else
   size_t n = *(((size_t*) ptr) - internal::alloc_size_offset);
   size_t hsize = internal::alloc_header_size(n);
   if (hsize > (1ull << 48)) {
@@ -119,6 +136,7 @@ inline void p_free(void* ptr) {
     throw std::bad_alloc();
   }
   internal::get_default_allocator().deallocate((void*) (((char*) ptr) - hsize), n + hsize);
+#endif
 }
 
 
@@ -150,8 +168,22 @@ public:
   static constexpr inline size_t default_alloc_size = 0;
   static constexpr inline bool initialized = true;
 
-  static T* alloc() { return static_cast<T*>(get_allocator().alloc()); }
-  static void free(T* ptr) { get_allocator().free(static_cast<void*>(ptr)); }
+  static T* alloc() {
+#if defined(_OPENMP)
+    // OpenMP doesn't work with Parlay's allocators
+    return static_cast<T*>(::operator new(sizeof(T), std::align_val_t{alignof(T)}));
+#else
+    return static_cast<T*>(get_allocator().alloc());
+#endif
+  }
+
+  static void free(T* ptr) {
+#if defined(_OPENMP)
+    ::operator delete(ptr, std::align_val_t{alignof(T)});
+#else
+    get_allocator().free(static_cast<void*>(ptr));
+#endif
+  }
 
   template <typename ... Args>
   static T* allocate(Args... args) {

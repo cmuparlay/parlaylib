@@ -155,50 +155,49 @@ jobs:
           cd build
           ../cmake-3.18.2-Linux-x86_64/bin/ctest -C Debug --no-tests=error --output-on-failure
 
-  msys:
-    strategy:
-      matrix:
-        include:
-          - { sys: mingw64 }
-          - { sys: ucrt64 }
-          - { sys: clang64 }
-
-
-    name: windows-latest MSYS2 ${{ matrix.sys }} (MinSizeRel)
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-      - uses: actions/checkout@v2
-      - name: '${{ matrix.icon }} Setup MSYS2'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: ${{matrix.sys}}
-          update: true
-          install: >-
-            git
-            make
-          pacboy: >-
-            toolchain:p
-            cmake:p
-            ninja:p
-
-      - name: Configure
-        run: |
-          mkdir build
-          cd build
-          cmake -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
-
-      - name: Build
-        run: |
-          cd build
-          cmake --build .
-
-      - name: Test
-        run: |
-          cd build
-          ctest -C Debug --no-tests=error --output-on-failure
+#  msys:
+#    strategy:
+#      matrix:
+#        include:
+#          - { sys: mingw64 }
+#          - { sys: ucrt64 }
+#          - { sys: clang64 }
+#
+#    name: windows-latest MSYS2 ${{ matrix.sys }} (Debug)
+#    runs-on: windows-latest
+#    defaults:
+#      run:
+#        shell: msys2 {0}
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: '${{ matrix.icon }} Setup MSYS2'
+#        uses: msys2/setup-msys2@v2
+#        with:
+#          msystem: ${{matrix.sys}}
+#          update: true
+#          install: >-
+#            git
+#            make
+#          pacboy: >-
+#            toolchain:p
+#            cmake:p
+#            ninja:p
+#
+#      - name: Configure
+#        run: |
+#          mkdir build
+#          cd build
+#          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+#
+#      - name: Build
+#        run: |
+#          cd build
+#          cmake --build .
+#
+#      - name: Test
+#        run: |
+#          cd build
+#          ctest -C Debug --no-tests=error --output-on-failure
 
   cygwin:
     strategy:
@@ -299,6 +298,38 @@ jobs:
         run: |
           cd build
           ctest --no-tests=error --output-on-failure
+
+  omp:
+    name: ubuntu-latest OpenMP Clang 13 (Debug)
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v2
+
+        - name: Install OpenMP
+          shell: bash
+          run: |
+            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+            sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-13 main"
+            sudo apt-get update
+            sudo apt-get -qq install clang-13 libomp-13-dev
+
+        - name: Configure
+          shell: bash
+          run: |
+            mkdir build && cd build
+            CC=clang-13 CXX=clang++-13 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fopenmp -DPARLAY_OPENMP" -DCMAKE_EXE_LINKER_FLAGS="-fopenmp" DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+
+        - name: Build
+          shell: bash
+          run: |
+            cd build
+            make
+
+        - name: Test
+          shell: bash
+          run: |
+            cd build
+            ctest --no-tests=error --output-on-failure
 
   tbb:
     name: ubuntu-latest TBB Clang 13 (Debug)
