@@ -189,6 +189,7 @@ option(PARLAY_EXAMPLE_DATA  "Download example data"  OFF)
 
 if (PARLAY_EXAMPLE_DATA)
   message(STATUS "example data: On")
+  include(FetchContent)
   FetchContent_Declare(
     exampleData
     URL http://www.cs.cmu.edu/~parlay/data.tar.gz
