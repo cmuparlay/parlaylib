@@ -171,11 +171,11 @@ TEST(TestPadded, TestScalarLocalRefBinding) {
   ASSERT_EQ(i, 2);
   ASSERT_EQ(cir, 2);
   i = 3;
-  int&& irr = std::move(i);
+  int&& irr = std::move(i);           // NOLINT
   ASSERT_EQ(irr, 3);
   i = 4;
   const auto& ci = i;
-  const int&& cirr = std::move(ci);
+  const int&& cirr = std::move(ci);   // NOLINT
   ASSERT_EQ(cirr, 4);
 }
 
@@ -361,4 +361,13 @@ TEST(TestPadded, TestClassOperatorOverloads) {
 TEST(TestPadded, TestScalarConst) {
   padded<const int> p{5};
   ASSERT_EQ(p, 5);
+}
+
+TEST(TestPadded, TestNonDefaultConstructibleClass) {
+  struct X {
+    X() = delete;
+    explicit X(int x_) : x(x_) { }
+    int x;
+  };
+  padded<X> x(5);
 }

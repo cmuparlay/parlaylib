@@ -32,9 +32,9 @@ jobs:
           }
           - {
             os: ubuntu-latest,
-            cc: "clang-10", cxx: "clang++-10",
+            cc: "clang-13", cxx: "clang++-13",
             libcxx: true,
-            libcxx_version: 10,
+            libcxx_version: 13,
             note: " with libc++"
           }
           - {
