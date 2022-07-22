@@ -148,7 +148,7 @@ jobs:
       - name: Build
         run: |
           cd build
-          cmake --build . --config Debug
+          ../cmake-3.18.2-Linux-x86_64/bin/cmake --build . --config Debug
 
       - name: Test
         run: |
