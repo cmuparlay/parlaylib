@@ -79,12 +79,12 @@ jobs:
       - name: Build
         run: |
           cd build
-          make
+          cmake --build . --config ${{ matrix.build_type }}
 
       - name: Test
         run: |
           cd build
-          ctest --no-tests=error --output-on-failure
+          ctest -C ${{ matrix.build_type }} --no-tests=error --output-on-failure
 
   msvc:
     name: windows-latest MSVC 19 (${{matrix.build_type}})
@@ -104,12 +104,12 @@ jobs:
       - name: Build
         run: |
           cd build
-          cmake --build .
+          cmake --build . --config ${{ matrix.build_type }}
 
       - name: Test
         run: |
           cd build
-          ctest -C Debug --no-tests=error --output-on-failure
+          ctest -C ${{ matrix.build_type }} --no-tests=error --output-on-failure
 
   wsl:
     strategy:
@@ -148,7 +148,7 @@ jobs:
       - name: Build
         run: |
           cd build
-          make
+          cmake --build . --config Debug
 
       - name: Test
         run: |
@@ -192,7 +192,7 @@ jobs:
 #      - name: Build
 #        run: |
 #          cd build
-#          cmake --build .
+#          cmake --build . --config Debug
 #
 #      - name: Test
 #        run: |
@@ -227,7 +227,7 @@ jobs:
       - name: Build
         run: |
           cd build
-          make
+          cmake --build . --config Debug
 
       - name: Test
         run: |
@@ -255,13 +255,13 @@ jobs:
         shell: bash
         run: |
           cd build
-          make
+          cmake --build . --config Debug
 
       - name: Test
         shell: bash
         run: |
           cd build
-          ctest --no-tests=error --output-on-failure
+          ctest -C Debug --no-tests=error --output-on-failure
 
   opencilk:
     name: ubuntu-latest Open Cilk Clang 12 (Debug)
@@ -291,13 +291,13 @@ jobs:
         shell: bash
         run: |
           cd build
-          make
+          cmake --build . --config Debug
 
       - name: Test
         shell: bash
         run: |
           cd build
-          ctest --no-tests=error --output-on-failure
+          ctest -C Debug --no-tests=error --output-on-failure
 
   omp:
     name: ubuntu-latest OpenMP Clang 13 (Debug)
@@ -323,13 +323,13 @@ jobs:
         shell: bash
         run: |
           cd build
-          make
+          cmake --build . --config Debug
 
       - name: Test
         shell: bash
         run: |
           cd build
-          ctest --no-tests=error --output-on-failure
+          ctest -C Debug --no-tests=error --output-on-failure
 
   tbb:
     name: ubuntu-latest TBB Clang 13 (Debug)
@@ -355,13 +355,13 @@ jobs:
         shell: bash
         run: |
           cd build
-          make
+          cmake --build . --config Debug
 
       - name: Test
         shell: bash
         run: |
           cd build
-          ctest --no-tests=error --output-on-failure
+          ctest -C Debug --no-tests=error --output-on-failure
 
   cppcheck:
     name: Cppcheck
@@ -460,13 +460,13 @@ jobs:
         shell: bash
         run: |
           cd build
-          make
+          cmake --build . --config Debug
 
       - name: ASAN
         shell: bash
         run: |
           cd build
-          ctest --no-tests=error --output-on-failure -R asan
+          ctest -C Debug --no-tests=error --output-on-failure -R asan
 
   ubsan:
     name: ubuntu-latest UBSAN Clang 13 (Debug)
@@ -491,13 +491,13 @@ jobs:
         shell: bash
         run: |
           cd build
-          make
+          cmake --build . --config Debug
 
       - name: UBSAN
         shell: bash
         run: |
           cd build
-          ctest --no-tests=error --output-on-failure -R ubsan
+          ctest -C Debug --no-tests=error --output-on-failure -R ubsan
 
   coverage:
     name: Test Coverage
@@ -521,13 +521,13 @@ jobs:
         shell: bash
         run: |
           cd build
-          make
+          cmake --build . --config Debug
 
       - name: Test
         shell: bash
         run: |
           cd build
-          make check
+          cmake --build . --target check --config Debug
 
       - name: Report coverage
         shell: bash
