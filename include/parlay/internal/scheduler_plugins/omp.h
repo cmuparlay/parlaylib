@@ -17,8 +17,13 @@ namespace parlay {
 
 // IWYU pragma: private, include "../../parallel.h"
 
-inline size_t num_workers() { return omp_get_max_threads(); }
-inline size_t worker_id() { return omp_get_thread_num(); }
+inline size_t num_workers() {
+  return omp_get_max_threads();
+}
+
+inline size_t worker_id() {
+  return omp_get_thread_num();
+}
 
 
 template <class F>
@@ -30,13 +35,13 @@ inline void parallel_for(size_t start, size_t end, F f, long granularity, bool) 
       #pragma omp single
       {
         if (granularity == 0) {
-          #pragma omp taskloop
+          #pragma omp taskloop untied
           for (size_t i = start; i < end; i++) {
             f(i);
           }
         }
         else {
-          #pragma omp taskloop grainsize(granularity)
+          #pragma omp taskloop untied grainsize(granularity)
           for (size_t i = start; i < end; i++) {
             f(i);
           }
@@ -47,13 +52,13 @@ inline void parallel_for(size_t start, size_t end, F f, long granularity, bool) 
   // Already inside a parallel region, avoid creating nested one (see comment at top)
   else {
     if (granularity == 0) {
-      #pragma omp taskloop
+      #pragma omp taskloop untied
       for (size_t i = start; i < end; i++) {
         f(i);
       }
     }
     else {
-      #pragma omp taskloop grainsize(granularity)
+      #pragma omp taskloop untied grainsize(granularity)
       for (size_t i = start; i < end; i++) {
         f(i);
       }
@@ -69,19 +74,19 @@ inline void par_do(Lf left, Rf right, bool) {
     {
       #pragma omp single
       {
-        #pragma omp task
+        #pragma omp task untied
         { left(); }
-        #pragma omp task
+        #pragma omp task untied
         { right(); }
+        #pragma omp taskwait
       }  // omp single
     }  // omp parallel
-  #pragma omp taskwait
   }
   // Already inside a parallel region, avoid creating nested one (see comment at top)
   else {
-    #pragma omp task
+    #pragma omp task untied
     { left(); }
-    #pragma omp task
+    #pragma omp task untied
     { right(); }
     #pragma omp taskwait
   }
