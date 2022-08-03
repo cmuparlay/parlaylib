@@ -63,15 +63,15 @@ struct block_allocator {
   size_t max_blocks;
   std::atomic<size_t> blocks_allocated;
 
-  block* get_block(std::byte* buffer, size_t block_number) const {
+  block* get_block(std::byte* buffer, size_t i) const {
     // Since block is an aggregate type, it has implicit lifetime, so the following code
-    // is defined behaviour in C++20 even though we never explicitly call a constructor
+    // is defined behaviour in C++20 even if we haven't yet called a constructor
     // of block. It is still UB prior to C++20, and this is probably unavoidable. Even
     // worse on older compilers that don't have std::launder!
 #ifdef __cpp_lib_launder
-    return std::launder(reinterpret_cast<block*>(buffer + block_number * block_size));
+    return std::launder(reinterpret_cast<block*>(buffer + i * block_size));
 #else
-    return reinterpret_cast<block*>(buffer + block_number * block_size);
+    return reinterpret_cast<block*>(buffer + i * block_size);
 #endif  // __cpp_lib_launder
   }
 
@@ -88,10 +88,9 @@ struct block_allocator {
 
   auto initialize_list(std::byte* buffer) const -> block* {
     parallel_for (0, list_length - 1, [&] (size_t i) {
-      auto next = get_block(buffer, i+1);
-      get_block(buffer, i)->next = next;
-    }, 1000, true);
-    get_block(buffer, list_length - 1)->next = nullptr;
+      new (buffer + i * block_size) block{get_block(buffer, i+1)};
+    });
+    new (buffer + (list_length - 1) * block_size) block{nullptr};
     return get_block(buffer, 0);
   }
 
@@ -188,7 +187,6 @@ struct block_allocator {
   }
 
   void free(void* ptr) {
-    auto new_node = reinterpret_cast<block*>(ptr);
     size_t id = worker_id();
 
     if (local_lists[id].sz == list_length+1) {
@@ -198,7 +196,9 @@ struct block_allocator {
       local_lists[id].mid->next = nullptr;
       local_lists[id].sz = list_length;
     }
-    new_node->next = local_lists[id].head;
+
+    assert(id == worker_id());
+    auto new_node = new (ptr) block{local_lists[id].head};
     local_lists[id].head = new_node;
     local_lists[id].sz++;
   }
@@ -228,10 +228,12 @@ struct block_allocator {
     }
 
     assert(id == worker_id());
-    local_lists[id].sz--;
     block* p = local_lists[id].head;
     local_lists[id].head = local_lists[id].head->next;
+    local_lists[id].sz--;
 
+    // Note: block is trivial, so it is legal to not call its destructor
+    // before returning it and allowing its storage to be reused
     return static_cast<void*>(p);
   }
 

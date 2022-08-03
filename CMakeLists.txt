@@ -149,7 +149,7 @@ if (PARLAY_BENCHMARK)
   # Download Benchmark library
   include(FetchContent)
   FetchContent_Declare(benchmark
-    GIT_REPOSITORY  https://github.com/google/benchmark
+    GIT_REPOSITORY  https://github.com/google/benchmark.git
     GIT_TAG         v1.6.2
   )
   FetchContent_GetProperties(benchmark)

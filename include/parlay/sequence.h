@@ -547,7 +547,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     storage.initialize_capacity(n);
     auto buffer = storage.data();
     for (size_t i = 0; first != last; i++, ++first) {
-      storage.initialize_explicit(buffer + i, *first);
+      storage.initialize(buffer + i, *first);
     }
     storage.set_size(n);
   }
@@ -558,7 +558,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     storage.initialize_capacity(n);
     auto buffer = storage.data();
     parallel_for(0, n, [&](size_t i) {
-      storage.initialize_explicit(buffer + i, first[i]);
+      storage.initialize(buffer + i, first[i]);
     }, copy_granularity(n));
     storage.set_size(n);
   }
@@ -600,7 +600,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   }
 
   // Distinguish between different types of iterators
-  // InputIterators ad FowardIterators can not be used
+  // InputIterators and ForwardIterators can not be used
   // in parallel, so they operate sequentially.
 
   template<typename InputIterator_>
@@ -628,7 +628,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     storage.ensure_capacity(size() + n);
     auto it = end();
     parallel_for(0, n, [&](size_t i) {
-      storage.initialize_explicit(it + i, first[i]);
+      storage.initialize(it + i, first[i]);
     }, copy_granularity(n));
     storage.set_size(size() + n);
     return it;
