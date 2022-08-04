@@ -3,7 +3,7 @@
 #define PARLAY_INTERNAL_POOL_ALLOCATOR_H
 
 #include <cassert>
-#include <cstdlib>
+#include <cstddef>
 
 #include <algorithm>
 #include <atomic>
@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "../parallel.h"
+#include "../utilities.h"
 
 #include "block_allocator.h"
 
@@ -48,9 +49,9 @@ struct pool_allocator {
   std::atomic<size_t> large_allocated{0};
   std::atomic<size_t> large_used{0};
 
-  std::unique_ptr<internal::hazptr_stack<void*>[]> large_buckets;
-  internal::block_allocator* small_allocators;
   std::unique_ptr<size_t[]> sizes;
+  std::unique_ptr<internal::hazptr_stack<void*>[]> large_buckets;
+  unique_array<block_allocator> small_allocators;
 
   void* allocate_large(size_t n) {
 
@@ -97,10 +98,6 @@ struct pool_allocator {
   pool_allocator& operator=(pool_allocator&&) = delete;
 
   ~pool_allocator() {
-    for (size_t i=0; i < num_small; i++) {
-      small_allocators[i].~block_allocator();
-    }
-    ::operator delete(small_allocators, std::align_val_t{alignof(internal::block_allocator)});
     clear();
   }
 
@@ -108,7 +105,7 @@ struct pool_allocator {
       num_buckets(sizes_.size()),
       sizes(std::make_unique<size_t[]>(num_buckets)) {
 
-    std::copy(std::begin(sizes_), std::end(sizes_), &sizes[0]);
+    std::copy(std::begin(sizes_), std::end(sizes_), sizes.get());
     max_size = sizes[num_buckets-1];
     num_small = 0;
     while (num_small < num_buckets && sizes[num_small] < large_threshold)
@@ -116,19 +113,19 @@ struct pool_allocator {
     max_small = (num_small > 0) ? sizes[num_small - 1] : 0;
 
     large_buckets = std::make_unique<internal::hazptr_stack<void*>[]>(num_buckets-num_small);
+    small_allocators = make_unique_array<internal::block_allocator>(num_small, [&](size_t i) {
+      return internal::block_allocator(sizes[i]);
+    });
 
-    small_allocators = static_cast<internal::block_allocator*>(
-        ::operator new(num_small * sizeof(internal::block_allocator), std::align_val_t{alignof(internal::block_allocator)} ));
-
-    [[maybe_unused]] size_t prev_bucket_size = 0;
-
+#ifndef NDEBUG
+    size_t prev_bucket_size = 0;
     for (size_t i = 0; i < num_small; i++) {
       size_t bucket_size = sizes[i];
       assert(bucket_size >= 8);
       assert(bucket_size > prev_bucket_size);
       prev_bucket_size = bucket_size;
-      new (&small_allocators[i]) internal::block_allocator(bucket_size);
     }
+#endif
   }
 
   void* allocate(size_t n) {
@@ -155,8 +152,9 @@ struct pool_allocator {
       h[i] = allocate(max_small);
     }, 1);
     parallel_for(0, bc, [&] (size_t i) {
-      for (size_t j=0; j < max_small; j += (1 << 12))
-        ((char*) h[i])[j] = 0;
+      for (size_t j=0; j < max_small; j += (1 << 12)) {
+        static_cast<std::byte*>(h[i])[j] = std::byte{0};
+      }
     }, 1);
     for (size_t i=0; i < bc; i++)
       deallocate(h[i], max_small);
