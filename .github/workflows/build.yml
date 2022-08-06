@@ -6,7 +6,7 @@ env:
 jobs:
   build:
     name: ${{ matrix.config.os }} ${{ matrix.config.cxx }} ${{ matrix.config.note }} (${{ matrix.build_type }})
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ${{ matrix.config.os }}
     defaults:
       run:
@@ -89,7 +89,7 @@ jobs:
 
   msvc:
     name: windows-latest MSVC 19 (${{matrix.build_type}})
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: windows-latest
     strategy:
       matrix:
@@ -121,7 +121,7 @@ jobs:
           - { cc: "clang-13", cxx: "clang++-13" }
 
     name: windows-2019 WSL ${{ matrix.config.cxx }} (Debug)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: windows-2019
     defaults:
       run:
@@ -167,7 +167,7 @@ jobs:
 #          - { sys: clang64 }
 #
 #    name: windows-latest MSYS2 ${{ matrix.sys }} (Debug)
-#    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+#    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
 #    runs-on: windows-latest
 #    defaults:
 #      run:
@@ -211,7 +211,7 @@ jobs:
           - { cc: "clang", cxx: "clang++" }
 
     name: windows-latest Cygwin ${{ matrix.config.cxx }} (Release)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: windows-latest
     defaults:
       run:
@@ -241,7 +241,7 @@ jobs:
 
   cilk-plus:
     name: ubuntu-18.04 Cilk Plus GCC-7 (Debug)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-18.04   # Note: GCC-7 on Ubuntu-20 removed Cilk Plus, so we have to go back in time
     steps:
       - uses: actions/checkout@v2
@@ -271,7 +271,7 @@ jobs:
 
   opencilk:
     name: ubuntu-latest Open Cilk 2.0 (Clang 14) (Debug)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -308,7 +308,7 @@ jobs:
 
   omp:
     name: ubuntu-latest OpenMP Clang 13 (Debug)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -341,7 +341,7 @@ jobs:
 
   tbb:
     name: ubuntu-latest TBB Clang 13 (Debug)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -374,7 +374,7 @@ jobs:
 
   cppcheck:
     name: Cppcheck
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -398,7 +398,7 @@ jobs:
 
   clang-tidy:
     name: Clang Tidy
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -421,7 +421,7 @@ jobs:
 
   iwyu:
     name: Include-what-you-use
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -450,7 +450,7 @@ jobs:
   asan:
     # Running with old Clang 10 because GoogleTest triggers ASAN on Clang 13 for some reason
     name: ubuntu-latest ASAN Clang 10 (Debug)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -483,7 +483,7 @@ jobs:
 
   ubsan:
     name: ubuntu-latest UBSAN Clang 13 (Debug)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -515,7 +515,7 @@ jobs:
 
   coverage:
     name: Test Coverage
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     needs: build
     steps:
