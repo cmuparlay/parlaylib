@@ -21,9 +21,9 @@
 
 namespace parlay {
 
-// ****************************************
-//    default_allocator (uses powers of two as pool sizes)
-// ****************************************
+// ----------------------------------------------------------------------------
+//          default_allocator (uses powers of two as pool sizes)
+// ----------------------------------------------------------------------------
 
 namespace internal {
 
@@ -54,13 +54,18 @@ inline void memory_clear() {
 
 }  // namespace internal
 
-// ****************************************
-// Following Matches the c++ Allocator specification (minimally)
+
+
+// A general purpose allocator for arrays of type T.
+//
+// Matches the c++ Allocator specification (minimally)
 // https://en.cppreference.com/w/cpp/named_req/Allocator
 // Can therefore be used for containers, e.g.:
 //    std::vector<int, parlay::allocator<int>>
-// ****************************************
-
+//
+// Note on alignment: Aligned allocations are guaranteed for over-aligned types
+// up to 128 bytes. Over-alignment beyond this value is not guaranteed.
+//
 template <typename T>
 struct allocator {
   using value_type = T;
@@ -83,53 +88,60 @@ bool operator==(const allocator<T>&, const allocator<U>&) { return true; }
 template <class T, class U>
 bool operator!=(const allocator<T>&, const allocator<U>&) { return false; }
 
-// ****************************************
+// ----------------------------------------------------------------------------
 //  Free allocation functions
 //
-//  Allocates headered blocks so the user
-//  doesn't need to remember the size
-// ****************************************
+//  Allocates headered blocks so the user doesn't need to remember the size
+// ----------------------------------------------------------------------------
 
 namespace internal {
 
-constexpr inline size_t alloc_size_offset = 1;  // in size_t sized words
-
-// needs to be at least size_offset * sizeof(size_t)
-inline size_t alloc_header_size(size_t n) {  // in bytes
-  return (n >= 1024) ? 64 : (n & 15) ? 8 : (n & 63) ? 16 : 64;
+// Size of the padding for p_malloc. For large allocations, uses a larger
+// padding to guarantee at least 64-byte alignment. Needs to be at least
+// max(sizeof(size_t), alignof(max_align_t)).
+inline size_t alloc_padding_size(size_t n) {  // in bytes
+  return std::max<size_t>(alignof(std::max_align_t),
+    (n >= 1024) ? 64 : (n & 15) ? 8 : (n & 63) ? 16 : 64);
 }
 
 }  // namespace internal
 
-// allocates and tags with a header (8, 16 or 64 bytes) that contains the size
+// Allocate n bytes of uninitialized storage.
+//
+// Alignment is guaranteed to be at least alignof(std::max_align_t) for all
+// values of n, and will be up to 64-byte aligned for larger values of n
 inline void* p_malloc(size_t n) {
-  size_t hsize = internal::alloc_header_size(n);
-  void* ptr = internal::get_default_allocator().allocate(n + hsize);
-  void* r = (void*) (((char*) ptr) + hsize);
-  *(((size_t*) r) - internal::alloc_size_offset) = n; // puts size in header
+  // allocates and tags with a header that contains the size
+  size_t pad_size = internal::alloc_padding_size(n);
+  void* buffer = internal::get_default_allocator().allocate(n + pad_size);
+  auto r = static_cast<void*>(static_cast<std::byte*>(buffer) + pad_size);
+  new (static_cast<std::byte*>(r) - sizeof(size_t)) size_t{n};  // puts size in header word
   return r;
 }
 
-// reads the size, offsets the header and frees
+// Free a block of memory obtained by p_malloc
 inline void p_free(void* ptr) {
-  size_t n = *(((size_t*) ptr) - internal::alloc_size_offset);
-  size_t hsize = internal::alloc_header_size(n);
-  if (hsize > (1ull << 48)) {
-    std::cout << "corrupted header in p_free" << std::endl;
-    throw std::bad_alloc();
+  // reads the size, offsets the header and frees
+  size_t n = *from_bytes<size_t>(static_cast<std::byte*>(ptr) - sizeof(size_t));
+  size_t pad_size = internal::alloc_padding_size(n);
+  if (pad_size > 64) {
+    std::cerr << "corrupted header in p_free" << std::endl;
+    std::abort();
   }
-  internal::get_default_allocator().deallocate((void*) (((char*) ptr) - hsize), n + hsize);
+  internal::get_default_allocator().deallocate(
+    static_cast<void*>(static_cast<std::byte*>(ptr) - pad_size), n + pad_size);
 }
 
 
-// ****************************************
+// ----------------------------------------------------------------------------
 // Static allocator for single items of a given type, e.g.
 //   using long_allocator = type_allocator<long>;
 //   long* foo = long_allocator::alloc();
-//   *foo = (long) 23;
+//   new (foo) long{23};
 //   long_allocator::free(foo);
-// Uses block allocator, and is headerless
-// ****************************************
+//
+// Uses block allocator internally, and is headerless
+// ----------------------------------------------------------------------------
 
 namespace internal {
 template<size_t Size, size_t Align>

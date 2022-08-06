@@ -33,13 +33,16 @@ namespace internal {
 // A vector of pool sizes is given to the constructor.
 // Sizes must be at least 8, and must increase.
 // For pools of small blocks (below large_threshold) each thread keeps a
-//   thread local list of elements from each pool using the
-//   block_allocator.
-// For pools of large blocks there is only one shared pool for each.
+// thread local list of elements from each pool using the block_allocator.
+// For large blocks there is only one pool shared by all threads. For
+// blocks larger than the maximum pool size, allocation and deallocation
+// is performed directly by operator new.
 struct pool_allocator {
 
+  // Maximum alignment guaranteed by the allocator
+  static inline constexpr size_t max_alignment = 128;
+  
  private:
-  static inline constexpr size_t large_align = 64;
   static inline constexpr size_t large_threshold = (1 << 18);
 
   size_t num_buckets;
@@ -68,11 +71,11 @@ struct pool_allocator {
 
     // Alloc size must be a multiple of the alignment
     // Round up to the next multiple.
-    if (alloc_size % large_align != 0) {
-      alloc_size += (large_align - (alloc_size % large_align));
+    if (alloc_size % max_alignment != 0) {
+      alloc_size += (max_alignment - (alloc_size % max_alignment));
     }
 
-    void* a = (void*) ::operator new(alloc_size, std::align_val_t{large_align});
+    void* a = ::operator new(alloc_size, std::align_val_t{max_alignment});
     if (a == nullptr) throw std::bad_alloc();
 
     large_allocated += n;
@@ -82,7 +85,7 @@ struct pool_allocator {
   void deallocate_large(void* ptr, size_t n) {
     large_used -= n;
     if (n > max_size) {
-      ::operator delete(ptr, std::align_val_t{large_align});
+      ::operator delete(ptr, std::align_val_t{max_alignment});
       large_allocated -= n;
     } else {
       size_t bucket = num_small;
@@ -114,7 +117,7 @@ struct pool_allocator {
 
     large_buckets = std::make_unique<internal::hazptr_stack<void*>[]>(num_buckets-num_small);
     small_allocators = make_unique_array<internal::block_allocator>(num_small, [&](size_t i) {
-      return internal::block_allocator(sizes[i]);
+      return internal::block_allocator(sizes[i], max_alignment);
     });
 
 #ifndef NDEBUG
@@ -196,7 +199,7 @@ struct pool_allocator {
       std::optional<void*> r = large_buckets[i-num_small].pop();
       while (r) {
         large_allocated -= sizes[i];
-        ::operator delete(*r, std::align_val_t{large_align});
+        ::operator delete(*r, std::align_val_t{max_alignment});
         r = large_buckets[i-num_small].pop();
       }
     }

@@ -25,6 +25,7 @@
 #include <optional>
 
 #include "../parallel.h"
+#include "../utilities.h"
 
 #include "concurrency/hazptr_stack.h"
 
@@ -65,14 +66,9 @@ struct block_allocator {
 
   block* get_block(std::byte* buffer, size_t i) const {
     // Since block is an aggregate type, it has implicit lifetime, so the following code
-    // is defined behaviour in C++20 even if we haven't yet called a constructor
-    // of block. It is still UB prior to C++20, and this is probably unavoidable. Even
-    // worse on older compilers that don't have std::launder!
-#ifdef __cpp_lib_launder
-    return std::launder(reinterpret_cast<block*>(buffer + i * block_size));
-#else
-    return reinterpret_cast<block*>(buffer + i * block_size);
-#endif  // __cpp_lib_launder
+    // is defined behaviour in C++20 even if we haven't yet called a constructor of block.
+    // It is still UB prior to C++20, but this is hard to avoid without losing performance.
+    return from_bytes<block>(buffer + i * block_size);
   }
 
  public:

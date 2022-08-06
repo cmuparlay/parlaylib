@@ -53,6 +53,19 @@ static void par_do3_if(bool do_parallel, Lf left, Mf mid, Rf right) {
   }
 }
 
+// Obtains a pointer to an object of type T located at the address represented
+// by p. Essentially performs std::launder(reinterpret_cast<T*>(p)).
+template<typename T>
+[[nodiscard]] constexpr T* from_bytes(std::byte* p) noexcept {
+  // std::launder not available on older compilers
+#ifdef __cpp_lib_launder
+  return std::launder(reinterpret_cast<T*>(p));
+#else
+  return reinterpret_cast<T*>(p);
+#endif
+}
+
+
 template <class T>
 size_t log2_up(T);
 
