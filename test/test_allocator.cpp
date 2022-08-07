@@ -81,8 +81,9 @@ TEST(TestAllocator, TestParlayAllocatorOverAligned) {
     a.deallocate(p, 1);
   };
 
-  // Test on alignments 2^{0,1,2,3,...,15}
-  auto alignments = std::make_index_sequence<16>();
+  // Test on alignments 2^{0,1,2,3,...,13}
+  // 2^13 is a common maximum alignment allowed by implementations
+  auto alignments = std::make_index_sequence<14>();
   for_each_alignment(test_align, alignments);
 }
 
@@ -97,8 +98,9 @@ TEST(TestAllocator, TestTypeAllocatorAlignment) {
     my_allocator::free(p);
   };
 
-  // Test on alignments 2^{0,1,2,3,...,15}
-  auto alignments = std::make_index_sequence<16>();
+  // Test on alignments 2^{0,1,2,3,...,13}
+  // 2^13 is a common maximum alignment allowed by implementations
+  auto alignments = std::make_index_sequence<14>();
   for_each_alignment(test_align, alignments);
 }
 

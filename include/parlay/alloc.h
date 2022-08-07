@@ -130,7 +130,7 @@ inline void p_free(void* ptr) {
     std::abort();
   }
   auto buffer = static_cast<void*>(static_cast<std::byte*>(ptr) - h.offset);
-  internal::get_default_allocator().deallocate(buffer, size_t{1} << size_t{h.log_size});
+  internal::get_default_allocator().deallocate(buffer, size_t{1} << size_t(h.log_size));
 }
 
 
