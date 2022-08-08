@@ -84,10 +84,10 @@ struct Node {
   Node(double value_) : value(value_), left(nullptr), right(nullptr) { }
 };
 
-using node_allocator = parlay::type_allocator<Node>;  // Convenient alias (optional)
+using node_allocator = parlay::type_allocator<Node>;  // Convenient alias
 
-Node* node = node_allocator::create(3.14);  // Constructs a node in the allocated storage by calling Node{3.14}
-node_allocator::destroy(node);              // Destroys the node and deallocates its storage
+Node* node = node_allocator::create(3.14);  // Constructs a node
+node_allocator::destroy(node);              // Destroys the node
 ```
 
 #### Template parameters
