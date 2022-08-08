@@ -318,7 +318,7 @@ template<typename Range>
 auto enumerate(Range&& r)
 ```
 
-**Enumerate** takes a range and produces a range of pairs, such that the i'th pair consists of the integer i and the i'th element of `r`. It is equivalent to `zip(parlay::iota(parlay::size(r), r))`.
+**Enumerate** takes a range and produces a range of pairs, such that the i'th pair consists of the integer i and the i'th element of `r`. It is equivalent to `zip(parlay::iota(parlay::size(r)), r)`.
 
 ### Terminal operations
 
