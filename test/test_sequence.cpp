@@ -836,6 +836,26 @@ TEST(TestSequence, TestNonDefaultConstructibleType) {
   }
 }
 
+TEST(TestSequence, TestCopyElisionFromFunction) {
+  struct foo {
+    std::atomic<int> x, y;
+  };
+  static_assert(!std::is_copy_constructible_v<foo>);
+  static_assert(!std::is_move_constructible_v<foo>);
+
+  // foo is not copy or move constructible, so this will only
+  // work if copy elision succeeds in directly constructing
+  // the foo straight into the sequence
+  auto s = parlay::sequence<foo>::from_function(100000, [](int i) {
+    return foo{i, i+1};
+  });
+
+  for (size_t i = 0; i < s.size(); i++) {
+    ASSERT_EQ(s[i].x.load(), i);
+    ASSERT_EQ(s[i].y.load(), i+1);
+  }
+}
+
 struct NonStandardLayout {
   int x;
   NonStandardLayout(int _x) : x(_x) { }

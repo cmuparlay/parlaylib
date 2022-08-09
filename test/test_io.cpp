@@ -19,12 +19,12 @@ TEST(TestIO, TestCharsFromFile) {
   auto s = parlay::chars_from_file(filename, false);
   
   // Space and control characters are inconsistent
-  //across platforms, so we ignore them.
+  // across platforms, so we ignore them.
   auto contents2 = parlay::filter(contents, [](unsigned char c) { return std::isprint(c); });
   auto s2 = parlay::filter(s, [](unsigned char c) { return std::isprint(c); });
 
   ASSERT_EQ(contents2.size(), s2.size());
-  for (size_t i = 0; i < contents.size(); i++) {
+  for (size_t i = 0; i < contents2.size(); i++) {
       ASSERT_EQ(contents2[i], s2[i]);
   }
 }

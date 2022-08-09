@@ -20,7 +20,7 @@ inline size_t worker_id();
 
 // parallel loop from start (inclusive) to end (exclusive) running
 // function f.
-//    f should map long to void.
+//    f should map size_t to void.
 //    granularity is the number of iterations to run sequentially
 //      if 0 (default) then the scheduler will decide
 //    conservative uses a safer scheduler

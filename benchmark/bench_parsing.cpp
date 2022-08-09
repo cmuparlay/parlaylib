@@ -184,7 +184,7 @@ static void bench_chars_to_long_double_slowpath(benchmark::State& state) {
 
 #define BENCH(NAME, T, ...) BENCHMARK_TEMPLATE(bench_ ## NAME, T)                   \
                           ->UseRealTime()                                           \
-                          ->Unit(benchmark::kMillisecond)                           \
+                          ->Unit(benchmark::kNanosecond)                            \
                           ->Args({__VA_ARGS__});
 
 
