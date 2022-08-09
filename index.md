@@ -7,7 +7,7 @@ Parlay is designed to be reasonably portable by being built upon mostly standard
 
 ## Getting started
 
-See the [installation](./installation.md) guide for instructions on installing Parlay and including it in your program. Parlay is a header-only library with no external dependencies, so once you've got it, its really easy to use. The most important components of Parlay to become familiarized with are the **parallel for loop**, the **sequence** container, and Parlay's library of parallel algorithms. As an example, here is an implementation of a [prime number seive](https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes) using Parlay.
+See the [including and configuring](./installation.md) guide for instructions on installing Parlay and including it in your program. Parlay is a header-only library with no external dependencies, so once you've got it, its really easy to use. The most important components of Parlay to become familiarized with are the **parallel for loop**, the **sequence** container, and Parlay's library of parallel algorithms. As an example, here is an implementation of a [prime number seive](https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes) using Parlay.
 
 ```c++
 #include <parlay/parallel.h>
@@ -38,6 +38,10 @@ This code demonstrates several of the key features mentioned above. The parallel
 ## Documentation
 
 Documentation for Parlay is an ongoing effort.
+
+### Getting started
+
+* [Including and configuring](./installation.md) - Setting up Parlay and configuring parallelism
 
 ### Data types
 
