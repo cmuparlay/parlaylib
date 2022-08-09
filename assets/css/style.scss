@@ -1,0 +1,26 @@
+---
+---
+
+@import "{{ site.theme }}";
+
+code {
+  background-color: transparent;
+}
+
+.main-content table {
+  display: table;
+  font-size: 10pt;
+}
+
+.main-content table code {
+  font-size: 10pt;
+}
+
+.main-content table th, .main-content table td {
+  border: none;
+  border-bottom: 1px solid #e9ebec;
+}
+
+.main-content table th {
+  text-align: left;
+}
