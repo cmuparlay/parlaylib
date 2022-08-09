@@ -6,7 +6,7 @@
 template <
     typename T,
     typename Allocator = parlay::allocator<T>,
-    bool EnableSSO = false
+    bool EnableSSO = std::is_same_v<T, char>
 > class sequence
 ```
 
@@ -15,6 +15,7 @@ A **sequence** is a parallel version of `std::vector`. It supports the same oper
 ## Reference
 
 - [Template parameters](#template-parameters)
+- [Aliases](#aliases)
 - [Constructors](#constructors)
 - [Member types](#member-types)
 - [Member functions](#member-functions)
@@ -24,10 +25,25 @@ A **sequence** is a parallel version of `std::vector`. It supports the same oper
 
 ### Template parameters
 
-* **T** is the type of the elements of the sequence. In general, elements of a sequence should be move constructible, but immobile types (e.g. `std::atomic`) can be used provided that no operations that could trigger a reallocation (e.g. push_back, resize, etc) are used. T must be *Erasable*, i.e. destructible.
-* **Allocator** is the allocator used to allocate/deallocate memory for the sequence. The `value_type` of the allocator must be `T`. By default, `parlay::allocator<T>` is used. To switch the default to `std::allocator<T>`, add the compile definition `PARLAY_USE_STD_ALLOC`
-* **EnableSSO** should be true to enable small-size optimization. This will only have an effect for trivial types that fit inside the sequence object (typically sequences of elements totalling at most 15 bytes).
+* **T** is the type of the elements of the sequence. In general, elements of a sequence should be move constructible, but immobile types (e.g. `std::atomic`) can be used provided that no operations that could trigger a reallocation (e.g. `push_back`, `resize`, etc) are used. `T` must be *Erasable*, i.e. destructible.
+* **Allocator** is the allocator used to allocate/deallocate memory for the sequence. The `value_type` of the allocator must be `T`. By default, `parlay::allocator<T>` is used. To switch the default to `std::allocator<T>`, add the compile definition `PARLAY_USE_STD_ALLOC`.
+* **EnableSSO** should be true to enable small-size optimization. This will only have an effect for trivial types that fit inside the sequence object (typically sequences of elements totalling at most 15 bytes). It is disabled by default, except when `T` is `char`, in which case it is enabled by default.
 
+### Aliases
+
+```c++
+template<typename T, typename Allocator = /* default allocator */>
+using short_sequence = sequence<T, Allocator, true>;
+```
+
+**short_sequence** is an alias for `sequence` with small-size optimisation enabled by default.
+    
+```c++
+using chars = sequence<char, /* default allocator */, true>;
+```
+    
+**chars** is an alias for a short-size optimized character sequence. You can think of chars as either an abbreviation of "char sequence", or as the plural of char. Both make sense!
+    
 ### Constructors
 
 ```c++
@@ -203,7 +219,7 @@ sequence<T, Allocator, EnableSSO>::from_function(size_t n, F&& f)
 ```
 
 Returns a sequence consisting of elements of type `T` constructed from `f(0), f(1), ..., f(n-1)`. Prefer to use `parlay::tabulate` instead, which can deduce the types for you.
-
+    
 ### Non-member functions
 
 ```c++
@@ -216,4 +232,5 @@ auto to_short_sequence(R&& r) -> short_sequence<range_value_type_t<R>>
 ```
 
 Return a sequence or short sequence respectively, consisting of copies of the elements of the random-access range `r`.
+
 
