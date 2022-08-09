@@ -95,7 +95,7 @@ Library | Definition to enable | Other flags | Notes
 ---|---|---|---
 CilkPlus | `-DPARLAY_CILKPLUS` | `-fcilkplus` | Requires GCC 7 (removed in later versions)
 OpenCilk | `-DPARLAY_OPENCILK` | `-fopencilk` | Requires the [OpenCilk compiler](https://github.com/OpenCilk/opencilk-project/releases)
-OpenMP | `-DPARLAY_OPENMP` | `-fopenmp` / `/openmp` | Requires an OpenMP runtime compatible with your compiler
+OpenMP | `-DPARLAY_OPENMP` | `-fopenmp` or `/openmp` | Requires an OpenMP runtime compatible with your compiler
 TBB | `-DPARLAY_TBB` | - | Requires linking against the TBB library
 
 ### Setting the number of worker threads
