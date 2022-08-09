@@ -10,7 +10,7 @@ template <
 > class sequence
 ```
 
-A **sequence** is a parallel version of `std::vector`. It supports the same operations, but performs all initialization, updates, and destruction in parallel. Sequences satisfiy the range concept. Like `std::vector`, it stores all elements contiguously, and hence it is well defined to operate on pointers to ranges of elements of the sequence. It optionally supports small-size optimization, where sequences of trivial types that fit inside the sequence object will be stored inline without performing any heap allocations. A convenience alias, `short_sequence<T, Allocator>`, is provided, which is equivalent to `sequence<T, Allocator, true>`.
+A **sequence** is a parallel version of `std::vector`. It supports the same operations, but performs all initialization, updates, and destruction in parallel. Like `std::vector`, it stores all elements contiguously, and hence is a random-access range. It optionally supports small-size optimization, where sequences of trivial types that fit inside the sequence object will be stored inline without performing any heap allocations. A convenience alias, `short_sequence<T, Allocator>`, is provided, which is equivalent to `sequence<T, Allocator, true>`.
 
 ## Reference
 
