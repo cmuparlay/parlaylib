@@ -63,11 +63,11 @@ Type | Definition
 `reference` | `T`
 `const_reference` | `std::add_const_t<T>`
 `iterator` | A constant random access iterator
-`const_iterator` | Same as `iterator`
+`const_iterator` | `iterator`
 `reverse_iterator` | `std::reverse_iterator<iterator>`
-`const_reverse_iterator` | Same as `reverse_iterator`
+`const_reverse_iterator` | `reverse_iterator`
 `difference_type` | `std::ptrdiff_t`
-`size_type` | `size_t`
+`size_type` | `std::size_t`
 
 ### Member functions
 
@@ -75,29 +75,29 @@ Type | Definition
 
 Function | Description
 ---|---
-`iterator begin()` | Iterator to the beginning of the sequence
-`iterator end()` |  Iterator to the end of the sequence
-`const_iterator cbegin()` |  Constant iterator to the beginning of the sequence
-`const_iterator cend()` |  Constant iterator to the end of the sequence
-`reverse_iterator rbegin()` |  Reverse iterator to the end of the sequence
-`reverse_iterator rend()` |  Reverse iterator to the beginning of the sequence
-`const_reverse_iterator crbegin()` | Constant reverse iterator to the end of the sequence
-`const_reverse_iterator crend()` |  Constant reverse iterator to the beginning of the sequence
+`iterator begin() const` | Iterator to the beginning of the sequence
+`iterator end() const` |  Iterator to the end of the sequence
+`const_iterator cbegin() const` |  Constant iterator to the beginning of the sequence
+`const_iterator cend() const` |  Constant iterator to the end of the sequence
+`reverse_iterator rbegin() const` |  Reverse iterator to the end of the sequence
+`reverse_iterator rend() const` |  Reverse iterator to the beginning of the sequence
+`const_reverse_iterator crbegin() const` | Constant reverse iterator to the end of the sequence
+`const_reverse_iterator crend() const` |  Constant reverse iterator to the beginning of the sequence
 
 **Element access**
 
 Function | Description
 ---|---
-`T operator[](size_t i)` | Generate the i'th element of the sequence
-`T front()` | Generate the first element of the sequence
-`T back()` | Generate the last element of the sequence
+`T operator[](size_t i) const` | Generate the i'th element of the sequence
+`T front() const` | Generate the first element of the sequence
+`T back() const` | Generate the last element of the sequence
 
 **Size**
 
 Function | Description
 ---|---
-`size_type size()` | Return the length of the sequence
-`bool empty()` | Return true if the sequence is empty
+`size_type size() const` | Return the length of the sequence
+`bool empty() const` | Return true if the sequence is empty
 
 **Miscelaneous**
 
