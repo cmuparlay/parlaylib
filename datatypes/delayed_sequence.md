@@ -75,14 +75,14 @@ Type | Definition
 
 Function | Description
 ---|---
-` iterator begin() ` | Iterator to the beginning of the sequence
-` iterator end() ` |  Iterator to the end of the sequence
-` const_iterator cbegin() ` |  Constant iterator to the beginning of the sequence
-` const_iterator cend() ` |  Constant iterator to the end of the sequence
-` reverse_iterator rbegin() ` |  Reverse iterator to the end of the sequence
-` reverse_iterator rend() ` |  Reverse iterator to the beginning of the sequence
-` const_reverse_iterator crbegin() ` | Constant reverse iterator to the end of the sequence
-` const_reverse_iterator crend() ` |  Constant reverse iterator to the beginning of the sequence
+`iterator begin()` | Iterator to the beginning of the sequence
+`iterator end()` |  Iterator to the end of the sequence
+`const_iterator cbegin()` |  Constant iterator to the beginning of the sequence
+`const_iterator cend()` |  Constant iterator to the end of the sequence
+`reverse_iterator rbegin()` |  Reverse iterator to the end of the sequence
+`reverse_iterator rend()` |  Reverse iterator to the beginning of the sequence
+`const_reverse_iterator crbegin()` | Constant reverse iterator to the end of the sequence
+`const_reverse_iterator crend()` |  Constant reverse iterator to the beginning of the sequence
 
 **Element access**
 
