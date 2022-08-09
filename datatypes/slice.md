@@ -44,10 +44,10 @@ The copy and move constructors simply copy or move the underlying iterators resp
 
 Type | Definition
 ---|---
-`iterator` | Equal to `It`
-`sentinel` | Equal to `S`
-`value_type` | Equal to `std::iterator_traits<iterator>::value_type`
-`reference` | Equal to `std::iterator_traits<iterator>::reference`
+`iterator` | `It`
+`sentinel` | `S`
+`value_type` | `std::iterator_traits<iterator>::value_type`
+`reference` | `std::iterator_traits<iterator>::reference`
 
 ### Member functions
 
@@ -65,5 +65,5 @@ Function | Description
 ---|---
 `bool operator==(slice<It, S> s1, slice<It, S> s2)` | Returns true if the given slices refer to the same iterator range
 
-Note that `operator==` is only well defined when the two slices refer to iterator ranges that are subranges of a common range. Comparing iterators from different containers is undefined behavior.
+Note that `operator==` is only well defined when the two slices refer to iterator ranges that are subranges of the same range. Comparing iterators from different containers is undefined behavior.
 
