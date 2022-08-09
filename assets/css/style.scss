@@ -4,7 +4,12 @@
 @import "{{ site.theme }}";
 
 code {
-  background-color: transparent;
+  background-color: transparent !important;
+  padding: 0 !important;
+}
+
+.main-content {
+  font-size: inherit !important;
 }
 
 .main-content table {
