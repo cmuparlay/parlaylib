@@ -2,17 +2,16 @@
 
 <small>**Usage: `#include <parlay/io.h>`**</small>
 
-Parlay includes some convenient tools for file input and output in terms of `parlay::sequence<char>`, as well as tools for converting to and from `parlay::sequence<char>` and primitive types.
+Parlay includes some convenient tools for file input and output in terms of `parlay::chars`, as well as tools for converting to and from `parlay::chars` and primitive types. `parlay::sequence<char>` is provided as a convenient alias for `parlay::chars`.
 
 ## Reading and writing files
 
 ```c++
-inline parlay::sequence<char> chars_from_file(const std::string& filename,
+parlay::chars chars_from_file(const std::string& filename,
     bool null_terminate, size_t start=0, size_t end=0)
 ```
 ```c++
-inline void chars_to_file(const parlay::sequence<char>& S,
-    const std::string& filename)
+void chars_to_file(const parlay::chars& S, const std::string& filename)
 ```
 
 **chars_from_file** reads the contents of a local file into a character sequence. If `null_terminate` is true, the sequence will be ended by a null terminator (`\0`) character. This is only required for compatability with C APIs and otherwise isn't necessary. To read a particular portion of a file rather than its entirety, the parameters `start` and `end` can specify the positions of the first and last character to read. If `start` or `end` is zero, the file is read from to beginning and/or to the end respectively.
@@ -22,10 +21,10 @@ inline void chars_to_file(const parlay::sequence<char>& S,
 ## Writing character sequences to streams
 
 ```c++
-inline void chars_to_stream(const sequence<char>& S, std::ostream& os)
+void chars_to_stream(const chars& S, std::ostream& os)
 ```
 ```c++
-inline std::ostream& operator<<(std::ostream& os, const sequence<char>& s)
+std::ostream& operator<<(std::ostream& os, const chars& s)
 ```
 
 Character sequences can also be written to standard streams, i.e. types deriving from `std::ostream`. They support the standard `operator<<`, as well as a method **chars_to_stream**, which takes a character sequence and a stream, and writes the given characters to the stream.
@@ -35,31 +34,31 @@ Character sequences can also be written to standard streams, i.e. types deriving
 Parlay has some rudimentary support for converting to/from character sequences and primitive types. Currently, none of these methods perform any error handling, so their behavior is unspecified if attempting to convert between inappropriate types.
 
 ```c++
-inline int chars_to_int(const parlay::sequence<char>& s)
+int chars_to_int(const parlay::chars& s)
 ```
 ```c++
-inline long chars_to_long(const parlay::sequence<char>& s)
+long chars_to_long(const parlay::chars& s)
 ```
 ```c++
-inline long long chars_to_long_long(const parlay::sequence<char>& s)
+long long chars_to_long_long(const parlay::chars& s)
 ```
 ```c++
-inline unsigned int chars_to_uint(const parlay::sequence<char>& s)
+unsigned int chars_to_uint(const parlay::chars& s)
 ```
 ```c++
-inline unsigned long chars_to_ulong(const parlay::sequence<char>& s)
+unsigned long chars_to_ulong(const parlay::chars& s)
 ```
 ```c++
-inline unsigned long long chars_to_ulong_long(const parlay::sequence<char>& s)
+unsigned long long chars_to_ulong_long(const parlay::chars& s)
 ```
 ```c++
-inline float chars_to_float(const parlay::sequence<char>& s)
+float chars_to_float(const parlay::chars& s)
 ```
 ```c++
-inline double chars_to_double(const parlay::sequence<char>& s)
+double chars_to_double(const parlay::chars& s)
 ```
 ```c++
-inline long double chars_to_long_double(const parlay::sequence<char>& s)
+long double chars_to_long_double(const parlay::chars& s)
 ```
 
 **chars_to_int** attempts to interpret a signed integer value from the given character sequence. Similarly, **chars_to_uint** attempts to interpret an unsigned integer value, and **chars_to_double** attempts to interpret a `double`. The other listed methods do what you would expect given their name.
@@ -67,30 +66,30 @@ inline long double chars_to_long_double(const parlay::sequence<char>& s)
 ## Formatting
 
 ```c++
-inline parlay::sequence<char> to_chars(char c)
-inline parlay::sequence<char> to_chars(bool v)
-inline parlay::sequence<char> to_chars(long v)
-inline parlay::sequence<char> to_chars(int v)
-inline parlay::sequence<char> to_chars(unsigned long v)
-inline parlay::sequence<char> to_chars(unsigned int v)
-inline parlay::sequence<char> to_chars(long long v)
-inline parlay::sequence<char> to_chars(unsigned long long v)
-inline parlay::sequence<char> to_chars(double v)
-inline parlay::sequence<char> to_chars(float v)
-inline parlay::sequence<char> to_chars(const std::string& s)
-inline parlay::sequence<char> to_chars(const char* s)
+parlay::chars to_chars(char c)
+parlay::chars to_chars(bool v)
+parlay::chars to_chars(long v)
+parlay::chars to_chars(int v)
+parlay::chars to_chars(unsigned long v)
+parlay::chars to_chars(unsigned int v)
+parlay::chars to_chars(long long v)
+parlay::chars to_chars(unsigned long long v)
+parlay::chars to_chars(double v)
+parlay::chars to_chars(float v)
+parlay::chars to_chars(const std::string& s)
+parlay::chars to_chars(const char* s)
 
 template<typename A, typename B>
-parlay::sequence<char> to_chars(const std::pair<A, B>& P)
+parlay::chars to_chars(const std::pair<A, B>& P)
 
 template<typename A, long unsigned int N>
-parlay::sequence<char> to_chars(const std::array<A, N>& P)
+parlay::chars to_chars(const std::array<A, N>& P)
 
 template<typename T>
-parlay::sequence<char> to_chars(const slice<T, T>& A)
+parlay::chars to_chars(const slice<T, T>& A)
 
 template<class T>
-parlay::sequence<char> to_chars(const sequence<T>& A)
+parlay::chars to_chars(const sequence<T>& A)
 ```
 
 **to_chars** converts the given type to a string representation stored as a character sequence. Pairs are surrounded by round brackets with comma-separated elements, while sequences and other range-like types are surrounded by square brackets with comma-separated elements (i.e., Python style).
@@ -123,25 +122,25 @@ Objects of type `file_map` can be moved but not copied.
 Type | Definition
 ---|---
 `value_type` | The value type of the underlying file contents. Usually `char`
-`reference` | Equal to `value_type&`
-`const_reference` | Equal to `const value_type&`
-`iterator` | An iterator to a range of elements of type `value_type`
-`const_iterator` | Equal to `const iterator`
-`pointer` | Equal to `value_type*`
-`const_pointer` | Equal to `const value_type*`
-`difference_type` | A type that can express the difference between two elements of type `iterator`. Usually `std::ptrdiff_t`
-`size_type` | A type that can express the size of the range. Usually `size_t`
+`reference` | `value_type&`
+`const_reference` | `const value_type&`
+`iterator` | An iterator of value type `value_type`
+`const_iterator` | `const iterator`
+`pointer` | `value_type*`
+`const_pointer` | `const value_type*`
+`difference_type` | A type that can express the difference between two `iterator` objects. Usually `std::ptrdiff_t`
+`size_type` | A type that can express the size of the range. Usually `std::size_t`
 
 
 ### Member functions
 
 Function | Description
 ---|---
-`size_t size()` | Return the size of the mapped file
-`iterator begin()` | Return an iterator to the beginning of the file
-`iterator end()` | Return an iterator past the end of the file
-`value_type operator[] (size_t i)` | Return the i'th character of the file
-`bool empty()` | Returns true if the file is empty or no file is mapped
+`size_t size() const` | Return the size of the mapped file
+`iterator begin() const` | Return an iterator to the beginning of the file
+`iterator end() const` | Return an iterator past the end of the file
+`value_type operator[] (size_t i) const` | Return the i'th character of the file
+`bool empty() const` | Returns true if the file is empty or no file is mapped
 `void swap(file_map& other)` | Swap the file map with another
 `file_map& operator=(file_map&& other)` | Move-assign another file map in place of this one
 
