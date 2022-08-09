@@ -13,6 +13,18 @@ code {
   text-align: justify;
 }
 
+// Matches the #include <header> at the top of each page
+.main-content p small strong {
+  border-top: 1px solid #e9ebec;
+  border-bottom: 1px solid #e9ebec;
+  padding: 5px;
+}
+
+.main-content p small strong code {
+  margin-left: 5px;
+  color: #155799;
+}
+
 .main-content table {
   display: table;
   font-size: 10pt;
