@@ -56,17 +56,17 @@ Constructs a sequence consisting of copies of the elements of the iterator range
 
 Type | Definition
 ---|---
-`value_type` | Same as `T`
+`value_type` | `T`
 `reference` | `T&`
 `const_reference` | `const T&`
 `difference_type` | `std::ptrdiff_t`
-`size_type` | `size_t`
+`size_type` | `std::size_t`
 `pointer` | `T*`
 `const_pointer` | `const T*`
-`iterator` | `T*` (Satisfies random access iterator)
-`const_iterator` | Equivalent to `const iterator`
+`iterator` | `T*`
+`const_iterator` | `const T*`
 `reverse_iterator` | `std::reverse_iterator<iterator>`
-`const_reverse_iterator` | Equivalent to `std::reverse_iterator<const_iterator>`
+`const_reverse_iterator` | `std::reverse_iterator<const_iterator>`
 `view_type` | `slice<iterator, iterator>`
 `const_view_type` | `slice<const_iterator, const_iterator>`
 
@@ -202,7 +202,7 @@ Returns a sequence of size `n` containing uninitialized memory. If `T` is a non-
 sequence<T, Allocator, EnableSSO>::from_function(size_t n, F&& f)
 ```
 
-Returns a sequence consisting of elements of type `T` constructed from `f(0), f(1), ..., f(n-1)`.
+Returns a sequence consisting of elements of type `T` constructed from `f(0), f(1), ..., f(n-1)`. Prefer to use `parlay::tabulate` instead, which can deduce the types for you.
 
 ### Non-member functions
 
@@ -215,5 +215,5 @@ template<typename R>
 auto to_short_sequence(R&& r) -> short_sequence<range_value_type_t<R>>
 ```
 
-Return a sequence or short sequence respectively, consisting of copies of the elements of the iterable range `r`.
+Return a sequence or short sequence respectively, consisting of copies of the elements of the random-access range `r`.
 
