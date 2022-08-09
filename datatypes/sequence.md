@@ -79,24 +79,24 @@ Function | Description
 ---|---
 `iterator begin()` | Iterator to the beginning of the sequence
 `iterator end()` | Iterator to the end of the sequence
-`const_iterator cbegin()` | Constant iterator to the beginning of the sequence
-`const_iterator cend()` | Constant iterator to the end of the sequence
+`const_iterator cbegin() const` | Constant iterator to the beginning of the sequence
+`const_iterator cend() const` | Constant iterator to the end of the sequence
 `reverse_iterator rbegin()` | Reverse iterator to the end of the sequence
 `reverse_iterator rend()` | Reverse iterator to the beginning of the sequence
-`const_reverse_iterator crbegin()` | Constant reverse iterator to the end of the sequence
-`const_reverse_iterator crend()` | Constant reverse iterator to the beginning of the sequence
+`const_reverse_iterator crbegin() const` | Constant reverse iterator to the end of the sequence
+`const_reverse_iterator crend() const` | Constant reverse iterator to the beginning of the sequence
 
-The functions for each iterator type also have corresponding const overloads.
+The non-const functions for each iterator type also have corresponding const overloads.
 
 **Size**
 
 Function | Description
 ---|---
-`size_type size()` | Returns the length of the sequence
-`size_type max_size()` | Returns the maximum possible length of a sequence
-`bool empty()` | Returns true if the sequence is empty
+`size_type size() const` | Returns the length of the sequence
+`size_type max_size() const` | Returns the maximum possible length of a sequence
+`bool empty() const` | Returns true if the sequence is empty
+`size_type capacity() const` | Returns the current capacity of the sequence
 `void reserve(size_t n)` | Request that the capacity of the sequence be at least `n`
-`size_type capacity()` | Returns the current capacity of the sequence
 
 **Element access**
 
@@ -108,7 +108,7 @@ Function | Description
 `value_type& front()` | Returns a reference to the first element of the sequence
 `value_type& back()` |  Returns a reference to the last element of the sequence
 
-Each of these also has a corresponding const overload.
+Each of these also has a corresponding const overload that returns a const reference or pointer.
 
 **Bulk element access**
 
@@ -119,11 +119,11 @@ Function | Description
 `view_type tail(iterator p)` | Returns a slice corresponding to all elements from `p` onwards
 `view_type tail(size_type len)` | Returns a slice corresponding to the final `len` elements of the sequence
 `view_type cut(size_type begin, size_type end)` | Returns a slice corresponding to the elements between indices `begin` and `end`
-`sequence subseq(size_type begin, size_type end)` | Returns a new sequence containing the elements between indices `begin` and `end`
-`sequence substr(size_type begin)` | Returns a new sequence containing the elements from position `begin` until the end of the sequence
-`sequence substr(size_type begin, size_type len)` | Returns a new sequence containing the next `len` elements starting at position `begin`
+`sequence subseq(size_type begin, size_type end) const` | Returns a new sequence containing the elements between indices `begin` and `end`
+`sequence substr(size_type begin) const` | Returns a new sequence containing the elements from position `begin` until the end of the sequence
+`sequence substr(size_type begin, size_type len) const` | Returns a new sequence containing the next `len` elements starting at position `begin`
 
-For all of the methods that returns a slice, if the sequence is mutable, the resulting slice is also mutable. Each of the slice methods also has a corresponding const overload.
+For all of the methods that returns a `view_type`, if the sequence is mutable, the resulting view is also mutable. Each of the `view_type` methods also has a corresponding const overload that returns an immutable view.
 
 **Insertion**
 
@@ -184,8 +184,8 @@ Function | Description
 
 Function | Description
 ---|---
-`bool operator==(const sequence& other)` | Compare two sequences for equality
-`bool operator!=(const sequence& b)` | Compare two sequences for inequality
+`bool operator==(const sequence& other) const` | Compare two sequences for equality
+`bool operator!=(const sequence& b) const` | Compare two sequences for inequality
 `void swap(sequence& b)` | Swap the contents the sequence with another
 `sequence& operator=(sequence b)` | Copy and move assignment
 `sequence& operator=(std::initializer_list<value_type> l)` | Assignment from an initializer list
