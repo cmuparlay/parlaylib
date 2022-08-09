@@ -2,7 +2,7 @@
 
 <small>**Usage: `#include <parlay/io.h>`**</small>
 
-Parlay includes some convenient tools for file input and output in terms of `parlay::chars`, as well as tools for converting to and from `parlay::chars` and primitive types. `parlay::sequence<char>` is provided as a convenient alias for `parlay::chars`.
+Parlay includes some convenient tools for file input and output in terms of `parlay::chars`, as well as tools for converting to and from `parlay::chars` and primitive types. `parlay::chars` is provided as a convenient alias for `parlay::sequence<char>`.
 
 ## Reading and writing files
 
