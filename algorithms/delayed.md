@@ -6,7 +6,7 @@
 
 **parlay::delayed** is a library for collection-oriented programming with delayed sequences. Collection-oriented programming is a paradigm of working with a sequence of data and applying composable operations such as map, reduce, filter, and scan to obtain some desired output. Delayed sequences are sequences that generate their elements on demand rather than storing them in memory. Their use in conjunction with collection-oriented programming can save significant amounts of memory and substantially improve the performance of memory-bound algorithms. A full list of algorithms in the library can be found [below](#reference).
 
-The `parlay::delayed` library is based on our research group's recent work on *parallel block-delayed sequences* (to appear in PPoPP '22), and inspired by the recent [C++ ranges library](https://en.cppreference.com/w/cpp/ranges).
+The `parlay::delayed` library is based on our research group's recent work on *parallel block-delayed sequences* (Westrick, Rainey, Anderson, and Belloch; PPoPP '22), and inspired by the recent [C++ ranges library](https://en.cppreference.com/w/cpp/ranges).
 
 - [Examples](#examples)
     - [Example: A prime sieve](#example-a-prime-sieve-that-uses-flatten)
