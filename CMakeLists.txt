@@ -57,6 +57,64 @@ find_package(Threads REQUIRED)
 target_link_libraries(parlay INTERFACE Threads::Threads)
 
 # -------------------------------------------------------------------
+#              Support for alternative parallel runtimes
+
+option(PARLAY_CILKPLUS "Enable integration with CilkPlus")
+option(PARLAY_OPENCILK "Enable integration with OpenCilk")
+option(PARLAY_OPENMP "Enable integration with OpenMP")
+option(PARLAY_TBB "Enable integration with TBB")
+option(PARLAY_SEQUENTIAL "Run Parlay with no parallelism")
+
+if (PARLAY_CILKPLUS)
+  message(STATUS "Parlay CilkPlus integration enabled")
+  check_cxx_compiler_flag("-fcilkplus" CILKPLUS_SUPPORT)
+  if(CILKPLUS_SUPPORT)
+    target_compile_definitions(parlay INTERFACE PARLAY_CILKPLUS)
+    target_compile_options(parlay INTERFACE "-fcilkplus")
+    target_link_options(parlay INTERFACE "-fcilkplus")
+  else()
+    message(FATAL_ERROR "You are trying to enable CilkPlus integration, but your compiler does not support CilkPlus.
+                         You'll need to switch to a compiler that does, or turn it off (-DPARLAY_CILKPLUS=Off)")
+  endif()
+
+elseif(PARLAY_OPENCILK)
+  message(STATUS "Parlay OpenCilk integration enabled")
+  check_cxx_compiler_flag("-fopencilk" OPENCILK_SUPPORT)
+  if(OPENCILK_SUPPORT)
+    target_compile_definitions(parlay INTERFACE PARLAY_OPENCILK)
+    target_compile_options(parlay INTERFACE "-fopencilk")
+    target_link_options(parlay INTERFACE "-fopencilk")
+  else()
+    message(FATAL_ERROR "You are trying to enable OpenCilk integration, but your compiler does not support OpenCilk.
+                         You'll need to switch to a compiler that does, or turn it off (-PARLAY_OPENCILK=Off)")
+  endif()
+elseif(PARLAY_OPENMP)
+  message(STATUS "Parlay OpenMP integration enabled")
+  find_package(OpenMP)
+  if(OpenMP_CXX_FOUND)
+    target_compile_definitions(parlay INTERFACE PARLAY_OPENMP)
+    target_link_libraries(parlay INTERFACE OpenMP::OpenMP_CXX)
+  else()
+    message(FATAL_ERROR "You are trying to enable OpenMP integration, but your compiler does not support OpenMP, or
+                         maybe you don't have OpenMP installed. Fix this, or turn it off (-PARLAY_OPENMP=Off)")
+  endif()
+elseif(PARLAY_TBB)
+  message(STATUS "Parlay TBB integration enabled")
+  find_package(TBB)
+  if(TBB_FOUND)
+    target_compile_definitions(parlay INTERFACE PARLAY_TBB)
+    target_link_libraries(parlay INTERFACE TBB::tbb)
+  else()
+    message(FATAL_ERROR "You are trying to enable TBB integration, but the TBB library could not be found. Install it,
+                         point CMake towards where you have it installed, or turn it off (-PARLAY_TBB=Off)")
+  endif()
+elseif(PARLAY_SEQUENTIAL)
+  message(STATUS "Parlay sequential mode enabled (no parallelism!!)")
+  target_compile_definitions(parlay INTERFACE PARLAY_SEQUENTIAL)
+endif()
+
+
+# -------------------------------------------------------------------
 #                         Installation
 
 install(TARGETS parlay

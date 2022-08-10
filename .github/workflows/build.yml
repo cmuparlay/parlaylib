@@ -255,7 +255,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fcilkplus -DPARLAY_CILKPLUS" -DCMAKE_EXE_LINKER_FLAGS="-fcilkplus -ldl" -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_CILKPLUS=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash
@@ -292,7 +292,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_C_COMPILER=$PWD/../OpenCilk-2.0.0-x86_64-Linux-Ubuntu-20.04/bin/clang -DCMAKE_CXX_COMPILER=$PWD/../OpenCilk-2.0.0-x86_64-Linux-Ubuntu-20.04/bin/clang++ -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fopencilk -DPARLAY_OPENCILK" -DCMAKE_EXE_LINKER_FLAGS="-fopencilk -ldl" -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          cmake -DCMAKE_C_COMPILER=$PWD/../OpenCilk-2.0.0-x86_64-Linux-Ubuntu-20.04/bin/clang -DCMAKE_CXX_COMPILER=$PWD/../OpenCilk-2.0.0-x86_64-Linux-Ubuntu-20.04/bin/clang++ -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_OPENCILK=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash
@@ -325,7 +325,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-13 CXX=clang++-13 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fopenmp -DPARLAY_OPENMP" -DCMAKE_EXE_LINKER_FLAGS="-fopenmp" DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          CC=clang-13 CXX=clang++-13 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_OPENMP=On DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash
@@ -358,7 +358,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-13 CXX=clang++-13 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-DPARLAY_TBB" -DCMAKE_EXE_LINKER_FLAGS="-ltbb" DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          CC=clang-13 CXX=clang++-13 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_TBB=On DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash
