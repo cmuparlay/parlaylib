@@ -15,25 +15,23 @@ namespace parlay {
 inline size_t num_workers() { return tbb::this_task_arena::max_concurrency(); }
 inline size_t worker_id() { return tbb::this_task_arena::current_thread_index(); }
 
-template <class F>
+template <typename F>
 inline void parallel_for(size_t start, size_t end, F f, long granularity, bool) {
-  if (end > start) {
-    if (granularity == 0) {
-      tbb::parallel_for(tbb::blocked_range<size_t>(start, end), [&](const tbb::blocked_range<size_t>& r) {
-        for (auto i = r.begin(); i != r.end(); ++i) {
-          f(i);
-        }
-      });
-    }
-    else {
-      size_t n_blocks = (end - start + granularity - 1) / granularity;
-      size_t block_size = (end - start + n_blocks - 1) / n_blocks;
-      tbb::parallel_for(size_t{0}, n_blocks, [&](size_t b) {
-        for (size_t i = b * block_size + start; i < (b + 1) * block_size + start && i < end; i++) {
-          f(i);
-        }
-      });
-    }
+  // Use TBB's automatic granularity partitioner (tbb::auto_partitioner)
+  if (granularity == 0) {
+    tbb::parallel_for(tbb::blocked_range<size_t>(start, end), [&](const tbb::blocked_range<size_t>& r) {
+      for (auto i = r.begin(); i != r.end(); ++i) {
+        f(i);
+      }
+    }, tbb::auto_partitioner{});
+  }
+  // Otherwise, use the granularity specified by the user (tbb::simple_partitioner)
+  else {
+    tbb::parallel_for(tbb::blocked_range<size_t>(start, end, granularity), [&](const tbb::blocked_range<size_t>& r) {
+      for (auto i = r.begin(); i != r.end(); ++i) {
+        f(i);
+      }
+    }, tbb::simple_partitioner{});
   }
 }
 
