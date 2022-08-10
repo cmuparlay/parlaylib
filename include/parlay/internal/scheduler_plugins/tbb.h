@@ -13,7 +13,11 @@ namespace parlay {
 // IWYU pragma: private, include "../../parallel.h"
 
 inline size_t num_workers() { return tbb::this_task_arena::max_concurrency(); }
-inline size_t worker_id() { return tbb::this_task_arena::current_thread_index(); }
+
+inline size_t worker_id() {
+  auto id = tbb::this_task_arena::current_thread_index();
+  return id == tbb::task_arena::not_initialized ? 0 : id;
+}
 
 template <typename F>
 inline void parallel_for(size_t start, size_t end, F f, long granularity, bool) {

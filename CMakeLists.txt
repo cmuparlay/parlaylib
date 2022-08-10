@@ -208,7 +208,7 @@ if (PARLAY_BENCHMARK)
   include(FetchContent)
   FetchContent_Declare(benchmark
     GIT_REPOSITORY  https://github.com/google/benchmark.git
-    GIT_TAG         v1.6.2
+    GIT_TAG         6d50251d8e6ed6b7f6eb1e12c558d2808fb4ddaa
   )
   FetchContent_GetProperties(benchmark)
   if(NOT benchmark_POPULATED)
