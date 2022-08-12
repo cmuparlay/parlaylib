@@ -70,15 +70,15 @@ class le_list{
 };
 
 
-bool compare_and_swap_less(int *loc, int val){
-	int old = *loc;
-	return (val >= old) || pbbslib::atomic_compare_and_swap(loc, old, val);
+bool compare_and_swap_less(std::atomic<int>& loc, int val){
+	int old = loc;
+	return (val >= old) || loc.compare_exchange_strong(old, val);
 }
 
-int compare_and_swap_less(int *loc, int val, int* order){
-	int old = *loc;
+int compare_and_swap_less(std::atomic<int>& loc, int val, sequence<int> order){
+	int old = loc;
 	if(old == -1 || (order[val] < order[old])){
-		if(pbbslib::atomic_compare_and_swap(loc, old, val)){
+		if(loc.compare_exchange_strong(old,val)){
 			return CAS_SUCCEED;
 		}
 		else{
@@ -88,12 +88,12 @@ int compare_and_swap_less(int *loc, int val, int* order){
 	return CAS_FAIL;
 }
 
-bool compare_and_swap_greater(int *loc, int val){
-	int old = *loc;
-	return (val > old) && pbbslib::atomic_compare_and_swap(loc, old, val);
+bool compare_and_swap_greater(std::atomic<int>& loc, int val){
+	int old = loc;
+	return (val > old) && loc.compare_exchange_strong(old, val);
 }
 
-int fetch_and_min(int* loc, int val, int* order){
+int fetch_and_min(std::atomic<int>& loc, int val, sequence<int> order){
 	int result = compare_and_swap_less(loc,val,order);
 	while(result == CAS_RETRY){
 		result = compare_and_swap_less(loc,val,order);
@@ -102,38 +102,52 @@ int fetch_and_min(int* loc, int val, int* order){
 }
 
 struct vertex_info{
-	int root;
-	int root_ro;
-	int step;
+	std::atomic<int> root;
+	std::atomic<int> root_ro;
+	std::atomic<int> step;
 
-	vertex_info(int _root, int _root_ro, int _step)
-	    : root(_root), root_ro(_root_ro), step(_step){}
+//	vertex_info(int _root, int _root_ro, int _step):root(_root),root_ro(_root_ro),step(_step){}
+//		std::atomic<int> root(_root);
+//		std::atomic<int> root_ro(_root_ro);
+//		std::atomic<int> step(_step);
+//	}
 };
 
 template <typename vertex, typename graph>
 auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
-	              sequence<vertex>& delta_ro, sequence<vertex>& delta, le_list& L){
+	              sequence<std::atomic<int>>& delta_ro, sequence<std::atomic<int>>& delta, le_list& L){
 	int n = G.size();
 	auto order = tabulate(n, [&](size_t i) { return -1; });
-	auto vtxs = tabulate(n, [&](size_t i){
-		return vertex_info(-1, -1, (int) 0);
+//	auto vtxs = tabulate<struct vertex_info>(n, [&](size_t i){
+//		return vertex_info(-1, -1, (int) 0);
+//	});
+//	auto vtxs = sequence<struct vertex_info>::from_function(n, [&](size_t i){
+//		return vertex_info(-1, -1, (int) 0);
+//	});
+	auto vtxs = sequence<struct vertex_info>(n);
+	parallel_for(0, n, [&](size_t i){
+		vtxs[i].root = -1;
+		vtxs[i].root_ro = -1;
+		vtxs[i].step = 0;
 	});
 	size_t dist = 0;
 
 	parallel_for(0,parlay::size(srcs),[&](size_t i){
 		delta[srcs[i]] = 0;
 		order[srcs[i]] = i;
-		vtxs[srcs[i]] = vertex_info(srcs[i],srcs[i],(int) 0);
+		vtxs[srcs[i]].root = srcs[i];
+		vtxs[srcs[i]].root_ro = srcs[i];
+		vtxs[srcs[i]].step = 0;
 		L.insert(srcs[i],srcs[i],0);
 	});
 
 	auto edge_f = [&] (vertex s, vertex d) -> bool {
 		if((vtxs[d].root_ro == -1 || order[vtxs[s].root_ro] < order[vtxs[d].root_ro])
 		   && (dist < delta_ro[d])){
-			if(fetch_and_min(&vtxs[d].root, vtxs[s].root_ro, order)){
+			if(fetch_and_min(vtxs[d].root, vtxs[s].root_ro, order)){
 				L.insert(d,vtxs[s].root_ro,dist);
-				while(!compare_and_swap_less(&delta[d], dist));
-				return compare_and_swap_greater(&vtxs[d].step, dist);
+				while(!compare_and_swap_less(delta[d], dist));
+				return compare_and_swap_greater(vtxs[d].step, dist);
 			}
 			return false;
 		}
@@ -159,7 +173,7 @@ auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
 //		                   -1, sparse_blocked | dense_parallel);
 
 		parallel_for(0, frontier.size(), [&](size_t v){
-			vtxs[v].root_ro = vtxs[v].root;
+			vtxs[v].root_ro = vtxs[v].root.load();
 		});
 //		vertexMap(Frontier, [&](int v){ vtxs[v].root_ro = vtxs[v].root; });
 	}
@@ -189,20 +203,20 @@ inline auto create_le_list(Graph& G, Graph& GT) {
 
 	le_list L(n);
 
-	auto delta = tabulate(n, [](int i){return -1;});
+	auto delta = tabulate<std::atomic<int>>(n, [](int i){return -1;});
 
 	//Build LE-Lists - Parallel
 	//Handle r=0 case here
 	auto P2 = tabulate(n, [&](size_t i){return (int) P[i];});
 
-	auto delta_ro = tabulate(n, [&delta](int i){return delta[i];});
+	auto delta_ro = tabulate<std::atomic<int>>(n, [&](int i){return delta[i].load();});
 	auto srcs = tabulate(1,[&](int i){ return P2[0]; });
 	TruncatedBFS(G,GT,srcs,delta_ro,delta,L);
 	for(int r=1;r<2*n;r*=2){
 		if(r >= n){
 			continue;
 		}
-		auto delta_ro = tabulate(n, [&delta](int i){return delta[i];});
+		auto delta_ro = tabulate<std::atomic<int>>(n, [&delta](int i){return delta[i].load();});
 		srcs = to_sequence(P2.cut(r,std::min(2*r,n)));
 		TruncatedBFS(G,GT,srcs,delta_ro,delta,L);
 	}
