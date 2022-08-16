@@ -53,8 +53,9 @@ struct Deque {
   // Note: Explicit alignment specifier required
   // to ensure that Clang inlines atomic loads.
   struct alignas(int64_t) age_t {
-    tag_t tag;
-    qidx top;
+    // cppcheck bug prevents it from seeing usage with braced initializer
+    tag_t tag;                // cppcheck-suppress unusedStructMember
+    qidx top;                 // cppcheck-suppress unusedStructMember
   };
 
   // align to avoid false sharing
@@ -332,7 +333,7 @@ class fork_join_scheduler {
     if (end <= start) return;
     if (granularity == 0) {
       size_t done = get_granularity(start, end, f);
-      granularity = std::max(done, (end - start) / (128 * sched->num_threads));
+      granularity = std::max(done, (end - start) / static_cast<size_t>(128 * sched->num_threads));
       parfor_(start + done, end, f, granularity, conservative);
     } else
       parfor_(start, end, f, granularity, conservative);

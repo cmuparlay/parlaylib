@@ -38,6 +38,11 @@ add_dtests(NAME test_sorting_primitives FILES test_sorting_primitives.cpp LIBS p
 add_dtests(NAME test_random FILES test_random.cpp LIBS parlay)
 add_dtests(NAME test_group_by FILES test_group_by.cpp LIBS parlay)
 add_dtests(NAME test_monoid FILES test_monoid.cpp LIBS parlay)
+add_dtests(NAME test_transpose FILES test_transpose.cpp LIBS parlay)
+
+# -------------------------------- Concurrency ----------------------------------
+
+add_dtests(NAME test_hazptr_stack FILES test_hazptr_stack.cpp LIBS parlay)
 
 # -------------------------- Uninitialized memory testing ---------------------------
 
@@ -72,6 +77,7 @@ add_dtests(NAME test_allocator FILES test_allocator.cpp LIBS parlay)
 # ----------------------------- Utilities ------------------------------
 
 add_dtests(NAME test_relocate FILES test_relocate.cpp LIBS parlay)
+add_dtests(NAME test_padded FILES test_padded.cpp LIBS parlay)
 
 # --------------------- External scheduler integration tests -------------------
 

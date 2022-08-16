@@ -24,6 +24,8 @@ static_assert(sizeof(parlay::sequence<int>) <= 16);
 static_assert(sizeof(parlay::short_sequence<int>) <= 16);
 #endif
 
+static_assert(alignof(parlay::sequence<int>) >= 8);
+
 
 TEST(TestSequence, TestDefaultConstruct) {
   auto s = parlay::sequence<int>();
@@ -416,6 +418,15 @@ TEST(TestSequence, TestInsert) {
   auto s2 = parlay::sequence<int>{1,2,3,4,5};
   ASSERT_FALSE(s.empty());
   s.insert(s.begin() + 2, 3);
+  ASSERT_EQ(s, s2);
+}
+
+TEST(TestSequence, TestInsertRef) {
+  auto s = parlay::sequence<int>{1,2,4,5};
+  auto s2 = parlay::sequence<int>{1,2,3,4,5};
+  ASSERT_FALSE(s.empty());
+  int x = 3;
+  s.insert(s.begin() + 2, x);
   ASSERT_EQ(s, s2);
 }
 
@@ -822,6 +833,26 @@ TEST(TestSequence, TestNonDefaultConstructibleType) {
   }
   for (int i = 0; i < 100000; i++) {
     ASSERT_EQ(s[i].x, i);
+  }
+}
+
+TEST(TestSequence, TestCopyElisionFromFunction) {
+  struct foo {
+    std::atomic<int> x, y;
+  };
+  static_assert(!std::is_copy_constructible_v<foo>);
+  static_assert(!std::is_move_constructible_v<foo>);
+
+  // foo is not copy or move constructible, so this will only
+  // work if copy elision succeeds in directly constructing
+  // the foo straight into the sequence
+  auto s = parlay::sequence<foo>::from_function(100000, [](int i) {
+    return foo{i, i+1};
+  });
+
+  for (size_t i = 0; i < s.size(); i++) {
+    ASSERT_EQ(s[i].x.load(), i);
+    ASSERT_EQ(s[i].y.load(), i+1);
   }
 }
 

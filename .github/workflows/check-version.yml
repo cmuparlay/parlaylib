@@ -1,0 +1,65 @@
+name: Check Version
+on:
+  pull_request:
+    branches:
+    - 'master'
+
+jobs:
+  check-version:
+    name: Check Version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Compare versions
+        run: |
+          source_version=`cat CMakeLists.txt | grep -Eo "PARLAY VERSION [0-9]+\.[0-9]+\.[0-9]+" | grep -Eo "[0-9]+\.[0-9]+\.[0-9]+"`
+          echo "Source version is $source_version"
+          source_major_version=`echo $source_version | awk '{split($0,a,"."); print a[1]}'`
+          source_minor_version=`echo $source_version | awk '{split($0,a,"."); print a[2]}'`
+          source_patch_version=`echo $source_version | awk '{split($0,a,"."); print a[3]}'`
+          echo "- Major: $source_major_version, Minor: $source_minor_version, Patch: $source_patch_version"
+          
+          master_version=`git show refs/remotes/origin/master:CMakeLists.txt | grep -o "PARLAY VERSION [0-9].[0-9].[0-9]" | grep -o "[0-9].[0-9].[0-9]"`
+          echo "Master version is $master_version"
+          master_major_version=`echo $master_version | awk '{split($0,a,"."); print a[1]}'`
+          master_minor_version=`echo $master_version | awk '{split($0,a,"."); print a[2]}'`
+          master_patch_version=`echo $master_version | awk '{split($0,a,"."); print a[3]}'`
+          echo "- Major: $master_major_version, Minor: $master_minor_version, Patch: $master_patch_version"
+          
+          function version { echo "$@" | awk -F. '{ printf("%04d%04d%04d\n", $1,$2,$3); }'; }
+          
+          if [ $(version $source_version) -le $(version $master_version) ]; then
+            echo "Version number on the source branch ($source_version) must be greater than the master branch ($master_version). Fail" && exit 1
+          fi
+          
+          let "master_major_version_pp = master_major_version + 1"
+          let "master_minor_version_pp = master_minor_version + 1"
+          let "master_patch_version_pp = master_patch_version + 1"
+          
+          if [ $source_major_version -gt $master_major_version ]; then
+            echo "Major version was incremented"
+            if [ $source_major_version -gt $master_major_version_pp ]; then
+              echo "- Major version number was incremented by more than one. Fail" && exit 1
+            elif [ $source_minor_version -ne 0 ]; then
+              echo "- Minor version should now be 0. Fail" && exit 1
+            elif [ $source_patch_version -gt 1 ]; then
+              echo "- Patch version should now be 0 or 1. Fail" && exit 1
+            fi
+            elif [ $source_minor_version -gt $master_minor_version ]; then
+              echo "Minor version was incremented"
+            if [ $source_minor_version -gt $master_minor_version_pp ]; then
+              echo "- Minor version number was incremented by more than one. Fail" && exit 1
+            elif [ $source_patch_version -gt 1 ]; then
+              echo "- Patch version should now be 0 or 1. Fail" && exit 1
+            fi
+            else
+              echo "Patch version was incremented"
+            if [ $source_patch_version -gt $master_patch_version_pp ]; then
+              echo "- Patch version number was incremented by more than one. Fail" && exit 1
+            fi
+          fi
+          
+          echo "-  New version number looks good. Success"

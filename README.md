@@ -2,7 +2,6 @@
 # ParlayLib - A Toolkit for Programming Parallel Algorithms on Shared-Memory Multicore Machines
 
 [![Build status](https://github.com/cmuparlay/parlaylib/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/cmuparlay/parlaylib/actions)
-[![Build status](https://ci.appveyor.com/api/projects/status/2458wr1nbcusxhqb/branch/master?svg=true)](https://ci.appveyor.com/project/DanielLiamAnderson/parlaylib/branch/master)
 [![codecov](https://codecov.io/gh/cmuparlay/parlaylib/branch/master/graph/badge.svg)](https://codecov.io/gh/cmuparlay/parlaylib)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
