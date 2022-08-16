@@ -2,6 +2,8 @@ name: Build
 on: [push, pull_request]
 env:
   PARLAY_NUM_THREADS: 16
+  OMP_NUM_THREADS: 16
+  CILK_NWORKERS: 16
 
 jobs:
   build:

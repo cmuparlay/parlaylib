@@ -3,9 +3,12 @@
 #define PARLAY_PARALLEL_H_
 
 #include <cassert>
-#include <cstddef>
+#include <cstdlib>
 
-#include <type_traits>
+#include <algorithm>
+#include <string>
+#include <thread>
+#include <type_traits>  // IWYU pragma: keep
 #include <utility>
 
 // ----------------------------------------------------------------------------

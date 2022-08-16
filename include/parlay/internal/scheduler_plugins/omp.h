@@ -63,13 +63,13 @@ inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool
   }
   else {
     if (granularity <= 1) {
-      #pragma omp taskloop
+      #pragma omp taskloop shared(f)
       for (size_t i = start; i < end; i++) {
         f(i);
       }
     }
     else {
-      #pragma omp taskloop grainsize(granularity)
+      #pragma omp taskloop grainsize(granularity) shared(f)
       for (size_t i = start; i < end; i++) {
         f(i);
       }

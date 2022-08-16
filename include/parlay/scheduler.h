@@ -22,17 +22,16 @@
 #ifndef PARLAY_SCHEDULER_H_
 #define PARLAY_SCHEDULER_H_
 
+#include <cassert>
 #include <cstdint>
 #include <cstdlib>
 
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <chrono>
+#include <chrono>         // IWYU pragma: keep
 #include <iostream>
 #include <memory>
-#include <stdexcept>
-#include <string>
 #include <thread>
 #include <type_traits>    // IWYU pragma: keep
 #include <utility>
@@ -40,8 +39,8 @@
 
 #include "internal/work_stealing_job.h"
 
-#include <sstream>
 
+// IWYU pragma: no_include <bits/chrono.h>
 // IWYU pragma: no_include <bits/this_thread_sleep.h>
 
 namespace parlay {
@@ -78,7 +77,8 @@ struct Deque {
     deq[local_bot].job.store(job, std::memory_order_relaxed);  // shared store
     local_bot += 1;
     if (local_bot == q_size) {
-      throw std::runtime_error("internal error: scheduler queue overflow");
+      std::cerr << "internal error: scheduler queue overflow" << std::endl;
+      std::abort();
     }
     bot.store(local_bot, std::memory_order_relaxed);  // shared store
     std::atomic_thread_fence(std::memory_order_seq_cst);

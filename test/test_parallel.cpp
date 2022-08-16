@@ -53,7 +53,7 @@ void simulated_for(size_t start, size_t end, F&& f) {
 TEST(TestParallel, TestParDoWorkerIds) {
   std::vector<std::atomic<bool>> id_used(parlay::num_workers());
   for (size_t i = 0; i < parlay::num_workers(); i++) id_used[i] = false;
-  simulated_for(0, 100000, [&](size_t i) {
+  simulated_for(0, 100000, [&](size_t) {
     size_t id = parlay::worker_id();
     ASSERT_FALSE(id_used[id].exchange(true));
     std::this_thread::sleep_for(std::chrono::microseconds(50));
@@ -132,12 +132,26 @@ TEST(TestParallel, TestParForOnlyOnce) {
 TEST(TestParallel, TestParForWorkerIds) {
   std::vector<std::atomic<bool>> id_used(parlay::num_workers());
   for (size_t i = 0; i < parlay::num_workers(); i++) id_used[i] = false;
-  parlay::parallel_for(0, 100000, [&](size_t i) {
+  parlay::parallel_for(0, 100000, [&](size_t) {
     size_t id = parlay::worker_id();
     ASSERT_FALSE(id_used[id].exchange(true));
     std::this_thread::sleep_for(std::chrono::microseconds(50));
     ASSERT_EQ(id, parlay::worker_id());
     ASSERT_TRUE(id_used[id].exchange(false));
+  });
+}
+
+TEST(TestParallel, TestNestedParForWorkerIds) {
+  std::vector<std::atomic<bool>> id_used(parlay::num_workers());
+  for (size_t i = 0; i < parlay::num_workers(); i++) id_used[i] = false;
+  parlay::parallel_for(0, 200, [&](size_t) {
+    parlay::parallel_for(0, 200, [&](size_t) {
+      size_t id = parlay::worker_id();
+      ASSERT_FALSE(id_used[id].exchange(true));
+      std::this_thread::sleep_for(std::chrono::microseconds(50));
+      ASSERT_EQ(id, parlay::worker_id());
+      ASSERT_TRUE(id_used[id].exchange(false));
+    });
   });
 }
 
