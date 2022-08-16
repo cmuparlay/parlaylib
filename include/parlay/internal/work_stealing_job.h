@@ -5,6 +5,7 @@
 #include <cassert>
 
 #include <atomic>
+#include <utility>
 
 namespace parlay {
 
@@ -12,34 +13,31 @@ namespace parlay {
 // and return nothing. Could be a lambda, e.g. [] () {}.
 
 struct WorkStealingJob {
-  WorkStealingJob() {
-    done.store(false, std::memory_order_relaxed);
-  }
+  WorkStealingJob() : done(false) { }
   ~WorkStealingJob() = default;
   void operator()() {
     assert(done.load(std::memory_order_relaxed) == false);
     execute();
-    done.store(true, std::memory_order_relaxed);
+    done.store(true, std::memory_order_release);
   }
-  bool finished() {
-    return done.load(std::memory_order_relaxed);
+  [[nodiscard]] bool finished() const noexcept {
+    return done.load(std::memory_order_acquire);
   }
+ protected:
   virtual void execute() = 0;
   std::atomic<bool> done;
 };
 
-// Holds a type-specific reference to a callable object
+// Holds a callable object
 template<typename F>
 struct JobImpl : WorkStealingJob {
-  explicit JobImpl(F& _f) : WorkStealingJob(), f(_f) { }
-  void execute() override {
-    f();
-  }
-  F& f;
+  explicit JobImpl(F&& _f, int) : WorkStealingJob(), f(static_cast<F&&>(_f)) { }
+  void execute() override { static_cast<F&&>(f)(); }
+  F f;
 };
 
 template<typename F>
-JobImpl<F> make_job(F& f) { return JobImpl(f); }
+auto make_job(F&& f) { return JobImpl<F>(std::forward<F>(f), 0); }
 
 }
 

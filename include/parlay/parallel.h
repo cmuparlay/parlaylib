@@ -2,13 +2,20 @@
 #ifndef PARLAY_PARALLEL_H_
 #define PARLAY_PARALLEL_H_
 
+#include <cassert>
 #include <cstddef>
 
-//****************************************************
-// All algorithms in the library use only four functions for
-// accessing parallelism. These can be implemented on
-// top of any scheduler.
-//****************************************************
+#include <type_traits>
+#include <utility>
+
+// ----------------------------------------------------------------------------
+// All scheduler plugins are required to implement the
+// following four functions to integrate with parlay:
+//  - num_workers :   return the max number of workers
+//  - worker_id :     return the id of the current worker
+//  - parallel_for :  execute a given loop body in parallel
+//  - par_do :        execute two given functions in parallel
+// ----------------------------------------------------------------------------
 
 namespace parlay {
 
@@ -25,14 +32,44 @@ inline size_t worker_id();
 //      if 0 (default) then the scheduler will decide
 //    conservative uses a safer scheduler
 template <typename F>
-inline void parallel_for(size_t start, size_t end, F f, long granularity = 0,
+inline void parallel_for(size_t start, size_t end, F&& f, long granularity = 0,
                          bool conservative = false);
 
 // runs the thunks left and right in parallel.
 //    both left and write should map void to void
 //    conservative uses a safer scheduler
 template <typename Lf, typename Rf>
-inline void par_do(Lf left, Rf right, bool conservative = false);
+inline void par_do(Lf&& left, Rf&& right, bool conservative = false);
+
+// ----------------------------------------------------------------------------
+//          Extra functions implemented on top of the four basic ones
+//
+//  - parallel_do : alias of par_do
+//  - blocked_for : parallelize a loop over a sequence of blocks
+// ----------------------------------------------------------------------------
+
+// Given two functions left and right, both invocable with no arguments,
+// invokes both of them potentially in parallel.
+template <typename Lf, typename Rf>
+inline void parallel_do(Lf&& left, Rf&& right, bool conservative = false) {
+  static_assert(std::is_invocable_v<Lf&&>);
+  static_assert(std::is_invocable_v<Rf&&>);
+  par_do(std::forward<Lf>(left), std::forward<Rf>(right), conservative);
+}
+
+template<typename F>
+inline void blocked_for(size_t start, size_t end, size_t block_size, F&& f, bool conservative = false) {
+  static_assert(std::is_invocable_v<F&, size_t, size_t, size_t>);
+  assert(block_size > 0);
+  if (start < end) {
+    size_t n_blocks = (end - start + block_size - 1) / block_size;
+    parallel_for(0, n_blocks, [&](size_t i) {
+      size_t s = start + i * block_size;
+      size_t e = (std::min)(s + block_size, end);
+      f(i, s, e);
+    }, 0, conservative);
+  }
+}
 
 }  // namespace parlay
 
@@ -68,6 +105,24 @@ namespace parlay {
   
 namespace internal {
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4996)  // 'getenv': This function or variable may be unsafe.
+#endif
+
+// Determine the number of workers to spawn
+unsigned int init_num_workers() {
+  if (const auto env_p = std::getenv("PARLAY_NUM_THREADS")) {
+    return std::stoi(env_p);
+  } else {
+    return std::thread::hardware_concurrency();
+  }
+}
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 // Use a "Meyer singleton" to provide thread-safe 
 // initialisation and destruction of the scheduler
 //
@@ -78,7 +133,7 @@ namespace internal {
 // extern inline function always refers to the same
 // object.
 extern inline fork_join_scheduler& get_default_scheduler() {
-  static fork_join_scheduler fj;
+  static fork_join_scheduler fj(init_num_workers());
   return fj;
 }
 
@@ -92,17 +147,26 @@ inline size_t worker_id() {
   return internal::get_default_scheduler().worker_id();
 }
 
-template <class F>
-inline void parallel_for(size_t start, size_t end, F f,
-                         long granularity,
-			 bool conservative) {
-  if (end > start)
-    internal::get_default_scheduler().parfor(start, end, f, (size_t) granularity, conservative);
+template <typename F>
+inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool conservative) {
+  static_assert(std::is_invocable_v<F&, size_t>);
+  if (start + 1 == end) {
+    f(start);
+  }
+  else if ((end - start) <= static_cast<size_t>(granularity)) {
+    for (size_t i = start; i < end; i++) f(i);
+  }
+  else if (end > start) {
+    internal::get_default_scheduler().parfor(start, end,
+     std::forward<F>(f), static_cast<size_t>(granularity), conservative);
+  }
 }
 
 template <typename Lf, typename Rf>
-inline void par_do(Lf left, Rf right, bool conservative) {
-  return internal::get_default_scheduler().pardo(left, right, conservative);
+inline void par_do(Lf&& left, Rf&& right, bool conservative) {
+  static_assert(std::is_invocable_v<Lf&&>);
+  static_assert(std::is_invocable_v<Rf&&>);
+  return internal::get_default_scheduler().pardo(std::forward<Lf>(left), std::forward<Rf>(right), conservative);
 }
 
 }  // namespace parlay

@@ -1,6 +1,8 @@
 #include "gtest/gtest.h"
 
 #include <atomic>
+#include <chrono>
+#include <thread>
 #include <vector>
 
 #include <parlay/alloc.h>
@@ -26,6 +28,49 @@ TEST(TestParallel, TestParDoSafeRace) {
   ASSERT_TRUE(x == 1 || x == 2);
 }
 
+TEST(TestParallel, TestParDoOnlyOnce) {
+  std::atomic<bool> f1(false), f2(false);
+  parlay::par_do(
+      [&]() { ASSERT_FALSE(f1.exchange(true)); },
+      [&]() { ASSERT_FALSE(f2.exchange(true)); }
+  );
+  ASSERT_TRUE(f1.load());
+  ASSERT_TRUE(f2.load());
+}
+
+template<typename F>
+void simulated_for(size_t start, size_t end, F&& f) {
+  if (end == start + 1) f(start);
+  else {
+    size_t mid = start + (end - start) / 2;
+    parlay::par_do(
+      [&]() { simulated_for(start, mid, f); },
+      [&]() { simulated_for(mid, end, f); }
+    );
+  }
+}
+
+TEST(TestParallel, TestParDoWorkerIds) {
+  std::vector<std::atomic<bool>> id_used(parlay::num_workers());
+  for (size_t i = 0; i < parlay::num_workers(); i++) id_used[i] = false;
+  simulated_for(0, 100000, [&](size_t i) {
+    size_t id = parlay::worker_id();
+    ASSERT_FALSE(id_used[id].exchange(true));
+    std::this_thread::sleep_for(std::chrono::microseconds(50));
+    ASSERT_EQ(id, parlay::worker_id());
+    ASSERT_TRUE(id_used[id].exchange(false));
+  });
+}
+
+TEST(TestParallel, TestParDoUncopyableF) {
+  struct F {
+    F(const F&) = delete;
+    F(F&&) = default;
+    void operator()() const { }
+  };
+  parlay::par_do(F{}, F{});
+}
+
 TEST(TestParallel, TestParFor) {
   size_t n = 100000;
   std::vector<int> v(n);
@@ -35,6 +80,65 @@ TEST(TestParallel, TestParFor) {
   for (size_t i = 0; i < n; i++) {
     ASSERT_EQ(v[i], i);
   }
+}
+
+TEST(TestParallel, TestParForRef) {
+  size_t n = 100000;
+  std::vector<int> v(n);
+  auto f = [&](auto i) { v[i] = i; };
+  parlay::parallel_for(0, n, f);
+  for (size_t i = 0; i < n; i++) {
+    ASSERT_EQ(v[i], i);
+  }
+}
+
+TEST(TestParallel, TestParForMovedF) {
+  size_t n = 100000;
+  std::vector<int> v1(n), v2(n);
+  for (size_t i = 0; i < n; i++) v1[i] = i;
+  struct F {
+    void operator()(int i) { v2[i] = v1[i]; }
+    std::vector<int> v1;
+    std::vector<int>& v2;
+  };
+  parlay::parallel_for(0, n, F{std::move(v1), v2});
+  for (size_t i = 0; i < n; i++) {
+    ASSERT_EQ(v2[i], i);
+  }
+}
+
+TEST(TestParallel, TestParForUncopyableF) {
+  size_t n = 100000;
+  std::vector<int> v(n);
+  struct F {
+    F(const F&) = delete;
+    std::vector<int>& v;
+    void operator()(size_t i) const { v[i] = i; } };
+  parlay::parallel_for(0, n, F{v});
+  for (size_t i = 0; i < n; i++) {
+    ASSERT_EQ(v[i], i);
+  }
+}
+
+TEST(TestParallel, TestParForOnlyOnce) {
+  size_t n = 100000;
+  std::vector<std::atomic<bool>> v(n);
+  for (size_t i = 0; i < n; i++) v[i] = false;
+  parlay::parallel_for(0, n, [&](size_t i) {
+    ASSERT_FALSE(v[i].exchange(true));
+  });
+}
+
+TEST(TestParallel, TestParForWorkerIds) {
+  std::vector<std::atomic<bool>> id_used(parlay::num_workers());
+  for (size_t i = 0; i < parlay::num_workers(); i++) id_used[i] = false;
+  parlay::parallel_for(0, 100000, [&](size_t i) {
+    size_t id = parlay::worker_id();
+    ASSERT_FALSE(id_used[id].exchange(true));
+    std::this_thread::sleep_for(std::chrono::microseconds(50));
+    ASSERT_EQ(id, parlay::worker_id());
+    ASSERT_TRUE(id_used[id].exchange(false));
+  });
 }
 
 TEST(TestParallel, TestNestedParDo) {

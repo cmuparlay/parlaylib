@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include <functional>
+#include <tuple>      // IWYU pragma: keep
 #include <utility>
 
 #include "../monoid.h"
@@ -19,6 +20,8 @@
 #include "integer_sort.h"
 #include "sample_sort.h"
 #include "sequence_ops.h"
+
+// IWYU pragma: no_include <bits/utility.h>
 
 namespace parlay {
 
