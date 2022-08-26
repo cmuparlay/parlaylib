@@ -166,13 +166,17 @@ template <class Graph>
 inline auto create_le_list(Graph& G, Graph& GT) {
 //	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 	unsigned seed = SEED;
-	std::default_random_engine generator(seed);
+//	std::default_random_engine generator(seed);
+    parlay::random_generator gen;
 	std::uniform_real_distribution<double> distribution(0.0,1.0);
 
 	int n = G.size();
 
 	//Permute Vertices
-	auto R = tabulate(n, [&](int i){ return distribution(generator); });
+	auto R = tabulate(n, [&](int i){
+		auto g = gen[i];
+		return distribution(g);
+	});
 
 	auto verts = tabulate(n, [&](int i){ return i;});
 	auto P = stable_sort(verts, [&R](int u, int v){
