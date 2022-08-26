@@ -75,7 +75,7 @@ bool compare_and_swap_less(std::atomic<int>& loc, int val){
 	return (val >= old) || loc.compare_exchange_strong(old, val);
 }
 
-int compare_and_swap_less(std::atomic<int>& loc, int val, sequence<int> order){
+int compare_and_swap_less(std::atomic<int>& loc, int val, sequence<int>& order){
 	int old = loc;
 	if(old == INT_MAX || (order[val] < order[old])){
 		if(loc.compare_exchange_strong(old,val)){
@@ -93,7 +93,7 @@ bool compare_and_swap_greater(std::atomic<int>& loc, int val){
 	return (val > old) && loc.compare_exchange_strong(old, val);
 }
 
-int fetch_and_min(std::atomic<int>& loc, int val, sequence<int> order){
+int fetch_and_min(std::atomic<int>& loc, int val, sequence<int>& order){
 	int result = compare_and_swap_less(loc,val,order);
 	while(result == CAS_RETRY){
 		result = compare_and_swap_less(loc,val,order);
@@ -105,12 +105,6 @@ struct vertex_info{
 	std::atomic<int> root;
 	std::atomic<int> root_ro;
 	std::atomic<int> step;
-
-//	vertex_info(int _root, int _root_ro, int _step):root(_root),root_ro(_root_ro),step(_step){}
-//		std::atomic<int> root(_root);
-//		std::atomic<int> root_ro(_root_ro);
-//		std::atomic<int> step(_step);
-//	}
 };
 
 template <typename vertex, typename graph>
@@ -118,12 +112,6 @@ auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
 	              sequence<std::atomic<int>>& delta_ro, sequence<std::atomic<int>>& delta, le_list& L){
 	int n = G.size();
 	auto order = tabulate(n, [&](size_t i) { return INT_MAX; });
-//	auto vtxs = tabulate<struct vertex_info>(n, [&](size_t i){
-//		return vertex_info(-1, -1, (int) 0);
-//	});
-//	auto vtxs = sequence<struct vertex_info>::from_function(n, [&](size_t i){
-//		return vertex_info(-1, -1, (int) 0);
-//	});
 	auto vtxs = sequence<struct vertex_info>(n);
 	parallel_for(0, n, [&](size_t i){
 		vtxs[i].root = INT_MAX;
@@ -142,10 +130,9 @@ auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
 	});
 
 	auto edge_f = [&] (vertex s, vertex d) -> bool {
-//		std::cout << "Edge f: " << s << "," << vtxs[s].root << "," << vtxs[s].root_ro << std::endl;
 		if((vtxs[d].root_ro == INT_MAX || order[vtxs[s].root_ro] < order[vtxs[d].root_ro])
 		   && (dist < delta_ro[d])){
-			if(fetch_and_min(vtxs[d].root, vtxs[s].root_ro, order)){//Passed by value?
+			if(fetch_and_min(vtxs[d].root, vtxs[s].root_ro, order)){
 				L.insert(d,vtxs[s].root_ro,dist);
 				while(!compare_and_swap_less(delta[d], dist));
 				return compare_and_swap_greater(vtxs[d].step, dist);
@@ -161,26 +148,17 @@ auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
 	};
 
 	auto frontier_map = ligra::edge_map(G, GT, edge_f, cond_f);
-//	vertexSubset Frontier(G.n, std::move(srcs));
 	auto frontier = ligra::vertex_subset(srcs);
 
 	while (frontier.size() > 0) {
 		dist++;
 
-//		auto bfs_f = Trunc_BFS_F<W>(dist,vtxs,order.begin(),L,delta_ro,delta);
-
 		frontier = frontier_map(frontier);
-//		Frontier = edgeMap(G, Frontier, bfs_f ,
-//		                   -1, sparse_blocked | dense_parallel);
 
-//		for(int v=0; v< frontier.size(); v++){
 		auto frontier2 = frontier.to_seq();
 		parallel_for(0, frontier2.size(), [&](size_t v){
-//			std::cout << "Copy: " << v << "," << vtxs[v].root << "," << vtxs[v].root.load() << std::endl;
 			vtxs[frontier2[v]].root_ro = vtxs[frontier2[v]].root.load();
 		});
-//		}
-//		vertexMap(Frontier, [&](int v){ vtxs[v].root_ro = vtxs[v].root; });
 	}
 }
 
