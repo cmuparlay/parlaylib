@@ -34,12 +34,12 @@ int main(int argc, char* argv[]) {
     utils::print_graph_stats(G);
     result result;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 1; i++) {
       result = create_le_list(G, GT);
       t.next("le_list");
     }
 
-    long visited = reduce(map(result, parlay::size_of()));
-    std::cout << "num vertices visited: " << visited << std::endl;
+    long total = reduce(map(result, parlay::size_of()));
+    std::cout << "Average LE-list size: " << ((double) total / (double) n) << std::endl;
   }
 }

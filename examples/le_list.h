@@ -35,7 +35,7 @@ class le_list{
 			size_t cap = capacity;
 			A = tabulate(n, [cap](size_t i){
 				return tabulate(cap, [](size_t j){
-					return std::make_pair((size_t) -1, -1);
+					return std::make_pair((size_t) -1, INT_MAX);
 				});
 			});
 
@@ -47,11 +47,11 @@ class le_list{
 		}
 
 		//Inserts (j,dist) into i's LE-List
-		void insert(size_t i, size_t j, int dist){
+		void insert(int i, int j, int dist){
 			size_t ind = sizes[i]++;
 			if(ind >= capacity){
 				fprintf(stderr,"Error: Exceeded list capacity. Try again with larger K_CAP value.\n");
-				fprintf(stderr,"List Contents: (Vertex %lu) [",i);
+				fprintf(stderr,"List Contents: (Vertex %d) [",i);
 				for(size_t k=0;k<ind;k++){
 					fprintf(stderr,"(%lu,%d),",A[i][k].first,A[i][k].second);
 				}
@@ -77,7 +77,7 @@ bool compare_and_swap_less(std::atomic<int>& loc, int val){
 
 int compare_and_swap_less(std::atomic<int>& loc, int val, sequence<int> order){
 	int old = loc;
-	if(old == -1 || (order[val] < order[old])){
+	if(old == INT_MAX || (order[val] < order[old])){
 		if(loc.compare_exchange_strong(old,val)){
 			return CAS_SUCCEED;
 		}
@@ -117,7 +117,7 @@ template <typename vertex, typename graph>
 auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
 	              sequence<std::atomic<int>>& delta_ro, sequence<std::atomic<int>>& delta, le_list& L){
 	int n = G.size();
-	auto order = tabulate(n, [&](size_t i) { return -1; });
+	auto order = tabulate(n, [&](size_t i) { return INT_MAX; });
 //	auto vtxs = tabulate<struct vertex_info>(n, [&](size_t i){
 //		return vertex_info(-1, -1, (int) 0);
 //	});
@@ -126,8 +126,8 @@ auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
 //	});
 	auto vtxs = sequence<struct vertex_info>(n);
 	parallel_for(0, n, [&](size_t i){
-		vtxs[i].root = -1;
-		vtxs[i].root_ro = -1;
+		vtxs[i].root = INT_MAX;
+		vtxs[i].root_ro = INT_MAX;
 		vtxs[i].step = 0;
 	});
 	size_t dist = 0;
@@ -142,9 +142,10 @@ auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
 	});
 
 	auto edge_f = [&] (vertex s, vertex d) -> bool {
-		if((vtxs[d].root_ro == -1 || order[vtxs[s].root_ro] < order[vtxs[d].root_ro])
+//		std::cout << "Edge f: " << s << "," << vtxs[s].root << "," << vtxs[s].root_ro << std::endl;
+		if((vtxs[d].root_ro == INT_MAX || order[vtxs[s].root_ro] < order[vtxs[d].root_ro])
 		   && (dist < delta_ro[d])){
-			if(fetch_and_min(vtxs[d].root, vtxs[s].root_ro, order)){
+			if(fetch_and_min(vtxs[d].root, vtxs[s].root_ro, order)){//Passed by value?
 				L.insert(d,vtxs[s].root_ro,dist);
 				while(!compare_and_swap_less(delta[d], dist));
 				return compare_and_swap_greater(vtxs[d].step, dist);
@@ -156,7 +157,7 @@ auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
 
 	auto cond_f = [&] (vertex d) {
 		int tmp = vtxs[d].root;
-		return dist < delta_ro[d] && (tmp == -1 || order[tmp] > 0);
+		return dist < delta_ro[d] && (tmp == INT_MAX || order[tmp] > 0);
 	};
 
 	auto frontier_map = ligra::edge_map(G, GT, edge_f, cond_f);
@@ -172,9 +173,13 @@ auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
 //		Frontier = edgeMap(G, Frontier, bfs_f ,
 //		                   -1, sparse_blocked | dense_parallel);
 
-		parallel_for(0, frontier.size(), [&](size_t v){
-			vtxs[v].root_ro = vtxs[v].root.load();
+//		for(int v=0; v< frontier.size(); v++){
+		auto frontier2 = frontier.to_seq();
+		parallel_for(0, frontier2.size(), [&](size_t v){
+//			std::cout << "Copy: " << v << "," << vtxs[v].root << "," << vtxs[v].root.load() << std::endl;
+			vtxs[frontier2[v]].root_ro = vtxs[frontier2[v]].root.load();
 		});
+//		}
 //		vertexMap(Frontier, [&](int v){ vtxs[v].root_ro = vtxs[v].root; });
 	}
 }
@@ -203,7 +208,7 @@ inline auto create_le_list(Graph& G, Graph& GT) {
 
 	le_list L(n);
 
-	auto delta = tabulate<std::atomic<int>>(n, [](int i){return -1;});
+	auto delta = tabulate<std::atomic<int>>(n, [](int i){return INT_MAX;});
 
 	//Build LE-Lists - Parallel
 	//Handle r=0 case here
