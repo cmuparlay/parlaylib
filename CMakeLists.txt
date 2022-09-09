@@ -6,7 +6,7 @@
 # -------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.14)
-project(PARLAY VERSION 2.0.2
+project(PARLAY VERSION 2.1.1
         DESCRIPTION "A collection of parallel algorithms and other support for parallelism in C++"
         LANGUAGES CXX)
 
@@ -27,6 +27,7 @@ else()
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /Oy-")
 endif()
 
+message(STATUS "PARLAY VERSION ${PARLAY_VERSION}")
 message(STATUS "--------------- General configuration -------------")
 message(STATUS "CMake Generator:                ${CMAKE_GENERATOR}")
 message(STATUS "Compiler:                       ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
@@ -148,8 +149,8 @@ if (PARLAY_BENCHMARK)
   # Download Benchmark library
   include(FetchContent)
   FetchContent_Declare(benchmark
-    GIT_REPOSITORY  https://github.com/google/benchmark
-    GIT_TAG         main
+    GIT_REPOSITORY  https://github.com/google/benchmark.git
+    GIT_TAG         v1.6.2
   )
   FetchContent_GetProperties(benchmark)
   if(NOT benchmark_POPULATED)
@@ -188,6 +189,7 @@ option(PARLAY_EXAMPLE_DATA  "Download example data"  OFF)
 
 if (PARLAY_EXAMPLE_DATA)
   message(STATUS "example data: On")
+  include(FetchContent)
   FetchContent_Declare(
     exampleData
     URL http://www.cs.cmu.edu/~parlay/data.tar.gz

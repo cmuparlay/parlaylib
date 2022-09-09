@@ -4,13 +4,14 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
 #include <algorithm>
 #include <atomic>
-#include <iterator>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <new>
 #include <type_traits>
@@ -51,6 +52,19 @@ static void par_do3_if(bool do_parallel, Lf left, Mf mid, Rf right) {
     right();
   }
 }
+
+// Obtains a pointer to an object of type T located at the address represented
+// by p. Essentially performs std::launder(reinterpret_cast<T*>(p)).
+template<typename T>
+[[nodiscard]] constexpr T* from_bytes(std::byte* p) noexcept {
+  // std::launder not available on older compilers
+#ifdef __cpp_lib_launder
+  return std::launder(reinterpret_cast<T*>(p));
+#else
+  return reinterpret_cast<T*>(p);
+#endif
+}
+
 
 template <class T>
 size_t log2_up(T);
@@ -169,7 +183,7 @@ inline void write_add(std::atomic<T>* a, EV b) {
 template <typename T, typename F>
 inline bool write_min(std::atomic<T>* a, T b, F less) {
   T c;
-  bool r = 0;
+  bool r = false;
   do {
     c = a->load();
   } while (less(b, c) && !(r = std::atomic_compare_exchange_weak(a, &c, b)));
@@ -179,7 +193,7 @@ inline bool write_min(std::atomic<T>* a, T b, F less) {
 template <typename T, typename F>
 inline bool write_max(std::atomic<T>* a, T b, F less) {
   T c;
-  bool r = 0;
+  bool r = false;
   do {
     c = a->load();
   } while (less(c, b) && !(r = std::atomic_compare_exchange_weak(a, &c, b)));
@@ -208,7 +222,7 @@ inline size_t granularity(size_t n) {
 //  or any callable object) as a member while still being default copy-assignable.
 //
 //  As long as the function type is copy constructible (which it needs to be in
-//  order to event initialize the member), this wrapper will be copy assignable.
+//  order to even initialize the member), this wrapper will be copy assignable.
 template<typename F>
 struct copyable_function_wrapper {
 
@@ -258,7 +272,7 @@ struct copyable_function_wrapper {
   }
 
   // Special case for when the argument is just a size_t. This is the common case since this is what
-  // all of the functions in delayed_sequence are. This should in theory make absolutely no difference
+  // all the functions in delayed_sequence are. This should in theory make absolutely no difference
   // compared to the templates whatsoever but for some reason it's faster???
   PARLAY_INLINE decltype(auto) operator()(size_t i) noexcept(std::is_nothrow_invocable_v<F&, size_t>) {
     static_assert(std::is_invocable_v<F&, size_t>);
@@ -492,6 +506,124 @@ void assign_dispatch(T& dest, T& val, uninitialized_relocate_tag) {
   uninitialized_relocate(&dest, &val);
 }
 
+namespace internal {
+
+// The deleter used by unique_array / make_unique_array
+template<typename T>
+struct unique_array_deleter {
+  void operator()(T* ptr) {
+    if (ptr != nullptr) {
+      if constexpr (!std::is_trivially_destructible_v<T>) {
+        parallel_for(0, n, [ptr](size_t i) {
+          ptr[i].~T();
+        });
+      }
+      ::operator delete (static_cast<void*>(ptr), std::align_val_t{alignof(T)});
+    }
+  }
+  size_t n;
+};
+
+}  // namespace internal
+
+// An alias of unique_ptr<T[], *custom_deleter*> as returned by make_unique_array.
+// Stores a dynamically allocated array of type T[] that is automatically freed when
+// the unique_ptr goes out of scope. Unlike regular unique_ptr<T[]>, this type with
+// make_unique_array can be used to construct an array of non-default-constructible T
+template<typename T>
+using unique_array = std::unique_ptr<T[], internal::unique_array_deleter<T>>;
+
+
+// Creates a unique_ptr<T[], *custom_deleter*> consisting of n objects of
+// type T initialized by T(init(i)) for i from 0 to n - 1. The objects are
+// automatically destroyed and freed when the unique_ptr goes out of scope.
+//
+// Useful in place of unique_ptr<T[]> when T is not default constructible
+// and hence make_unique<T[]> can not be used.
+template<typename T, typename F>
+auto make_unique_array(size_t n, F init) {
+  // Either T is constructible from init(i), or init(i) returns a prvalue T which means
+  // we get guaranteed copy elision and can construct T even if it isn't copyable/movable
+  static_assert(std::is_constructible_v<T, std::invoke_result_t<F&, size_t>> ||
+                std::is_same_v<T, std::invoke_result_t<F&, size_t>>);
+
+  if (n == 0) return unique_array<T>(nullptr, {0});
+  auto buffer = static_cast<std::byte*>(::operator new(n * sizeof(T), std::align_val_t{alignof(T)}));
+  parallel_for(1, n, [&](size_t i) {
+    new (buffer + i * sizeof(T)) T(init(i));  // NOLINT
+  });
+  auto first = new (buffer) T(init(0));
+  return unique_array<T>(first, {n});
+}
+
+
+/*
+    Padded types for avoiding false sharing by over-aligning to a cache-line boundary.
+
+    parlay::padded<T> should be a drop-in replacement for T in just about any scenario,
+    without having to change the code that makes use of the T object. padded<T> can be
+    initialized with any initializer that would work on T, including copy and move
+    initialization, and any constructor of T. Assignment operations should also work.
+
+    You can also bind a padded<T> to const/non-const reference/rvalue-reference variables
+    of type T, e.g.,
+
+      padded<int> p{1};
+      int& x = p;  // refers to the padded int 1
+      x = 2;       // p now contains 2
+
+    This also applies to function parameters. For class types, you should also be able
+    to invoke overloaded operations and member functions, e.g.,
+
+      padded<std::vector<int>> v{1,2,3};
+      v.push_back(4);
+      v[0] = 42;
+
+    You can even invoke function pointers!!
+
+      padded<int(*)()> fp = &func;
+      int x = fp();
+
+    The only thing that doesn't seem to work is directly invoking member-function pointers...
+
+ */
+
+// Padded types to avoid false sharing. Takes a type T and makes its size
+// at least Size bytes by over-aligning it. Size must be a valid alignment.
+template<typename T, size_t Size = 128, typename Sfinae = void>
+struct padded;
+
+// Use user-defined conversions to pad primitive types
+template<typename T, size_t Size>
+struct alignas(Size) padded<T, Size, typename std::enable_if_t<std::is_scalar_v<T>>> {
+  padded() : x{} {};
+  /* implicit */ padded(T _x) : x(_x) { }       // cppcheck-suppress noExplicitConstructor    // NOLINT
+  /* implicit */ operator T&() & { return x; }                                                // NOLINT
+  /* implicit */ operator const T&() const& { return x; }                                     // NOLINT
+  /* implicit */ operator T&&() && { return std::move(x); }                                   // NOLINT
+  /* implicit */ operator const T&&() const&& { return std::move(x); }                        // NOLINT
+
+  // Allow padded function pointers to be directly invoked!
+  template<typename... Ts> auto operator()(Ts... args) const noexcept(std::is_nothrow_invocable_v<T, Ts...>)
+      -> std::enable_if_t<std::is_invocable_v<T, Ts...>, std::invoke_result_t<T, Ts...>> {
+    return x(std::forward<Ts>(args)...);
+  }
+
+  // Note: I couldn't figure out a way to make member-function pointers directly invocable :(
+
+  T x;
+};
+
+// Use inheritance to pad class types
+template<typename T, size_t Size>
+struct alignas(Size) padded<T, Size, typename std::enable_if_t<std::is_class_v<T>>> : public T {
+  static_assert(std::is_same_v<T, std::remove_cv_t<T>>,
+      "padded<T> requires T be non-const-volatile qualified. Use const padded<T> instead of padded<const T>");
+  using T::T;                                   // inherit (non-special) constructors
+  padded() = default;                           // implement non-inherited special constructors
+  /* implicit */ padded(const T& t) : T(t) {}         // cppcheck-suppress noExplicitConstructor          // NOLINT
+  /* implicit */ padded(T&& t) : T(std::move(t)) {}   // cppcheck-suppress noExplicitConstructor          // NOLINT
+};
 
 }  // namespace parlay
 

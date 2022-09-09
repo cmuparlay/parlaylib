@@ -504,11 +504,21 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   template<typename F>
   sequence(size_t n, F&& f, _from_function_tag, size_t granularity = 0) :
       sequence_base_type() {
+    // value_type must either be constructible from f(i), or f(i) must return a prvalue
+    // of value_type, in which case we can rely on guaranteed copy elision
+    static_assert(std::is_constructible_v<value_type, std::invoke_result_t<F&&, size_t>> ||
+                  std::is_same_v<value_type, std::invoke_result_t<F&&, size_t>>);
+
     storage.initialize_capacity(n);
     storage.set_size(n);
     auto buffer = storage.data();
     parallel_for(0, n, [&](size_t i) {
-      storage.initialize(&buffer[i], f(i));
+      if constexpr (std::is_constructible_v<value_type, std::invoke_result_t<F&&, size_t>>) {
+        storage.initialize(&buffer[i], f(i));
+      }
+      else {
+        storage.initialize_with_copy_elision(&buffer[i], [&]() { return f(i); });
+      }
     }, granularity);
   }
 
@@ -547,7 +557,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     storage.initialize_capacity(n);
     auto buffer = storage.data();
     for (size_t i = 0; first != last; i++, ++first) {
-      storage.initialize_explicit(buffer + i, *first);
+      storage.initialize(buffer + i, *first);
     }
     storage.set_size(n);
   }
@@ -558,7 +568,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     storage.initialize_capacity(n);
     auto buffer = storage.data();
     parallel_for(0, n, [&](size_t i) {
-      storage.initialize_explicit(buffer + i, first[i]);
+      storage.initialize(buffer + i, first[i]);
     }, copy_granularity(n));
     storage.set_size(n);
   }
@@ -600,7 +610,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   }
 
   // Distinguish between different types of iterators
-  // InputIterators ad FowardIterators can not be used
+  // InputIterators and ForwardIterators can not be used
   // in parallel, so they operate sequentially.
 
   template<typename InputIterator_>
@@ -628,7 +638,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
     storage.ensure_capacity(size() + n);
     auto it = end();
     parallel_for(0, n, [&](size_t i) {
-      storage.initialize_explicit(it + i, first[i]);
+      storage.initialize(it + i, first[i]);
     }, copy_granularity(n));
     storage.set_size(size() + n);
     return it;
@@ -711,7 +721,7 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
 
 // A short_sequence is a dynamic array supporting parallel modification operations
 // that may also perform small-size optimization. For sequences of trivial types
-// whose elements fit in 15 bytes or less, the sequence will be stored inline and
+// whose elements fit in 15 bytes or fewer, the sequence will be stored inline and
 // no heap allocation will be performed.
 //
 // This type is just an alias for parlay::sequence<T, Allocator, true>
@@ -728,7 +738,7 @@ using short_sequence = sequence<T, Allocator, true>;
 // You can think of chars as either an abbreviation of "char sequence",
 // or as a plural of char. Both make sense!
 //
-// Character sequences that fit in 15 bytes or less will be stored inline
+// Character sequences that fit in 15 bytes or fewer will be stored inline
 // without performing a heap allocation. Large sequences are stored on the
 // heap, and support update and query operations in parallel.
 using chars = sequence<char, internal::sequence_default_allocator<char>, true>;
