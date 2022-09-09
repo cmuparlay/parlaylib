@@ -1,228 +1,165 @@
-#pragma once
+#include <random>
+#include <limits>
+#include <iostream>
+#include <parlay/primitives.h>
+#include <parlay/random.h>
+#include <parlay/internal/get_time.h>
+#include "helper/ligra_light.h"
 
 #define SEED 15210
 #define K_CAP 4
 
-#include <random>
-#include <iostream>
-#include "parlay/primitives.h"
-#include "parlay/random.h"
-#include "helper/ligra_light.h"
-
 using namespace parlay;
 
-#define CAS_FAIL 0
-#define CAS_SUCCEED 1
-#define CAS_RETRY 2
-
-size_t log2floor(size_t i){
-	int count = 0;
-	while(i > 1){
-		i/=2;
-		count++;
-	}
-	return count;
-}
+// The types vertex and distance must be defined
+constexpr auto max_distance = std::numeric_limits<distance>::max();
+constexpr auto Empty = std::numeric_limits<vertex>::max();
 
 class le_list{
-	public:
-		sequence<sequence<std::pair<size_t,int>>> A;
-		sequence<std::atomic_size_t> sizes;
-		size_t capacity;
+public:
+  sequence<sequence<std::pair<vertex,distance>>> A;
+  sequence<std::atomic<int>> sizes;
+  int capacity;
 
-		le_list(size_t n){
-			capacity = K_CAP * (log2floor(n) + 1);
-			size_t cap = capacity;
-			A = tabulate(n, [cap](size_t i){
-				return tabulate(cap, [](size_t j){
-					return std::make_pair((size_t) -1, INT_MAX);
-				});
-			});
+  le_list(vertex n) {
+    capacity = K_CAP * ((int) std::floor(std::log2(n)) + 1);
+    // create n empty le-lists, each of size capacity
+    A = tabulate(n, [=] (vertex i) {
+          return tabulate(capacity, [] (int j){
+	    return std::make_pair((vertex) 0, max_distance);});});
+    // initial sizes are 0
+    sizes = tabulate<std::atomic<int>>(n, [] (vertex i) {return 0;});
+  }
 
+  //Inserts (j,dist) into i's LE-List
+  void insert(vertex i, vertex j, distance dist){
+    int ind = sizes[i]++;
+    if(ind >= capacity) 
+      std::cout << "Error: Exceeded list capacity. Try again with larger K_CAP value" << std::endl;
+    A[i][ind] = std::make_pair(j,dist);
+  }
 
-			sizes = sequence<std::atomic_size_t>(n);
-			parallel_for(0, n, [&](size_t i){
-				sizes[i] = 0;
-			});
-		}
-
-		//Inserts (j,dist) into i's LE-List
-		void insert(int i, int j, int dist){
-			size_t ind = sizes[i]++;
-			if(ind >= capacity){
-				fprintf(stderr,"Error: Exceeded list capacity. Try again with larger K_CAP value.\n");
-				fprintf(stderr,"List Contents: (Vertex %d) [",i);
-				for(size_t k=0;k<ind;k++){
-					fprintf(stderr,"(%lu,%d),",A[i][k].first,A[i][k].second);
-				}
-				fprintf(stderr,"]\n");
-				exit(-1);
-			}
-			A[i][ind] = std::make_pair(j,dist);
-		}
-
-		//Returns a sequence representation of le-lists. The order of the lists is unspecified
-		sequence<sequence<std::pair<size_t,int>>> pack(){
-			return tabulate(sizes.size(), [this](size_t i){
-				return to_sequence(A[i].head(sizes[i]));
-			});
-		}
+  // Returns a sequence representation of le-lists. The order of the
+  // lists is unspecified.
+  sequence<sequence<std::pair<vertex,distance>>> pack() {
+    return tabulate(sizes.size(), [&] (int i){
+	     return to_sequence(A[i].head(sizes[i]));});
+  }
 };
 
-
-bool compare_and_swap_less(std::atomic<int>& loc, int val){
-	int old = loc;
-	return (val >= old) || loc.compare_exchange_strong(old, val);
-}
-
-int compare_and_swap_less(std::atomic<int>& loc, int val, sequence<int>& order){
-	int old = loc;
-	if(old == INT_MAX || (order[val] < order[old])){
-		if(loc.compare_exchange_strong(old,val)){
-			return CAS_SUCCEED;
-		}
-		else{
-			return CAS_RETRY;
-		}
-	}
-	return CAS_FAIL;
-}
-
-bool compare_and_swap_greater(std::atomic<int>& loc, int val){
-	int old = loc;
-	return (val > old) && loc.compare_exchange_strong(old, val);
-}
-
-int fetch_and_min(std::atomic<int>& loc, int val, sequence<int>& order){
-	int result = compare_and_swap_less(loc,val,order);
-	while(result == CAS_RETRY){
-		result = compare_and_swap_less(loc,val,order);
-	}
-	return result;
-}
-
 struct vertex_info{
-	std::atomic<int> root;
-	std::atomic<int> root_ro;
-	std::atomic<int> step;
+  std::atomic<vertex> root; // root of BFS search
+  vertex root_ro; // read_only copy of root so not updated when written
+  std::atomic<distance> step;   // step vertex was last updated
+  vertex_info() : root(Empty), root_ro(Empty), step(0) {}
 };
 
 template <typename vertex, typename graph>
-auto TruncatedBFS(graph& G, graph& GT, sequence<vertex>& srcs,
-	              sequence<std::atomic<int>>& delta_ro, sequence<std::atomic<int>>& delta, le_list& L){
-	int n = G.size();
-	auto order = tabulate(n, [&](size_t i) { return INT_MAX; });
-	auto vtxs = sequence<struct vertex_info>(n);
-	parallel_for(0, n, [&](size_t i){
-		vtxs[i].root = INT_MAX;
-		vtxs[i].root_ro = INT_MAX;
-		vtxs[i].step = 0;
-	});
-	size_t dist = 0;
+auto TruncatedBFS(graph& G, graph& GT,
+		  sequence<vertex>& srcs,
+		  sequence<distance>& delta_ro,
+		  sequence<std::atomic<distance>>& delta,
+		  le_list& L){
+  parlay::internal::timer t;
+  vertex n = G.size();
+  auto order = tabulate(n, [&] (vertex i) { return Empty; });
+  auto vtxs = sequence<struct vertex_info>(n);
+  distance dist = 0;
 
-	parallel_for(0,parlay::size(srcs),[&](size_t i){
-		delta[srcs[i]] = 0;
-		order[srcs[i]] = i;
-		vtxs[srcs[i]].root = srcs[i];
-		vtxs[srcs[i]].root_ro = srcs[i];
-		vtxs[srcs[i]].step = 0;
-		L.insert(srcs[i],srcs[i],0);
-	});
+  parallel_for(0, srcs.size(), [&] (vertex i){
+    delta[srcs[i]] = 0;
+    order[srcs[i]] = i;
+    vtxs[srcs[i]].root = srcs[i];
+    vtxs[srcs[i]].root_ro = srcs[i];
+    vtxs[srcs[i]].step = 0;
+    L.insert(srcs[i], srcs[i], 0);
+  });
+  
+  // function to apply on each edge s->d
+  auto edge_f = [&] (vertex s, vertex d) -> bool {
+    if ((vtxs[d].root_ro == Empty
+	 || order[vtxs[s].root_ro] < order[vtxs[d].root_ro])
+	&& (dist < delta_ro[d])) {
+      // if d is unvisited or root priority of d is larger than s,
+      // and distance to d is greater than current distance,
+      // then try to update the root of d
+      auto less = [&] (vertex newv, vertex old) {
+		    return (old == Empty || (order[newv] < order[old]));};
 
-	auto edge_f = [&] (vertex s, vertex d) -> bool {
-		if((vtxs[d].root_ro == INT_MAX || order[vtxs[s].root_ro] < order[vtxs[d].root_ro])
-		   && (dist < delta_ro[d])){
-			if(fetch_and_min(vtxs[d].root, vtxs[s].root_ro, order)){
-				L.insert(d,vtxs[s].root_ro,dist);
-				while(!compare_and_swap_less(delta[d], dist));
-				return compare_and_swap_greater(vtxs[d].step, dist);
-			}
-			return false;
-		}
-		return false;
-	};
+      if (write_min(&vtxs[d].root, vtxs[s].root_ro, less)) {
+	L.insert(d, vtxs[s].root_ro, dist);
+	// update nearest distance to d
+	write_min(&delta[d], dist, std::less<distance>());
+	// only true if first to update d (avoids duplicates in frontier)
+	distance old = vtxs[d].step;
+	return (dist > old) && vtxs[d].step.compare_exchange_strong(old, dist);
+      }
+      return false;
+    }
+    return false;
+  };
 
-	auto cond_f = [&] (vertex d) {
-		int tmp = vtxs[d].root;
-		return dist < delta_ro[d] && (tmp == INT_MAX || order[tmp] > 0);
-	};
+  auto cond_f = [&] (vertex d) {
+    vertex droot = vtxs[d].root;
+    return dist < delta_ro[d] && (droot == Empty || order[droot] > 0);
+  };
 
-	auto frontier_map = ligra::edge_map(G, GT, edge_f, cond_f);
-	auto frontier = ligra::vertex_subset(srcs);
+  auto frontier_map = ligra::edge_map(G, GT, edge_f, cond_f);
+  auto frontier = ligra::vertex_subset(srcs);
 
-	while (frontier.size() > 0) {
-		dist++;
+  while (frontier.size() > 0) {
+    dist++;
+    frontier = frontier_map(frontier);
 
-		frontier = frontier_map(frontier);
-
-		auto frontier2 = frontier.to_seq();
-		parallel_for(0, frontier2.size(), [&](size_t v){
-			vtxs[frontier2[v]].root_ro = vtxs[frontier2[v]].root.load();
-		});
-	}
+    // copy roots back to root_ro
+    auto frontier_seq = frontier.to_seq();
+    parallel_for(0, frontier_seq.size(), [&] (vertex v){
+      vtxs[frontier_seq[v]].root_ro = vtxs[frontier_seq[v]].root.load();});
+  }
 }
 
 template <class Graph>
-inline auto create_le_list(Graph& G, Graph& GT) {
-//	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-	unsigned seed = SEED;
-//	std::default_random_engine generator(seed);
-    parlay::random_generator gen;
-	std::uniform_real_distribution<double> distribution(0.0,1.0);
+auto create_le_list(Graph& G, Graph& GT) {
+  parlay::random_generator gen(SEED);
+  std::uniform_real_distribution<> dis(0.0,1.0);
+  vertex n = G.size();
+  parlay::internal::timer t("Time");
 
-	int n = G.size();
+  // Psuedorandom priorities for the vertices
+  auto R = tabulate(n, [&] (vertex i) { auto g = gen[i]; return dis(g); });
 
-	//Permute Vertices
-	auto R = tabulate(n, [&](int i){
-		auto g = gen[i];
-		return distribution(g);
-	});
+  // generate random permutation (P) and inverse (PInv) based on priorities
+  auto verts = tabulate(n, [&] (vertex i) { return i;});
+  auto P = stable_sort(verts, [&] (vertex u, vertex v) {return R[u] < R[v];});
+  auto PInv = sequence<vertex>(n);
+  parallel_for(0, n, [&] (vertex i){ PInv[P[i]] = i; });
 
-	auto verts = tabulate(n, [&](int i){ return i;});
-	auto P = stable_sort(verts, [&R](int u, int v){
-		return R[u] < R[v];
-	});
+  // empty le-lists
+  le_list L(n);
 
-	auto PInv = sequence<int>(n);
-	parallel_for(0, n, [&](size_t i){
-		PInv[P[i]] = i;
-	});
+  // initial distances of "infinity"
+  auto delta = tabulate<std::atomic<distance>>(n, [] (vertex i) {
+		     return max_distance;});
+  
+  // BFS using prefix doubling, i.e. increasing prefixes of double the size
+  for(vertex r = 0; r < n; r = 2*r + 1){
+    auto delta_ro = map(delta, [] (auto& d) {return d.load();});
+    auto srcs = to_sequence(P.cut(r, std::min(2*r+1, n)));
+    TruncatedBFS(G, GT, srcs, delta_ro, delta, L);
+  }
 
-	le_list L(n);
+  // pack out only the actual element in each le-list
+  auto lists = L.pack();
 
-	auto delta = tabulate<std::atomic<int>>(n, [](int i){return INT_MAX;});
+  parallel_for(0, n, [&] (vertex i){
+    //Sort lists in order of increasing vertex number (based on permutation)
+    sort_inplace(lists[i], [&] (auto p1, auto p2) {
+			     return PInv[p1.first] < PInv[p2.first];});
 
-	//Build LE-Lists - Parallel
-	//Handle r=0 case here
-	auto P2 = tabulate(n, [&](size_t i){return (int) P[i];});
-
-	auto delta_ro = tabulate<std::atomic<int>>(n, [&](int i){return delta[i].load();});
-	auto srcs = tabulate(1,[&](int i){ return P2[0]; });
-	TruncatedBFS(G,GT,srcs,delta_ro,delta,L);
-	for(int r=1;r<2*n;r*=2){
-		if(r >= n){
-			continue;
-		}
-		auto delta_ro = tabulate<std::atomic<int>>(n, [&delta](int i){return delta[i].load();});
-		srcs = to_sequence(P2.cut(r,std::min(2*r,n)));
-		TruncatedBFS(G,GT,srcs,delta_ro,delta,L);
-	}
-	sequence<sequence<std::pair<size_t,int>>> lists = L.pack();
-
-	parallel_for(0, n, [&](size_t i){
-		//Sort lists in order of increasing vertex number (based on permutation)
-		//Also sorts in order of decreasing distance
-		sort_inplace(lists[i], [&PInv](std::pair<size_t,int> p1, std::pair<size_t,int> p2){
-			return PInv[p1.first] < PInv[p2.first];
-		});
-
-		//Prune lists for "extra elements"
-		auto flags = tabulate(parlay::size(lists[i]), [&lists, i](int j){
-			return j==0 || lists[i][j].second < lists[i][j-1].second;
-		});
-
-		lists[i] = pack(lists[i],flags);
-	});
-
-	return lists;
+    //Prune lists for "extra elements"
+    auto flags = tabulate(lists[i].size(), [&lists, i] (int j){
+		   return j==0 || lists[i][j].second < lists[i][j-1].second;});
+    lists[i] = pack(lists[i],flags);
+  });
+  return lists;
 }

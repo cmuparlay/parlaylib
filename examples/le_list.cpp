@@ -3,16 +3,18 @@
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
+#include <parlay/internal/get_time.h>
 
+using distance = int;
+using vertex = int;
 #include "le_list.h"
 #include "helper/graph_utils.h"
 
 // **************************************************************
 // Driver
 // **************************************************************
-using vertex = int;
-using result = parlay::sequence<parlay::sequence<std::pair<size_t, int>>>;
-using graph = parlay::sequence<parlay::sequence<int>>;
+using result = parlay::sequence<parlay::sequence<std::pair<vertex, distance>>>;
+using graph = parlay::sequence<parlay::sequence<vertex>>;
 using utils = graph_utils<vertex>;
 
 int main(int argc, char* argv[]) {
