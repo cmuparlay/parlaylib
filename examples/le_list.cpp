@@ -33,11 +33,24 @@ int main(int argc, char* argv[]) {
       G = utils::rmat_graph(n, 20*n);
       GT = utils::transpose(G);
     }
+    int seed = 15210;
+    parlay::random_generator gen(seed);
+    std::uniform_real_distribution<> dis(0.0,1.0);
+
+    // Psuedorandom priorities for the vertices
+    auto R = tabulate(n, [&] (vertex i) {
+			   auto g = gen[i]; return dis(g); });
+
+    // generate ordering based on priorities
+    auto verts = tabulate(n, [&] (vertex i) { return i;});
+    auto order = stable_sort(verts, [&] (vertex u, vertex v) {
+				      return R[u] < R[v];});
+    
     utils::print_graph_stats(G);
     result result;
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
-      result = create_le_list(G, GT);
+      result = create_le_list(G, GT, order);
       t.next("le_list");
     }
 
