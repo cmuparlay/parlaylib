@@ -30,6 +30,7 @@ The examples are as follows, broken down into categories.
 - graph_color : graph coloring based on the greedy degree heuristic
 - kcore : returns the "coreness" of every vertex of a graph.
 - kruskal : Parallel Kruskal's minimum-spanning-forest algorithm.
+- le_list : Least elements lists for vertices of a graph.
 - low_diameter_decomposition : returns a decomposition of a graph such that beta*m edges cross between components, and each component has radius log(n)/beta.
 - maximal_independent_set : greedy (lexicographically first) MIS on random permutation of vertices
 - maximal_matching : greedy (lexicographically first) maximal matching on random permutation of edges
