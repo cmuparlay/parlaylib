@@ -51,7 +51,8 @@ auto suffix_array(const char_range& S) {
                 (low >> 32) != (Cl[j-1].second >> 32));});
 
   // Given flags indicating segment boundaries within a segment,
-  // creates an new segment.  See below for definition of segments.
+  // splits into new segments.  See below for definition of segments.
+  // Also updates the ranks
   auto segs_from_flags = [&] (parlay::sequence<bool>& flags, index seg_start) {
     auto offsets = parlay::pack_index(flags);
     auto segs = parlay::tabulate(offsets.size(), [&] (long j) {

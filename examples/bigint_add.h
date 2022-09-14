@@ -12,52 +12,74 @@
 // significant bit of the most significant element indicates the sign.
 // Uses a scan for the carry propagation.
 // **************************************************************
-using bigint = parlay::sequence<unsigned int>;
+
+// use 128 bit integers if available
+#ifdef __SIZEOF_INT128__
+using digit = unsigned long;
+using double_digit = unsigned __int128;
+#else
+using digit = unsigned int;
+using double_digit = unsigned long;
+#endif
+
+constexpr int digit_len = sizeof(digit)*8;
+using bigint = parlay::sequence<digit>;
+
+namespace delayed = parlay::delayed;
 
 // Templatizing allows using delayed sequences (or std:vectors).
 // Can take an extra one to add in.  Useful for subtraction.
 template <typename Bigint1, typename Bigint2>
 bigint add(const Bigint1& a, const Bigint2& b, bool extra_one=false) {
-  using uint = unsigned int;
-  using ulong = unsigned long;
   long na = a.size();  long nb = b.size();
   // flip order if a is smaller than b
   if (na < nb) return add(b, a, extra_one);
   if (nb == 0) return parlay::to_sequence(a);
-  enum carry : char { no, yes, propagate};
-  bool a_sign = a[na - 1] >> 31;
-  bool b_sign = b[nb - 1] >> 31;
-  ulong mask = (1l << 32) - 1;
+  enum carry : char { no = 0, yes = 1, propagate = 2};
+  
+  bool a_sign = a[na - 1] >> (digit_len - 1);
+  bool b_sign = b[nb - 1] >> (digit_len - 1);
+  double_digit mask = (static_cast<double_digit>(1) << digit_len) - 1;
 
   // used to extend b if it is shorter than a
-  uint pad = b_sign ? mask : 0;
+  digit pad = b_sign ? mask : 0;
   auto B = [&] (long i) {return (i < nb) ? b[i] : pad;};
 
-  // check which digits will carry or propagate
-  auto c = parlay::tabulate(na, [&] (long i) {
-    ulong s = a[i] + static_cast<ulong>(B(i));
-    s += (i == 0 && extra_one);
-    return (s >> 32) ? yes : (s == mask ? propagate : no);});
+  bigint result;
+  if (na <  65536) { // if not large do sequentially
+    double_digit carry = extra_one;
+    result = bigint::uninitialized(na);
+    for (int i=0; i < na; i++) {
+      double_digit s = a[i] + (b[i] + carry);
+      result[i] = s & mask;
+      carry = s >> digit_len;
+    }
+  } else { // do in parallel
+    // check which digits will carry or propagate
+    auto c = delayed::tabulate(na, [&] (long i) {
+	double_digit s = a[i] + static_cast<double_digit>(B(i));
+	s += (i == 0 && extra_one);
+	return static_cast<carry>(2 * (s == mask) + (s >> digit_len));}); 
 
-  // use scan to do the propagation
-  auto f = [] (carry a, carry b) {return (b == propagate) ? a : b;};
-  parlay::scan_inplace(c, parlay::binary_op(f, no));
-
-  // Add last digit of a, b and the carry bit to get the last digit.
-  uint last_digit = a[na-1] + B(na-1) + (c[na-1] == yes);
-  // If signs of a and b are the same and differnt from last_digit,
-  // it overflowed and we need to extend by an additional digit.
-  bool add_digit = ((a_sign == b_sign) && ((last_digit >> 31) != a_sign));
-
-  // final result -- add together digits of a, b and carry bit
-  return parlay::tabulate(na + add_digit, [&] (long i) -> uint {
-    return (i == na
-            ? (a_sign ? mask : 1u)
-            : (a[i] + B(i) + (c[i] == yes)));});
+    // use scan to do the propagation
+    auto f = [] (carry a, carry b) {return (b == propagate) ? a : b;};
+    auto cc = delayed::scan(c, parlay::binary_op(f, propagate)).first;
+    auto z = delayed::zip(cc, parlay::iota(na));
+    result = delayed::to_sequence(delayed::map(z, [&] (auto p) {
+    	auto [ci, i] = p;
+    	return a[i] + B(i) + ci;}));
+    //auto cc = parlay::scan(c, parlay::binary_op(f, propagate)).first;
+    //result = parlay::tabulate(na, [&] (long i) {
+    //	return a[i] + B(i) + cc[i];});
+  }
+  if ((a_sign == b_sign) && ((result[na-1] >> (digit_len - 1)) != a_sign))
+    result.push_back(a_sign ? mask : 1u);
+  return result;
 }
 
 template <typename Bigint1, typename Bigint2>
 bigint subtract(const Bigint1& a, const Bigint2& b) {
   // effectively negate b and add
-  return add(a, parlay::delayed_map(b, [] (auto bv) { return ~bv; }), true);
+  return add(a, delayed::map(b, [] (auto bv) {return ~bv;}),
+	     true);
 }

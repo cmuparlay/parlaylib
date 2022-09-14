@@ -19,12 +19,12 @@ int main(int argc, char* argv[]) {
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
 
-    long m = n/32;
+    long m = n/digit_len;
 
     auto randnum = [] (long m, long seed) {
       parlay::random_generator gen(seed);
-      auto maxv = std::numeric_limits<unsigned int>::max();
-      std::uniform_int_distribution<unsigned int> dis(0, maxv);
+      auto maxv = std::numeric_limits<digit>::max();
+      std::uniform_int_distribution<digit> dis(0, maxv);
       return parlay::tabulate(m, [&] (long i) {
         auto r = gen[i];
         if (i == m-1) return dis(r)/2; // to ensure it is not negative
@@ -40,6 +40,5 @@ int main(int argc, char* argv[]) {
       result = karatsuba(a, b);
       t.next("karatsuba");
     }
-    std::cout << n << " bits" << std::endl;
   }
 }

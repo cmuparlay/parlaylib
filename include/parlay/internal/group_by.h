@@ -11,7 +11,8 @@
 #include "../sequence.h"
 #include "../slice.h"
 #include "../utilities.h"
-#include "../delayed.h"
+//#include "../delayed.h"
+#include "../parallel.h"
 
 #include "block_delayed.h"
 #include "collect_reduce.h"
@@ -50,7 +51,6 @@ auto group_by_key_ordered(Range&& S, Comp&& less) {
 
   using KV = range_value_type_t<Range>;
   using K = std::tuple_element_t<0, KV>;
-  using V = std::tuple_element_t<1, KV>;
 
   static_assert(std::is_invocable_r_v<bool, Comp, K, K>);
 
@@ -64,18 +64,16 @@ auto group_by_key_ordered(Range&& S, Comp&& less) {
     sorted = internal::sample_sort(make_slice(S), comp, true);
   }
 
-  auto vals = sequence<V>::uninitialized(n);
-
   auto ids = internal::delayed_tabulate(n, [](size_t i) { return i; });
   auto idx = block_delayed::filter(ids, [&] (size_t i) {
-    assign_uninitialized(vals[i], internal::get_val(sorted[i]));
     return (i==0) || comp(sorted[i-1], sorted[i]); });
 
   auto r = internal::tabulate(idx.size(), [&] (size_t i) {
     size_t start = idx[i];
     size_t end = ((i==idx.size()-1) ? n : idx[i+1]);
     return std::pair(std::move(internal::get_key(sorted[idx[i]])),
-                     to_sequence(vals.cut(start, end)));
+                     map(sorted.cut(start,end), [] (auto& kv) {
+		       return std::move(internal::get_val(kv));}));
   });
   return r;
 }
@@ -317,19 +315,32 @@ template <typename Integer_t, typename R>
 auto group_by_index(R&& A, Integer_t num_buckets) {
   static_assert(is_random_access_range_v<R>);
   static_assert(is_pair_v<range_value_type_t<R>>);
-
-  if (A.size() > static_cast<size_t>(num_buckets)*num_buckets) {
+  static_assert(std::is_integral_v<Integer_t>);
+  using V = std::tuple_element_t<1, range_value_type_t<R>>;
+  size_t n = A.size();
+  
+  if (n > static_cast<size_t>(num_buckets)*num_buckets) {
     auto keys = internal::delayed_map(A, [] (auto const &kv) { return std::get<0>(kv); });
     auto vals = internal::delayed_map(A, [] (auto const &kv) { return std::get<1>(kv); });
     return internal::group_by_small_int(make_slice(vals), make_slice(keys), num_buckets);
   }
   else {
-    auto [key_vals,lengths] = internal::integer_sort_with_counts(make_slice(A),
-      [] (auto p) { return std::get<0>(p); }, num_buckets);
-    auto [offsets,total] = scan(lengths);
-    auto values = delayed::map(key_vals, [] (auto p) { return std::get<1>(p); });
-    return internal::tabulate(num_buckets, [&, o = offsets.begin(), l = lengths.begin()] (size_t i) {
-      return to_sequence(make_slice(values).cut(o[i], o[i] + l[i]));});
+    size_t bits = log2_up(num_buckets);
+    auto sorted = internal::integer_sort(make_slice(A), internal::get_key, bits);
+
+    auto iota = internal::delayed_tabulate(n, [](Integer_t i) { return i; });
+    auto starts = block_delayed::filter(iota, [&] (size_t i) {
+	return (i==0) || internal::get_key(sorted[i-1]) < internal::get_key(sorted[i]);});
+    size_t m = starts.size();
+
+    sequence<sequence<V>> r(num_buckets);
+    parallel_for(0, m, [&] (size_t i) {
+      size_t start = starts[i];
+      size_t end = ((i == m-1) ? n : starts[i+1]);
+      r[std::get<0>(sorted[starts[i]])] =
+	map(sorted.cut(start, end), [&] (auto kv) {
+	  return std::move(internal::get_val(kv));}, 1000);});
+    return r;
   }
 }
 			  
