@@ -29,6 +29,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -42,6 +43,12 @@
 // IWYU pragma: no_include <bits/this_thread_sleep.h>
 
 namespace parlay {
+
+#if __has_cpp_attribute(unlikely)
+#define PARLAY_UNLIKELY [[unlikely]]
+#else
+#define PARLAY_UNLIKELY
+#endif
 
 // Deque from Arora, Blumofe, and Plaxton (SPAA, 1998).
 template <typename Job>
@@ -134,15 +141,51 @@ struct scheduler {
   static bool const conservative = false;
   unsigned int num_threads;
 
+ // a variable that disables and enables the scheduler
+#ifdef __cpp_lib_atomic_wait
+  std::atomic<int> enabled;
+#else
+  struct : std::atomic<int> {
+    std::condition_variable_any cv{};
+
+    inline void notify_one() {
+      cv.notify_one();
+    }
+    inline void notify_all() {
+      cv.notify_all();
+    }
+    inline void wait(int val) {
+      static struct {
+        void lock() {}
+        void unlock() {}
+      } mutex{}; // a dummy mutex
+
+      bool waited = false;
+      if (load() == val)
+        cv.wait(mutex, [&]() {
+          bool old_waited = waited;
+          waited = true;
+          return old_waited;
+        });
+    }
+  } enabled;
+#endif
+
   static thread_local unsigned int thread_id;
 
+  // an overloaded version that initializes to the enabled state
   scheduler()
+      : scheduler(1)
+  {}
+
+  scheduler(int init_enabled)
       : num_threads(init_num_workers()),
         num_deques(2 * num_threads),
         deques(num_deques),
         attempts(num_deques),
         spawned_threads(),
-        finished_flag(false) {
+        finished_flag(false),
+        enabled{init_enabled} {
     // Stopping condition
     auto finished = [this]() {
       return finished_flag.load(std::memory_order_relaxed);
@@ -159,7 +202,7 @@ struct scheduler {
   }
 
   ~scheduler() {
-    finished_flag.store(true, std::memory_order_relaxed);
+    finish();
     for (unsigned int i = 1; i < num_threads; i++) {
       spawned_threads[i - 1].join();
     }
@@ -186,7 +229,10 @@ struct scheduler {
   }
 
   // All scheduler threads quit after this is called.
-  void finish() { finished_flag.store(true, std::memory_order_relaxed); }
+  void finish() {
+    finished_flag.store(true, std::memory_order_relaxed);
+    enabled.notify_all();
+  }
 
   // Pop from local stack.
   Job* try_pop() {
@@ -263,7 +309,10 @@ struct scheduler {
         if (job) return job;
       }
       // If haven't found anything, take a breather.
-      std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques * 100));
+      if (enabled)
+        std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques * 100));
+      else PARLAY_UNLIKELY
+        enabled.wait(0);
     }
   }
 
@@ -285,24 +334,18 @@ class fork_join_scheduler {
   std::unique_ptr<scheduler<Job>> sched;
 
  public:
-  fork_join_scheduler() : sched(std::make_unique<scheduler<Job>>()) {}
+  fork_join_scheduler() : sched(std::make_unique<scheduler<Job>>(0)) {}
 
   unsigned int num_workers() { return sched->num_workers(); }
   unsigned int worker_id() { return sched->worker_id(); }
   void set_num_workers(int n) { sched->set_num_workers(n); }
 
-  // Fork two thunks and wait until they both finish.
   template <typename L, typename R>
   void pardo(L left, R right, bool conservative = false) {
-    auto right_job = make_job(right);
-    sched->spawn(&right_job);
-    left();
-    if (sched->try_pop() != nullptr)
-      right();
-    else {
-      auto finished = [&]() { return right_job.finished(); };
-      sched->wait(finished, conservative);
-    }
+    if (sched->enabled++ == 0) PARLAY_UNLIKELY
+      (sched->enabled).notify_all();
+    pardo_(left, right, conservative);
+    sched->enabled--;
   }
 
 #ifdef _MSC_VER
@@ -331,12 +374,15 @@ class fork_join_scheduler {
   void parfor(size_t start, size_t end, F f, size_t granularity = 0,
               bool conservative = false) {
     if (end <= start) return;
+    if (sched->enabled++ == 0) PARLAY_UNLIKELY
+      (sched->enabled).notify_all();
     if (granularity == 0) {
       size_t done = get_granularity(start, end, f);
       granularity = std::max(done, (end - start) / static_cast<size_t>(128 * sched->num_threads));
       parfor_(start + done, end, f, granularity, conservative);
     } else
       parfor_(start, end, f, granularity, conservative);
+    sched->enabled--;
   }
 
  private:
@@ -350,9 +396,23 @@ class fork_join_scheduler {
       // Not in middle to avoid clashes on set-associative
       // caches on powers of 2.
       size_t mid = (start + (9 * (n + 1)) / 16);
-      pardo([&]() { parfor_(start, mid, f, granularity, conservative); },
-            [&]() { parfor_(mid, end, f, granularity, conservative); },
-            conservative);
+      pardo_([&]() { parfor_(start, mid, f, granularity, conservative); },
+             [&]() { parfor_(mid, end, f, granularity, conservative); },
+             conservative);
+    }
+  }
+
+  // Fork two thunks and wait until they both finish.
+  template <typename L, typename R>
+  void pardo_(L left, R right, bool conservative) {
+    auto right_job = make_job(right);
+    sched->spawn(&right_job);
+    left();
+    if (sched->try_pop() != nullptr)
+      right();
+    else {
+      auto finished = [&]() { return right_job.finished(); };
+      sched->wait(finished, conservative);
     }
   }
 
