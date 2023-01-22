@@ -110,8 +110,8 @@ std::tuple<Iterator, Iterator, bool> split3(Iterator A, size_t n, const BinPred&
   // set up initial invariants
   auto L = A + 2;
   auto R = A + n - 1;
-  while (f(*L, p1)) L++;
-  while (f(p2, *R)) R--;
+  while (L < A + n - 1 && f(*L, p1)) L++;
+  while (R >= A + 2 && f(p2, *R)) R--;
   auto M = L;
   
   // invariants:
