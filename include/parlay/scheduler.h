@@ -29,8 +29,8 @@
 #include <array>
 #include <atomic>
 #include <chrono>
-#include <condition_variable>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -39,6 +39,10 @@
 #include <vector>
 
 #include "internal/work_stealing_job.h"
+
+#ifdef PARLAY_INTERACTIVE
+#include "internal/atomic_wait.h"
+#endif
 
 // IWYU pragma: no_include <bits/this_thread_sleep.h>
 
@@ -141,35 +145,8 @@ struct scheduler {
   static bool const conservative = false;
   unsigned int num_threads;
 
- // a variable that disables and enables the scheduler
-#ifdef __cpp_lib_atomic_wait
+  // a variable that disables and enables the scheduler
   std::atomic<int> enabled;
-#else
-  struct : std::atomic<int> {
-    std::condition_variable_any cv{};
-
-    inline void notify_one() {
-      cv.notify_one();
-    }
-    inline void notify_all() {
-      cv.notify_all();
-    }
-    inline void wait(int val) {
-      static struct {
-        void lock() {}
-        void unlock() {}
-      } mutex{}; // a dummy mutex
-
-      bool waited = false;
-      if (load() == val)
-        cv.wait(mutex, [&]() {
-          bool old_waited = waited;
-          waited = true;
-          return old_waited;
-        });
-    }
-  } enabled;
-#endif
 
   static thread_local unsigned int thread_id;
 
@@ -180,12 +157,12 @@ struct scheduler {
 
   scheduler(int init_enabled)
       : num_threads(init_num_workers()),
+        enabled(init_enabled),
         num_deques(2 * num_threads),
         deques(num_deques),
         attempts(num_deques),
         spawned_threads(),
-        finished_flag(false),
-        enabled{init_enabled} {
+        finished_flag(false) {
     // Stopping condition
     auto finished = [this]() {
       return finished_flag.load(std::memory_order_relaxed);
@@ -231,7 +208,12 @@ struct scheduler {
   // All scheduler threads quit after this is called.
   void finish() {
     finished_flag.store(true, std::memory_order_relaxed);
-    enabled.notify_all();
+#ifdef PARLAY_INTERACTIVE
+    // set enabled to a large enough maginitude from zero that finishing threads
+    // will not decrement/increment it to zero
+    enabled.store(std::numeric_limits<int>::min() / 2, std::memory_order_release);
+    parlay::atomic_notify_all(&enabled);
+#endif
   }
 
   // Pop from local stack.
@@ -309,10 +291,14 @@ struct scheduler {
         if (job) return job;
       }
       // If haven't found anything, take a breather.
-      if (enabled)
+#ifdef PARLAY_INTERACTIVE
+      if (enabled.load(std::memory_order_acquire))
         std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques * 100));
       else PARLAY_UNLIKELY
-        enabled.wait(0);
+        parlay::atomic_wait(&enabled, 0);
+#else
+      std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques * 100));
+#endif
     }
   }
 
@@ -342,10 +328,14 @@ class fork_join_scheduler {
 
   template <typename L, typename R>
   void pardo(L left, R right, bool conservative = false) {
+#ifdef PARLAY_INTERACTIVE
     if (sched->enabled++ == 0) PARLAY_UNLIKELY
-      (sched->enabled).notify_all();
+      parlay::atomic_notify_all(&sched->enabled);
     pardo_(left, right, conservative);
     sched->enabled--;
+#else
+    pardo_(left, right, conservative);
+#endif
   }
 
 #ifdef _MSC_VER
@@ -374,15 +364,19 @@ class fork_join_scheduler {
   void parfor(size_t start, size_t end, F f, size_t granularity = 0,
               bool conservative = false) {
     if (end <= start) return;
+#ifdef PARLAY_INTERACTIVE
     if (sched->enabled++ == 0) PARLAY_UNLIKELY
-      (sched->enabled).notify_all();
+      parlay::atomic_notify_all(&sched->enabled);
+#endif
     if (granularity == 0) {
       size_t done = get_granularity(start, end, f);
       granularity = std::max(done, (end - start) / static_cast<size_t>(128 * sched->num_threads));
       parfor_(start + done, end, f, granularity, conservative);
     } else
       parfor_(start, end, f, granularity, conservative);
+#ifdef PARLAY_INTERACTIVE
     sched->enabled--;
+#endif
   }
 
  private:
