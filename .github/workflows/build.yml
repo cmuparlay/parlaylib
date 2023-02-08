@@ -63,7 +63,7 @@ jobs:
           elif [[ "${{ matrix.config.os }}" == "ubuntu-22.04" ]]; then
             sudo add-apt-repository ppa:ubuntu-toolchain-r/test
             wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-            sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-jammy-15 main"
+            sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
           fi
 
       - name: Install Compiler
@@ -140,7 +140,7 @@ jobs:
         run: |
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-jammy-15 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
           sudo apt-get -qq update
           sudo apt-get -y install make ${{matrix.config.cc}} ${{matrix.config.cxx}}
           wget --quiet https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2-Linux-x86_64.tar.gz
@@ -354,7 +354,7 @@ jobs:
         shell: bash
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-jammy-15 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
           sudo apt-get update
           sudo apt-get -qq install clang-15 libtbb-dev
 
@@ -411,7 +411,7 @@ jobs:
         shell: bash
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-jammy-15 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
           sudo apt-get update
           sudo apt-get -qq install clang-15 clang-tidy-15
 
@@ -434,7 +434,7 @@ jobs:
         shell: bash
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-jammy-15 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
           sudo apt-get -qq install clang-15 libc++1-15 libc++-15-dev libc++abi1-15 libc++abi-15-dev llvm-15-dev libclang-15-dev
           git clone https://github.com/include-what-you-use/include-what-you-use.git
           mkdir include-what-you-use/build && pushd include-what-you-use/build
@@ -462,7 +462,7 @@ jobs:
         shell: bash
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-jammy-15 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
           sudo apt-get update
           sudo apt-get -qq install clang-15 libc++1-15 libc++abi1-15 libc++-15-dev libc++abi-15-dev
 
@@ -495,7 +495,7 @@ jobs:
         shell: bash
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-jammy-15 main"
+          sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
           sudo apt-get -qq install clang-15 libc++1-15 libc++abi1-15 libc++-15-dev libc++abi-15-dev
 
       - name: Configure
