@@ -42,6 +42,17 @@ namespace parlay {
 #define PARLAY_NO_UNIQUE_ADDR
 #endif
 
+// PARLAY_UNLIKELY: Indicate to the compiler that 
+#if defined(__has_cpp_attribute)
+#if __has_cpp_attribute(unlikely)
+#define PARLAY_UNLIKELY [[unlikely]]
+#else
+#define PARLAY_UNLIKELY
+#endif
+#else
+#define PARLAY_UNLIKELY
+#endif
+
 // PARLAY_PREFETCH: Prefetch data into cache
 #if defined(__GNUC__)
 #define PARLAY_PREFETCH(addr, rw, locality) __builtin_prefetch ((addr), (rw), (locality))

@@ -38,21 +38,13 @@
 #include <type_traits>    // IWYU pragma: keep
 #include <vector>
 
-#include "internal/work_stealing_job.h"
-
-#ifdef PARLAY_INTERACTIVE
+#include "portability.h"
 #include "internal/atomic_wait.h"
-#endif
+#include "internal/work_stealing_job.h"
 
 // IWYU pragma: no_include <bits/this_thread_sleep.h>
 
 namespace parlay {
-
-#if __has_cpp_attribute(unlikely)
-#define PARLAY_UNLIKELY [[unlikely]]
-#else
-#define PARLAY_UNLIKELY
-#endif
 
 // Deque from Arora, Blumofe, and Plaxton (SPAA, 1998).
 template <typename Job>
@@ -208,12 +200,10 @@ struct scheduler {
   // All scheduler threads quit after this is called.
   void finish() {
     finished_flag.store(true, std::memory_order_relaxed);
-#ifdef PARLAY_INTERACTIVE
     // set enabled to a large enough maginitude from zero that finishing threads
     // will not decrement/increment it to zero
-    enabled.store(std::numeric_limits<int>::min() / 2, std::memory_order_release);
+    enabled.store(std::numeric_limits<int>::min() / 2, std::memory_order_relaxed);
     parlay::atomic_notify_all(&enabled);
-#endif
   }
 
   // Pop from local stack.
@@ -291,14 +281,10 @@ struct scheduler {
         if (job) return job;
       }
       // If haven't found anything, take a breather.
-#ifdef PARLAY_INTERACTIVE
-      if (enabled.load(std::memory_order_acquire))
+      if (enabled.load(std::memory_order_relaxed))
         std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques * 100));
       else PARLAY_UNLIKELY
         parlay::atomic_wait(&enabled, 0);
-#else
-      std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques * 100));
-#endif
     }
   }
 
@@ -328,14 +314,10 @@ class fork_join_scheduler {
 
   template <typename L, typename R>
   void pardo(L left, R right, bool conservative = false) {
-#ifdef PARLAY_INTERACTIVE
-    if (sched->enabled++ == 0) PARLAY_UNLIKELY
+    if (sched->enabled.fetch_add(1, std::memory_order_acquire) == 0) PARLAY_UNLIKELY
       parlay::atomic_notify_all(&sched->enabled);
     pardo_(left, right, conservative);
-    sched->enabled--;
-#else
-    pardo_(left, right, conservative);
-#endif
+    sched->enabled.fetch_sub(1, std::memory_order_release);
   }
 
 #ifdef _MSC_VER
@@ -364,19 +346,16 @@ class fork_join_scheduler {
   void parfor(size_t start, size_t end, F f, size_t granularity = 0,
               bool conservative = false) {
     if (end <= start) return;
-#ifdef PARLAY_INTERACTIVE
-    if (sched->enabled++ == 0) PARLAY_UNLIKELY
+
+    if (sched->enabled.fetch_add(1, std::memory_order_acquire) == 0) PARLAY_UNLIKELY
       parlay::atomic_notify_all(&sched->enabled);
-#endif
     if (granularity == 0) {
       size_t done = get_granularity(start, end, f);
       granularity = std::max(done, (end - start) / static_cast<size_t>(128 * sched->num_threads));
       parfor_(start + done, end, f, granularity, conservative);
     } else
       parfor_(start, end, f, granularity, conservative);
-#ifdef PARLAY_INTERACTIVE
-    sched->enabled--;
-#endif
+    sched->enabled.fetch_sub(1, std::memory_order_release);
   }
 
  private:
