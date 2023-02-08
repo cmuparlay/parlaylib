@@ -52,13 +52,17 @@ jobs:
 
       - name: Set up toolchain repositories
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
           if [[ "${{ matrix.config.os }}" == "ubuntu-18.04" ]]; then
+            sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
             sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-6.0 main"
           elif [[ "${{ matrix.config.os }}" == "ubuntu-20.04" ]]; then
+            sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
             sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-15 main"
           elif [[ "${{ matrix.config.os }}" == "ubuntu-22.04" ]]; then
+            sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
             sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-jammy-15 main"
           fi
 
