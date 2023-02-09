@@ -469,7 +469,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-15 CXX=clang++-15 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..
+          CC=clang-15 CXX=clang++-15 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_ASAN_TESTS=On -DBUILD_ONLY_SANITIZED=True ..
 
       - name: Build
         shell: bash
@@ -501,7 +501,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-15 CXX=clang++-15 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_UBSAN_TESTS=On -DBUILD_ONLY_SANITIZED=True -DUSE_LIBCXX=True ..
+          CC=clang-15 CXX=clang++-15 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DBUILD_UBSAN_TESTS=On -DBUILD_ONLY_SANITIZED=True ..
 
       - name: Build
         shell: bash
@@ -526,13 +526,13 @@ jobs:
       - name: Install LCov
         shell: bash
         run: |
-          sudo apt-get -qq install gcc-12 g++-12 lcov
+          sudo apt-get -qq install gcc g++ lcov
 
       - name: Configure
         shell: bash
         run: |
           mkdir build && cd build
-          CC=gcc-12 CXX=g++-12 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG=" --coverage " -DPARLAY_TEST=On ..
+          CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG=" --coverage " -DPARLAY_TEST=On ..
 
       - name: Build
         shell: bash
