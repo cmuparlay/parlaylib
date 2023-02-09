@@ -44,9 +44,10 @@ int main(int argc, char* argv[]) {
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
     parlay::random_generator gen(0);
-    std::uniform_int_distribution<coord> dis(0,1000000000);
+    coord box_size = 1000000000;
+    std::uniform_int_distribution<coord> dis(0, box_size);
 
-    // generate n random points in a unit square
+    // generate n random points in a cube
     auto points = parlay::tabulate(n, [&] (long i) {
       auto r = gen[i];
       coords pnt;

@@ -30,6 +30,7 @@ The examples are as follows, broken down into categories.
 - graph_color : graph coloring based on the greedy degree heuristic
 - kcore : returns the "coreness" of every vertex of a graph.
 - kruskal : Parallel Kruskal's minimum-spanning-forest algorithm.
+- le_list : Least elements lists for vertices of a graph.
 - low_diameter_decomposition : returns a decomposition of a graph such that beta*m edges cross between components, and each component has radius log(n)/beta.
 - maximal_independent_set : greedy (lexicographically first) MIS on random permutation of vertices
 - maximal_matching : greedy (lexicographically first) maximal matching on random permutation of edges
@@ -57,7 +58,9 @@ The examples are as follows, broken down into categories.
 - longest_repeated_substring : find the LRS in a string
 - minimum_edit_distance : report the minimum number of inserts and deletes to covert one string to another
 - rabin_karp : string search using the Rabin-Karp algorithm
+- radix_tree : a trie with such that vertices with a single child are contracted out
 - suffix_array : for a string generate array of indices sorted by the suffix starting at that index
+- suffix_tree : for a string generate its suffix tree
 - tokens : given a string, break into a sequence of tokens given separator characters
 - word_counts : given a string, count the number of occurrences of each token in the string
 
@@ -69,10 +72,16 @@ The examples are as follows, broken down into categories.
 
 ## Geometry and Graphics
 
+- 2d_linear_program : solve linear program max c^Tx, Ax <= b, in 2 dimensions.
 - delaunay : Delaunay triangulation in 2 dimensions
+- oct_tree : the z-tree variant of oct trees in any constant dimension
 - knn : k-nearest-neighbors of a set of points in constant dimension
 - quickhull : convex hull of points in 2 dimensions using quickhull algorithm
 - nbody_fmm : n-body force calculations based on Callahan-Kosaraju's variant of the fast-multipole-method.
+- box_kdtree : builds a kd_tree over a set of 3d boxes using the surface area heuristic (SAH)
+- ray_trace : traces a set of rays to first triangle they intersect (also called ray-casting)
+- 3d_range : for a set of points reports all points within a radius r.
+- rectangle_intersection : for a set of rectangles in 3d reports all pairs that intersect
 
 ## Sorting etc.
 
@@ -90,3 +99,4 @@ The examples are as follows, broken down into categories.
 - scan : possible implementation of parlaylib's scan
 - knuth_shuffle : possible implementation of parlaylib's random_shuffle
 - cycle_count : counts number of cycles in a permutation
+- hash_map : concurrent hash based map supporting insert, find, remove

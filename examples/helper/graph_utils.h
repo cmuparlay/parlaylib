@@ -25,7 +25,6 @@ struct graph_utils {
   using row = parlay::sequence<element>;
   using sparse_matrix = parlay::sequence<row>;
 
-
   // transpose a directed graph
   // i.e. generate the backward edges for every forward edges
   static graph transpose(const graph& G) {

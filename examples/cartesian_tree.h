@@ -22,11 +22,9 @@
 // Does linear total work.
 // **************************************************************
 
-// here we use longs as our numbers
-using seq = parlay::sequence<long>;
-
 // V are the values, and P the parents
-void spine_merge(const seq& V, seq& P, long left, long right) {
+template <typename Seq>
+void spine_merge(const Seq& V, Seq& P, long left, long right) {
   long head;
   if (V[left] > V[right]) {
     head = left; left = P[left];}
@@ -45,7 +43,8 @@ void spine_merge(const seq& V, seq& P, long left, long right) {
   }
 }
 
-void cartesian_tree(const seq& V, seq& P, long s, long e) {
+template <typename Seq>
+void cartesian_tree(const Seq& V, Seq& P, long s, long e) {
   if (e-s < 2) {
   } else if (e-s == 2) {
     if (V[s] > V[s+1]) P[s]= s+1;
@@ -59,8 +58,9 @@ void cartesian_tree(const seq& V, seq& P, long s, long e) {
   }
 }
 
-seq cartesian_tree(const seq& V) {
-  seq parents = parlay::tabulate(V.size(), [] (long i) {return i;});
+template <typename index>
+auto cartesian_tree(const parlay::sequence<index>& V) {
+  auto parents = parlay::tabulate(V.size(), [] (index i) {return i;});
   cartesian_tree(V, parents, 0, V.size());
   return parents;
 }

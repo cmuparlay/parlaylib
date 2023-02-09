@@ -397,7 +397,6 @@ TEST(TestSortingPrimitives, TestCountingSortInplaceNonContiguous) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
-
 TEST(TestSortingPrimitives, TestCountingSortByKeys) {
   auto s = parlay::tabulate(100000, [](unsigned int i) -> UnstablePair {
     UnstablePair x;
@@ -431,3 +430,4 @@ TEST(TestSortingPrimitives, TestCountingSortByKeysWithTuples) {
   ASSERT_EQ(s, sorted);
   ASSERT_TRUE(std::is_sorted(std::begin(sorted), std::end(sorted)));
 }
+

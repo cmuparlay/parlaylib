@@ -6,7 +6,7 @@
 #include <parlay/sequence.h>
 #include <parlay/utilities.h>
 
-#include "hashmap.h"
+#include "hash_map.h"
 
 // **************************************************************
 // Parallel Delaunay Triangulation
@@ -23,27 +23,14 @@ struct point {
   const bool operator<(const point p) const {return id < p.id;}
 };
 
-struct tri {
-  point_id p1, p2, p3;
-  const bool operator==(const tri e) const {
-    return p1 == e.p1 && p2 == e.p2 && p3 == e.p3;}
-  const unsigned long hash() {
-    return parlay::hash64(p1 + parlay::hash64(p2 + parlay::hash64(p3)));}
-};
+using tri = std::array<point_id,3>;
+using edge = std::array<point_id,2>;
 
 struct triangle {
   tri t;
   parlay::sequence<point> conflicts;
   triangle();
   triangle(tri t, parlay::sequence<point> c) : t(t), conflicts(c) {}
-};
-
-struct edge {
-  point_id p1, p2;
-  const bool operator==(const edge e) const {
-    return p1 == e.p1 && p2 == e.p2;}
-  const unsigned long hash() {
-    return parlay::hash64(p1 + parlay::hash64(p2));}
 };
 
 // A "staged" version of in_cicle.
@@ -76,8 +63,8 @@ using Points = parlay::sequence<point>;
 
 struct Delaunay {
   using triangle_ptr = std::shared_ptr<triangle>;
-  hashmap<tri,bool> mesh;
-  hashmap<edge,triangle_ptr> edges;
+  hash_map<tri,bool> mesh;
+  hash_map<edge,triangle_ptr> edges;
   Points points;
   point_id n;
 
@@ -88,7 +75,7 @@ struct Delaunay {
   // circumcicle of t
   auto filter_points(triangle_ptr& t1, triangle_ptr& t2, tri t) {
     auto a = parlay::merge(t1->conflicts, t2->conflicts);
-    auto is_in_circle = in_circle(points[t.p1],points[t.p2],points[t.p3]);
+    auto is_in_circle = in_circle(points[t[0]],points[t[1]],points[t[2]]);
     auto keep = parlay::tabulate(a.size(), [&] (long i) {
       return ((i != 0) && (a[i].id != a[i-1].id) &&
               ((i+1 < a.size() && a[i].id == a[i+1].id) ||
@@ -107,18 +94,18 @@ struct Delaunay {
       t1 = t2 = nullptr;
     } else {
       if (earliest(t2) < earliest(t1)) {
-        std::swap(t2, t1); std::swap(e.p1, e.p2);}
+        std::swap(t2, t1); std::swap(e[0], e[1]);}
       point_id p = earliest(t1);
-      tri t{e.p1, e.p2, p};
+      tri t{e[0], e[1], p};
       t1 = std::make_shared<triangle>(t, filter_points(t1, t2, t));
       auto check_edge = [&] (edge e, triangle_ptr& tp) {
-        auto key = (e.p1 < e.p2) ? e : edge{e.p2, e.p1};
+        auto key = (e[0] < e[1]) ? e : edge{e[1], e[0]};
         if (edges.insert(key, tp)) return;
         auto tt = *edges.remove(key);
         process_edge(tp, e, tt);};
       auto ta1 = t1; auto tb1 = t1;
-      parlay::par_do3([&] {check_edge(edge{p, e.p1}, ta1);},
-                      [&] {check_edge(edge{e.p2, p}, tb1);},
+      parlay::par_do3([&] {check_edge(edge{p, e[0]}, ta1);},
+                      [&] {check_edge(edge{e[1], p}, tb1);},
                       [&] {process_edge(t1, e, t2);});
     }
   }
@@ -129,8 +116,9 @@ struct Delaunay {
   // Assumes points are inside unit square to fit enclosing triangle.
   // And need to be in randomized order for good efficiency.
   Delaunay(const Points& P) :
-      mesh(hashmap<tri,bool>(2*P.size())),
-      edges(hashmap<edge,triangle_ptr>(6*P.size())), n(P.size()) {
+      mesh(hash_map<tri,bool>(2*P.size())),
+      edges(hash_map<edge,triangle_ptr>(6*P.size())),
+      n(P.size()) {
     points = P;
     // enclosing triangle
     point p0{n,0.0,100.0};

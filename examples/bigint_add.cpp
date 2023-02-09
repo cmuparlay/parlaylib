@@ -18,18 +18,21 @@ int main(int argc, char* argv[]) {
     long n;
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
-    parlay::random_generator gen;
-    std::uniform_int_distribution<unsigned int> dis(0,std::numeric_limits<int>::max());
 
-    long m = n/32;
+    auto rand_num = [] (long m, long seed) {
+      parlay::random_generator gen(seed);
+      auto maxv = std::numeric_limits<digit>::max();
+      std::uniform_int_distribution<digit> dis(0, maxv);
+      return parlay::tabulate(m, [&] (long i) {
+	  auto r = gen[i];
+	  return dis(r);});
+    };
 
-    auto a = parlay::tabulate(m, [&] (long i) {
-      auto r = gen[i]; return dis(r);});
-
-    auto b = parlay::tabulate(m, [&] (long i) {
-      auto r = gen[i+n]; return dis(r);});
-
+    long m = n/digit_len;
+    bigint a = rand_num(m, 0);
+    bigint b = rand_num(m, 1);
     bigint result;
+
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
       result = add(a, b);
