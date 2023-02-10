@@ -367,15 +367,6 @@ chars to_chars(const std::array<A, N>& P) {
   }));
 }
 
-template<typename A, typename B>
-chars to_chars(const std::pair<A, B>& P) {
-  sequence<chars> s = {
-      to_chars('('), to_chars(P.first),
-      to_chars(std::string(", ")),
-      to_chars(P.second), to_chars(')')};
-  return flatten(s);
-}
-
 template<typename T>
 chars to_chars(const slice<T, T>& A) {
   auto n = A.size();
