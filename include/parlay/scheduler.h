@@ -324,29 +324,11 @@ class fork_join_scheduler {
     size_t done = 0;
     size_t sz = 1;
     std::chrono::nanoseconds::rep ticks = 0;
-
-    // In case the loop body is extremely heavy, this allows the remaining tasks
-    // to be stolen and parallelized while the first iteration is still running.
-    //
-    // Without this optimization, a heavy loop like par_for(0, P, { sleep for 1 sec }),
-    // will take 2 seconds, because the first iteration is run entirely sequentially
-    // before the remaining iterations can be parallelized.
-    auto remaining_iterations = make_job([&]() { parfor_(start + 1, end, f, min_granularity, conservative); });
-    sched->spawn(&remaining_iterations);
-
     do {
       sz = std::min(sz, end - (start + done));
       auto tstart = std::chrono::steady_clock::now();
       for (size_t i = 0; i < sz; i++) f(start + done + i);
       auto tstop = std::chrono::steady_clock::now();
-
-      // Early break -- if the remaining iterations got stolen then this
-      // must be a heavy loop body, and it has already been parallelized
-      if (done == 0 && sched->try_pop() == nullptr) {
-        wait_for(remaining_iterations, conservative);
-        return end - start;
-      }
-
       ticks = std::chrono::duration_cast<std::chrono::nanoseconds>(tstop - tstart).count();
       done += sz;
       sz *= 2;
