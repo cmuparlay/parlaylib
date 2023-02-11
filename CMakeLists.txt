@@ -6,7 +6,7 @@
 # -------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.14)
-project(PARLAY VERSION 2.1.2
+project(PARLAY VERSION 2.1.3
         DESCRIPTION "A collection of parallel algorithms and other support for parallelism in C++"
         LANGUAGES CXX)
 
@@ -150,7 +150,7 @@ if (PARLAY_BENCHMARK)
   include(FetchContent)
   FetchContent_Declare(benchmark
     GIT_REPOSITORY  https://github.com/google/benchmark.git
-    GIT_TAG         v1.6.2
+    GIT_TAG         v1.7.1
   )
   FetchContent_GetProperties(benchmark)
   if(NOT benchmark_POPULATED)

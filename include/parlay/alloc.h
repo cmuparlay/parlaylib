@@ -171,7 +171,7 @@ struct allocator {
     }
   }
 
-  constexpr allocator() noexcept { internal::get_default_allocator(); };
+  constexpr allocator() { internal::get_default_allocator(); };
   template <class U> /* implicit */ constexpr allocator(const allocator<U>&) noexcept { }
 };
 
