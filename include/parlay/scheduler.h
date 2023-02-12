@@ -213,7 +213,7 @@ struct scheduler {
 
   // Start an individual scheduler task.  Runs until finished().
   template <typename F>
-  void start(F finished) {
+  void start(F&& finished) {
     while (true) {
       Job* job = get_job(finished);
       if (!job) return;
@@ -230,7 +230,7 @@ struct scheduler {
 
   // Find a job, first trying local stack, then random steals.
   template <typename F>
-  Job* get_job(F finished) {
+  Job* get_job(F&& finished) {
     if (finished()) return nullptr;
     Job* job = try_pop();
     if (job) return job;
