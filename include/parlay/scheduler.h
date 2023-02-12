@@ -272,12 +272,15 @@ class fork_join_scheduler {
 
   // Fork two thunks and wait until they both finish.
   template <typename L, typename R>
-  void pardo(L left, R right, bool conservative = false) {
+  void pardo(L&& left, R&& right, bool conservative = false) {
+    auto execute_right = [&]() { std::forward<R>(right)(); };
     auto right_job = make_job(right);
     sched->spawn(&right_job);
-    left();
-    if (sched->try_pop() != nullptr)
-      right();
+    std::forward<L>(left)();
+    if (auto job = sched->try_pop(); job != nullptr) {
+      assert(job == &right_job);
+      execute_right();
+    }
     else {
       auto finished = [&]() { return right_job.finished(); };
       sched->wait(finished, conservative);
