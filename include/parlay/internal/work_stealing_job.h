@@ -5,7 +5,7 @@
 #include <cassert>
 
 #include <atomic>
-#include <utility>
+#include <type_traits>
 
 namespace parlay {
 
@@ -13,7 +13,9 @@ namespace parlay {
 // and return nothing. Could be a lambda, e.g. [] () {}.
 
 struct WorkStealingJob {
-  WorkStealingJob() : done(false) { }
+  WorkStealingJob() {
+    done.store(false, std::memory_order_relaxed);
+  }
   ~WorkStealingJob() = default;
   void operator()() {
     assert(done.load(std::memory_order_relaxed) == false);
@@ -28,16 +30,20 @@ struct WorkStealingJob {
   std::atomic<bool> done;
 };
 
-// Holds a callable object
+// Holds a type-specific reference to a callable object
 template<typename F>
 struct JobImpl : WorkStealingJob {
-  explicit JobImpl(F&& _f, int) : WorkStealingJob(), f(static_cast<F&&>(_f)) { }
-  void execute() override { static_cast<F&&>(f)(); }
-  F f;
+  static_assert(std::is_invocable_v<F&>);
+  explicit JobImpl(F& _f) : WorkStealingJob(), f(_f) { }
+  void execute() override {
+    f();
+  }
+ private:
+  F& f;
 };
 
 template<typename F>
-auto make_job(F&& f) { return JobImpl<F>(std::forward<F>(f), 0); }
+JobImpl<F> make_job(F& f) { return JobImpl(f); }
 
 }
 

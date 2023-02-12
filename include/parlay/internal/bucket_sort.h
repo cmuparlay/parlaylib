@@ -147,7 +147,7 @@ void bucket_sort_r(slice<InIterator, InIterator> in,
         size_t end = (j == num_buckets - 1) ? n : counts[j + 1];
         bucket_sort_r(out.cut(start, end), in.cut(start, end), f, stable, !inplace);
       };
-      parallel_for(0, num_buckets, loop);
+      parallel_for(0, num_buckets, loop, 4);
     }
   }
 }

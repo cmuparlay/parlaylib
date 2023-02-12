@@ -213,7 +213,7 @@ struct scheduler {
 
   // Start an individual scheduler task.  Runs until finished().
   template <typename F>
-  void start(F&& finished) {
+  void start(F finished) {
     while (true) {
       Job* job = get_job(finished);
       if (!job) return;
@@ -230,7 +230,7 @@ struct scheduler {
 
   // Find a job, first trying local stack, then random steals.
   template <typename F>
-  Job* get_job(F&& finished) {
+  Job* get_job(F finished) {
     if (finished()) return nullptr;
     Job* job = try_pop();
     if (job) return job;
@@ -272,15 +272,15 @@ class fork_join_scheduler {
 
   // Fork two thunks and wait until they both finish.
   template <typename L, typename R>
-  void pardo(L&& left, R&& right, bool conservative = false) {
-    auto right_job = make_job(std::forward<R>(right));
+  void pardo(L left, R right, bool conservative = false) {
+    auto right_job = make_job(right);
     sched->spawn(&right_job);
-    std::forward<L>(left)();
-    if (sched->try_pop() != nullptr) {
-      right_job();
-    }
+    left();
+    if (sched->try_pop() != nullptr)
+      right();
     else {
-      wait_for(right_job, conservative);
+      auto finished = [&]() { return right_job.finished(); };
+      sched->wait(finished, conservative);
     }
   }
 
@@ -290,59 +290,54 @@ class fork_join_scheduler {
 #endif
 
   template <typename F>
-  void parfor(size_t start, size_t end, F&& f, size_t granularity = 0, bool conservative = false) {
-    assert(start < end);
-    if (granularity == 0) {   // use automatic granularity heuristic to pick a granularity
-      size_t min_granularity = std::max<size_t>(1, (end - start) / static_cast<size_t>(128 * sched->num_threads));
-      size_t done = get_granularity(start, end, f, min_granularity, conservative);
-      granularity = std::max<size_t>(done, min_granularity);
-      start += done;
-    }
-    parfor_(start, end, f, granularity, conservative);
-  }
-
- private:
-  template <typename F>
-  void parfor_(size_t start, size_t end, F&& f, size_t granularity, bool conservative) {
-    assert(granularity >= 1);
-    assert(start <= end);
-    if ((end - start) <= granularity) {
-      for (size_t i = start; i < end; i++) f(i);
-    }
-    else {
-      size_t n = end - start;
-      // Not in middle to avoid clashes on set-associative caches on powers of 2.
-      size_t mid = (start + (9 * (n + 1)) / 16);
-      pardo([&]() { parfor_(start, mid, f, granularity, conservative); },
-            [&]() { parfor_(mid, end, f, granularity, conservative); },
-      conservative);
-    }
-  }
-
-  template <typename F>
-  size_t get_granularity(size_t start, size_t end, F&& f, size_t min_granularity, bool conservative) {
+  size_t get_granularity(size_t start, size_t end, F f) {
     size_t done = 0;
     size_t sz = 1;
-    std::chrono::nanoseconds::rep ticks = 0;
+    int ticks = 0;
     do {
       sz = std::min(sz, end - (start + done));
-      auto tstart = std::chrono::steady_clock::now();
+      auto tstart = std::chrono::high_resolution_clock::now();
       for (size_t i = 0; i < sz; i++) f(start + done + i);
-      auto tstop = std::chrono::steady_clock::now();
-      ticks = std::chrono::duration_cast<std::chrono::nanoseconds>(tstop - tstart).count();
+      auto tstop = std::chrono::high_resolution_clock::now();
+      ticks = static_cast<int>((tstop - tstart).count());
       done += sz;
       sz *= 2;
     } while (ticks < 1000 && done < (end - start));
     return done;
   }
 
+  template <typename F>
+  void parfor(size_t start, size_t end, F f, size_t granularity = 0,
+              bool conservative = false) {
+    if (end <= start) return;
+    if (granularity == 0) {
+      size_t done = get_granularity(start, end, f);
+      granularity = std::max(done, (end - start) / static_cast<size_t>(128 * sched->num_threads));
+      parfor_(start + done, end, f, granularity, conservative);
+    } else
+      parfor_(start, end, f, granularity, conservative);
+  }
+
+ private:
+  template <typename F>
+  void parfor_(size_t start, size_t end, F f, size_t granularity,
+               bool conservative) {
+    if ((end - start) <= granularity)
+      for (size_t i = start; i < end; i++) f(i);
+    else {
+      size_t n = end - start;
+      // Not in middle to avoid clashes on set-associative
+      // caches on powers of 2.
+      size_t mid = (start + (9 * (n + 1)) / 16);
+      pardo([&]() { parfor_(start, mid, f, granularity, conservative); },
+            [&]() { parfor_(mid, end, f, granularity, conservative); },
+            conservative);
+    }
+  }
+
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-
-  void wait_for(Job& job, bool conservative) {
-    sched->wait([&]() { return job.finished(); }, conservative);
-  }
 
 };
 
