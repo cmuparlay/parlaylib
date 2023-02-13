@@ -114,6 +114,20 @@ TEST(TestParallel, TestParForUncopyableF) {
     F(const F&) = delete;
     std::vector<int>& v;
     void operator()(size_t i) const { v[i] = i; } };
+  F f{v};
+  parlay::parallel_for(0, n, f);
+  for (size_t i = 0; i < n; i++) {
+    ASSERT_EQ(v[i], i);
+  }
+}
+
+TEST(TestParallel, TestParForUncopyableTempF) {
+  size_t n = 100000;
+  std::vector<int> v(n);
+  struct F {
+    F(const F&) = delete;
+    std::vector<int>& v;
+    void operator()(size_t i) const { v[i] = i; } };
   parlay::parallel_for(0, n, F{v});
   for (size_t i = 0; i < n; i++) {
     ASSERT_EQ(v[i], i);

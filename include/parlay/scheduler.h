@@ -277,7 +277,7 @@ class fork_join_scheduler {
     auto right_job = make_job(right);
     sched->spawn(&right_job);
     std::forward<L>(left)();
-    if (auto job = sched->try_pop(); job != nullptr) {
+    if (const Job* job = sched->try_pop(); job != nullptr) {
       assert(job == &right_job);
       execute_right();
     }
@@ -303,13 +303,14 @@ class fork_join_scheduler {
   size_t get_granularity(size_t start, size_t end, F f) {
     size_t done = 0;
     size_t sz = 1;
-    size_t ticks = 0;
+    unsigned long long int ticks = 0;
     do {
       sz = std::min(sz, end - (start + done));
       auto tstart = std::chrono::steady_clock::now();
       for (size_t i = 0; i < sz; i++) f(start + done + i);
       auto tstop = std::chrono::steady_clock::now();
-      ticks = static_cast<size_t>((tstop - tstart).count());
+      ticks = static_cast<unsigned long long int>(std::chrono::duration_cast<
+                std::chrono::nanoseconds>(tstop - tstart).count());
       done += sz;
       sz *= 2;
     } while (ticks < 1000 && done < (end - start));
