@@ -153,15 +153,19 @@ inline size_t worker_id() {
 template <typename F>
 inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool conservative) {
   static_assert(std::is_invocable_v<F&, size_t>);
+  // Note: scheduler::parfor copies the function object, so we wrap it in
+  // a lambda here in case F is expensive to copy or not copyable at all
+  auto loop_body = [&](size_t i) { f(i); };
+
   if (start + 1 == end) {
     f(start);
   }
   else if ((end - start) <= static_cast<size_t>(granularity)) {
-    for (size_t i = start; i < end; i++) f(i);
+    for (size_t i = start; i < end; i++) loop_body(i);
   }
   else if (end > start) {
     internal::get_default_scheduler().parfor(start, end,
-     std::forward<F>(f), static_cast<size_t>(granularity), conservative);
+     loop_body, static_cast<size_t>(granularity), conservative);
   }
 }
 

@@ -287,60 +287,67 @@ class fork_join_scheduler {
     }
   }
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4267) // conversion from 'size_t' to *, possible loss of data
-#endif
+  template <typename F>
+  void parfor(size_t start, size_t end, F f, size_t granularity = 0, bool conservative = false) {
+    if (end <= start) return;
+    if (granularity == 0) {
+      size_t done = get_granularity(start, end, f);
+      granularity = std::max(done, (end - start) / static_cast<size_t>(128 * sched->num_threads));
+      start += done;
+    }
+    parfor_(start, end, f, granularity, conservative);
+  }
 
+ private:
   template <typename F>
   size_t get_granularity(size_t start, size_t end, F f) {
     size_t done = 0;
     size_t sz = 1;
-    int ticks = 0;
+    size_t ticks = 0;
     do {
       sz = std::min(sz, end - (start + done));
-      auto tstart = std::chrono::high_resolution_clock::now();
+      auto tstart = std::chrono::steady_clock::now();
       for (size_t i = 0; i < sz; i++) f(start + done + i);
-      auto tstop = std::chrono::high_resolution_clock::now();
-      ticks = static_cast<int>((tstop - tstart).count());
+      auto tstop = std::chrono::steady_clock::now();
+      ticks = static_cast<size_t>((tstop - tstart).count());
       done += sz;
       sz *= 2;
     } while (ticks < 1000 && done < (end - start));
     return done;
   }
-
+  /*
   template <typename F>
-  void parfor(size_t start, size_t end, F f, size_t granularity = 0,
-              bool conservative = false) {
-    if (end <= start) return;
-    if (granularity == 0) {
-      size_t done = get_granularity(start, end, f);
-      granularity = std::max(done, (end - start) / static_cast<size_t>(128 * sched->num_threads));
-      parfor_(start + done, end, f, granularity, conservative);
-    } else
-      parfor_(start, end, f, granularity, conservative);
+  size_t get_granularity(size_t start, size_t end, F f) {
+    size_t done = 0;
+    size_t sz = 1;
+    std::chrono::nanoseconds::rep ticks = 0;
+
+    do {
+      sz = std::min(sz, end - (start + done));
+      auto tstart = std::chrono::steady_clock::now();
+      for (size_t i = 0; i < sz; i++) f(start + done + i);
+      auto tstop = std::chrono::steady_clock::now();
+      ticks = std::chrono::duration_cast<std::chrono::nanoseconds>(tstop - tstart).count();
+      done += sz;
+      sz *= 2;
+    } while (ticks < 1000 && done < (end - start));
+    return done;
   }
+  */
 
- private:
   template <typename F>
-  void parfor_(size_t start, size_t end, F f, size_t granularity,
-               bool conservative) {
+  void parfor_(size_t start, size_t end, F f, size_t granularity, bool conservative) {
     if ((end - start) <= granularity)
       for (size_t i = start; i < end; i++) f(i);
     else {
       size_t n = end - start;
-      // Not in middle to avoid clashes on set-associative
-      // caches on powers of 2.
+      // Not in middle to avoid clashes on set-associative caches on powers of 2.
       size_t mid = (start + (9 * (n + 1)) / 16);
       pardo([&]() { parfor_(start, mid, f, granularity, conservative); },
             [&]() { parfor_(mid, end, f, granularity, conservative); },
             conservative);
     }
   }
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 };
 
