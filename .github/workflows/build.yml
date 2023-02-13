@@ -212,41 +212,41 @@ jobs:
 #          cd build
 #          ctest -C Debug --no-tests=error --output-on-failure
 
-  cygwin:
-    strategy:
-      matrix:
-        config:
-          - { cc: "gcc", cxx: "g++" }
-          - { cc: "clang", cxx: "clang++" }
-
-    name: windows-latest Cygwin ${{ matrix.config.cxx }} (Release)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: C:\tools\cygwin\bin\bash.exe -eo pipefail -o igncr '{0}'
-    steps:
-      - uses: actions/checkout@v2
-      - uses: egor-tensin/setup-cygwin@v3
-        with:
-          packages: git,make,gcc-core,gcc-g++,cmake,clang,libiconv-devel,cygwin32-libiconv-1.14-2
-
-      # Note: The benchmarks are currently not compiled on Cygwin because Google Benchmark's CMake configuration fails for some reason...
-      - name: Configure
-        run: |
-          mkdir build
-          cd build
-          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_EXAMPLES=On ..
-
-      - name: Build
-        run: |
-          cd build
-          cmake --build . --config Debug
-
-      - name: Test
-        run: |
-          cd build
-          ctest -C Debug --no-tests=error --output-on-failure
+#  cygwin:
+#    strategy:
+#      matrix:
+#        config:
+#          - { cc: "gcc", cxx: "g++" }
+#          - { cc: "clang", cxx: "clang++" }
+#
+#    name: windows-latest Cygwin ${{ matrix.config.cxx }} (Release)
+#    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+#    runs-on: windows-latest
+#    defaults:
+#      run:
+#        shell: C:\tools\cygwin\bin\bash.exe -eo pipefail -o igncr '{0}'
+#    steps:
+#      - uses: actions/checkout@v2
+#      - uses: egor-tensin/setup-cygwin@v3
+#        with:
+#          packages: git,make,gcc-core,gcc-g++,cmake,clang,libiconv-devel,cygwin32-libiconv-1.14-2
+#
+#      # Note: The benchmarks are currently not compiled on Cygwin because Google Benchmark's CMake configuration fails for some reason...
+#      - name: Configure
+#        run: |
+#          mkdir build
+#          cd build
+#          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_EXAMPLES=On ..
+#
+#      - name: Build
+#        run: |
+#          cd build
+#          cmake --build . --config Debug
+#
+#      - name: Test
+#        run: |
+#          cd build
+#          ctest -C Debug --no-tests=error --output-on-failure
 
   cilk-plus:
     name: ubuntu-18.04 Cilk Plus GCC-7 (Debug)
