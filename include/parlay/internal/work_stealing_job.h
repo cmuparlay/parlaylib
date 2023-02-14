@@ -5,6 +5,7 @@
 #include <cassert>
 
 #include <atomic>
+#include <type_traits>
 
 namespace parlay {
 
@@ -19,11 +20,12 @@ struct WorkStealingJob {
   void operator()() {
     assert(done.load(std::memory_order_relaxed) == false);
     execute();
-    done.store(true, std::memory_order_relaxed);
+    done.store(true, std::memory_order_release);
   }
-  bool finished() {
-    return done.load(std::memory_order_relaxed);
+  [[nodiscard]] bool finished() const noexcept {
+    return done.load(std::memory_order_acquire);
   }
+ protected:
   virtual void execute() = 0;
   std::atomic<bool> done;
 };
@@ -31,10 +33,12 @@ struct WorkStealingJob {
 // Holds a type-specific reference to a callable object
 template<typename F>
 struct JobImpl : WorkStealingJob {
+  static_assert(std::is_invocable_v<F&>);
   explicit JobImpl(F& _f) : WorkStealingJob(), f(_f) { }
   void execute() override {
     f();
   }
+ private:
   F& f;
 };
 

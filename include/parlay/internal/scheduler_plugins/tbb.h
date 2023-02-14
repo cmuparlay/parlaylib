@@ -22,7 +22,7 @@ inline size_t worker_id() {
 }
 
 template <typename F>
-inline void parallel_for(size_t start, size_t end, F f, long granularity, bool) {
+inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool) {
   static_assert(std::is_invocable_v<F&, size_t>);
   // Use TBB's automatic granularity partitioner (tbb::auto_partitioner)
   if (granularity == 0) {
@@ -43,7 +43,7 @@ inline void parallel_for(size_t start, size_t end, F f, long granularity, bool) 
 }
 
 template <typename Lf, typename Rf>
-inline void par_do(Lf left, Rf right, bool) {
+inline void par_do(Lf&& left, Rf&& right, bool) {
   static_assert(std::is_invocable_v<Lf&&>);
   static_assert(std::is_invocable_v<Rf&&>);
   tbb::parallel_invoke(std::forward<Lf>(left), std::forward<Rf>(right));

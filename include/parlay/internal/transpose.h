@@ -85,10 +85,6 @@ struct transpose {
   }
 
   void trans(size_t rCount, size_t cCount) {
-#if defined(OPENMP)
-#pragma omp parallel
-#pragma omp single
-#endif
     transR(0, rCount, cCount, 0, cCount, rCount);
   }
 };
@@ -169,10 +165,6 @@ struct blockTrans {
   }
 
   void trans(size_t rCount, size_t cCount) {
-#if defined(OPENMP)
-#pragma omp parallel
-#pragma omp single
-#endif
     transR(0, rCount, cCount, 0, cCount, rCount);
   }
 };

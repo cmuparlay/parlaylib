@@ -2,6 +2,8 @@ name: Build
 on: [push, pull_request]
 env:
   PARLAY_NUM_THREADS: 16
+  OMP_NUM_THREADS: 16
+  CILK_NWORKERS: 16
 
 jobs:
   build:
@@ -53,14 +55,17 @@ jobs:
       - name: Set up toolchain repositories
         run: |
           if [[ "${{ matrix.config.os }}" == "ubuntu-18.04" ]]; then
+            sudo apt-get update
             sudo add-apt-repository ppa:ubuntu-toolchain-r/test
             wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
             sudo apt-add-repository "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-6.0 main"
           elif [[ "${{ matrix.config.os }}" == "ubuntu-20.04" ]]; then
+            sudo apt-get update
             sudo add-apt-repository ppa:ubuntu-toolchain-r/test
             wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
             sudo apt-add-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-15 main"
           elif [[ "${{ matrix.config.os }}" == "ubuntu-22.04" ]]; then
+            sudo apt-get update
             sudo add-apt-repository ppa:ubuntu-toolchain-r/test
             wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
             sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
@@ -207,41 +212,41 @@ jobs:
 #          cd build
 #          ctest -C Debug --no-tests=error --output-on-failure
 
-  cygwin:
-    strategy:
-      matrix:
-        config:
-          - { cc: "gcc", cxx: "g++" }
-          - { cc: "clang", cxx: "clang++" }
-
-    name: windows-latest Cygwin ${{ matrix.config.cxx }} (Release)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: C:\tools\cygwin\bin\bash.exe -eo pipefail -o igncr '{0}'
-    steps:
-      - uses: actions/checkout@v2
-      - uses: egor-tensin/setup-cygwin@v3
-        with:
-          packages: git,make,gcc-core,gcc-g++,cmake,clang,libiconv-devel,cygwin32-libiconv-1.14-2
-
-      # Note: The benchmarks are currently not compiled on Cygwin because Google Benchmark's CMake configuration fails for some reason...
-      - name: Configure
-        run: |
-          mkdir build
-          cd build
-          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_EXAMPLES=On ..
-
-      - name: Build
-        run: |
-          cd build
-          cmake --build . --config Debug
-
-      - name: Test
-        run: |
-          cd build
-          ctest -C Debug --no-tests=error --output-on-failure
+#  cygwin:
+#    strategy:
+#      matrix:
+#        config:
+#          - { cc: "gcc", cxx: "g++" }
+#          - { cc: "clang", cxx: "clang++" }
+#
+#    name: windows-latest Cygwin ${{ matrix.config.cxx }} (Release)
+#    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+#    runs-on: windows-latest
+#    defaults:
+#      run:
+#        shell: C:\tools\cygwin\bin\bash.exe -eo pipefail -o igncr '{0}'
+#    steps:
+#      - uses: actions/checkout@v2
+#      - uses: egor-tensin/setup-cygwin@v3
+#        with:
+#          packages: git,make,gcc-core,gcc-g++,cmake,clang,libiconv-devel,cygwin32-libiconv-1.14-2
+#
+#      # Note: The benchmarks are currently not compiled on Cygwin because Google Benchmark's CMake configuration fails for some reason...
+#      - name: Configure
+#        run: |
+#          mkdir build
+#          cd build
+#          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=" -m64 -Wa,-mbig-obj " -DPARLAY_TEST=On -DPARLAY_EXAMPLES=On ..
+#
+#      - name: Build
+#        run: |
+#          cd build
+#          cmake --build . --config Debug
+#
+#      - name: Test
+#        run: |
+#          cd build
+#          ctest -C Debug --no-tests=error --output-on-failure
 
   cilk-plus:
     name: ubuntu-18.04 Cilk Plus GCC-7 (Debug)
@@ -259,7 +264,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fcilkplus -DPARLAY_CILKPLUS" -DCMAKE_EXE_LINKER_FLAGS="-fcilkplus -ldl" -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_CILKPLUS=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash
@@ -274,7 +279,7 @@ jobs:
           ctest -C Debug --no-tests=error --output-on-failure
 
   opencilk:
-    name: ubuntu-22.04 Open Cilk 2.0.0 (Clang 15) (Debug)
+    name: ubuntu-22.04 OpenCilk 2.0.0 (Clang 15) (Debug)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-22.04
     steps:
@@ -295,7 +300,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_C_COMPILER=$PWD/../OpenCilk-2.0.0-x86_64-Linux-Ubuntu-22.04/bin/clang -DCMAKE_CXX_COMPILER=$PWD/../OpenCilk-2.0.0-x86_64-Linux-Ubuntu-22.04/bin/clang++ -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fopencilk -DPARLAY_OPENCILK" -DCMAKE_EXE_LINKER_FLAGS="-fopencilk -ldl" -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          cmake -DCMAKE_C_COMPILER=$PWD/../OpenCilk-2.0.0-x86_64-Linux-Ubuntu-22.04/bin/clang -DCMAKE_CXX_COMPILER=$PWD/../OpenCilk-2.0.0-x86_64-Linux-Ubuntu-22.04/bin/clang++ -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_OPENCILK=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash
@@ -328,7 +333,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-15 CXX=clang++-15 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-fopenmp -DPARLAY_OPENMP" -DCMAKE_EXE_LINKER_FLAGS="-fopenmp" DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          CC=clang-15 CXX=clang++-15 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_OPENMP=On DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash
@@ -361,7 +366,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=clang-15 CXX=clang++-15 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_NO_TEST_SCHEDULER=True -DCMAKE_CXX_FLAGS="-DPARLAY_TBB" -DCMAKE_EXE_LINKER_FLAGS="-ltbb" DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          CC=clang-15 CXX=clang++-15 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_TBB=On DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         shell: bash

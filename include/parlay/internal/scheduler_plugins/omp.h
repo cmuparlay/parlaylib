@@ -13,6 +13,9 @@
 
 #include <omp.h>
 
+#include <type_traits>
+#include <utility>
+
 namespace parlay {
 
 // IWYU pragma: private, include "../../parallel.h"
@@ -26,39 +29,47 @@ inline size_t worker_id() {
 }
 
 
-template <class F>
-inline void parallel_for(size_t start, size_t end, F f, long granularity, bool) {
-  // If we are not yet in a parallel region, start one
-  if (omp_get_num_threads() == 1 && omp_get_max_threads() > 1) {
+template <typename F>
+inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool) {
+  static_assert(std::is_invocable_v<F&, size_t>);
+
+  if (end == start + 1) {
+    f(start);
+  }
+  else if ((end - start) <= static_cast<size_t>(granularity)) {
+    for (size_t i=start; i < end; i++) {
+      f(i);
+    }
+  }
+  else if (!omp_in_parallel()) {
     #pragma omp parallel
     {
       #pragma omp single
       {
-        if (granularity == 0) {
-          #pragma omp taskloop untied
+        if (granularity <= 1) {
+          #pragma omp taskloop
           for (size_t i = start; i < end; i++) {
             f(i);
           }
         }
         else {
-          #pragma omp taskloop untied grainsize(granularity)
+          #pragma omp taskloop grainsize(granularity)
           for (size_t i = start; i < end; i++) {
             f(i);
           }
         }
-      }  // omp single
-    }  // omp parallel
+      }
+    }
   }
-  // Already inside a parallel region, avoid creating nested one (see comment at top)
   else {
-    if (granularity == 0) {
-      #pragma omp taskloop untied
+    if (granularity <= 1) {
+      #pragma omp taskloop shared(f)
       for (size_t i = start; i < end; i++) {
         f(i);
       }
     }
     else {
-      #pragma omp taskloop untied grainsize(granularity)
+      #pragma omp taskloop grainsize(granularity) shared(f)
       for (size_t i = start; i < end; i++) {
         f(i);
       }
@@ -67,28 +78,35 @@ inline void parallel_for(size_t start, size_t end, F f, long granularity, bool) 
 }
 
 template <typename Lf, typename Rf>
-inline void par_do(Lf left, Rf right, bool) {
+inline void par_do(Lf&& left, Rf&& right, bool) {
+  static_assert(std::is_invocable_v<Lf&&>);
+  static_assert(std::is_invocable_v<Rf&&>);
+
   // If we are not yet in a parallel region, start one
-  if (omp_get_num_threads() == 1 && omp_get_max_threads() > 1) {
+  if (!omp_in_parallel()) {
     #pragma omp parallel
     {
       #pragma omp single
       {
-        #pragma omp task untied
-        { left(); }
-        #pragma omp task untied
-        { right(); }
-        #pragma omp taskwait
+        #pragma omp taskgroup
+        {
+          #pragma omp task untied
+          { std::forward<Rf>(right)(); }
+
+          { std::forward<Lf>(left)(); }
+        }
       }  // omp single
     }  // omp parallel
   }
   // Already inside a parallel region, avoid creating nested one (see comment at top)
   else {
-    #pragma omp task untied
-    { left(); }
-    #pragma omp task untied
-    { right(); }
-    #pragma omp taskwait
+    #pragma omp taskgroup
+    {
+      #pragma omp task untied shared(right)
+      { std::forward<Rf>(right)(); }
+
+      { std::forward<Lf>(left)(); }
+    }
   }
 }
 
