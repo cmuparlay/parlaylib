@@ -1,4 +1,5 @@
 
+
 # Including and Configuring
 
 ParlayLib is a lightweight header-only library, so it is easy to integrate into your new or existing projects. There are many ways to accomplish this. Choose whichever works best for your project.
@@ -34,7 +35,6 @@ cmake --build . --target install
 You may need to run the installation step with `sudo` depending on the chosen installation path. Now that Parlay is installed, you can locate and include it via CMake by adding the following to the CMakeLists.txt of your project
 
 ```
-find_package(Threads REQUIRED)
 find_package(Parlay REQUIRED)
 ```
 
@@ -87,16 +87,18 @@ If fancy build systems are not your thing, the tried and tested way to include P
 
 ### Using Parlay with Cilk, OpenMP, or TBB
 
-If you're already using CilkPlus, OpenCilk, OpenMP, or Thread Building Blocks (TBB), and just want to use Parlay's algorithms without its parallel scheduler, that is easy to do. When building your program, simply add the appropriate compile definition given in the table below.
+If you're already using CilkPlus, OpenCilk, OpenMP, or Thread Building Blocks (TBB), and just want to use Parlay's algorithms without its parallel scheduler, that is easy to do. Parlay has built-in integration for these tools making it seamless to integrate.
 
-Parlay will then use the specified framework's parallel operations to support its algorithms instead of its own scheduler. Note that you are still responsible for ensuring that Cilk/OMP/TBB are enabled/linked against your program, just as you normally would without Parlay.
+There are two ways to enable this integration, either by setting a corresponding CMake flag if you are using CMake to include Parlay, or by manually setting some compiler flags if not. The CMake method is recommended since it should work on all platforms without any changes. Without CMake, the required flags may be different depending on your system and compiler.
 
-Library | Definition to enable | Other flags | Notes
+
+Tool | CMake flag | E.g. manual flags (Linux) | Notes
 ---|---|---|---
-CilkPlus | `-DPARLAY_CILKPLUS` | `-fcilkplus` | Requires GCC 7 (removed in later versions)
-OpenCilk | `-DPARLAY_OPENCILK` | `-fopencilk` | Requires the [OpenCilk compiler](https://github.com/OpenCilk/opencilk-project/releases)
-OpenMP | `-DPARLAY_OPENMP` | `-fopenmp` or `/openmp` | Requires an OpenMP runtime compatible with your compiler
-TBB | `-DPARLAY_TBB` | - | Requires linking against the TBB library
+CilkPlus | `-DPARLAY_CILKPLUS=On` | `-DPARLAY_CILKPLUS -fcilkplus` | Requires GCC 7 (removed in later versions)
+OpenCilk | `-DPARLAY_OPENCILK=On` | `-DPARLAY_OPENCILK -fopencilk` | Requires the [OpenCilk compiler](https://github.com/OpenCilk/opencilk-project/releases)
+OpenMP | `-DPARLAY_OPENMP=On` | `-DPARLAY_OPENMP -fopenmp` | Requires an OpenMP runtime compatible with your compiler
+TBB | `-DPARLAY_TBB=On` | `-DPARLAY_TBB -ltbb` | Requires linking against the TBB library
+
 
 ### Setting the number of worker threads
 

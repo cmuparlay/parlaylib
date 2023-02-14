@@ -42,6 +42,7 @@ Documentation for Parlay is an ongoing effort.
 ### Getting started
 
 * [Including and configuring](./installation.md) - Setting up Parlay and configuring parallelism
+* [Executing code in parallel](./other/scheduler.md) - How to run code in parallel
 
 ### Data types
 
@@ -65,7 +66,6 @@ Parlay's algorithms are designed to provide near-state-of-the-art performance an
 
 Parlay includes additional tools that make it easier to write parallel and concurrent code.
 
-* [Parallel scheduler](./other/scheduler.md) - A fast work-stealing scheduler
 * [Memory allocator](./other/allocator.md) - A scalable pool-based memory allocator
 
 
