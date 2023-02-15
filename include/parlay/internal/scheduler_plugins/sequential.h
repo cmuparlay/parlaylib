@@ -17,7 +17,7 @@ inline void set_num_workers(int) { }
 #endif
 
 template <class F>
-inline void parallel_for(size_t start, size_t end, F f, long, bool) {
+inline void parallel_for(size_t start, size_t end, F&& f, long, bool) {
   for (size_t i=start; i<end; i++) {
     f(i);
   }
@@ -28,8 +28,9 @@ inline void parallel_for(size_t start, size_t end, F f, long, bool) {
 #endif
 
 template <typename Lf, typename Rf>
-inline void par_do(Lf left, Rf right, bool) {
-  left(); right();
+inline void par_do(Lf&& left, Rf&& right, bool) {
+  std::forward<Lf>(left)();
+  std::forward<Rf>(right)();
 }
 
 }  // namespace parlay
