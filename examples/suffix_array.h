@@ -83,7 +83,7 @@ auto suffix_array(const char_range& S) {
       index l = segment.end - segment.start;
       auto p = parlay::tabulate(l, [&] (long i) {
         index k = sorted[s + i];
-        return std::pair{(k + offset >= n) ? 0 : ranks[k + offset], k};}, granularity);
+        return std::pair{(k + offset >= n) ? 0 : ranks[k + offset] + 1, k};}, granularity);
       parlay::sort_inplace(p);
       parlay::sequence<bool> flags(l);
       parlay::parallel_for(0, l, [&] (long i) {
