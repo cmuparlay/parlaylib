@@ -6,7 +6,7 @@
 # -------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.14)
-project(PARLAY VERSION 2.1.4
+project(PARLAY VERSION 2.1.5
         DESCRIPTION "A collection of parallel algorithms and other support for parallelism in C++"
         LANGUAGES CXX)
 
@@ -233,7 +233,7 @@ endif()
 
 message(STATUS "------------------- Examples --------------------")
 
-# User option to build benchmarks
+# User option to build examples
 option(PARLAY_EXAMPLES    "Build examples"  OFF)
 
 if (PARLAY_EXAMPLES)
