@@ -37,6 +37,7 @@
 #include <utility>
 #include <vector>
 
+#include "internal/atomic_wait.h"
 #include "internal/work_stealing_job.h"
 
 
@@ -282,8 +283,7 @@ class fork_join_scheduler {
       execute_right();
     }
     else {
-      auto finished = [&]() { return right_job.finished(); };
-      sched->wait(finished, conservative);
+      wait_for(right_job, conservative);
     }
   }
 
@@ -316,25 +316,6 @@ class fork_join_scheduler {
     } while (ticks < 1000 && done < (end - start));
     return done;
   }
-  /*
-  template <typename F>
-  size_t get_granularity(size_t start, size_t end, F f) {
-    size_t done = 0;
-    size_t sz = 1;
-    std::chrono::nanoseconds::rep ticks = 0;
-
-    do {
-      sz = std::min(sz, end - (start + done));
-      auto tstart = std::chrono::steady_clock::now();
-      for (size_t i = 0; i < sz; i++) f(start + done + i);
-      auto tstop = std::chrono::steady_clock::now();
-      ticks = std::chrono::duration_cast<std::chrono::nanoseconds>(tstop - tstart).count();
-      done += sz;
-      sz *= 2;
-    } while (ticks < 1000 && done < (end - start));
-    return done;
-  }
-  */
 
   template <typename F>
   void parfor_(size_t start, size_t end, F f, size_t granularity, bool conservative) {
@@ -347,6 +328,15 @@ class fork_join_scheduler {
       pardo([&]() { parfor_(start, mid, f, granularity, conservative); },
             [&]() { parfor_(mid, end, f, granularity, conservative); },
             conservative);
+    }
+  }
+  
+  void wait_for(Job& job, bool conservative) {
+    if (conservative) {
+      job.wait_for();
+    }
+    else {
+      sched->wait([&]() { return job.finished(); }, false);
     }
   }
 

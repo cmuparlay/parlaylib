@@ -7,6 +7,8 @@
 #include <atomic>
 #include <type_traits>
 
+#include "atomic_wait.h"
+
 namespace parlay {
 
 // Jobs are thunks -- i.e., functions that take no arguments
@@ -21,9 +23,13 @@ struct WorkStealingJob {
     assert(done.load(std::memory_order_relaxed) == false);
     execute();
     done.store(true, std::memory_order_release);
+    parlay::atomic_notify_all(&done);
   }
   [[nodiscard]] bool finished() const noexcept {
     return done.load(std::memory_order_acquire);
+  }
+  void wait_for() const noexcept {
+    parlay::atomic_wait(&done, false);
   }
  protected:
   virtual void execute() = 0;
