@@ -62,7 +62,7 @@ struct scheduler {
 
   explicit scheduler(size_t num_workers)
       : num_threads(num_workers),
-        num_deques(2 * num_threads),
+        num_deques(num_threads),
         deques(num_deques),
         attempts(num_deques),
         spawned_threads{} {
@@ -78,12 +78,6 @@ struct scheduler {
 
   ~scheduler() {
     shutdown();
-  }
-
-  void print(std::string s) {
-    std::stringstream ss;
-    ss << "Worker " << worker_id() << ": " << s << "\n";
-    //std::cout << ss.str() << std::flush;
   }
 
   // Spawn a new job that can run in parallel.
@@ -137,21 +131,16 @@ struct scheduler {
   // flag is set to true.
   void worker(size_t id) {
     thread_id = id;  // thread-local write
-    parlay::atomic_wait(&wake_up_counter, wake_up_counter.load());
-    print("\tAwoken for the first time");
+    wait_for_work();
     while (!finished()) {
       Job* job = get_job([&]() { return finished(); });
       if (job) {
-        print("\tExecuting job " + std::to_string((uintptr_t)job));
         (*job)();
-        print("\tCompleted job " + std::to_string((uintptr_t)job));
       }
       else if (!finished()) {
         // If no job was stolen, the worker should go to
         // sleep and wait until more work is available
-        print("\tGoing to sleep");
         wait_for_work();
-        print("\tAwake again!!");
       }
     }
     num_finished_workers.fetch_add(1);
@@ -164,9 +153,7 @@ struct scheduler {
     while (!waiting_job.finished()) {
       Job* job = get_job([&]() { return waiting_job.finished(); });
       if (job) {
-        print("\tExecuting job " + std::to_string((uintptr_t)job));
         (*job)();
-        print("\tCompleted job " + std::to_string((uintptr_t)job));
       }
     }
   }
@@ -178,8 +165,6 @@ struct scheduler {
     Job* job = get_own_job();
     if (job) return job;
     else job = steal_job(std::move(break_early));
-    if (job)
-      print("\tStolen job " + std::to_string((uintptr_t)job));
     return job;
   }
   
@@ -271,11 +256,7 @@ class fork_join_scheduler {
       execute_right();
     }
     else if (!right_job.finished()) {
-      if (worker_id() == 0)
-        sched->print("\tMain thread waiting for a stolen job " + std::to_string((uintptr_t)&right_job));
       sched->wait_for(right_job, conservative);
-      if (worker_id() == 0)
-        sched->print("\tMain thread back from waiting!");
     }
   }
 
