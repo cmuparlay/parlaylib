@@ -30,7 +30,6 @@
 #include <array>
 #include <atomic>
 #include <chrono>         // IWYU pragma: keep
-#include <iostream>
 #include <memory>
 #include <thread>
 #include <type_traits>    // IWYU pragma: keep
@@ -38,98 +37,16 @@
 #include <vector>
 
 #include "internal/atomic_wait.h"
+#include "internal/work_stealing_deque.h"
 #include "internal/work_stealing_job.h"
 
+#include <string>
+#include <sstream>
 
 // IWYU pragma: no_include <bits/chrono.h>
 // IWYU pragma: no_include <bits/this_thread_sleep.h>
 
 namespace parlay {
-
-// Deque from Arora, Blumofe, and Plaxton (SPAA, 1998).
-template <typename Job>
-struct Deque {
-  using qidx = unsigned int;
-  using tag_t = unsigned int;
-
-  // use std::atomic<age_t> for atomic access.
-  // Note: Explicit alignment specifier required
-  // to ensure that Clang inlines atomic loads.
-  struct alignas(int64_t) age_t {
-    // cppcheck bug prevents it from seeing usage with braced initializer
-    tag_t tag;                // cppcheck-suppress unusedStructMember
-    qidx top;                 // cppcheck-suppress unusedStructMember
-  };
-
-  // align to avoid false sharing
-  struct alignas(64) padded_job {
-    std::atomic<Job*> job;
-  };
-
-  static constexpr int q_size = 1000;
-  std::atomic<qidx> bot;
-  std::atomic<age_t> age;
-  std::array<padded_job, q_size> deq;
-
-  Deque() : bot(0), age(age_t{0, 0}) {}
-
-  void push_bottom(Job* job) {
-    auto local_bot = bot.load(std::memory_order_relaxed);      // atomic load
-    deq[local_bot].job.store(job, std::memory_order_relaxed);  // shared store
-    local_bot += 1;
-    if (local_bot == q_size) {
-      std::cerr << "internal error: scheduler queue overflow" << std::endl;
-      std::abort();
-    }
-    bot.store(local_bot, std::memory_order_relaxed);  // shared store
-    std::atomic_thread_fence(std::memory_order_seq_cst);
-  }
-
-  Job* pop_top() {
-    Job* result = nullptr;
-    auto old_age = age.load(std::memory_order_relaxed);    // atomic load
-    auto local_bot = bot.load(std::memory_order_relaxed);  // atomic load
-    if (local_bot > old_age.top) {
-      auto job =
-          deq[old_age.top].job.load(std::memory_order_relaxed);  // atomic load
-      auto new_age = old_age;
-      new_age.top = new_age.top + 1;
-      if (age.compare_exchange_strong(old_age, new_age))
-        result = job;
-      else
-        result = nullptr;
-    }
-    return result;
-  }
-
-  Job* pop_bottom() {
-    Job* result = nullptr;
-    auto local_bot = bot.load(std::memory_order_relaxed);  // atomic load
-    if (local_bot != 0) {
-      local_bot--;
-      bot.store(local_bot, std::memory_order_relaxed);  // shared store
-      std::atomic_thread_fence(std::memory_order_seq_cst);
-      auto job =
-          deq[local_bot].job.load(std::memory_order_relaxed);  // atomic load
-      auto old_age = age.load(std::memory_order_relaxed);      // atomic load
-      if (local_bot > old_age.top)
-        result = job;
-      else {
-        bot.store(0, std::memory_order_relaxed);  // shared store
-        auto new_age = age_t{old_age.tag + 1, 0};
-        if ((local_bot == old_age.top) &&
-            age.compare_exchange_strong(old_age, new_age))
-          result = job;
-        else {
-          age.store(new_age, std::memory_order_relaxed);  // shared store
-          result = nullptr;
-        }
-        std::atomic_thread_fence(std::memory_order_seq_cst);
-      }
-    }
-    return result;
-  }
-};
 
 template <typename Job>
 struct scheduler {
@@ -139,66 +56,69 @@ struct scheduler {
   unsigned int num_threads;
 
   static thread_local unsigned int thread_id;
+  
+  std::atomic<size_t> wake_up_counter{0};
+  std::atomic<size_t> num_finished_workers{0};
 
   explicit scheduler(size_t num_workers)
       : num_threads(num_workers),
         num_deques(2 * num_threads),
         deques(num_deques),
         attempts(num_deques),
-        spawned_threads(),
-        finished_flag(false) {
-    // Stopping condition
-    auto finished = [this]() {
-      return finished_flag.load(std::memory_order_acquire);
-    };
-
+        spawned_threads{} {
+    
     // Spawn num_threads many threads on startup
     thread_id = 0;  // thread-local write
     for (unsigned int i = 1; i < num_threads; i++) {
-      spawned_threads.emplace_back([&, i, finished]() {
-        thread_id = i;  // thread-local write
-        start(finished);
+      spawned_threads.emplace_back([&, i]() {
+        worker(i);
       });
     }
   }
 
   ~scheduler() {
-    finished_flag.store(true, std::memory_order_release);
-    for (unsigned int i = 1; i < num_threads; i++) {
-      spawned_threads[i - 1].join();
-    }
+    shutdown();
   }
 
-  // Push onto local stack.
+  void print(std::string s) {
+    std::stringstream ss;
+    ss << "Worker " << worker_id() << ": " << s << "\n";
+    //std::cout << ss.str() << std::flush;
+  }
+
+  // Spawn a new job that can run in parallel.
   void spawn(Job* job) {
     int id = worker_id();
-    deques[id].push_bottom(job);
+    bool first = deques[id].push_bottom(job);
+    if (first) wake_up_a_worker();
   }
 
-  // Wait for condition: finished().
-  template <typename F>
-  void wait(F&& finished, bool conservative = false) {
-    // Conservative avoids deadlock if scheduler is used in conjunction
-    // with user locks enclosing a wait.
+  // Wait until the given job is complete.
+  //
+  // If conservative, this thread will simply wait until
+  // the job is complete. Otherwise, it will look for work
+  // to steal and keep busy until the job is complete.
+  void wait_for(Job& job, bool conservative) {
     if (conservative) {
-      while (!finished())
-        std::this_thread::yield();
+      job.wait();
     }
-    // If not conservative, schedule within the wait.
-    // Can deadlock if a stolen job uses same lock as encloses the wait.
     else {
-      start(std::forward<F>(finished));
+      do_work_until_complete(job);
     }
   }
 
   // Pop from local stack.
-  Job* try_pop() {
+  Job* get_own_job() {
     auto id = worker_id();
     return deques[id].pop_bottom();
   }
 
-  unsigned int num_workers() { return num_threads; }
-  unsigned int worker_id() { return thread_id; }
+  unsigned int num_workers() const noexcept { return num_threads; }
+  unsigned int worker_id() const noexcept { return thread_id; }
+
+  bool finished() const noexcept {
+    return finished_flag.load(std::memory_order_acquire);
+  }
 
  private:
   // Align to avoid false sharing.
@@ -207,45 +127,99 @@ struct scheduler {
   };
 
   int num_deques;
-  std::vector<Deque<Job>> deques;
+  std::vector<internal::Deque<Job>> deques;
   std::vector<attempt> attempts;
   std::vector<std::thread> spawned_threads;
-  std::atomic<int> finished_flag;
+  std::atomic<bool> finished_flag{false};
 
-  // Start an individual scheduler task.  Runs until finished().
-  template <typename F>
-  void start(F&& finished) {
-    while (true) {
-      Job* job = get_job(finished);
-      if (!job) return;
-      (*job)();
+  // Start an individual scheduler task that looks for
+  // jobs to steal. Runs until the scheduler's finished
+  // flag is set to true.
+  void worker(size_t id) {
+    thread_id = id;  // thread-local write
+    parlay::atomic_wait(&wake_up_counter, wake_up_counter.load());
+    print("\tAwoken for the first time");
+    while (!finished()) {
+      Job* job = get_job([&]() { return finished(); });
+      if (job) {
+        print("\tExecuting job " + std::to_string((uintptr_t)job));
+        (*job)();
+        print("\tCompleted job " + std::to_string((uintptr_t)job));
+      }
+      else if (!finished()) {
+        // If no job was stolen, the worker should go to
+        // sleep and wait until more work is available
+        print("\tGoing to sleep");
+        wait_for_work();
+        print("\tAwake again!!");
+      }
     }
+    num_finished_workers.fetch_add(1);
   }
 
-  Job* try_steal(size_t id) {
-    // use hashing to get "random" target
-    size_t target = (hash(id) + hash(attempts[id].val)) % num_deques;
-    attempts[id].val++;
-    return deques[target].pop_top();
+  // Keeps busy by looking for work (either in the threads own
+  // local stack or by stealing if the local stack is empty) until
+  // the given (stolen) job has been completed (by someone else).
+  void do_work_until_complete(Job& waiting_job) {
+    while (!waiting_job.finished()) {
+      Job* job = get_job([&]() { return waiting_job.finished(); });
+      if (job) {
+        print("\tExecuting job " + std::to_string((uintptr_t)job));
+        (*job)();
+        print("\tCompleted job " + std::to_string((uintptr_t)job));
+      }
+    }
   }
 
   // Find a job, first trying local stack, then random steals.
   template <typename F>
-  Job* get_job(F&& finished) {
-    if (finished()) return nullptr;
-    Job* job = try_pop();
+  Job* get_job(F&& break_early) {
+    if (break_early()) return nullptr;
+    Job* job = get_own_job();
     if (job) return job;
+    else job = steal_job(std::move(break_early));
+    if (job)
+      print("\tStolen job " + std::to_string((uintptr_t)job));
+    return job;
+  }
+  
+  template<typename F>
+  Job* steal_job(F&& break_early) {
     size_t id = worker_id();
-    while (true) {
-      // By coupon collector's problem, this should touch all.
-      for (int i = 0; i <= num_deques * 100; i++) {
-        if (finished()) return nullptr;
-        job = try_steal(id);
-        if (job) return job;
-      }
-      // If haven't found anything, take a breather.
-      std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques * 100));
+    // By coupon collector's problem, this should touch all.
+    for (int i = 0; i <= num_deques * 100; i++) {
+      if (break_early()) return nullptr;
+      Job* job = try_steal(id);
+      if (job) return job;
     }
+    return nullptr;
+  }
+  
+  Job* try_steal(size_t id) {
+    // use hashing to get "random" target
+    size_t target = (hash(id) + hash(attempts[id].val)) % num_deques;
+    attempts[id].val++;
+    auto [job, empty] = deques[target].pop_top();
+    if (!empty) wake_up_a_worker();
+    return job;
+  }
+
+  // Wakes up at least one sleeping worker (more than one
+  // worker may be woken up depending on the implementation).
+  void wake_up_a_worker() {
+    wake_up_counter.fetch_add(1);
+    parlay::atomic_notify_one(&wake_up_counter);
+  }
+  
+  // Wake up all sleeping workers
+  void wake_up_all_workers() {
+    wake_up_counter.fetch_add(1);
+    parlay::atomic_notify_all(&wake_up_counter);
+  }
+  
+  // Wait until notified to wake up
+  void wait_for_work() {
+    parlay::atomic_wait(&wake_up_counter, wake_up_counter.load());
   }
 
   size_t hash(uint64_t x) {
@@ -254,6 +228,20 @@ struct scheduler {
     x = x ^ (x >> 31);
     return static_cast<size_t>(x);
   }
+  
+  void shutdown() {
+    finished_flag.store(true, std::memory_order_release);
+    // We must spam wake all workers until they finish in
+    // case any of them are just about to fall asleep, since
+    // they might therefore miss the flag to finish
+    while (num_finished_workers.load() < num_threads - 1) {
+      wake_up_all_workers();
+    }
+    for (unsigned int i = 1; i < num_threads; i++) {
+      spawned_threads[i - 1].join();
+    }
+  }
+
 };
 
 template <typename T>
@@ -278,12 +266,16 @@ class fork_join_scheduler {
     auto right_job = make_job(right);
     sched->spawn(&right_job);
     std::forward<L>(left)();
-    if (const Job* job = sched->try_pop(); job != nullptr) {
+    if (const Job* job = sched->get_own_job(); job != nullptr) {
       assert(job == &right_job);
       execute_right();
     }
-    else {
-      wait_for(right_job, conservative);
+    else if (!right_job.finished()) {
+      if (worker_id() == 0)
+        sched->print("\tMain thread waiting for a stolen job " + std::to_string((uintptr_t)&right_job));
+      sched->wait_for(right_job, conservative);
+      if (worker_id() == 0)
+        sched->print("\tMain thread back from waiting!");
     }
   }
 
@@ -328,15 +320,6 @@ class fork_join_scheduler {
       pardo([&]() { parfor_(start, mid, f, granularity, conservative); },
             [&]() { parfor_(mid, end, f, granularity, conservative); },
             conservative);
-    }
-  }
-  
-  void wait_for(Job& job, bool conservative) {
-    if (conservative) {
-      job.wait_for();
-    }
-    else {
-      sched->wait([&]() { return job.finished(); }, false);
     }
   }
 
