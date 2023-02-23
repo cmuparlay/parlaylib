@@ -52,6 +52,11 @@ template <typename Job>
 struct scheduler {
   static_assert(std::is_invocable_r_v<void, Job&>);
 
+  // After SLEEP_FACTOR * P unsuccessful steal attempts, a
+  // worker will go to sleep until it is notified that there
+  // is more work to steal, in order to save CPU time
+  constexpr size_t SLEEP_FACTOR = 1000;
+
  public:
   unsigned int num_threads;
 
@@ -172,7 +177,7 @@ struct scheduler {
   Job* steal_job(F&& break_early) {
     size_t id = worker_id();
     // By coupon collector's problem, this should touch all.
-    for (int i = 0; i <= num_deques * 100; i++) {
+    for (int i = 0; i <= SLEEP_FACTOR * num_deques; i++) {
       if (break_early()) return nullptr;
       Job* job = try_steal(id);
       if (job) return job;
@@ -221,6 +226,7 @@ struct scheduler {
     // they might therefore miss the flag to finish
     while (num_finished_workers.load() < num_threads - 1) {
       wake_up_all_workers();
+      std::this_thread::yield();
     }
     for (unsigned int i = 1; i < num_threads; i++) {
       spawned_threads[i - 1].join();
