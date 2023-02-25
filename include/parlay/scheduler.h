@@ -52,10 +52,15 @@ template <typename Job>
 struct scheduler {
   static_assert(std::is_invocable_r_v<void, Job&>);
 
-  // After SLEEP_FACTOR * P unsuccessful steal attempts, a
-  // worker will go to sleep until it is notified that there
-  // is more work to steal, in order to save CPU time
-  constexpr static size_t SLEEP_FACTOR = 1000;
+  // After YIELD_FACTOR * P unsuccessful steal attempts, a
+  // a worker will yield to give other threads a chance
+  // to work and save some cycles.
+  // 
+  // After SLEEP_FACTOR rounds of unsuccessful steals, a worker
+  // will go to sleep until it is notified that there is more
+  // work to steal, in order to save CPU time
+  constexpr static size_t YIELD_FACTOR = 100;
+  constexpr static size_t SLEEP_FACTOR = 100;
 
  public:
   unsigned int num_threads;
@@ -176,11 +181,14 @@ struct scheduler {
   template<typename F>
   Job* steal_job(F&& break_early) {
     size_t id = worker_id();
-    // By coupon collector's problem, this should touch all.
-    for (size_t i = 0; i <= SLEEP_FACTOR * num_deques; i++) {
-      if (break_early()) return nullptr;
-      Job* job = try_steal(id);
-      if (job) return job;
+    for (size_t r = 0; r < SLEEP_FACTOR; r++) {
+      // By coupon collector's problem, this should touch all.
+      for (size_t i = 0; i <= YIELD_FACTOR * num_deques; i++) {
+        if (break_early()) return nullptr;
+        Job* job = try_steal(id);
+        if (job) return job;
+      }
+      std::this_thread::yield();
     }
     return nullptr;
   }
