@@ -62,6 +62,11 @@ struct scheduler {
   constexpr static size_t YIELD_FACTOR = 200;
   constexpr static size_t SLEEP_FACTOR = 1000;
 
+  // After 1000ms (1 second) of unsuccessful steals, a worker will go
+  // to sleep until it is notified that there is more work to steal i
+  // to save CPU time
+  constexpr static std::chrono::milliseconds SLEEP_DELAY{1000};
+
  public:
   unsigned int num_threads;
 
@@ -181,7 +186,8 @@ struct scheduler {
   template<typename F>
   Job* steal_job(F&& break_early) {
     size_t id = worker_id();
-    for (size_t r = 0; r < SLEEP_FACTOR; r++) {
+    const auto start_time = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - start_time < SLEEP_DELAY) {
       // By coupon collector's problem, this should touch all.
       for (size_t i = 0; i <= YIELD_FACTOR * num_deques; i++) {
         if (break_early()) return nullptr;
