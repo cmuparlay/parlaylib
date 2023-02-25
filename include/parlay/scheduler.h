@@ -141,7 +141,7 @@ struct scheduler {
   // flag is set to true.
   void worker(size_t id) {
     thread_id = id;  // thread-local write
-    wait_for_work();
+    //wait_for_work();
     while (!finished()) {
       Job* job = get_job([&]() { return finished(); });
       if (job) {
