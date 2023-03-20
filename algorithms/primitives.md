@@ -381,7 +381,9 @@ void stable_sort_inplace(Range&& in, BinaryPredicate&& less)
 ```
 
 
-**sort** takes a given random-access range and outputs a sequence containing copies of the elements of the range in sorted order (note that unlike the standard library, sort is not inplace by default!). **sort_inplace** can be used to sort a given range in place. **stable_sort** and **stable_sort_inplace** are the same but guarantee that equal elements maintain their original relative order. All of these functions can optionally take a custom comparator object, which is a binary predicate that evaluates to true if the first of the given elements should compare less than the second.
+**sort** takes a given random-access range and outputs a sequence containing *copies* of the elements of the range in sorted order (note that unlike the standard library, sort is not inplace by default!). This means that the elements of the input range must be copyable. **sort_inplace** can be used to sort a given range in place. The elements of the range therefore do not have to be copyable, but must be swappable. **stable_sort** and **stable_sort_inplace** are the same but guarantee that equal elements maintain their original relative order. All of these functions can optionally take a custom comparator object, which is a binary predicate that evaluates to true if the first of the given elements should compare less than the second.
+
+Note that the inplace functions may still allocate additional temporary memory. They are not guaranteed to use no memory.
 
 ### Integer Sort
 
@@ -411,7 +413,9 @@ template<typename Range, typename Key>
 void stable_integer_sort_inplace(Range&& in, Key&& key)
 ```
 
-**integer_sort** works just like sort, except that it is specialized to sort integer keys, and is significantly faster than ordinary sort. It can be used to sort ranges of integers, or ranges of arbitrary types if a unary operator is provided that can produce an integer key for any given element. **stable_integer_sort** and **stable_integer_sort_inplace** are guaranteed to maintain the relative order between elements with equal keys.
+**integer_sort** works just like sort, except that it is specialized to sort integer keys, and is significantly faster than ordinary sort. It can be used to sort ranges of integers, or ranges of arbitrary types if a unary operator is provided that can produce an integer key for any given element. **integer_sort** returns a new range containing copies of the elements from the input range, so the elements of the range must be copyable. **integer_sort_inplace** sorts the given range in place by swapping elements rather than producing any copies, so it may be used with uncopyable types provided that the elements of the range are swappable. **stable_integer_sort** and **stable_integer_sort_inplace** are guaranteed to maintain the relative order between elements with equal keys.
+
+Note that the inplace functions may still allocate additional temporary memory. They are not guaranteed to use no memory.
 
 
 ### Group by

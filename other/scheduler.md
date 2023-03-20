@@ -71,7 +71,7 @@ template<typename F>
 void blocked_for(size_t start, size_t end, size_t block_size, F&& f, bool conservative = false)
 ```
 
-Block-parallel loops are similar to a parallel-for loop with a fixed granularity, but instead of evaluating `f` for each index of the range in parallel, the range is split into contiguous blocks of a given size, and `f` is evaluated for each block evaluated in parallel. This can be handy if you have a very optimized sequential algorithm that you can apply to each block of elements, and might be more efficient than a naive parallel-for over each element.
+Block-parallel loops are similar to a parallel-for loop with a fixed granularity, but instead of evaluating `f` for each index of the range in parallel, the range is split into contiguous blocks of a given size, and `f` is evaluated for each block evaluated in parallel. This can be handy if you have a very optimized sequential algorithm that you can apply to each block of elements, and might be more efficient than a naive parallel-for over each element.  Unlike granularity, which is only a hint to the scheduler, the block size is exact (except for the final block if the range size is not divisible by the block size).
 
 The function object `f` passed to `blocked_for` takes three arguments: The number of the block, the start index of the block, and the end index (exclusive) of the block.
 
@@ -88,11 +88,13 @@ void copy_sequence(const parlay::sequence<int>& source, parlay::sequence<int>& d
 
 ### Granularity
 
-The granularity of a parallel-for loop specifies the number of iterations of the loop that should be ran sequentially. For example, a loop with 100K iterations and a granularity of 1000 would execute 100 parallel tasks, each of which was responsible for evaluating 1000 iterations sequentially.
+The granularity of a parallel-for loop is a hint to the scheduler that the given number of iterations of the loop should be ran sequentially. For example, a loop with 100K iterations and a granularity of 1000 could execute 100 parallel tasks, each of which was responsible for evaluating 1000 iterations sequentially.
+
+Note that the granularity is only approximate and the range is not guaranteed to be divided exactly into equal-size chunks of the same granularity.  For instance, Parlay's scheduler will run chunks of size *at most* the granularity sequentially, but may also divide parts of the range into smaller chunks. Other schedulers (e.g., Cilk, or TBB) may have different behavior for the granularity, so it should only ever be treated as an optimization hint, and never relied upon for any correctness property.  If you require a range to be divided exactly into blocks of a fixed size, use [blocked_for](#blocked-for-loops--blocked-for-).
 
 Setting a granularity too low can lead to slowdown of the code due to the inherent overhead of parallel scheduling, so it is important to set the granularity such that each sequential block of work does a sufficient amount of work to make this overhead negligible. Setting the granularity too high may lead to a lack of parallelism, which will also cause a slowdown.
 
-When left to its default value (zero), Parlay's scheduler will estimate a good granularity for the loop itself. The scheduler-estimated value is usually quite good and close to optimal, so it is rarely necessarily to manually tune the granularity, unless your parallel-for loop does very irregular and unpredictable amounts of work or you need to optimize your code as far as possible. Keep in mind that the optimal granularity might depend on factors such as the hardware on which your code is ran, so hand tuning can only go so far.
+When left to its default value (zero), Parlay's scheduler will estimate a good granularity for the loop itself. The scheduler-estimated value is usually quite good and close to optimal, so it is rarely necessarily to manually tune the granularity, unless your parallel-for loop does very irregular and unpredictable amounts of work. Keep in mind that the optimal granularity might depend on factors such as the hardware on which your code is ran, so hand tuning can only go so far and may even slow your code down on other environments/machines.
 
 ### Conservative scheduling
 
