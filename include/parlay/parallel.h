@@ -114,7 +114,7 @@ namespace internal {
 #endif
 
 // Determine the number of workers to spawn
-unsigned int init_num_workers() {
+inline unsigned int init_num_workers() {
   if (const auto env_p = std::getenv("PARLAY_NUM_THREADS")) {
     return std::stoi(env_p);
   } else {
