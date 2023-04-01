@@ -1,23 +1,3 @@
-// EXAMPLE USE 1:
-//
-// fork_join_scheduler fj(num_threads);
-//
-// long fib(long i) {
-//   if (i <= 1) return 1;
-//   long l,r;
-//   fj.pardo([&] () { l = fib(i-1);},
-//            [&] () { r = fib(i-2);});
-//   return l + r;
-// }
-//
-// fib(40);
-//
-// EXAMPLE USE 2:
-//
-// void init(long* x, size_t n) {
-//   parfor(0, n, [&] (int i) {a[i] = i;});
-// }
-//
 
 #ifndef PARLAY_SCHEDULER_H_
 #define PARLAY_SCHEDULER_H_
@@ -30,6 +10,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>         // IWYU pragma: keep
+#include <iostream>
 #include <memory>
 #include <thread>
 #include <type_traits>    // IWYU pragma: keep
@@ -40,11 +21,31 @@
 #include "internal/work_stealing_deque.h"
 #include "internal/work_stealing_job.h"
 
-#include <string>
-#include <sstream>
-
 // IWYU pragma: no_include <bits/chrono.h>
 // IWYU pragma: no_include <bits/this_thread_sleep.h>
+
+
+
+// True if the scheduler should scale the number of awake workers
+// proportional to the amount of work to be done. This saves CPU
+// time if there is not any parallel work available, but may cause
+// some startup lag when more parallelism becomes available.
+//
+// Default: true
+#ifndef PARLAY_ELASTIC_PARALLELISM
+#define PARLAY_ELASTIC_PARALLELISM true
+#endif
+
+
+// PARLAY_ELASTIC_SLEEP_MICROS sets the number of microseconds
+// that a worker will attempt to steal jobs, such that if no
+// jobs are successfully stolen, it will go to sleep.
+//
+// Default: 10000 (10 milliseconds)
+#ifndef PARLAY_ELASTIC_SLEEP_MICROS
+#define PARLAY_ELASTIC_SLEEP_MICROS 10000
+#endif
+
 
 namespace parlay {
 
@@ -53,35 +54,29 @@ struct scheduler {
   static_assert(std::is_invocable_r_v<void, Job&>);
 
   // After YIELD_FACTOR * P unsuccessful steal attempts, a
-  // a worker will yield to give other threads a chance
-  // to work and save some cycles.
-  // 
-  // After SLEEP_FACTOR rounds of unsuccessful steals, a worker
-  // will go to sleep until it is notified that there is more
-  // work to steal, in order to save CPU time
+  // a worker will sleep briefly for SLEEP_FACTOR * P nanoseconds
+  // to give other threads a chance to work and save some cycles.
   constexpr static size_t YIELD_FACTOR = 200;
-  constexpr static size_t SLEEP_FACTOR = 1000;
+  constexpr static size_t SLEEP_FACTOR = 200;
 
-  // After 1000ms (1 second) of unsuccessful steals, a worker will go
-  // to sleep until it is notified that there is more work to steal i
-  // to save CPU time
-  constexpr static std::chrono::milliseconds SLEEP_DELAY{1000};
+  // The length of time that a worker must fail to steal anything
+  // before it goes to sleep to save CPU time.
+  constexpr static std::chrono::microseconds SLEEP_DELAY{PARLAY_ELASTIC_SLEEP_MICROS};
 
  public:
   unsigned int num_threads;
 
   static thread_local unsigned int thread_id;
-  
-  std::atomic<size_t> wake_up_counter{0};
-  std::atomic<size_t> num_finished_workers{0};
 
   explicit scheduler(size_t num_workers)
       : num_threads(num_workers),
         num_deques(num_threads),
+        num_awake_workers(num_threads),
         deques(num_deques),
         attempts(num_deques),
-        spawned_threads{} {
-    
+        spawned_threads(),
+        finished_flag(false) {
+
     // Spawn num_threads many threads on startup
     thread_id = 0;  // thread-local write
     for (unsigned int i = 1; i < num_threads; i++) {
@@ -95,11 +90,13 @@ struct scheduler {
     shutdown();
   }
 
-  // Spawn a new job that can run in parallel.
+  // Push onto local stack.
   void spawn(Job* job) {
     int id = worker_id();
-    bool first = deques[id].push_bottom(job);
+    [[maybe_unused]] bool first = deques[id].push_bottom(job);
+#if PARLAY_ELASTIC_PARALLELISM
     if (first) wake_up_a_worker();
+#endif
   }
 
   // Wait until the given job is complete.
@@ -122,8 +119,8 @@ struct scheduler {
     return deques[id].pop_bottom();
   }
 
-  unsigned int num_workers() const noexcept { return num_threads; }
-  unsigned int worker_id() const noexcept { return thread_id; }
+  unsigned int num_workers() { return num_threads; }
+  unsigned int worker_id() { return thread_id; }
 
   bool finished() const noexcept {
     return finished_flag.load(std::memory_order_acquire);
@@ -136,27 +133,31 @@ struct scheduler {
   };
 
   int num_deques;
+  std::atomic<size_t> num_awake_workers;
   std::vector<internal::Deque<Job>> deques;
   std::vector<attempt> attempts;
   std::vector<std::thread> spawned_threads;
-  std::atomic<bool> finished_flag{false};
+  std::atomic<int> finished_flag;
 
-  // Start an individual scheduler task that looks for
-  // jobs to steal. Runs until the scheduler's finished
-  // flag is set to true.
+  std::atomic<size_t> wake_up_counter{0};
+  std::atomic<size_t> num_finished_workers{0};
+
+
   void worker(size_t id) {
     thread_id = id;  // thread-local write
-    //wait_for_work();
+#if PARLAY_ELASTIC_PARALLELISM
+    wait_for_work();
+#endif
     while (!finished()) {
       Job* job = get_job([&]() { return finished(); });
-      if (job) {
-        (*job)();
-      }
+      if (job)(*job)();
+#if PARLAY_ELASTIC_PARALLELISM
       else if (!finished()) {
         // If no job was stolen, the worker should go to
         // sleep and wait until more work is available
         wait_for_work();
       }
+#endif
     }
     num_finished_workers.fetch_add(1);
   }
@@ -187,7 +188,7 @@ struct scheduler {
   Job* steal_job(F&& break_early) {
     size_t id = worker_id();
     const auto start_time = std::chrono::steady_clock::now();
-    while (std::chrono::steady_clock::now() - start_time < SLEEP_DELAY) {
+    do {
       // By coupon collector's problem, this should touch all.
       for (size_t i = 0; i <= YIELD_FACTOR * num_deques; i++) {
         if (break_early()) return nullptr;
@@ -195,36 +196,48 @@ struct scheduler {
         if (job) return job;
       }
       std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques * 100));
-    }
+    } while (!PARLAY_ELASTIC_PARALLELISM || std::chrono::steady_clock::now() - start_time < SLEEP_DELAY);
     return nullptr;
   }
-  
+
   Job* try_steal(size_t id) {
     // use hashing to get "random" target
     size_t target = (hash(id) + hash(attempts[id].val)) % num_deques;
     attempts[id].val++;
     auto [job, empty] = deques[target].pop_top();
+#if PARLAY_ELASTIC_PARALLELISM
     if (!empty) wake_up_a_worker();
+#endif
     return job;
   }
+
+#if PARLAY_ELASTIC_PARALLELISM
 
   // Wakes up at least one sleeping worker (more than one
   // worker may be woken up depending on the implementation).
   void wake_up_a_worker() {
-    wake_up_counter.fetch_add(1);
-    parlay::atomic_notify_one(&wake_up_counter);
+    if (num_awake_workers.load(std::memory_order_acquire) < num_threads) {
+      wake_up_counter.fetch_add(1);
+      parlay::atomic_notify_one(&wake_up_counter);
+    }
   }
   
   // Wake up all sleeping workers
   void wake_up_all_workers() {
-    wake_up_counter.fetch_add(1);
-    parlay::atomic_notify_all(&wake_up_counter);
+    if (num_awake_workers.load(std::memory_order_acquire) < num_threads) {
+      wake_up_counter.fetch_add(1);
+      parlay::atomic_notify_all(&wake_up_counter);
+    }
   }
   
   // Wait until notified to wake up
   void wait_for_work() {
+    num_awake_workers.fetch_sub(1);
     parlay::atomic_wait(&wake_up_counter, wake_up_counter.load());
+    num_awake_workers.fetch_add(1);
   }
+
+#endif
 
   size_t hash(uint64_t x) {
     x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
@@ -235,6 +248,7 @@ struct scheduler {
   
   void shutdown() {
     finished_flag.store(true, std::memory_order_release);
+#if PARLAY_ELASTIC_PARALLELISM
     // We must spam wake all workers until they finish in
     // case any of them are just about to fall asleep, since
     // they might therefore miss the flag to finish
@@ -242,11 +256,11 @@ struct scheduler {
       wake_up_all_workers();
       std::this_thread::yield();
     }
+#endif
     for (unsigned int i = 1; i < num_threads; i++) {
       spawned_threads[i - 1].join();
     }
   }
-
 };
 
 template <typename T>
@@ -275,7 +289,7 @@ class fork_join_scheduler {
       assert(job == &right_job);
       execute_right();
     }
-    else if (!right_job.finished()) {
+    else {
       sched->wait_for(right_job, conservative);
     }
   }
