@@ -37,13 +37,13 @@
 #endif
 
 
-// PARLAY_ELASTIC_SLEEP_MICROS sets the number of microseconds
+// PARLAY_ELASTIC_STEAL_TIMEOUT sets the number of microseconds
 // that a worker will attempt to steal jobs, such that if no
 // jobs are successfully stolen, it will go to sleep.
 //
 // Default: 10000 (10 milliseconds)
-#ifndef PARLAY_ELASTIC_SLEEP_MICROS
-#define PARLAY_ELASTIC_SLEEP_MICROS 10000
+#ifndef PARLAY_ELASTIC_STEAL_TIMEOUT
+#define PARLAY_ELASTIC_STEAL_TIMEOUT 10000
 #endif
 
 
@@ -61,7 +61,7 @@ struct scheduler {
 
   // The length of time that a worker must fail to steal anything
   // before it goes to sleep to save CPU time.
-  constexpr static std::chrono::microseconds SLEEP_DELAY{PARLAY_ELASTIC_SLEEP_MICROS};
+  constexpr static std::chrono::microseconds STEAL_TIMEOUT{PARLAY_ELASTIC_STEAL_TIMEOUT};
 
  public:
   unsigned int num_threads;
@@ -99,17 +99,24 @@ struct scheduler {
 #endif
   }
 
-  // Wait until the given job is complete.
+  // Wait until the given condition is true.
   //
-  // If conservative, this thread will simply wait until
-  // the job is complete. Otherwise, it will look for work
-  // to steal and keep busy until the job is complete.
-  void wait_for(Job& job, bool conservative) {
+  // If conservative, this thread will simply busy wait. Otherwise,
+  // it will look for work to steal and keep itself occupied. This
+  // can deadlock if the stolen work wants a lock held by the code
+  // that is waiting, so avoid that.
+  template <typename F>
+  void wait_until(F&& done, bool conservative = false) {
+    // Conservative avoids deadlock if scheduler is used in conjunction
+    // with user locks enclosing a wait.
     if (conservative) {
-      job.wait();
+      while (!done())
+        std::this_thread::yield();
     }
+    // If not conservative, schedule within the wait.
+    // Can deadlock if a stolen job uses same lock as encloses the wait.
     else {
-      do_work_until_complete(job);
+      do_work_until(std::forward<F>(done));
     }
   }
 
@@ -142,14 +149,17 @@ struct scheduler {
   std::atomic<size_t> wake_up_counter{0};
   std::atomic<size_t> num_finished_workers{0};
 
-
+  // Start an individual worker task, stealing work if no local
+  // work is available. May go to sleep if no work is available
+  // for a long time, until woken up again when notified that
+  // new work is available.
   void worker(size_t id) {
     thread_id = id;  // thread-local write
 #if PARLAY_ELASTIC_PARALLELISM
     wait_for_work();
 #endif
     while (!finished()) {
-      Job* job = get_job([&]() { return finished(); });
+      Job* job = get_job([&]() { return finished(); }, PARLAY_ELASTIC_PARALLELISM);
       if (job)(*job)();
 #if PARLAY_ELASTIC_PARALLELISM
       else if (!finished()) {
@@ -159,33 +169,48 @@ struct scheduler {
       }
 #endif
     }
+    assert(finished());
     num_finished_workers.fetch_add(1);
   }
 
-  // Keeps busy by looking for work (either in the threads own
-  // local stack or by stealing if the local stack is empty) until
-  // the given (stolen) job has been completed (by someone else).
-  void do_work_until_complete(Job& waiting_job) {
-    while (!waiting_job.finished()) {
-      Job* job = get_job([&]() { return waiting_job.finished(); });
-      if (job) {
-        (*job)();
-      }
+  // Runs tasks until done(), stealing work if necessary.
+  //
+  // Does not sleep or time out since this can be called
+  // by the main thread and by join points, for which sleeping
+  // would cause deadlock, and timing out could cause a join
+  // point to resume execution before the job it was waiting
+  // on has completed.
+  template <typename F>
+  void do_work_until(F&& done) {
+    while (true) {
+      Job* job = get_job(done, false);  // timeout MUST BE false
+      if (!job) return;
+      (*job)();
     }
+    assert(done());
   }
 
   // Find a job, first trying local stack, then random steals.
+  //
+  // Returns nullptr if break_early() returns true before a job
+  // is found, or, if timeout is true and it takes longer than
+  // STEAL_TIMEOUT to find a job to steal.
   template <typename F>
-  Job* get_job(F&& break_early) {
+  Job* get_job(F&& break_early, bool timeout) {
     if (break_early()) return nullptr;
     Job* job = get_own_job();
     if (job) return job;
-    else job = steal_job(std::move(break_early));
+    else job = steal_job(std::forward<F>(break_early), timeout);
     return job;
   }
   
+  // Find a job with random steals.
+  //
+  // Returns nullptr if break_early() returns true before a job
+  // is found, or, if timeout is true and it takes longer than
+  // STEAL_TIMEOUT to find a job to steal.
   template<typename F>
-  Job* steal_job(F&& break_early) {
+  Job* steal_job(F&& break_early, bool timeout) {
     size_t id = worker_id();
     const auto start_time = std::chrono::steady_clock::now();
     do {
@@ -196,7 +221,7 @@ struct scheduler {
         if (job) return job;
       }
       std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques * 100));
-    } while (!PARLAY_ELASTIC_PARALLELISM || std::chrono::steady_clock::now() - start_time < SLEEP_DELAY);
+    } while (!timeout || std::chrono::steady_clock::now() - start_time < STEAL_TIMEOUT);
     return nullptr;
   }
 
@@ -290,7 +315,10 @@ class fork_join_scheduler {
       execute_right();
     }
     else {
-      sched->wait_for(right_job, conservative);
+      //sched->wait_for(right_job, conservative);
+      auto done = [&]() { return right_job.finished(); };
+      sched->wait_until(done, conservative);
+      assert(right_job.finished());
     }
   }
 
