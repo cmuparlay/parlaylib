@@ -348,7 +348,7 @@ namespace parlay {
 
     template <class _Tp, class _Tv>
     __ABI void atomic_wait_explicit(std::atomic<_Tp> const* a, _Tv val, std::memory_order order) {
-        __cxx_atomic_wait((const _Tp*)a, (_Tp)val, (int)order);
+        __cxx_atomic_wait((const _Tp*)a, (_Tp)val, (int)order);   // cppcheck-suppress cstyleCast
     }
     template <class _Tp, class _Tv>
     __ABI void atomic_wait(std::atomic<_Tp> const* a, _Tv val) {
@@ -356,11 +356,11 @@ namespace parlay {
     }
     template <class _Tp>
     __ABI void atomic_notify_one(std::atomic<_Tp> const* a) {
-        __cxx_atomic_notify_one((const _Tp*)a);
+        __cxx_atomic_notify_one((const _Tp*)a);                   // cppcheck-suppress cstyleCast
     }
     template <class _Tp>
     __ABI void atomic_notify_all(std::atomic<_Tp> const* a) {
-        __cxx_atomic_notify_all((const _Tp*)a);
+        __cxx_atomic_notify_all((const _Tp*)a);                   // cppcheck-suppress cstyleCast
     }
 
 }
