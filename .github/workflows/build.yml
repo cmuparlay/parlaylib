@@ -18,7 +18,7 @@ jobs:
         build_type: ["Debug", "RelWithDebInfo", "Release"]
         config:
           - {
-            os: ubuntu-18.04,  # Note: GCC-7 is gone in Ubuntu-22
+            os: ubuntu-20.04,  # Note: GCC-7 is gone in Ubuntu-22
             cc: "gcc-7", cxx: "g++-7"
           }
           - {
@@ -26,7 +26,7 @@ jobs:
             cc: "gcc-12", cxx: "g++-12"
           }
           - {
-            os: ubuntu-18.04,
+            os: ubuntu-20.04,
             cc: "clang-6.0", cxx: "clang++-6.0"
           }
           - {
