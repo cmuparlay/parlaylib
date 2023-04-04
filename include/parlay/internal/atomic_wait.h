@@ -135,7 +135,16 @@ The strategy is chosen this way, by platform:
     #define __NO_CONDVAR
     #define __NO_TABLE
 
+    
+    #ifndef NOMINMAX
+    #define PARLAY_DEFINED_NOMINMAX
+    #define NOMINMAX
+    #endif
     #include <Windows.h>
+    #ifdef PARLAY_DEFINED_NOMINMAX
+    #undef NOMINMAX
+    #endif
+    
     #define __YIELD() Sleep(0)
     #define __SLEEP(x) Sleep(x)
     #define __YIELD_PROCESSOR() YieldProcessor()
