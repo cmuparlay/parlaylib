@@ -51,14 +51,15 @@ auto collect_reduce_few(Seq const &A, Helper const &helper, size_t num_buckets) 
   size_t n = A.size();
 
   size_t num_threads = num_workers();
-  size_t num_blocks = (std::min)(4 * num_threads, n / num_buckets / 64) + 1;
+  size_t num_blocks_ = (std::min)(4 * num_threads, n / num_buckets / 64) + 1;
+  size_t block_size = ((n - 1) / num_blocks_) + 1;
+  size_t num_blocks = (1 + ((n)-1) / (block_size));
 
   // if insufficient parallelism, do sequentially
   if (n < CR_SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1)
     return seq_collect_reduce(A, helper, num_buckets);
 
   // partial results for each block
-  size_t block_size = ((n - 1) / num_blocks) + 1;
   sequence<sequence<result_type>> Out(num_blocks);
   sliced_for(n, block_size, [&](size_t i, size_t start, size_t end) {
     Out[i] = seq_collect_reduce(make_slice(A).cut(start, end),
