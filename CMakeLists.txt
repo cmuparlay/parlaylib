@@ -28,7 +28,7 @@ else()
 endif()
 
 message(STATUS "PARLAY VERSION ${PARLAY_VERSION}")
-message(STATUS "--------------- General configuration -------------")
+message(STATUS "---------------------------- General configuration -----------------------------")
 message(STATUS "CMake Generator:                ${CMAKE_GENERATOR}")
 message(STATUS "Compiler:                       ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS "Build type:                     ${CMAKE_BUILD_TYPE}")
@@ -55,6 +55,14 @@ target_compile_features(parlay INTERFACE cxx_std_17)
 # Link against system threads
 find_package(Threads REQUIRED)
 target_link_libraries(parlay INTERFACE Threads::Threads)
+
+
+message(STATUS "-------------------------------- Library options ------------------------------")
+
+# -------------------------------------------------------------------
+#                Enable/disable elastic parallelism
+
+option(PARLAY_ELASTIC_PARALLELISM "Enable elastic parallelism" On)
 
 # -------------------------------------------------------------------
 #              Support for alternative parallel runtimes
@@ -111,6 +119,20 @@ elseif(PARLAY_TBB)
 elseif(PARLAY_SEQUENTIAL)
   message(STATUS "Parlay sequential mode enabled (no parallelism!!)")
   target_compile_definitions(parlay INTERFACE PARLAY_SEQUENTIAL)
+else()
+  message(STATUS "Using Parlay scheduler. Switch with -DPARLAY_{CILKPLUS,OPENCILK,OPENMP,TBB}=On")
+  if (PARLAY_ELASTIC_PARALLELISM)
+    message(STATUS "Elastic parallelism enabled. Disable with -DPARLAY_ELASTIC_PARALLELISM=Off")
+    target_compile_definitions(parlay INTERFACE PARLAY_ELASTIC_PARALLELISM=true)
+    
+    # On Windows we need to link against synchronization.lib for WaitOnAddress
+    if (WIN32)
+      target_link_libraries(parlay INTERFACE synchronization)
+    endif()
+  else()
+    message(STATUS "Elastic parallelism disabled. Enable with -DPARLAY_ELASTIC_PARALLELISM=On")
+    target_compile_definitions(parlay INTERFACE PARLAY_ELASTIC_PARALLELISM=false)
+  endif()
 endif()
 
 
@@ -148,13 +170,13 @@ install(DIRECTORY ${PARLAY_INCLUDE_DIR}/parlay DESTINATION include)
 # -------------------------------------------------------------------
 #                       Static analysis
 
-message(STATUS "-------------------------- Static Analysis ------------------------")
+message(STATUS "------------------------------- Static Analysis --------------------------------")
 add_subdirectory(analysis)
 
 # -------------------------------------------------------------------
 #                         Unit tests
 
-message(STATUS "-------------------------- Unit Tests ------------------------")
+message(STATUS "---------------------------------- Unit Tests ----------------------------------")
 
 # User option to build unit tests
 option(PARLAY_TEST  "Build unit tests"       OFF)
@@ -194,7 +216,7 @@ endif()
 # -------------------------------------------------------------------
 #                       Benchmarks
 
-message(STATUS "------------------- Benchmarks --------------------")
+message(STATUS "---------------------------------- Benchmarks ----------------------------------")
 
 # User option to build benchmarks
 option(PARLAY_BENCHMARK    "Build microbenchmarks"  OFF)
@@ -231,7 +253,7 @@ endif()
 # -------------------------------------------------------------------
 #                          Examples
 
-message(STATUS "------------------- Examples --------------------")
+message(STATUS "----------------------------------- Examples -----------------------------------")
 
 # User option to build examples
 option(PARLAY_EXAMPLES    "Build examples"  OFF)

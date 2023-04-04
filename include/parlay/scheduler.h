@@ -17,7 +17,6 @@
 #include <utility>
 #include <vector>
 
-#include "internal/atomic_wait.h"
 #include "internal/work_stealing_deque.h"
 #include "internal/work_stealing_job.h"
 
@@ -46,6 +45,10 @@
 #define PARLAY_ELASTIC_STEAL_TIMEOUT 10000
 #endif
 
+
+#if PARLAY_ELASTIC_PARALLELISM
+#include "internal/atomic_wait.h"
+#endif
 
 namespace parlay {
 
