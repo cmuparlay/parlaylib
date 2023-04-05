@@ -5,7 +5,10 @@
 #include <cassert>
 
 #include <atomic>
+#include <thread>
 #include <type_traits>
+
+#include "atomic_wait.h"
 
 namespace parlay {
 
@@ -24,6 +27,10 @@ struct WorkStealingJob {
   }
   [[nodiscard]] bool finished() const noexcept {
     return done.load(std::memory_order_acquire);
+  }
+  void wait() const noexcept {
+    while (!finished())
+      std::this_thread::yield();
   }
  protected:
   virtual void execute() = 0;
