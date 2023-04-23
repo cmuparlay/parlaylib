@@ -51,15 +51,14 @@ struct Deque {
   //
   // Returns true if the queue was empty before this push
   bool push_bottom(Job* job) {
-    auto local_bot = bot.load(std::memory_order_relaxed);      // atomic load
-    deq[local_bot].job.store(job, std::memory_order_relaxed);  // shared store
+    auto local_bot = bot.load(std::memory_order_acquire);      // atomic load
+    deq[local_bot].job.store(job, std::memory_order_release);  // shared store
     local_bot += 1;
     if (local_bot == q_size) {
       std::cerr << "internal error: scheduler queue overflow" << std::endl;
       std::abort();
     }
-    bot.store(local_bot, std::memory_order_relaxed);  // shared store
-    std::atomic_thread_fence(std::memory_order_seq_cst);
+    bot.store(local_bot, std::memory_order_seq_cst);  // shared store
     return (local_bot == 1);
   }
 
@@ -69,10 +68,10 @@ struct Deque {
   // Returns {job, empty}, where empty is true if job was the
   // only job on the queue, i.e., the queue is now empty
   std::pair<Job*, bool> pop_top() {
-    auto old_age = age.load(std::memory_order_relaxed);    // atomic load
-    auto local_bot = bot.load(std::memory_order_relaxed);  // atomic load
+    auto old_age = age.load(std::memory_order_acquire);    // atomic load
+    auto local_bot = bot.load(std::memory_order_acquire);  // atomic load
     if (local_bot > old_age.top) {
-      auto job = deq[old_age.top].job.load(std::memory_order_relaxed);  // atomic load
+      auto job = deq[old_age.top].job.load(std::memory_order_acquire);  // atomic load
       auto new_age = old_age;
       new_age.top = new_age.top + 1;
       if (age.compare_exchange_strong(old_age, new_age))
@@ -88,27 +87,26 @@ struct Deque {
   // other thread.
   Job* pop_bottom() {
     Job* result = nullptr;
-    auto local_bot = bot.load(std::memory_order_relaxed);  // atomic load
+    auto local_bot = bot.load(std::memory_order_acquire);  // atomic load
     if (local_bot != 0) {
       local_bot--;
-      bot.store(local_bot, std::memory_order_relaxed);  // shared store
+      bot.store(local_bot, std::memory_order_release);  // shared store
       std::atomic_thread_fence(std::memory_order_seq_cst);
       auto job =
-          deq[local_bot].job.load(std::memory_order_relaxed);  // atomic load
-      auto old_age = age.load(std::memory_order_relaxed);      // atomic load
+          deq[local_bot].job.load(std::memory_order_acquire);  // atomic load
+      auto old_age = age.load(std::memory_order_acquire);      // atomic load
       if (local_bot > old_age.top)
         result = job;
       else {
-        bot.store(0, std::memory_order_relaxed);  // shared store
+        bot.store(0, std::memory_order_release);  // shared store
         auto new_age = age_t{old_age.tag + 1, 0};
         if ((local_bot == old_age.top) &&
             age.compare_exchange_strong(old_age, new_age))
           result = job;
         else {
-          age.store(new_age, std::memory_order_relaxed);  // shared store
+          age.store(new_age, std::memory_order_seq_cst);  // shared store
           result = nullptr;
         }
-        std::atomic_thread_fence(std::memory_order_seq_cst);
       }
     }
     return result;
