@@ -262,6 +262,8 @@ jobs:
           - { cc: "clang-15", cxx: "clang++-15" }
 
     steps:
+      - uses: actions/checkout@v2
+      
       - name: Set up toolchain repositories
         run: |
           sudo apt-get update
