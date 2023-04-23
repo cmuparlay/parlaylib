@@ -58,8 +58,7 @@ struct Deque {
       std::cerr << "internal error: scheduler queue overflow" << std::endl;
       std::abort();
     }
-    bot.store(local_bot, std::memory_order_release);  // shared store
-    std::atomic_thread_fence(std::memory_order_seq_cst);
+    bot.store(local_bot, std::memory_order_seq_cst);  // shared store
     return (local_bot == 1);
   }
 
@@ -105,10 +104,9 @@ struct Deque {
             age.compare_exchange_strong(old_age, new_age))
           result = job;
         else {
-          age.store(new_age, std::memory_order_release);  // shared store
+          age.store(new_age, std::memory_order_seq_cst);  // shared store
           result = nullptr;
         }
-        std::atomic_thread_fence(std::memory_order_seq_cst);
       }
     }
     return result;
