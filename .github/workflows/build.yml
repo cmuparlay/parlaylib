@@ -7,7 +7,7 @@ env:
 
 jobs:
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.cxx }} ${{ matrix.config.note }} (${{ matrix.build_type }})
+    name: ${{ matrix.config.os }} ${{ matrix.config.cxx }} (C++17) ${{ matrix.config.note }} (${{ matrix.build_type }})
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ${{ matrix.config.os }}
     defaults:
@@ -97,7 +97,7 @@ jobs:
           ctest -C ${{ matrix.build_type }} --no-tests=error --output-on-failure
 
   msvc:
-    name: windows-latest MSVC 19 (${{matrix.build_type}})
+    name: windows-latest MSVC 19 (C++17) (${{matrix.build_type}})
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: windows-latest
     strategy:
@@ -248,35 +248,86 @@ jobs:
 #          cd build
 #          ctest -C Debug --no-tests=error --output-on-failure
 
-#  cilk-plus:
-#    name: ubuntu-18.04 Cilk Plus GCC-7 (Debug)
-#    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-#    runs-on: ubuntu-18.04   # Note: GCC-7 on Ubuntu-20 removed Cilk Plus, so we have to go back in time
-#    steps:
-#      - uses: actions/checkout@v2
-#
-#      - name: Install GCC-7
-#        shell: bash
-#        run: |
-#          sudo apt-get -qq install gcc-7 g++-7
-#
-#      - name: Configure
-#        shell: bash
-#        run: |
-#          mkdir build && cd build
-#          CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_CILKPLUS=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
-#
-#      - name: Build
-#        shell: bash
-#        run: |
-#          cd build
-#          cmake --build . --config Debug
-#
-#      - name: Test
-#        shell: bash
-#        run: |
-#          cd build
-#          ctest -C Debug --no-tests=error --output-on-failure
+  cpp20:
+    name: Ubuntu-22.04 ${{ matrix.config.cxx }} (C++20) (Debug)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      matrix:
+        config:
+          - { cc: "gcc-12", cxx: "g++-12" }
+          - { cc: "clang-15", cxx: "clang++-15" }
+
+    steps:
+      - name: Set up toolchain repositories
+        run: |
+          sudo apt-get update
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
+
+      - name: Install compiler
+        run: |
+          sudo apt-get -qq install cmake make ${{matrix.config.cc}} ${{matrix.config.cxx}}
+
+      - name: Configure
+        run: |
+          mkdir build && cd build
+          CC=${{matrix.config.cc}} CXX=${{matrix.config.cxx}} cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On -DPARLAY_USE_CXX_20=On  ..
+
+      - name: Build
+        run: |
+          cd build
+          cmake --build . --config ${{ matrix.build_type }}
+
+      - name: Test
+        run: |
+          cd build
+          ctest -C ${{ matrix.build_type }} --no-tests=error --output-on-failure
+
+  cilk-plus:
+    name: ubuntu-18.04 (via WSL) Cilk Plus GCC-7 (Debug)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+
+    # Note: GCC-7 on Ubuntu 20 removed Cilk Plus, so we have to go back in time to
+    # Ubuntu 18 which GitHub stopped supporting, so we go through WSL instead.
+    runs-on: windows-2019
+    defaults:
+      run:
+        shell: wsl-bash {0}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: Vampire/setup-wsl@v1
+        with:
+          distribution: Ubuntu-18.04
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install GCC-7
+        shell: bash
+        run: |
+          sudo apt-get -qq install gcc-7 g++-7 cmake make
+
+      - name: Configure
+        shell: bash
+        run: |
+          mkdir build && cd build
+          CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_CILKPLUS=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          cmake --build . --config Debug
+
+      - name: Test
+        shell: bash
+        run: |
+          cd build
+          ctest -C Debug --no-tests=error --output-on-failure
 
   opencilk:
     name: ubuntu-22.04 OpenCilk 2.0.0 (Clang 15) (Debug)
