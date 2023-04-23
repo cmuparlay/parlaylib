@@ -288,7 +288,7 @@ jobs:
           ctest -C ${{ matrix.build_type }} --no-tests=error --output-on-failure
 
   cilk-plus:
-    name: ubuntu-18.04 (via WSL) Cilk Plus GCC-7 (Debug)
+    name: windows-2019 WSL Ubuntu-18.04 Cilk Plus GCC-7 (Debug)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
 
     # Note: GCC-7 on Ubuntu 20 removed Cilk Plus, so we have to go back in time to
@@ -302,9 +302,6 @@ jobs:
       - uses: Vampire/setup-wsl@v1
         with:
           distribution: Ubuntu-18.04
-
-    steps:
-      - uses: actions/checkout@v2
 
       - name: Install GCC-7
         shell: bash
