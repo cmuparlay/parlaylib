@@ -311,20 +311,25 @@ jobs:
           sudo apt-get update
           sudo apt-get -qq install gcc-7 g++-7 cmake make
 
+      - name: Install CMake
+        run: |
+          wget --quiet https://github.com/Kitware/CMake/releases/download/v3.18.2/cmake-3.18.2-Linux-x86_64.tar.gz
+          tar -xf cmake-3.18.2-Linux-x86_64.tar.gz
+
       - name: Configure
         run: |
           mkdir build && cd build
-          CC=gcc-7 CXX=g++-7 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_CILKPLUS=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          CC=gcc-7 CXX=g++-7 ../cmake-3.18.2-Linux-x86_64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_CILKPLUS=On -DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
       - name: Build
         run: |
           cd build
-          cmake --build . --config Debug
+          ../cmake-3.18.2-Linux-x86_64/bin/cmake --build . --config Debug
 
       - name: Test
         run: |
           cd build
-          ctest -C Debug --no-tests=error --output-on-failure
+          ../cmake-3.18.2-Linux-x86_64/bin/ctest -C Debug --no-tests=error --output-on-failure
 
   opencilk:
     name: ubuntu-22.04 OpenCilk 2.0.0 (Clang 15) (Debug)
