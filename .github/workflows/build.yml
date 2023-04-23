@@ -283,12 +283,12 @@ jobs:
       - name: Build
         run: |
           cd build
-          cmake --build . --config ${{ matrix.build_type }}
+          cmake --build . --config Debug
 
       - name: Test
         run: |
           cd build
-          ctest -C ${{ matrix.build_type }} --no-tests=error --output-on-failure
+          ctest -C Debug --no-tests=error --output-on-failure
 
   cilk-plus:
     name: windows-2019 WSL Ubuntu-18.04 Cilk Plus GCC-7 (Debug)
