@@ -355,21 +355,21 @@ __ABI void __cxx_atomic_wait(_Tp const* ptr, _Tp const val, int order) {
 
 namespace parlay {
 
-    template <class _Tp, class _Tv>
-    __ABI void atomic_wait_explicit(std::atomic<_Tp> const* a, _Tv val, std::memory_order order) {
-        __cxx_atomic_wait((const _Tp*)a, (_Tp)val, (int)order);   // cppcheck-suppress cstyleCast
+    template <class _Tp>
+    __ABI void atomic_wait_explicit(std::atomic<_Tp> const* a, typename std::atomic<_Tp>::value_type val, std::memory_order order) {
+        __cxx_atomic_wait((const _Tp*)a, val, (int)order);                   // cppcheck-suppress cstyleCast
     }
-    template <class _Tp, class _Tv>
-    __ABI void atomic_wait(std::atomic<_Tp> const* a, _Tv val) {
-        parlay::atomic_wait_explicit(a, val, std::memory_order_seq_cst);
+    template <class _Tp>
+    __ABI void atomic_wait(std::atomic<_Tp> const* a, typename std::atomic<_Tp>::value_type val) {
+        __cxx_atomic_wait((const _Tp*)a, val, std::memory_order_seq_cst);    // cppcheck-suppress cstyleCast
     }
     template <class _Tp>
     __ABI void atomic_notify_one(std::atomic<_Tp> const* a) {
-        __cxx_atomic_notify_one((const _Tp*)a);                   // cppcheck-suppress cstyleCast
+        __cxx_atomic_notify_one((const _Tp*)a);                              // cppcheck-suppress cstyleCast
     }
     template <class _Tp>
     __ABI void atomic_notify_all(std::atomic<_Tp> const* a) {
-        __cxx_atomic_notify_all((const _Tp*)a);                   // cppcheck-suppress cstyleCast
+        __cxx_atomic_notify_all((const _Tp*)a);                              // cppcheck-suppress cstyleCast
     }
 
 }
@@ -391,17 +391,25 @@ extern inline contended_t * __contention(volatile void const * p) {
 
 namespace parlay {
 
-    template <class _Tp, class _Tv>
-    const auto atomic_wait_explicit = std::atomic_wait_explicit<_Tp, _Tv>;
-
-    template <class _Tp, class _Tv>
-    const auto atomic_wait = std::atomic_wait<_Tp, _Tv>;
+    template <class _Tp>
+    void atomic_wait_explicit(const std::atomic<_Tp>* a, typename std::atomic<_Tp>::value_type val, std::memory_order order) {
+        std::atomic_wait_explicit(a, val, order);
+    }
 
     template <class _Tp>
-    const auto atomic_notify_one = std::atomic_notify_one<_Tp>;
+    void atomic_wait(const std::atomic<_Tp>* a, typename std::atomic<_Tp>::value_type val) {
+        std::atomic_wait_explicit(a, val, std::memory_order_seq_cst);
+    }
 
     template <class _Tp>
-    const auto atomic_notify_all = std::atomic_notify_all<_Tp>;
+    void atomic_notify_one(std::atomic<_Tp>* a) {
+        std::atomic_notify_one(a);
+    }
+
+    template <class _Tp>
+    void atomic_notify_all(std::atomic<_Tp>* a) {
+        std::atomic_notify_all(a);
+    }
 
 }
 

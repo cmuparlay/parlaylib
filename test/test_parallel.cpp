@@ -64,6 +64,7 @@ TEST(TestParallel, TestParDoWorkerIds) {
 
 TEST(TestParallel, TestParDoUncopyableF) {
   struct F {
+    F() = default;
     F(const F&) = delete;
     F(F&&) = default;
     void operator()() const { }
@@ -111,6 +112,7 @@ TEST(TestParallel, TestParForUncopyableF) {
   size_t n = 100000;
   std::vector<int> v(n);
   struct F {
+    F(std::vector<int>& v_) : v(v_) {}
     F(const F&) = delete;
     std::vector<int>& v;
     void operator()(size_t i) const { v[i] = i; } };
@@ -125,6 +127,7 @@ TEST(TestParallel, TestParForUncopyableTempF) {
   size_t n = 100000;
   std::vector<int> v(n);
   struct F {
+    F(std::vector<int>& v_) : v(v_) {}
     F(const F&) = delete;
     std::vector<int>& v;
     void operator()(size_t i) const { v[i] = i; } };

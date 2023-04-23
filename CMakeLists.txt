@@ -6,7 +6,7 @@
 # -------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.14)
-project(PARLAY VERSION 2.1.8
+project(PARLAY VERSION 2.1.9
         DESCRIPTION "A collection of parallel algorithms and other support for parallelism in C++"
         LANGUAGES CXX)
 
@@ -50,7 +50,13 @@ set(PARLAY_INCLUDE_DIR "${PARLAY_SOURCE_DIR}/include")
 target_include_directories(parlay INTERFACE
   $<BUILD_INTERFACE:${PARLAY_INCLUDE_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-target_compile_features(parlay INTERFACE cxx_std_17)
+
+option(PARLAY_USE_CXX_20 "Require Parlay to build with C++20")
+if (PARLAY_USE_CXX_20)
+  target_compile_features(parlay INTERFACE cxx_std_20)
+else()
+  target_compile_features(parlay INTERFACE cxx_std_17)
+endif()
 
 # Link against system threads
 find_package(Threads REQUIRED)
