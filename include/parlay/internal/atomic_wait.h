@@ -58,14 +58,14 @@ The strategy is chosen this way, by platform:
 #ifndef PARLAY_INTERNAL_ATOMIC_WAIT_H_
 #define PARLAY_INTERNAL_ATOMIC_WAIT_H_
 
+#include "../type_traits.h"
+
 #ifndef __cpp_lib_atomic_wait
 
 #include <cstdint>
 #include <climits>
 #include <cassert>
 #include <type_traits>
-
-#include "../type_traits.h"
 
 #if defined(__NO_IDENT)
 

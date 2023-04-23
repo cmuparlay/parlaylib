@@ -308,6 +308,7 @@ jobs:
 
       - name: Install GCC-7
         run: |
+          sudo apt-get update
           sudo apt-get -qq install gcc-7 g++-7 cmake make
 
       - name: Configure
