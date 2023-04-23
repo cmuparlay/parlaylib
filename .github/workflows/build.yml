@@ -250,6 +250,7 @@ jobs:
 
   cpp20:
     name: Ubuntu-22.04 ${{ matrix.config.cxx }} (C++20) (Debug)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-22.04
     defaults:
       run:
