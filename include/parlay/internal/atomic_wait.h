@@ -55,8 +55,8 @@ The strategy is chosen this way, by platform:
 //#define __NO_SPIN
 //#define __NO_WAIT
 
-#ifndef __ATOMIC_WAIT_INCLUDED
-#define __ATOMIC_WAIT_INCLUDED
+#ifndef PARLAY_INTERNAL_ATOMIC_WAIT_H_
+#define PARLAY_INTERNAL_ATOMIC_WAIT_H_
 
 #ifndef __cpp_lib_atomic_wait
 
@@ -64,6 +64,8 @@ The strategy is chosen this way, by platform:
 #include <climits>
 #include <cassert>
 #include <type_traits>
+
+#include "../type_traits.h"
 
 #if defined(__NO_IDENT)
 
@@ -355,20 +357,25 @@ __ABI void __cxx_atomic_wait(_Tp const* ptr, _Tp const val, int order) {
 
 namespace parlay {
 
+    // Note:  We use parlay::type_identity_t here to force a non-deduced context for _Tp. We
+    // can't use typename std::atomic<_Tp>::value_type as the C++20 standard does, because
+    // value_type is not a member of std::atomic in older compiler version (it was added in
+    // a defect report, P0558R1, but doesn't appear to have been retroactively fixed).
+
     template <class _Tp>
-    __ABI void atomic_wait_explicit(std::atomic<_Tp> const* a, typename std::atomic<_Tp>::value_type val, std::memory_order order) {
+    __ABI void atomic_wait_explicit(const std::atomic<_Tp>* a, parlay::type_identity_t<_Tp> val, std::memory_order order) {
         __cxx_atomic_wait((const _Tp*)a, val, (int)order);                        // cppcheck-suppress cstyleCast
     }
     template <class _Tp>
-    __ABI void atomic_wait(std::atomic<_Tp> const* a, typename std::atomic<_Tp>::value_type val) {
+    __ABI void atomic_wait(const std::atomic<_Tp>* a, parlay::type_identity_t<_Tp> val) {
         __cxx_atomic_wait((const _Tp*)a, val, (int)std::memory_order_seq_cst);    // cppcheck-suppress cstyleCast
     }
     template <class _Tp>
-    __ABI void atomic_notify_one(std::atomic<_Tp> const* a) {
+    __ABI void atomic_notify_one(std::atomic<_Tp>* a) {
         __cxx_atomic_notify_one((const _Tp*)a);                                   // cppcheck-suppress cstyleCast
     }
     template <class _Tp>
-    __ABI void atomic_notify_all(std::atomic<_Tp> const* a) {
+    __ABI void atomic_notify_all(std::atomic<_Tp>* a) {
         __cxx_atomic_notify_all((const _Tp*)a);                                   // cppcheck-suppress cstyleCast
     }
 
@@ -392,13 +399,13 @@ extern inline contended_t * __contention(volatile void const * p) {
 namespace parlay {
 
     template <class _Tp>
-    void atomic_wait_explicit(const std::atomic<_Tp>* a, typename std::atomic<_Tp>::value_type val, std::memory_order order) {
+    void atomic_wait_explicit(const std::atomic<_Tp>* a, parlay::type_identity_t<_Tp> val, std::memory_order order) {
         std::atomic_wait_explicit(a, val, order);
     }
 
     template <class _Tp>
-    void atomic_wait(const std::atomic<_Tp>* a, typename std::atomic<_Tp>::value_type val) {
-        std::atomic_wait_explicit(a, val, std::memory_order_seq_cst);
+    void atomic_wait(const std::atomic<_Tp>* a, parlay::type_identity_t<_Tp> val) {
+        std::atomic_wait(a, val);
     }
 
     template <class _Tp>
@@ -415,4 +422,4 @@ namespace parlay {
 
 #endif // !__cpp_lib_atomic_wait
 
-#endif //__ATOMIC_WAIT_INCLUDED
+#endif //PARLAY_INTERNAL_ATOMIC_WAIT_H_
