@@ -387,7 +387,7 @@ struct alignas(uint64_t) sequence_base {
 
       value_type* data() { return elements.data(); }
       const value_type* data() const { return elements.data(); }
-    };
+    } PARLAY_PACKED;
 
 
     // Store either a short or a long sequence. By default, we

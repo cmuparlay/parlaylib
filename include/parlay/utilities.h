@@ -161,9 +161,10 @@ template<typename T, typename Enable = void>
 struct hash : public std::hash<T> { };
 
 template <typename T>
-struct hash<T,typename std::enable_if_t<std::is_integral_v<T>>> {
+struct hash<T, typename std::enable_if_t<std::is_integral_v<T>>> {
   size_t operator()(const T& p) const {
-    return hash64_2(p);}
+    return p * UINT64_C(0xbf58476d1ce4e5b9);
+  }
 };
     
 // Hashing for std::pairs
