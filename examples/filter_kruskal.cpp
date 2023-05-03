@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     auto WE = utils::add_weights<float>(E);
     parlay::sequence<long> result;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = min_spanning_forest(WE, n);
       t.next("filter_kruskal");
     }

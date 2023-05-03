@@ -42,16 +42,12 @@ int main(int argc, char* argv[]) {
     parlay::sequence<complex> results;
     parlay::sequence<parlay::sequence<complex>> results_c;
 
+    results_c = complex_fft_transpose(columns);
     parlay::internal::timer t("Time");
-    for (int i=0; i < 20; i++) {
-      //results = complex_fft(points);
-      //t.next("fast_fourier_transform");
+    for (int i=0; i < 3; i++) {
       results_c = complex_fft_transpose(columns);
       t.next("fast_fourier_transform_transpose");
     }
-    // std::cout << "first five points " << std::endl;
-    // for (long i=0; i < std::min(5l,n); i++) 
-    //   std::cout << results[i] << std::endl;
     std::cout << "first five points of fft on length " << n << std::endl;
     for (long i=0; i < std::min(5l,num_columns); i++) 
       std::cout << results_c[i][0] << std::endl;

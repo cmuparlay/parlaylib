@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
     radix_tree<uint> result;
 
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       t.start();
       result = radix_tree<uint>(lcps);
       t.next("radix_tree");

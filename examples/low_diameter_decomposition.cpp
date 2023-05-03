@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
     utils::print_graph_stats(G);
     parlay::sequence<vertex> result;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = LDD<vertex>(.5, G, GT);
       t.next("low_diameter_decomposition");
     }

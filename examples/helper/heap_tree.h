@@ -38,10 +38,9 @@ struct heap_tree {
   template <typename Less>
   inline int find(const T& key, const Less& less) {
     long j = 0;
-    for (int k = 0; k < levels; k++) {
+    for (int k = 0; k < levels+1; k++) {
       j = 1 + 2 * j + less(tree[j],key);
     }
-    j = 1 + 2 * j + !less(key,tree[j]);
     return j - size;
   }
 };

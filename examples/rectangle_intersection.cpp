@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
 
     pair_seq r;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       r = rectangle_intersection(rectangles);
       t.next("rectangle_intersection");
     }

@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
     parlay::sequence<index> result;
 
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = suffix_array(str);
       t.next("suffix_array");
     }

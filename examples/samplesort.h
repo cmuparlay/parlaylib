@@ -13,7 +13,7 @@
 // **************************************************************
 // Sample sort
 // A generalization of quicksort to many pivots.
-// This code picks up to 256 pivots by randomly selecting and
+// This code picks up to 1024 pivots by randomly selecting and
 // then sorting them.
 // It then puts the keys into buckets depending on which pivots
 // they fall between and recursively sorts within the buckets.
@@ -24,17 +24,18 @@
 template <typename Range, typename Less>
 void sample_sort_(Range in, Range out, Less less, int level=1) {
   long n = in.size();
+  using bucket_id = unsigned short;
 
   // for the base case (small or recursion level greater than 2) use std::sort
-  long cutoff = 256;
+  long cutoff = 1024;
   if (n <= cutoff || level > 2) {
     parlay::copy(in, out);
-    std::sort(out.begin(), out.end());
+    std::sort(out.begin(), out.end(), less);
     return;
   }
 
   // number of bits in bucket count (e.g. 8 would mean 256 buckets)
-  int bits = std::min<long>(8, parlay::log2_up(n)-parlay::log2_up(cutoff)+1);
+  int bits = std::min<long>(10, parlay::log2_up(n)-parlay::log2_up(cutoff)+1);
   long num_buckets = 1 << bits;
 
   // over-sampling ratio: keeps the buckets more balanced
@@ -46,7 +47,7 @@ void sample_sort_(Range in, Range out, Less less, int level=1) {
   auto oversample = parlay::tabulate(num_buckets * over_ratio, [&] (long i) {
     auto r = gen[i];
     return in[dis(r)];});
-  std::sort(oversample.begin(), oversample.end());
+  std::sort(oversample.begin(), oversample.end(), less);
 
   // sub sample to pick final pivots (num_buckets - 1 of them)
   auto pivots = parlay::tabulate(num_buckets-1, [&] (long i) {
@@ -54,8 +55,9 @@ void sample_sort_(Range in, Range out, Less less, int level=1) {
 
   // put pivots into efficient search tree and find buckets id for the input keys
   heap_tree ss(pivots);
-  auto bucket_ids = parlay::tabulate(n, [&] (long i) -> unsigned char {
-    return ss.find(in[i], less);});
+  auto bucket_ids = parlay::tabulate(n, [&] (long i) -> bucket_id {
+    auto b = ss.find(in[i], less);
+    return b + ((b < num_buckets-1) && !less(in[i],pivots[b]));});
 
   // sort into the buckets
   auto [keys,offsets] = parlay::internal::count_sort(in, bucket_ids, num_buckets);

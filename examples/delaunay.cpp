@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
 
     parlay::internal::timer t("Time");
     parlay::sequence<tri> result;
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = delaunay(points);
       t.next("delaunay");
     }

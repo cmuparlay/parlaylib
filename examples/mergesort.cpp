@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 
     parlay::internal::timer t("Time");
     parlay::sequence<long> result;
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = data;
       t.start();
       merge_sort(result);

@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     bigint result;
 
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = karatsuba(a, b);
       t.next("karatsuba");
     }

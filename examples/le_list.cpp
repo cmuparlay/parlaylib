@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
     utils::print_graph_stats(G);
     result result;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = create_le_list(G, GT, order);
       t.next("le_list");
     }

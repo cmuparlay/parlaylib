@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
     parlay::sequence<index> result;
 
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = lcp(str,SA);
       t.next("longest_common_prefix");
     }

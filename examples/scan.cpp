@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
 
     parlay::internal::timer t("Time");
     std::pair<parlay::sequence<long>,long> result;
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = ::scan(ones, parlay::plus<long>());
       t.next("scan");
     }

@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     std::tuple<parlay::sequence<node*>,node*> result;
 
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       t.start();
       result = huffman_tree(probs);
       t.next("huffman_tree");

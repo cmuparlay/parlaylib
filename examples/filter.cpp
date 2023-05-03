@@ -15,9 +15,10 @@ int main(int argc, char* argv[]) {
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
 
-    parlay::internal::timer t("Time");
     parlay::sequence<long> result;
-    for (int i=0; i < 5; i++) {
+    result = filter(parlay::iota<long>(n+1), [] (long i) { return i%2 == 0; });
+    parlay::internal::timer t("Time");
+    for (int i=0; i < 3; i++) {
       result = filter(parlay::iota<long>(n+1), [] (long i) { return i%2 == 0; });
       t.next("filter");
     }

@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     tree_node* r;
     long num_leaves;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       t.start();
       r = kdtree_from_boxes(boxes);
       t.next("box_kdtree");

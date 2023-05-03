@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
     auto data = parlay::tabulate(n, [&] (long i) {return i;});
     parlay::sequence<long> result;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = data;
       t.start();
       random_shuffle(result);

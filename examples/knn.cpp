@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
     });
     knn_graph r;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       r = build_knn_graph(points, k);
       t.next("knn");
     }

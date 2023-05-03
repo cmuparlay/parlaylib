@@ -19,9 +19,10 @@ int main(int argc, char* argv[]) {
     long sqrt = std::sqrt(n);
     parlay::sequence s(sqrt, parlay::sequence(sqrt, 1l));
 
-    parlay::internal::timer t("Time");
     parlay::sequence<long> result;
-    for (int i=0; i < 5; i++) {
+    result = ::flatten(s);
+    parlay::internal::timer t("Time");
+    for (int i=0; i < 3; i++) {
       result = ::flatten(s);
       t.next("flatten");
     }

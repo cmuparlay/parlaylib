@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     node* r;
     long size;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       t.start();
       r = z_tree(points);
       size = r->size;

@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 
     parlay::sequence<std::pair<parlay::chars, long>> counts;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       counts = word_counts(str);
       t.next("word_counts");
     }

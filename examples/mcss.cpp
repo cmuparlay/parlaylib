@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
 
     parlay::internal::timer t("Time");
     int result;
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = mcss(vals);
       t.next("mcss");
     }

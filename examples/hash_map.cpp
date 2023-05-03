@@ -31,7 +31,9 @@ int main(int argc, char* argv[]) {
 
     parlay::sequence<long> keys;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    parlay::internal::timer t2("Time");
+    for (int i=0; i < 3; i++) {
+      {
 	hash_map<long,long> m(n);
 	t.next("hash_map : construct");
 	parlay::for_each(pairs, [&] (auto p) {
@@ -40,6 +42,9 @@ int main(int argc, char* argv[]) {
 	parlay::for_each(pairs, [&] (auto p) {
 	    m.find(p.second);});
 	t.next("hash_map : find");
+      }
+      t.next("hash_map : destruct");
+      t2.next("hash_map : TOTAL");
     }
 
     std::cout << "number of unique keys: " << keys.size() << std::endl;

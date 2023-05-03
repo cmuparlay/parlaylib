@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     utils::print_graph_stats(E,n);
     parlay::sequence<long> result;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = spanning_forest(E, n);
       t.next("spanning_forest");
     }

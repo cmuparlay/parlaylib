@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
     bigint result;
 
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = add(a, b);
       t.next("bigint_add");
     }

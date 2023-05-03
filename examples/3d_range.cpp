@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
     ranges r;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       r = in_range(points, radius);
       t.next("3d_range");
     }

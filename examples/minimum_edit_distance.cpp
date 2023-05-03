@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 
     parlay::internal::timer t("Time");
     long result;
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = minimum_edit_distance(s0, s1);
       t.next("minimum_edit_distance");
     }

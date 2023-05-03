@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     parlay::chars search_str = parlay::to_chars(argv[1]);
     parlay::sequence<long> locations;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       locations = knuth_morris_pratt(str, search_str);
       t.next("knuth_morris_pratt");
     }

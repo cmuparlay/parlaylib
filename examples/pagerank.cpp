@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
     sparse_matrix M = utils::to_normalized_matrix(G);
     vector v;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       v = pagerank(M, 10);
       t.next("10 iters of pagerank");
     }

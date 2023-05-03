@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
     radix_tree<index> result;
 
     parlay::internal::timer t("Time");
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 3; i++) {
       result = radix_tree<index>();
       t.start();
       result = suffix_tree<index>(str);
