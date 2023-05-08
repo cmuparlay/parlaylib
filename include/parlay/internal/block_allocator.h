@@ -24,7 +24,6 @@
 #include <new>
 #include <optional>
 
-#include "../parallel.h"
 #include "../utilities.h"
 
 #include "concurrency/hazptr_stack.h"
@@ -83,9 +82,9 @@ struct block_allocator {
   // Allocate a new list of list_length elements
 
   auto initialize_list(std::byte* buffer) const -> block* {
-    parallel_for (0, list_length - 1, [&] (size_t i) {
+    for (size_t i = 0; i < list_length - 1; i++) {
       new (buffer + i * block_size) block{get_block(buffer, i+1)};
-    }, 0, true);
+    }
     new (buffer + (list_length - 1) * block_size) block{nullptr};
     return get_block(buffer, 0);
   }
@@ -121,10 +120,10 @@ struct block_allocator {
   void reserve(size_t n) {
     size_t num_lists = thread_count + (n + list_length - 1) / list_length;
     std::byte* start = allocate_blocks(list_length*num_lists);
-    parallel_for(0, num_lists, [&] (size_t i) {
+    for(size_t i = 0; i < num_lists; i++) {
       std::byte* offset = start + i * list_length * block_size;
       global_stack.push(initialize_list(offset));
-    }, 1, true);
+    }
   }
 
   void print_stats() {
