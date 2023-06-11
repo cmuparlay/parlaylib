@@ -185,6 +185,12 @@ inline void par_do(Lf&& left, Rf&& right, bool conservative) {
 				    conservative);
 }
 
+  template <typename F>
+  void add_scheduler(int p, F&& f) {
+    internal::scheduler_t sched(p);
+    f();
+  }
+    
 }  // namespace parlay
 
 #endif

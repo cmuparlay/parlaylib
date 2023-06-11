@@ -68,10 +68,12 @@ struct scheduler_info {
     } while (!id_slots[i].compare_exchange_strong(old, true));
     int maxu = max_used.load();
     while (i > maxu && max_used.compare_exchange_strong(maxu, i));
-    //std::cout << i << std::endl;
+    std::cout << i << std::endl;
     return i;
   }
-  void remove_worker(int i) { id_slots[i] = false; }
+  void remove_worker(int i) {
+    std::cout << "removing: " << i << std::endl;
+    id_slots[i] = false; }
   
   scheduler_info() :
     id_slots(std::vector<std::atomic<bool>>(max_scheduler_workers)),
@@ -113,7 +115,7 @@ struct scheduler;
 
     ~workerInfo() {
       if (my_scheduler != nullptr)
-	global_scheduler_state.remove_worker(local_worker_id);
+	global_scheduler_state.remove_worker(global_worker_id);
     }
   };
   
@@ -131,8 +133,6 @@ struct scheduler {
   // before it goes to sleep to save CPU time.
   constexpr static std::chrono::microseconds STEAL_TIMEOUT{PARLAY_ELASTIC_STEAL_TIMEOUT};
 
-  workerInfo<Job> hold_old_worker_info;
-  
  public:
   unsigned int num_threads;
 
@@ -214,6 +214,7 @@ struct scheduler {
 
   int num_deques;
   std::atomic<size_t> num_awake_workers;
+  workerInfo<Job> hold_old_worker_info;
   std::vector<internal::Deque<Job>> deques;
   std::vector<attempt> attempts;
   std::vector<std::thread> spawned_threads;
