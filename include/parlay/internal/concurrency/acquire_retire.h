@@ -28,7 +28,7 @@ class acquire_retire {
 
  public:
   explicit acquire_retire(Deleter deleter_ = {}) :
-    num_threads_and_deleter(max_scheduler_workers, std::move(deleter_)),
+    num_threads_and_deleter(num_workers(), std::move(deleter_)),
     announcements(std::make_unique<padded<std::atomic<T*>>[]>(get_num_threads())),
     in_progress(std::make_unique<padded<bool>[]>(get_num_threads())),
     retired(std::make_unique<padded<std::vector<T*>>[]>(get_num_threads())),

@@ -146,11 +146,19 @@ extern inline scheduler_t* get_scheduler() {
 
 
 inline size_t num_workers() {
+  return max_scheduler_workers;
+}
+
+inline size_t scheduler_num_workers() {
   return internal::get_scheduler()->num_workers();
 }
 
 inline size_t worker_id() {
   return internal::get_scheduler()->worker_id();
+}
+
+inline size_t scheduler_worker_id() {
+  return internal::get_scheduler()->local_worker_id();
 }
 
 template <typename F>
