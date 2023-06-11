@@ -126,6 +126,8 @@ inline unsigned int init_num_workers() {
 #pragma warning(pop)
 #endif
 
+  using scheduler_t = scheduler<WorkStealingJob>;
+
 // Use a "Meyer singleton" to provide thread-safe 
 // initialisation and destruction of the scheduler
 //
@@ -135,19 +137,20 @@ inline unsigned int init_num_workers() {
 // standard: 7.1.2/4 A static local variable in an
 // extern inline function always refers to the same
 // object.
-extern inline fork_join_scheduler& get_default_scheduler() {
-  static fork_join_scheduler fj(init_num_workers());
-  return fj;
+extern inline scheduler_t* get_scheduler() {
+  static scheduler_t default_sched(init_num_workers());
+  return scheduler_t::worker_info.my_scheduler;
 }
 
 }  // namespace internal
 
+
 inline size_t num_workers() {
-  return internal::get_default_scheduler().num_workers();
+  return internal::get_scheduler()->num_workers();
 }
 
 inline size_t worker_id() {
-  return internal::get_default_scheduler().worker_id();
+  return internal::get_scheduler()->worker_id();
 }
 
 template <typename F>
@@ -164,8 +167,11 @@ inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool
     for (size_t i = start; i < end; i++) loop_body(i);
   }
   else if (end > start) {
-    internal::get_default_scheduler().parfor(start, end,
-     loop_body, static_cast<size_t>(granularity), conservative);
+    fork_join_scheduler::parfor(internal::get_scheduler(),
+				start, end,
+				loop_body,
+				static_cast<size_t>(granularity),
+				conservative);
   }
 }
 
@@ -173,7 +179,10 @@ template <typename Lf, typename Rf>
 inline void par_do(Lf&& left, Rf&& right, bool conservative) {
   static_assert(std::is_invocable_v<Lf&&>);
   static_assert(std::is_invocable_v<Rf&&>);
-  return internal::get_default_scheduler().pardo(std::forward<Lf>(left), std::forward<Rf>(right), conservative);
+  return fork_join_scheduler::pardo(internal::get_scheduler(),
+				    std::forward<Lf>(left),
+				    std::forward<Rf>(right),
+				    conservative);
 }
 
 }  // namespace parlay

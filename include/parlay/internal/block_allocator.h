@@ -85,7 +85,7 @@ struct block_allocator {
   auto initialize_list(std::byte* buffer) const -> block* {
     parallel_for (0, list_length - 1, [&] (size_t i) {
       new (buffer + i * block_size) block{get_block(buffer, i+1)};
-    }, 0, true);
+    }, list_length, true);
     new (buffer + (list_length - 1) * block_size) block{nullptr};
     return get_block(buffer, 0);
   }
@@ -141,7 +141,7 @@ struct block_allocator {
     size_t reserved_blocks = 0,
     size_t list_length_ = 0,
     size_t max_blocks_ = 0) :
-      thread_count(num_workers()),
+      thread_count(max_scheduler_workers), //num_workers()),
       local_lists(std::make_unique<local_list[]>(thread_count)),                     // Each block needs to be at least
       block_size(std::max<size_t>(block_size_, sizeof(block))),    // <------------- // large enough to hold the struct
       block_align(std::align_val_t{std::max<size_t>(block_align_, min_alignment)}),  // representing a free block.
