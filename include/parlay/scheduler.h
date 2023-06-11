@@ -68,11 +68,11 @@ struct scheduler_info {
     } while (!id_slots[i].compare_exchange_strong(old, true));
     int maxu = max_used.load();
     while (i > maxu && max_used.compare_exchange_strong(maxu, i));
-    std::cout << i << std::endl;
+    //std::cout << i << std::endl;
     return i;
   }
   void remove_worker(int i) {
-    std::cout << "removing: " << i << std::endl;
+    //std::cout << "removing: " << i << std::endl;
     id_slots[i] = false; }
   
   scheduler_info() :
