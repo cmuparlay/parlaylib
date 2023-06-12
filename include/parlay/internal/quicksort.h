@@ -228,7 +228,7 @@ void p_quicksort_(slice<InIterator, InIterator> In,
                   long cut_size = -1) {
   size_t n = In.size();
   if (cut_size == -1)
-    cut_size = std::max<long>((3 * n) / num_workers(), (1 << 14));
+    cut_size = std::max<long>((3 * n) / scheduler_num_workers(), (1 << 14));
   if (n < (size_t)cut_size) {
     quicksort(In.begin(), n, f);
     if (!inplace)

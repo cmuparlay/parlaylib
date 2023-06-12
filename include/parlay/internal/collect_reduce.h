@@ -50,7 +50,7 @@ auto collect_reduce_few(Seq const &A, Helper const &helper, size_t num_buckets) 
   using result_type = decltype(helper.init());
   size_t n = A.size();
 
-  size_t num_threads = num_workers();
+  size_t num_threads = scheduler_num_workers();
   size_t num_blocks_ = (std::min)(4 * num_threads, n / num_buckets / 64) + 1;
   size_t block_size = ((n - 1) / num_blocks_) + 1;
   size_t num_blocks = (1 + ((n)-1) / (block_size));

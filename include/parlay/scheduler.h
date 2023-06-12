@@ -61,9 +61,8 @@ struct scheduler_info {
     int i;
     bool old;
     do {
-      i = 0;
       old = false;
-      for (i=0; id_slots[i] && i < max_scheduler_workers; i++);
+      for (i=0; (i < max_scheduler_workers) && id_slots[i]; i++);
       assert(i < max_scheduler_workers);
     } while (!id_slots[i].compare_exchange_strong(old, true));
     int maxu = max_used.load();
@@ -78,7 +77,7 @@ struct scheduler_info {
   scheduler_info() :
     id_slots(std::vector<std::atomic<bool>>(max_scheduler_workers)),
     max_used(0) {
-    for (auto& slot : id_slots) slot = false;
+    std::fill(id_slots.begin(), id_slots.end(), false); 
   }
 };
 
@@ -102,7 +101,7 @@ struct scheduler;
 
     workerInfo& operator=(const workerInfo& w) = delete;
     workerInfo(const workerInfo& w) = delete;
-    workerInfo& operator=(workerInfo&& w) {
+    workerInfo& operator=(workerInfo&& w) noexcept {
       if (this != &w) {
 	local_worker_id = w.local_worker_id;
 	global_worker_id = w.global_worker_id;
@@ -111,7 +110,7 @@ struct scheduler;
       }
       return *this;
     }
-    workerInfo(workerInfo&& w) {*this = std::move(w);}
+    workerInfo(workerInfo&& w) noexcept {*this = std::move(w);}
 
     ~workerInfo() {
       if (my_scheduler != nullptr)

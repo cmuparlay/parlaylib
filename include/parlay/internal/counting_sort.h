@@ -121,7 +121,7 @@ std::pair<sequence<size_t>, bool> count_sort_(slice<InIterator, InIterator> In,
                                               bool skip_if_in_one = false) {
   using T = typename slice<InIterator, InIterator>::value_type;
   size_t n = In.size();
-  size_t num_threads = num_workers();
+  size_t num_threads = scheduler_num_workers();
   bool is_nested = parallelism < .5;
 
   // pick number of blocks for sufficient parallelism but to make sure
