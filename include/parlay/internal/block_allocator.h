@@ -84,7 +84,7 @@ struct block_allocator {
 
   auto initialize_list(std::byte* buffer) const -> block* {
     //parallel_for (0, list_length - 1, [&] (size_t i) {
-    for (int i=0; i < list_length -1; i++) 
+    for (size_t i=0; i < list_length - 1; i++) 
       new (buffer + i * block_size) block{get_block(buffer, i+1)};
     //}, list_length, true);
     new (buffer + (list_length - 1) * block_size) block{nullptr};
