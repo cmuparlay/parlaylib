@@ -12,7 +12,9 @@ namespace parlay {
 
 inline size_t num_workers() { return __cilkrts_get_nworkers(); }
 inline size_t worker_id() { return __cilkrts_get_worker_number(); }
-
+inline size_t scheduler_num_workers() { return num_workers(); }
+inline size_t scheduler_worker_id() { return worker_id();}
+  
 template <typename Lf, typename Rf>
 inline void par_do(Lf&& left, Rf&& right, bool) {
   static_assert(std::is_invocable_v<Lf&&>);

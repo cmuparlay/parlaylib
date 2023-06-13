@@ -21,6 +21,9 @@ inline size_t worker_id() {
   return id == tbb::task_arena::not_initialized ? 0 : id;
 }
 
+inline size_t scheduler_num_workers() { return num_workers(); }
+inline size_t scheduler_worker_id() { return worker_id();}
+
 template <typename F>
 inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool) {
   static_assert(std::is_invocable_v<F&, size_t>);

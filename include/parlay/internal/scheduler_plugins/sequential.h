@@ -9,7 +9,8 @@ namespace parlay {
 
 inline size_t num_workers() { return 1; }
 inline size_t worker_id() { return 0; }
-inline void set_num_workers(int) { }
+inline size_t scheduler_num_workers() { return num_workers(); }
+inline size_t scheduler_worker_id() { return worker_id();}
 
 #ifdef _MSC_VER
 #pragma warning(push)

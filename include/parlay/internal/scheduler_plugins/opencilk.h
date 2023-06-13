@@ -17,6 +17,9 @@ inline size_t num_workers() { return __cilkrts_get_nworkers(); }
 
 inline size_t worker_id() { return __cilkrts_get_worker_number(); }
 
+inline size_t scheduler_num_workers() { return num_workers(); }
+inline size_t scheduler_worker_id() { return worker_id();}
+
 #pragma clang diagnostic pop
 
 template <typename Lf, typename Rf>

@@ -28,6 +28,12 @@ inline size_t num_workers();
 // id of running thread, should be numbered from [0...num-workers)
 inline size_t worker_id();
 
+// number of workers for this particular scheduler
+inline size_t scheduler_num_workers();
+
+// id of thread within the scheduler, should be numbered from [0...scheduler_num-workers)
+inline size_t scheduler_worker_id();
+
 // parallel loop from start (inclusive) to end (exclusive) running
 // function f.
 //    f should map size_t to void.
