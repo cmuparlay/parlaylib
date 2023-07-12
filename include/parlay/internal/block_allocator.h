@@ -141,7 +141,7 @@ struct block_allocator {
     size_t reserved_blocks = 0,
     size_t list_length_ = 0,
     size_t max_blocks_ = 0) :
-    thread_count(thread_id.max_thread_id()),
+    thread_count(thread_id().max_thread_id()),
     local_lists(std::make_unique<local_list[]>(thread_count)),                     // Each block needs to be at least
     block_size(std::max<size_t>(block_size_, sizeof(block))),    // <------------- // large enough to hold the struct
     block_align(std::align_val_t{std::max<size_t>(block_align_, min_alignment)}),  // representing a free block.
@@ -182,7 +182,7 @@ struct block_allocator {
     clear();
   }
 
-  static size_t get_worker_id() { return thread_id.get();}
+  static size_t get_worker_id() { return thread_id().get();}
 
   void free(void* ptr) {
     size_t id = get_worker_id();

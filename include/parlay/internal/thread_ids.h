@@ -81,7 +81,10 @@ struct thread_id_t {
   ~thread_id_t() { if (id != -1) thread_ids().remove_id(id);}
 };
 
-thread_local thread_id_t thread_id;
+extern inline thread_id_t& thread_id() {
+  static thread_local thread_id_t my_thread_id;
+  return my_thread_id;
+}
 
 }  // namespace internal
 } // namespace parlay

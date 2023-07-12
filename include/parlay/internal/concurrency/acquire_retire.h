@@ -29,13 +29,14 @@ class acquire_retire {
 
  public:
   explicit acquire_retire(Deleter deleter_ = {}) :
-    num_threads_and_deleter(thread_id.max_thread_id(), std::move(deleter_)),
+    num_threads_and_deleter(thread_id().max_thread_id(), std::move(deleter_)),
     announcements(std::make_unique<padded<std::atomic<T*>>[]>(get_num_threads())),
     in_progress(std::make_unique<padded<bool>[]>(get_num_threads())),
     retired(std::make_unique<padded<std::vector<T*>>[]>(get_num_threads())),
     amortized_work(std::make_unique<padded<size_t>[]>(get_num_threads())) {}
 
-  static size_t get_thread_id() { return thread_id.get();}
+  static size_t get_thread_id() { return thread_id().get();}
+  static size_t get_current_threads() { return thread_id().max_current_id();}
 
   template<typename U>
   U acquire(const std::atomic<U>& p) {
@@ -100,7 +101,7 @@ class acquire_retire {
   template<typename F>
   void scan_slots(F &&f) {
     std::atomic_thread_fence(std::memory_order_seq_cst);
-    for (size_t i = 0; i < get_num_threads(); i++) {
+    for (size_t i = 0; i < get_current_threads(); i++) {
       auto x = announcements[i].load(std::memory_order_seq_cst);
       if (x != nullptr) f(x);
     }
@@ -109,7 +110,7 @@ class acquire_retire {
   void work_toward_ejects(size_t work = 1) {
     auto id = get_thread_id();
     amortized_work[id] = amortized_work[id] + work;
-    auto threshold = std::max<size_t>(30, delay * get_num_threads());  // Always attempt at least 30 ejects
+    auto threshold = std::max<size_t>(30, delay * get_current_threads());  // Always attempt at least 30 ejects
     while (!in_progress[id] && amortized_work[id] >= threshold) {
       amortized_work[id] = 0;
       if (retired[id].size() == 0) break; // nothing to collect
