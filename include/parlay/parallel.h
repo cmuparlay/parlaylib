@@ -28,12 +28,6 @@ inline size_t num_workers();
 // id of running thread, should be numbered from [0...num-workers)
 inline size_t worker_id();
 
-// number of workers for this particular scheduler
-inline size_t scheduler_num_workers();
-
-// id of thread within the scheduler, should be numbered from [0...scheduler_num-workers)
-inline size_t scheduler_worker_id();
-
 // parallel loop from start (inclusive) to end (exclusive) running
 // function f.
 //    f should map size_t to void.
@@ -143,28 +137,25 @@ inline unsigned int init_num_workers() {
 // standard: 7.1.2/4 A static local variable in an
 // extern inline function always refers to the same
 // object.
+
 extern inline scheduler_t* get_scheduler() {
-  static scheduler_t default_sched(init_num_workers());
+  if (scheduler_t::worker_info.my_scheduler == nullptr) {
+    static thread_local scheduler_t default_sched(init_num_workers());
+    return &default_sched;
+  }
   return scheduler_t::worker_info.my_scheduler;
 }
 
+  //  thread_local std::unique_ptr<scheduler_t> default_scheduler;
+
 }  // namespace internal
 
-
 inline size_t num_workers() {
-  return max_scheduler_workers;
-}
-
-inline size_t scheduler_num_workers() {
   return internal::get_scheduler()->num_workers();
 }
 
 inline size_t worker_id() {
   return internal::get_scheduler()->worker_id();
-}
-
-inline size_t scheduler_worker_id() {
-  return internal::get_scheduler()->local_worker_id();
 }
 
 template <typename F>

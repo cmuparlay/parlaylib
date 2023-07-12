@@ -533,9 +533,9 @@ struct unique_array_deleter {
   void operator()(T* ptr) {
     if (ptr != nullptr) {
       if constexpr (!std::is_trivially_destructible_v<T>) {
-        parallel_for(0, n, [ptr](size_t i) {
-          ptr[i].~T();
-        });
+	  //parallel_for(0, n, [ptr](size_t i) {
+          for (long i=0; i < n; i++) ptr[i].~T();
+	  //});
       }
       ::operator delete (static_cast<void*>(ptr), std::align_val_t{alignof(T)});
     }

@@ -51,71 +51,32 @@
 #endif
 
 namespace parlay {
-  
-static constexpr int max_scheduler_workers = 1024;
-
-struct scheduler_info {
-  std::vector<std::atomic<bool>> id_slots;
-  std::atomic<int> max_used ;
-  int add_worker() {
-    int i;
-    bool old;
-    do {
-      old = false;
-      for (i=0; (i < max_scheduler_workers) && id_slots[i]; i++);
-      assert(i < max_scheduler_workers);
-    } while (!id_slots[i].compare_exchange_strong(old, true));
-    int maxu = max_used.load();
-    while (i > maxu && max_used.compare_exchange_strong(maxu, i));
-    //std::cout << i << std::endl;
-    return i;
-  }
-  void remove_worker(int i) {
-    //std::cout << "removing: " << i << std::endl;
-    id_slots[i] = false; }
-  
-  scheduler_info() :
-    id_slots(std::vector<std::atomic<bool>>(max_scheduler_workers)),
-    max_used(0) {
-    std::fill(id_slots.begin(), id_slots.end(), false); 
-  }
-};
-
-static scheduler_info global_scheduler_state;
 
 template <typename Job>
 struct scheduler;
 
-  // local_worker_id is a uiniqe id within a single scheduler, e.g. used to access the worker deques
-  // global_worker_id is unique across all schedulers
+  // structure that holds a pointer to the scheduler instance and the worker_id within the scheduler
   template <typename Job>
   struct workerInfo {
-    int local_worker_id;
-    int global_worker_id;
+    int worker_id;
     scheduler<Job>* my_scheduler;
-    workerInfo() : local_worker_id(-1), global_worker_id(-1), my_scheduler(nullptr) {}
+    workerInfo() : worker_id(-1), my_scheduler(nullptr) {}
     workerInfo(int localid, scheduler<Job>* s) :
-      local_worker_id(localid),
-      global_worker_id(global_scheduler_state.add_worker()),
-      my_scheduler(s) {}
+      worker_id(localid),
+      my_scheduler(s) {} // std::cout << "worker starting: " << localid << std::endl;}
 
     workerInfo& operator=(const workerInfo& w) = delete;
     workerInfo(const workerInfo& w) = delete;
     workerInfo& operator=(workerInfo&& w) noexcept {
       if (this != &w) {
-	local_worker_id = w.local_worker_id;
-	global_worker_id = w.global_worker_id;
+	worker_id = w.worker_id;
 	my_scheduler = w.my_scheduler;
 	w.my_scheduler = nullptr;
       }
       return *this;
     }
     workerInfo(workerInfo&& w) noexcept {*this = std::move(w);}
-
-    ~workerInfo() {
-      if (my_scheduler != nullptr)
-	global_scheduler_state.remove_worker(global_worker_id);
-    }
+    ~workerInfo() {} // if (my_scheduler) std::cout << "worker ending: " << worker_id << std::endl;}
   };
   
 template <typename Job>
@@ -163,7 +124,7 @@ struct scheduler {
 
   // Push onto local stack.
   void spawn(Job* job) {
-    int id = local_worker_id();
+    int id = worker_id();
     [[maybe_unused]] bool first = deques[id].push_bottom(job);
 #if PARLAY_ELASTIC_PARALLELISM
     if (first) wake_up_a_worker();
@@ -193,13 +154,12 @@ struct scheduler {
 
   // Pop from local stack.
   Job* get_own_job() {
-    auto id = local_worker_id();
+    auto id = worker_id();
     return deques[id].pop_bottom();
   }
 
   unsigned int num_workers() { return num_threads; }
-  unsigned int worker_id() { return worker_info.global_worker_id; }
-  unsigned int local_worker_id() { return worker_info.local_worker_id; }
+  unsigned int worker_id() { return worker_info.worker_id; }
 
   bool finished() const noexcept {
     return finished_flag.load(std::memory_order_acquire);
@@ -284,7 +244,7 @@ struct scheduler {
   // STEAL_TIMEOUT to find a job to steal.
   template<typename F>
   Job* steal_job(F&& break_early, bool timeout) {
-    size_t id = local_worker_id();
+    size_t id = worker_id();
     const auto start_time = std::chrono::steady_clock::now();
     do {
       // By coupon collector's problem, this should touch all.
@@ -369,11 +329,6 @@ class fork_join_scheduler {
   using scheduler_t = scheduler<Job>;
 
  public:
-  //explicit fork_join_scheduler(size_t p) : sched(std::make_unique<scheduler<Job>>(p)) {}
-  
-  //static unsigned int num_workers(scheduler_t* sched) { return sched->num_workers(); }
-  //static unsigned int worker_id(scheduler_t* sched) { return sched->worker_id(); }
-  //static unsigned int local_worker_id(scheduler_t* sched) { return sched->local_worker_id(); }
 
   // Fork two thunks and wait until they both finish.
   template <typename L, typename R>

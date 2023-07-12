@@ -16,6 +16,7 @@
 #include "../../parallel.h"
 #include "../../portability.h"
 #include "../../utilities.h"
+#include "../thread_ids.h"
 
 // IWYU pragma: no_forward_declare parlay::padded
 
@@ -28,16 +29,18 @@ class acquire_retire {
 
  public:
   explicit acquire_retire(Deleter deleter_ = {}) :
-    num_threads_and_deleter(num_workers(), std::move(deleter_)),
+    num_threads_and_deleter(thread_id.max_thread_id(), std::move(deleter_)),
     announcements(std::make_unique<padded<std::atomic<T*>>[]>(get_num_threads())),
     in_progress(std::make_unique<padded<bool>[]>(get_num_threads())),
     retired(std::make_unique<padded<std::vector<T*>>[]>(get_num_threads())),
     amortized_work(std::make_unique<padded<size_t>[]>(get_num_threads())) {}
 
+  static size_t get_thread_id() { return thread_id.get();}
+
   template<typename U>
   U acquire(const std::atomic<U>& p) {
     static_assert(std::is_convertible_v<U, T*>, "acquire must read from a type that is convertible to T*");
-    size_t id = worker_id();
+    size_t id = get_thread_id();
     U result;
     do {
       result = p.load(std::memory_order_seq_cst);
@@ -48,14 +51,14 @@ class acquire_retire {
   }
 
   void release() {
-    size_t id = worker_id();
+    size_t id = get_thread_id();
     announcements[id].store(nullptr);
   }
 
   template<typename U>
   void retire(U p) {
     static_assert(std::is_convertible_v<U, T*>, "retire must take a type that is convertible to T*");
-    size_t id = worker_id();
+    size_t id = get_thread_id();
     retired[id].push_back(static_cast<T*>(p));
     work_toward_ejects();
   }
@@ -104,7 +107,7 @@ class acquire_retire {
   }
 
   void work_toward_ejects(size_t work = 1) {
-    auto id = worker_id();
+    auto id = get_thread_id();
     amortized_work[id] = amortized_work[id] + work;
     auto threshold = std::max<size_t>(30, delay * get_num_threads());  // Always attempt at least 30 ejects
     while (!in_progress[id] && amortized_work[id] >= threshold) {

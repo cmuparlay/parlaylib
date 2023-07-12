@@ -24,11 +24,10 @@
 #include <new>
 #include <optional>
 
-#include "../parallel.h"
+//#include "../parallel.h"
 #include "../utilities.h"
-
+#include "thread_ids.h"
 #include "concurrency/hazptr_stack.h"
-
 #include "memory_size.h"
 
 // IWYU pragma: no_include <vector>
@@ -120,12 +119,12 @@ struct block_allocator {
 
   // Allocate n elements across however many lists are needed (rounded up)
   void reserve(size_t n) {
-    size_t num_lists = thread_count + (n + list_length - 1) / list_length;
-    std::byte* start = allocate_blocks(list_length*num_lists);
-    parallel_for(0, num_lists, [&] (size_t i) {
-      std::byte* offset = start + i * list_length * block_size;
-      global_stack.push(initialize_list(offset));
-    }, 1, true);
+    // size_t num_lists = thread_count + (n + list_length - 1) / list_length;
+    // std::byte* start = allocate_blocks(list_length*num_lists);
+    // parallel_for(0, num_lists, [&] (size_t i) {
+    //   std::byte* offset = start + i * list_length * block_size;
+    //   global_stack.push(initialize_list(offset));
+    // }, 1, true);
   }
 
   void print_stats() {
@@ -142,7 +141,7 @@ struct block_allocator {
     size_t reserved_blocks = 0,
     size_t list_length_ = 0,
     size_t max_blocks_ = 0) :
-    thread_count(num_workers()),
+    thread_count(thread_id.max_thread_id()),
     local_lists(std::make_unique<local_list[]>(thread_count)),                     // Each block needs to be at least
     block_size(std::max<size_t>(block_size_, sizeof(block))),    // <------------- // large enough to hold the struct
     block_align(std::align_val_t{std::max<size_t>(block_align_, min_alignment)}),  // representing a free block.
@@ -183,8 +182,10 @@ struct block_allocator {
     clear();
   }
 
+  static size_t get_worker_id() { return thread_id.get();}
+
   void free(void* ptr) {
-    size_t id = worker_id();
+    size_t id = get_worker_id();
 
     if (local_lists[id].sz == list_length+1) {
       local_lists[id].mid = local_lists[id].head;
@@ -194,14 +195,14 @@ struct block_allocator {
       local_lists[id].sz = list_length;
     }
 
-    assert(id == worker_id());
+    assert(id == get_worker_id());
     auto new_node = new (ptr) block{local_lists[id].head};
     local_lists[id].head = new_node;
     local_lists[id].sz++;
   }
 
   inline void* alloc() {
-    size_t id = worker_id();
+    size_t id = get_worker_id();
 
     if (local_lists[id].sz == 0)  {
       auto new_list = get_list();
@@ -210,7 +211,7 @@ struct block_allocator {
       // the worker id may have changed, so we can't assume we are looking
       // at the same local list, so we have to check the (possibly different)
       // local list of the (possibly changed) worker id
-      id = worker_id();
+      id = get_worker_id();
 
       if (local_lists[id].sz == 0) {
         local_lists[id].head = new_list;
@@ -224,7 +225,7 @@ struct block_allocator {
       }
     }
 
-    assert(id == worker_id());
+    assert(id == get_worker_id());
     block* p = local_lists[id].head;
     local_lists[id].head = local_lists[id].head->next;
     local_lists[id].sz--;

@@ -149,18 +149,18 @@ struct pool_allocator {
 
   // allocate, touch, and free to make sure space for small blocks is paged in
   void reserve(size_t bytes) {
-    size_t bc = bytes/max_small;
-    std::vector<void*> h(bc);
-    parallel_for(0, bc, [&] (size_t i) {
-      h[i] = allocate(max_small);
-    }, 1);
-    parallel_for(0, bc, [&] (size_t i) {
-      for (size_t j=0; j < max_small; j += (1 << 12)) {
-        static_cast<std::byte*>(h[i])[j] = std::byte{0};
-      }
-    }, 1);
-    for (size_t i=0; i < bc; i++)
-      deallocate(h[i], max_small);
+    // size_t bc = bytes/max_small;
+    // std::vector<void*> h(bc);
+    // parallel_for(0, bc, [&] (size_t i) {
+    //   h[i] = allocate(max_small);
+    // }, 1);
+    // parallel_for(0, bc, [&] (size_t i) {
+    //   for (size_t j=0; j < max_small; j += (1 << 12)) {
+    //     static_cast<std::byte*>(h[i])[j] = std::byte{0};
+    //   }
+    // }, 1);
+    // for (size_t i=0; i < bc; i++)
+    //   deallocate(h[i], max_small);
   }
 
   void print_stats() {
@@ -204,6 +204,7 @@ struct pool_allocator {
       }
     }
   }
+  
 };
 
 }  // namespace internal
