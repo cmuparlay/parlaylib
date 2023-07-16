@@ -351,7 +351,7 @@ class fork_join_scheduler {
   }
 
   template <typename F>
-  static void parfor(scheduler_t* sched, size_t start, size_t end, F f,
+  static void parfor(scheduler_t* sched, size_t start, size_t end, F&& f,
 		     size_t granularity = 0, bool conservative = false) {
     if (end <= start) return;
     if (granularity == 0) {
@@ -365,7 +365,7 @@ class fork_join_scheduler {
 
  private:
   template <typename F>
-  static size_t get_granularity(size_t start, size_t end, F f) {
+  static size_t get_granularity(size_t start, size_t end, F&& f) {
     size_t done = 0;
     size_t sz = 1;
     unsigned long long int ticks = 0;
@@ -383,7 +383,7 @@ class fork_join_scheduler {
   }
 
   template <typename F>
-  static void parfor_(scheduler_t* sched, size_t start, size_t end, F f,
+  static void parfor_(scheduler_t* sched, size_t start, size_t end, F&& f,
 	       size_t granularity, bool conservative) {
     if ((end - start) <= granularity)
       for (size_t i = start; i < end; i++) f(i);

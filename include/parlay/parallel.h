@@ -126,7 +126,10 @@ inline unsigned int init_num_workers() {
 #pragma warning(pop)
 #endif
 
-  using scheduler_t = scheduler<WorkStealingJob>;
+// Note that since scheduler is templatized its static (and thread
+// local) member worker_info will be shared across all compilation
+// units.
+using scheduler_t = scheduler<WorkStealingJob>;
 
 // Use a "Meyer singleton" to provide thread-safe 
 // initialisation and destruction of the scheduler
@@ -146,8 +149,6 @@ extern inline scheduler_t* get_scheduler() {
   return scheduler_t::worker_info.my_scheduler;
 }
 
-  //  thread_local std::unique_ptr<scheduler_t> default_scheduler;
-
 }  // namespace internal
 
 inline size_t num_workers() {
@@ -161,20 +162,17 @@ inline size_t worker_id() {
 template <typename F>
 inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool conservative) {
   static_assert(std::is_invocable_v<F&, size_t>);
-  // Note: scheduler::parfor copies the function object, so we wrap it in
-  // a lambda here in case F is expensive to copy or not copyable at all
-  auto loop_body = [&](size_t i) { f(i); };
 
   if (start + 1 == end) {
     f(start);
   }
   else if ((end - start) <= static_cast<size_t>(granularity)) {
-    for (size_t i = start; i < end; i++) loop_body(i);
+    for (size_t i = start; i < end; i++) f(i);
   }
   else if (end > start) {
     fork_join_scheduler::parfor(internal::get_scheduler(),
 				start, end,
-				loop_body,
+				f,
 				static_cast<size_t>(granularity),
 				conservative);
   }
