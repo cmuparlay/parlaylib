@@ -47,6 +47,13 @@ struct vertex_subset {
     if (is_sparse) return sparse;
     else return parlay::pack_index<vertex>(dense);
   }
+  template <typename F>
+  void apply(const F& f) {
+    if (is_sparse)
+      parlay::parallel_for(0, sparse.size(), [&] (long i) {f(sparse[i]);});
+    else 
+      parlay::parallel_for(0, dense.size(), [&] (long i) {if (dense[i]) f(i);});
+  }
 };
 
 template <typename V>
