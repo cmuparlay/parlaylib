@@ -21,6 +21,3 @@ endfunction()
 foreach(example ${EXAMPLES})
   add_example(${example})
 endforeach()
-
-add_executable(schedulers schedulers.cpp)
-target_link_libraries(schedulers PRIVATE parlay)
