@@ -65,7 +65,7 @@ auto multi_BFS(vertex start, const graph& G) {
       // ensure that v is only added to the frontier once
       char old_d = nodes[v].d.load();
       return (old_d < round &&
-              nodes[v].d.compare_exchange_strong(old_d, round));
+	      nodes[v].d.compare_exchange_strong(old_d, round));
     } else return false; };
 
   // only apply an edge if this is true on the target
@@ -88,7 +88,7 @@ auto multi_BFS(vertex start, const graph& G) {
     //std::cout << "frontier size: " << std::dec <<  m << ", " << total << std::endl;
 
     // map from frontier over edges
-    frontier = frontier_map(frontier);
+    frontier = frontier_map(frontier, false);
     t.next("map");
 
     // update all vertices on frontier

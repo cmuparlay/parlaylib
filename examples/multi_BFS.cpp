@@ -17,7 +17,7 @@ using graph = nested_seq;
 using utils = graph_utils<vertex>;
 
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: BFS <n> || BFS <filename>";
+  auto usage = "Usage: multi_BFS <n> || multi_BFS <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n = 0;
@@ -33,14 +33,12 @@ int main(int argc, char* argv[]) {
     utils::print_graph_stats(G);
     parlay::sequence<node_info> result;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 3; i++) {
+    for (int i=0; i < 5; i++) {
       result = multi_BFS(1, G);
-      t.next("BFS");
+      t.next("multi_BFS");
     }
 
     for (int i=0; i < 5; i++)
       std::cout << std::hex << result[i].visited.load() << ", " << result[i].visited_prev.load() << ", " << (int) result[i].d.load() << std::endl;
-    //long visited = parlay::reduce(parlay::map(result, parlay::size_of()));
-    //std::cout << "num vertices visited: " << visited << std::endl;
   }
 }

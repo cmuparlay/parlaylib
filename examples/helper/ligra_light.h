@@ -100,7 +100,7 @@ struct edge_map {
 
   bool f(vertex u, vertex v, edge e, bool backwards) {
     if constexpr (std::is_same<Get, identity<vertex>>::value)
-      return fa(u,v);
+       return fa(u,v);
     else return fa(u,v,e,backwards);
   }
 
@@ -124,23 +124,29 @@ struct edge_map {
   // in edges (u,v).  If u is in vertices and cond(v) is satisfied,
   // fa(u,v) is applied, and if it returns true it is included in the
   // returned vertex set by setting a bool at location v.
-  auto edge_map_dense(vertex_subset_dense const &vertices) {
+  auto edge_map_dense(vertex_subset_dense const &vertices, bool exit_early) {
     return parlay::tabulate(n, [&] (vertex v) {
-      bool result = false;
       if (cond(v)) {
-        parlay::find_if(GT[v], [&] (edge e) {
-          if (!cond(v)) return true;
-          vertex u = get(e);
-          if (vertices[u] && f(u,v,e,true) && result == false)
-            result = true;
-          return false;});
+	if (exit_early) {
+	  bool result = false;
+	  parlay::find_if(GT[v], [&] (edge e) {
+	    if (!cond(v)) return true;
+	    vertex u = get(e);
+	    if (vertices[u] && f(u,v,e,true) && result == false)
+	      result = true;
+	    return false;});
+	  return result;}
+	else
+	  return parlay::reduce(parlay::delayed::map(GT[v], [&] (edge e) {
+			      	 vertex u = get(e);
+			         return vertices[u] && f(u,v,e,true);}), parlay::logical_or<bool>());
       }
-      return result;});
+      else return false;});
   }
 
   // Chooses between sparse and dense and changes representation
   // when swithching from one to the other.
-  auto operator() (vertex_subset_ const &vertices) {
+  auto operator() (vertex_subset_ const &vertices, bool exit_early=true) {
     auto l = vertices.size();
     bool do_dense;
     if (vertices.is_sparse) {
@@ -149,10 +155,10 @@ struct edge_map {
       if ((l + d) > m/10) {
         parlay::sequence<bool> d_vertices(n, false);
         parlay::for_each(vertices.sparse, [&] (vertex i) {d_vertices[i] = true;});
-        return vertex_subset_(edge_map_dense(d_vertices));
+        return vertex_subset_(edge_map_dense(d_vertices, exit_early));
       } else return vertex_subset_(edge_map_sparse(vertices.sparse));
     } else {
-      if (l > n/20) return vertex_subset_(edge_map_dense(vertices.dense));
+      if (l > n/20) return vertex_subset_(edge_map_dense(vertices.dense, exit_early));
       else return vertex_subset_(edge_map_sparse(parlay::pack_index<vertex>(vertices.dense)));
     }
   }
