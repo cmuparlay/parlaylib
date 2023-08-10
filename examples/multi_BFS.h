@@ -83,8 +83,8 @@ auto multi_BFS(vertex start, const graph& G) {
   long total = 0;
   while (frontier.size() > 0) {
     round++;
-    long m = frontier.size();
-    total += m;
+    //long m = frontier.size();
+    //total += m;
     //std::cout << "frontier size: " << std::dec <<  m << ", " << total << std::endl;
 
     // map from frontier over edges
