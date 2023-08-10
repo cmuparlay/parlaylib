@@ -65,7 +65,7 @@ auto multi_BFS(vertex start, const graph& G) {
       frontier = frontier_map(frontier);
       t.next("map");
       frontier.apply([&] (vertex v) {
-	if ((nodes[v].visited_prev.load() & 1) == 0) {
+	if ((nodes[v].visited_prev.load() & 1) != 0) {
 	  ulong tmp = nodes[v].visited_prev.load();
 	  nodes[v].visited_prev = nodes[v].visited.load();
 	  nodes[v].visited = tmp;
