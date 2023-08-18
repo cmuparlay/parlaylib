@@ -977,6 +977,12 @@ auto flatten(R&& r) {
   static_assert(std::is_constructible_v<range_value_type_t<range_reference_type_t<R>>,
                                         range_reference_type_t<range_reference_type_t<R>>>);
 
+  // For prvalue ranges, we materialize the range to avoid generating its elements multiple
+  // times, or worse, generating them then taking references to them that dangle!
+  if constexpr (!std::is_reference_v<range_reference_type_t<R>>) {
+    return flatten(to_sequence(std::forward<R>(r)));
+  }
+
   using T = range_value_type_t<range_reference_type_t<R>>;
   auto offsets = tabulate(parlay::size(r), [it = std::begin(r)](size_t i)
                           { return parlay::size(it[i]); });
@@ -984,8 +990,9 @@ auto flatten(R&& r) {
   auto res = sequence<T>::uninitialized(len);
   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
     auto dit = std::begin(res)+offsets[i];
-    auto sit = std::begin(it[i]);
-    parallel_for(0, parlay::size(it[i]), [=] (size_t j) {
+    auto&& inner = it[i];
+    auto sit = std::begin(inner);
+    parallel_for(0, parlay::size(inner), [=] (size_t j) {
       assign_uninitialized(*(dit+j), *(sit+j));
     }, 1000);
   });

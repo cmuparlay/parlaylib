@@ -606,6 +606,57 @@ TEST(TestPrimitives, TestFlattenRvalueRef) {
   ASSERT_TRUE(seqs.empty());
 }
 
+TEST(TestPrimitives, TestFlattenNestedDelayed) {
+  auto G = parlay::tabulate(10000, [](size_t i) {
+    if (parlay::hash64_2(i) % 2 != 0)
+      return parlay::tabulate(i, [](size_t j) -> int {
+        return j;
+      });
+    else
+      return parlay::sequence<int>{};
+  });
+  
+  auto seq = parlay::flatten(parlay::delayed_tabulate(G.size(), [&](int i) {
+    return parlay::delayed_map(G[i], [=](int x) {
+      return std::make_pair(x, i);
+    });
+  }));
+
+  auto seq2 = parlay::flatten(parlay::tabulate(G.size(), [&](int i) {
+    return parlay::map(G[i], [=](int x) {
+      return std::make_pair(x, i);
+    });
+  }));
+
+  ASSERT_EQ(seq, seq2);
+}
+
+TEST(TestPrimitives, TestFlattenDelayed) {
+  auto G = parlay::tabulate(10000, [](size_t i) {
+    if (parlay::hash64_2(i) % 2 != 0)
+      return parlay::tabulate(i, [](size_t j) -> int {
+        return j;
+      });
+    else
+      return parlay::sequence<int>{};
+  });
+
+  // Use parlay::sequence with std::allocator as the inner sequence to better catch use-after-free
+  auto seq = parlay::flatten(parlay::delayed_tabulate(G.size(), [&](int i) {
+    return parlay::to_sequence<std::pair<int,int>, std::allocator<int>>(parlay::map(G[i], [=](int x) {
+      return std::make_pair(x, i);
+    }));
+  }));
+
+  auto seq2 = parlay::flatten(parlay::tabulate(G.size(), [&](int i) {
+    return parlay::map(G[i], [=](int x) {
+      return std::make_pair(x, i);
+    });
+  }));
+
+  ASSERT_EQ(seq, seq2);
+}
+
 TEST(TestPrimitives, TestTokens) {
   auto chars = parlay::to_sequence(std::string(" The quick\tbrown fox jumped over  the lazy\ndog "));
   auto words = parlay::sequence<parlay::sequence<char>> {
