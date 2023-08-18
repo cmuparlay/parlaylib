@@ -615,8 +615,7 @@ TEST(TestPrimitives, TestFlattenNestedDelayed) {
     else
       return parlay::sequence<int>{};
   });
-
-  // Use parlay::sequence with std::allocator as the inner sequence to better catch use-after-free
+  
   auto seq = parlay::flatten(parlay::delayed_tabulate(G.size(), [&](int i) {
     return parlay::delayed_map(G[i], [=](int x) {
       return std::make_pair(x, i);
