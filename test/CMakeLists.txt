@@ -65,6 +65,7 @@ add_dtests(NAME test_formatting FILES test_formatting.cpp LIBS parlay)
 # ----------------------------- Parlay Scheduling ------------------------------
 
 add_dtests(NAME test_parallel FILES test_parallel.cpp LIBS parlay)
+add_dtests(NAME test_thread_local FILES test_thread_local.cpp LIBS parlay)
 
 # ----------------------------- Parlay Allocator ------------------------------
 

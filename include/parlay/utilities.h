@@ -25,6 +25,10 @@
 
 #include "internal/debug_uninitialized.h"
 
+#if defined(__cpp_lib_bitops)
+#include <bit>
+#endif
+
 namespace parlay {
 
 template <typename Lf, typename Rf>
@@ -232,6 +236,7 @@ size_t log2_up(T i) {
   }
   return a;
 }
+
 
 inline size_t granularity(size_t n) {
   return (n > 100) ? static_cast<size_t>(std::ceil(std::sqrt(n))) : 100;
