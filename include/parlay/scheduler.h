@@ -20,7 +20,7 @@
 #include "internal/work_stealing_deque.h"
 #include "internal/work_stealing_job.h"
 
-#include "thread_local.h"
+#include "thread_specific.h"
 
 // IWYU pragma: no_include <bits/chrono.h>
 // IWYU pragma: no_include <bits/this_thread_sleep.h>
@@ -82,7 +82,7 @@ struct scheduler {
         spawned_threads(),
         finished_flag(false) {
 
-    initialize_thread_ids();    // Ensure that the ThreadIdPool is initialized before any threads
+    //initialize_thread_ids();    // Ensure that the ThreadIdPool is initialized before any threads
 
     // Spawn num_threads many threads on startup
     thread_id = 0;  // thread-local write

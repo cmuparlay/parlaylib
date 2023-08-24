@@ -60,33 +60,32 @@ class ThreadIdPool : public std::enable_shared_from_this<ThreadIdPool> {
 
   // A ThreadId corresponds to a unique ID number in the range [0...num_thread_ids). When it is
   // not in use (the thread that owned it dies), it is returned to the global pool which maintains
-  // a linked list of available ones.  The ThreadId stores a shared_ptr to the pool to guarantee
-  // that the pool does not get destroyed before a detached thread returns its ID.
+  // a linked list of available ones.
   class ThreadId {
     friend class ThreadIdPool;
 
-    ThreadId(const std::size_t id_, std::shared_ptr<ThreadIdPool> pool_) noexcept
-        : id(id_), next(nullptr), pool(std::move(pool_)) { }
+    explicit ThreadId(const std::size_t id_) noexcept : id(id_), next(nullptr) { }
 
    public:
     const std::size_t id;
    private:
     ThreadId* next;
-    const std::shared_ptr<ThreadIdPool> pool;
   };
 
   // A ThreadIdOwner indicates that a thread is currently in possession of the given ThreadID.
   // Each thread has a static thread_local ThreadIdOwner containing the ID that it owns.
   // On construction, it acquires an available ThreadID, and on destruction, it releases
-  // it back to the pool.
+  // it back to the pool. The ThreadIdOwner stores a shared_ptr to the pool to guarantee
+  // that the pool does not get destroyed before a detached thread returns its ID.
   class ThreadIdOwner {
     friend class ThreadIdPool;
 
-    ThreadIdOwner(ThreadIdPool& pool) : node(pool.acquire()), id(node->id) { }
+    ThreadIdOwner(ThreadIdPool& pool_) : pool(pool_.shared_from_this()), node(pool->acquire()), id(node->id) { }
 
-    ~ThreadIdOwner() { node->pool->relinquish(node); }
+    ~ThreadIdOwner() { pool->relinquish(node); }
 
    private:
+    const std::shared_ptr<ThreadIdPool> pool;
     ThreadId* const node;
 
    public:
@@ -95,16 +94,25 @@ class ThreadIdPool : public std::enable_shared_from_this<ThreadIdPool> {
 
   // Grab a free ID from the available list, or if there are none available, allocate a new one.
   ThreadId* acquire() {
-    ThreadId* current = available_ids.load();
-    while (current && !available_ids.compare_exchange_weak(current, current->next)) {}
-    if (current) { return current; }
-    else { return new ThreadId(num_thread_ids.fetch_add(1), shared_from_this()); }
+    if (available_ids.load(std::memory_order_relaxed)) {
+      // We only take the lock if there are available IDs in the pool. In the common case
+      // where there are no relinquished IDs available for re-use we don't need the lock.
+      static std::mutex m_;
+      std::lock_guard<std::mutex> g_{m_};
+
+      ThreadId* current = available_ids.load(std::memory_order_relaxed);
+      while (current && !available_ids.compare_exchange_weak(current, current->next,
+               std::memory_order_acquire, std::memory_order_relaxed)) {}
+      if (current) { return current; }
+    }
+    return new ThreadId(num_thread_ids.fetch_add(1));
   }
 
   // Given the ID back to the global pool for reuse
   void relinquish(ThreadId* p) {
-    p->next = available_ids.load();
-    while (!available_ids.compare_exchange_weak(p->next, p)) {}
+    p->next = available_ids.load(std::memory_order_relaxed);
+    while (!available_ids.compare_exchange_weak(p->next, p,
+             std::memory_order_release, std::memory_order_relaxed)) {}
   }
 
   static inline const ThreadIdOwner& get_local_thread_id() {
