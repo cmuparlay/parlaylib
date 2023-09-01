@@ -28,6 +28,10 @@ class hazptr_stack {
     Node* next;
     size_t length;
 
+    friend Node*& intrusive_ar_get_next(Node* node) {
+      return node->next;
+    }
+
     explicit Node(T t_) noexcept(std::is_nothrow_move_constructible_v<T>)
       : t(std::move(t_)), next(nullptr), length(1) { }
   };

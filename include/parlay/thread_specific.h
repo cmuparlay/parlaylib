@@ -9,6 +9,7 @@
 #include <functional>
 #include <mutex>
 #include <thread>
+#include <type_traits>
 #include <variant>
 
 #include "internal/thread_id_pool.h"
@@ -145,7 +146,8 @@ class ThreadSpecific {
     initialize();
   }
 
-  template<typename F>
+  template<typename F,
+      typename std::enable_if_t<std::is_invocable_v<F&, void*>, int> = 0>
   explicit ThreadSpecific(F&& constructor_) : constructor(std::forward<F>(constructor_)) {
     initialize();
   }
@@ -187,6 +189,13 @@ class ThreadSpecific {
   }
 
  private:
+
+  // Allow looping over all thread's data as a forward range
+  class iterator {
+
+    
+    size_t chunk_id{0};
+  };
 
   void initialize() {
     chunks[0].store(new internal::Uninitialized<T>[internal::ThreadListChunkData::thread_list_chunk_size], std::memory_order_relaxed);

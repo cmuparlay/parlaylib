@@ -80,7 +80,7 @@ class ThreadIdPool : public std::enable_shared_from_this<ThreadIdPool> {
   class ThreadIdOwner {
     friend class ThreadIdPool;
 
-    ThreadIdOwner(ThreadIdPool& pool_) : pool(pool_.shared_from_this()), node(pool->acquire()), id(node->id) { }
+    explicit ThreadIdOwner(ThreadIdPool& pool_) : pool(pool_.shared_from_this()), node(pool->acquire()), id(node->id) { }
 
     ~ThreadIdOwner() { pool->relinquish(node); }
 

@@ -13,8 +13,8 @@
 #include <utility>        // IWYU pragma: keep
 #include <vector>
 
-#include "../../parallel.h"
 #include "../../portability.h"
+#include "../../thread_specific.h"
 #include "../../utilities.h"
 
 // IWYU pragma: no_forward_declare parlay::padded
@@ -22,56 +22,99 @@
 namespace parlay {
 namespace internal {
 
-//
+// intrusive_acquire_retire works on types T that expose a T* via
+// the ADL findable free function intrusive_ar_get_next(ptr)
 template<typename T, typename Deleter = std::default_delete<T>, size_t delay = 1>
-class acquire_retire {
+class intrusive_acquire_retire {
+
+  struct RetiredList {
+
+    constexpr RetiredList() noexcept = default;
+
+    ~RetiredList() {
+      cleanup([](auto&&) { return false; });
+    }
+
+    void push(T* p) noexcept {
+      intrusive_ar_get_next(p) = std::exchange(head, p);
+      size++;
+    }
+
+    std::size_t get_size() const noexcept {
+      return size;
+    }
+
+    template<typename F>
+    void cleanup(F&& is_protected) {
+
+      while (head && !is_protected(head)) {
+        T* old = std::exchange(head, head->get_next());
+        old->destroy();
+        size--;
+      }
+
+      if (head) {
+        T* prev = head;
+        T* current = intrusive_ar_get_next(head);
+        while (current) {
+          if (!is_protected(current)) {
+            intrusive_ar_get_next(prev) = intrusive_ar_get_next(current);
+            current->destroy();
+            current = intrusive_ar_get_next(prev);
+            size--;
+          }
+          else {
+            prev = std::exchange(current, intrusive_ar_get_next(current));
+          }
+        }
+      }
+    }
+
+   private:
+    T* head = nullptr;
+    std::size_t size = 0;
+  };
 
  public:
-  explicit acquire_retire(Deleter deleter_ = {}) :
-    num_threads_and_deleter(num_workers(), std::move(deleter_)),
-    announcements(std::make_unique<padded<std::atomic<T*>>[]>(get_num_threads())),
-    in_progress(std::make_unique<padded<bool>[]>(get_num_threads())),
-    retired(std::make_unique<padded<std::vector<T*>>[]>(get_num_threads())),
-    amortized_work(std::make_unique<padded<size_t>[]>(get_num_threads())) {}
+  explicit intrusive_acquire_retire(Deleter deleter_ = {}) :
+    deleter(std::move(deleter_)), data() {}
 
   template<typename U>
   U acquire(const std::atomic<U>& p) {
     static_assert(std::is_convertible_v<U, T*>, "acquire must read from a type that is convertible to T*");
-    size_t id = worker_id();
     U result;
     do {
       result = p.load(std::memory_order_seq_cst);
       PARLAY_PREFETCH(result, 0, 0);
-      announcements[id].store(static_cast<T*>(result), std::memory_order_seq_cst);
+      data->announcement.store(static_cast<T*>(result), std::memory_order_seq_cst);
     } while (p.load(std::memory_order_seq_cst) != result);
     return result;
   }
 
   void release() {
-    size_t id = worker_id();
-    announcements[id].store(nullptr);
+    data->announcement.store(nullptr);
   }
 
   template<typename U>
   void retire(U p) {
     static_assert(std::is_convertible_v<U, T*>, "retire must take a type that is convertible to T*");
-    size_t id = worker_id();
-    retired[id].push_back(static_cast<T*>(p));
+    data->retired.push(static_cast<T*>(p));
     work_toward_ejects();
   }
 
   // Perform any remaining deferred destruction. Need to be very careful
   // about additional objects being queued for deferred destruction by
   // an object that was just destructed.
-  ~acquire_retire() {
-    for (size_t i = 0; i < get_num_threads(); i++) {
-      in_progress[i] = true;
-    }
+  ~intrusive_acquire_retire() {
+    data.for_each([](auto& td) {
+      td.in_progress = true;
+    });
+
 
     // Loop because the destruction of one object could trigger the deferred
     // destruction of another object (possibly even in another thread), and
     // so on recursively.
-    while (std::any_of(&retired[0], &retired[0] + get_num_threads(),
+    while (std::any_of(&retired[0], &retired[0] + num_thread_ids(),
                        [](const auto &v) { return !v.empty(); })) {
 
       // Move all the contents from the retired lists into
@@ -80,14 +123,14 @@ class acquire_retire {
       // deferred destruction to be added to one of the lists, which
       // would invalidate its iterators
       std::vector<T*> destructs;
-      for (size_t i = 0; i < get_num_threads(); i++) {
+      for (size_t i = 0; i < num_thread_ids(); i++) {
         destructs.insert(destructs.end(), retired[i].begin(), retired[i].end());
         retired[i].clear();
       }
 
       // Perform all the pending deferred ejects
       for (auto x : destructs) {
-        get_deleter()(x);
+        deleter(x);
       }
     }
   }
@@ -97,7 +140,7 @@ class acquire_retire {
   template<typename F>
   void scan_slots(F &&f) {
     std::atomic_thread_fence(std::memory_order_seq_cst);
-    for (size_t i = 0; i < get_num_threads(); i++) {
+    for (size_t i = 0; i < num_thread_ids(); i++) {
       auto x = announcements[i].load(std::memory_order_seq_cst);
       if (x != nullptr) f(x);
     }
@@ -105,8 +148,8 @@ class acquire_retire {
 
   void work_toward_ejects(size_t work = 1) {
     auto id = worker_id();
-    amortized_work[id] = amortized_work[id] + work;
-    auto threshold = std::max<size_t>(30, delay * get_num_threads());  // Always attempt at least 30 ejects
+    data->amortized_work += work;
+    auto threshold = std::max<size_t>(30, delay * num_thread_ids());  // Always attempt at least 30 ejects
     while (!in_progress[id] && amortized_work[id] >= threshold) {
       amortized_work[id] = 0;
       if (retired[id].size() == 0) break; // nothing to collect
@@ -124,7 +167,7 @@ class acquire_retire {
       auto f = [&](auto x) {
         auto it = announced.find(x);
         if (it == announced.end()) {
-          get_deleter()(x);
+          deleter(x);
           return true;
         } else {
           announced.erase(it);
@@ -139,23 +182,28 @@ class acquire_retire {
     }
   }
 
-  size_t get_num_threads() const noexcept {
-    return std::get<0>(num_threads_and_deleter);
-  }
-
   Deleter& get_deleter() noexcept {
-    return std::get<Deleter>(num_threads_and_deleter);
+    return deleter;
   }
 
   const Deleter& get_deleter() const noexcept {
-    return std::get<Deleter>(num_threads_and_deleter);
+    return deleter;
   }
 
-  std::tuple<const size_t, Deleter> num_threads_and_deleter;       // Use std::tuple for EBO for empty Deleters
-  std::unique_ptr<padded<std::atomic<T*>>[]> announcements;
-  std::unique_ptr<padded<bool>[]> in_progress;
-  std::unique_ptr<padded<std::vector<T*>>[]> retired;
-  std::unique_ptr<padded<size_t>[]> amortized_work;
+  struct ThreadData {
+    std::atomic<T*> announcement{nullptr};
+    bool in_progress{false};
+    size_t amortized_work{0};
+    RetiredList retired{};
+  };
+
+  ThreadSpecific<ThreadData> data;
+
+  //std::unique_ptr<padded<std::atomic<T*>>[]> announcements;
+  //std::unique_ptr<padded<bool>[]> in_progress;
+  //std::unique_ptr<padded<std::vector<T*>>[]> retired;
+  //std::unique_ptr<padded<size_t>[]> amortized_work;
+  PARLAY_NO_UNIQUE_ADDR Deleter deleter;
 };
 
 
