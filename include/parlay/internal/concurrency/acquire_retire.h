@@ -32,7 +32,7 @@ class intrusive_acquire_retire {
     constexpr RetiredList() noexcept = default;
 
     ~RetiredList() {
-      cleanup([](auto&&) { return false; });
+      assert(size == 0 && "RetiredLists must be emptied via cleanup() before destruction.");
     }
 
     void push(T* p) noexcept {
@@ -40,16 +40,16 @@ class intrusive_acquire_retire {
       size++;
     }
 
-    std::size_t get_size() const noexcept {
+    [[nodiscard]] std::size_t get_size() const noexcept {
       return size;
     }
 
     template<typename F>
-    void cleanup(F&& is_protected) {
+    void cleanup(F&& is_protected, Deleter& destroy) {
 
       while (head && !is_protected(head)) {
         T* old = std::exchange(head, head->get_next());
-        old->destroy();
+        destroy(old);
         size--;
       }
 
@@ -59,7 +59,7 @@ class intrusive_acquire_retire {
         while (current) {
           if (!is_protected(current)) {
             intrusive_ar_get_next(prev) = intrusive_ar_get_next(current);
-            current->destroy();
+            destroy(current);
             current = intrusive_ar_get_next(prev);
             size--;
           }
@@ -106,44 +106,35 @@ class intrusive_acquire_retire {
   // about additional objects being queued for deferred destruction by
   // an object that was just destructed.
   ~intrusive_acquire_retire() {
+    // Not a data race since no thread should be accessing the intrusive_acquire_retire
+    // instance while its destructor is being run.  That would be a race from the user.
     data.for_each([](auto& td) {
       td.in_progress = true;
     });
 
-
-    // Loop because the destruction of one object could trigger the deferred
-    // destruction of another object (possibly even in another thread), and
-    // so on recursively.
-    while (std::any_of(&retired[0], &retired[0] + num_thread_ids(),
-                       [](const auto &v) { return !v.empty(); })) {
-
-      // Move all the contents from the retired lists into
-      // a single local list. We don't want to just iterate the
-      // deferred lists because a destruction may trigger another
-      // deferred destruction to be added to one of the lists, which
-      // would invalidate its iterators
-      std::vector<T*> destructs;
-      for (size_t i = 0; i < num_thread_ids(); i++) {
-        destructs.insert(destructs.end(), retired[i].begin(), retired[i].end());
-        retired[i].clear();
-      }
-
-      // Perform all the pending deferred ejects
-      for (auto x : destructs) {
-        deleter(x);
-      }
+    // Perform cleanup in a loop in case deleting a retired value causes
+    // something else to get retired (e.g., cleaning up a linked list)
+    bool retired = true;
+    while (retired) {
+      retired = false;
+      data.for_each([&](auto&& local_data) {
+        if (local_data.retired.get_size() > 0) {
+          retired = true;
+          local_data.retired.cleanup([](auto&&) { return false; }, deleter);
+        }
+      });
     }
   }
 
  private:
-  // Apply the function f to every currently announced handle
+  // Apply the function f to every currently announced value
   template<typename F>
   void scan_slots(F &&f) {
     std::atomic_thread_fence(std::memory_order_seq_cst);
-    for (size_t i = 0; i < num_thread_ids(); i++) {
-      auto x = announcements[i].load(std::memory_order_seq_cst);
+    data.for_each([&](auto&& local_data) {
+      auto x = local_data.announcement.load(std::memory_order_seq_cst);
       if (x != nullptr) f(x);
-    }
+    });
   }
 
   void work_toward_ejects(size_t work = 1) {

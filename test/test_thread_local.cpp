@@ -7,6 +7,8 @@
 
 #include <parlay/thread_specific.h>
 #include <parlay/parallel.h>
+#include <parlay/primitives.h>
+
 
 TEST(TestThreadLocal, TestUniqueIds) {
   std::vector<std::atomic<bool>> id_used(parlay::num_workers());
@@ -80,5 +82,33 @@ TEST(TestThreadLocal, TestThreadLocalUnique) {
     ASSERT_FALSE(list->exchange(true));
     std::this_thread::sleep_for(std::chrono::microseconds(50));
     ASSERT_TRUE(list->exchange(false));
+  });
+}
+
+TEST(TestThreadLocal, TestThreadLocalIterate) {
+  parlay::ThreadSpecific<int> list;
+
+  parlay::parallel_for(0, 1000000, [&](size_t) {
+    *list = static_cast<int>(parlay::my_thread_id());
+  }, 1);
+
+  int tid = 0;
+
+  for (int x : list) {
+    ASSERT_EQ(x, tid++);
+  }
+
+}
+
+TEST(TestThreadLocal, TestParallelIterate) {
+  parlay::ThreadSpecific<int> list;
+
+  parlay::parallel_for(0, 1000000, [&](size_t) {
+    *list = static_cast<int>(parlay::my_thread_id());
+  }, 1);
+
+  parlay::for_each(list, [](int x) {
+    ASSERT_GE(x, 0);
+    ASSERT_LT(x, parlay::num_thread_ids());
   });
 }

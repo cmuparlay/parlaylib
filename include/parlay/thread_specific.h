@@ -15,6 +15,8 @@
 #include "internal/thread_id_pool.h"
 
 #include "portability.h"
+#include "range.h"
+#include "type_traits.h"
 
 namespace parlay {
 
@@ -37,6 +39,9 @@ inline std::size_t num_thread_ids() {
   return internal::get_num_thread_ids();
 }
 
+template<typename T>
+class ThreadSpecific;
+
 namespace internal {
 
 class ThreadListChunkData {
@@ -50,8 +55,6 @@ class ThreadListChunkData {
       size *= 2;
     return size;
   }();
-
- private:
 
   // Used by ThreadSpecific which stores a chunked sequence of items that is at least as large
   // as the number of active threads.  Given a thread ID, items are split into chunks of size:
@@ -82,15 +85,12 @@ class ThreadListChunkData {
   explicit ThreadListChunkData(std::size_t thread_id_) noexcept : thread_id(thread_id_),
       chunk_id(compute_chunk_id(thread_id)), chunk_position(compute_chunk_position(thread_id, chunk_id)) { }
 
- public:
-  friend inline const ThreadListChunkData& get_chunk_data();
-
   const std::size_t thread_id;
   const std::size_t chunk_id;
   const std::size_t chunk_position;
 };
 
-inline const ThreadListChunkData& get_chunk_data() {
+extern inline const ThreadListChunkData& get_chunk_data() {
   static thread_local const ThreadListChunkData data{get_thread_id()};
   return data;
 }
@@ -140,7 +140,15 @@ struct alignas(64) Uninitialized {
 template<typename T>
 class ThreadSpecific {
 
+  static constexpr std::size_t n_chunks = 25;
+
  public:
+
+  using reference = T&;
+  using value_type = T;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+  using pointer = T*;
 
   ThreadSpecific() : constructor([](void* p) { new (p) T{}; }) {
     initialize();
@@ -157,9 +165,7 @@ class ThreadSpecific {
 
   ~ThreadSpecific() {
     for (internal::Uninitialized<T>* chunk : chunks) {
-      if (chunk) {
-        delete[] chunk;
-      }
+      delete[] chunk;
     }
   }
 
@@ -188,14 +194,177 @@ class ThreadSpecific {
     }
   }
 
- private:
+  // Allow looping over all thread's data
+  template<bool Const>
+  class iterator_t {
+    friend class ThreadSpecific<T>;
 
-  // Allow looping over all thread's data as a forward range
-  class iterator {
+    using parent_type = maybe_const_t<Const, ThreadSpecific<T>>;
 
-    
-    size_t chunk_id{0};
+    iterator_t(std::size_t chunk_id_, std::size_t position_, parent_type* parent_) :
+        chunk_id(chunk_id_), position(position_), parent(parent_) { }
+
+   public:
+    using iterator_category = std::random_access_iterator_tag;
+    using reference = T&;
+    using value_type = T;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    using pointer = T*;
+
+    iterator_t() = default;
+
+    /* implicit */ iterator_t(const iterator_t<false>& other)  //NOLINT
+        : chunk_id(other.chunk_id), position(other.position), parent(other.parent) { }
+
+    T& operator*() const { return parent->get_by_index_nocheck(chunk_id, position); }
+
+    T& operator[](std::size_t p) const {
+      auto tmp = *this;
+      tmp += p;
+      return *tmp;
+    }
+
+    iterator_t& operator++() {
+      position++;
+      if (position == get_chunk_size(chunk_id)) {
+        if (++chunk_id < n_chunks && parent->chunks[chunk_id].load(std::memory_order_acquire) == nullptr) PARLAY_UNLIKELY
+          parent->ensure_chunk_exists(chunk_id);
+        position = 0;
+      }
+      return *this;
+    }
+
+    iterator_t operator++(int) { auto tmp = *this; ++(*this); return tmp; }   //NOLINT
+
+    iterator_t& operator--() {
+      if (position == 0) {
+        position = get_chunk_size(--chunk_id) - 1;
+        if (parent->chunks[chunk_id].load(std::memory_order_acquire) == nullptr) PARLAY_UNLIKELY
+          parent->ensure_chunk_exists(chunk_id);
+      }
+      else {
+        position--;
+      }
+      return *this;
+    }
+
+    iterator_t operator--(int) { auto tmp = *this; --(*this); return tmp; }   //NOLINT
+
+    iterator_t& operator+=(difference_type diff) {
+      if (diff < 0) return *this -= (-diff);
+      assert(diff >= 0);
+      position += diff;
+      if (position > get_chunk_size(chunk_id)) {
+        do {
+          position -= get_chunk_size(chunk_id++);
+        } while (position > get_chunk_size(chunk_id));
+        if (parent->chunks[chunk_id].load(std::memory_order_acquire) == nullptr) PARLAY_UNLIKELY
+          parent->ensure_chunk_exists(chunk_id);
+      }
+      return *this;
+    }
+
+    iterator_t operator+(difference_type diff) const {
+      auto result = *this;
+      result += diff;
+      return result;
+    }
+
+    iterator_t& operator-=(difference_type diff) {
+      if (diff < 0) return *this += (-diff);
+      assert(diff >= 0);
+      auto pos = static_cast<difference_type>(position);
+      pos -= diff;
+      if (pos < 0) {
+        do {
+          pos += get_chunk_size(--chunk_id);
+        } while (pos < 0);
+        if (parent->chunks[chunk_id].load(std::memory_order_acquire) == nullptr) PARLAY_UNLIKELY
+          parent->ensure_chunk_exists(chunk_id);
+      }
+      assert(pos >= 0);
+      position = static_cast<std::size_t>(pos);
+      return *this;
+    }
+
+    iterator_t operator-(difference_type diff) const {
+      auto result = *this;
+      result -= diff;
+      return result;
+    }
+
+    difference_type operator-(const iterator_t& other) const {
+      if (other < *this) return -(other - *this);
+      assert(other >= *this);
+      difference_type result = static_cast<difference_type>(position) - other.position;
+      auto chunk_id_ = chunk_id;
+      while (chunk_id_ < other.chunk_id) {
+        result += get_chunk_size(chunk_id_++);
+      }
+      return result;
+    }
+
+    bool operator==(const iterator_t& other) const {
+      return chunk_id == other.chunk_id && position == other.position;
+    }
+
+    bool operator!=(const iterator_t& other) const {
+      return chunk_id != other.chunk_id || position != other.position;
+    }
+
+    bool operator<(const iterator_t& other) const {
+      return chunk_id < other.chunk_id || (chunk_id == other.chunk_id && position < other.position);
+    }
+
+    bool operator<=(const iterator_t& other) const {
+      return chunk_id < other.chunk_id || (chunk_id == other.chunk_id && position <= other.position);
+    }
+
+    bool operator>(const iterator_t& other) const {
+      return chunk_id > other.chunk_id || (chunk_id == other.chunk_id && position > other.position);
+    }
+
+    bool operator>=(const iterator_t& other) const {
+      return chunk_id > other.chunk_id || (chunk_id == other.chunk_id && position >= other.position);
+    }
+
+    friend void swap(iterator_t& left, iterator_t& right) {
+      std::swap(left.chunk_id, right.chunk_id);
+      std::swap(left.position, right.position);
+      std::swap(left.parent, right.parent);
+    }
+
+    std::size_t chunk_id{n_chunks};
+    std::size_t position{0};
+    parent_type* parent{nullptr};
   };
+
+  using iterator = iterator_t<false>;
+  using const_iterator = iterator_t<true>;
+
+  static_assert(is_random_access_iterator_v<iterator>);
+  static_assert(is_random_access_iterator_v<const_iterator>);
+
+  [[nodiscard]] iterator begin() {
+    return iterator{0,0,this};
+  }
+
+  [[nodiscard]] const_iterator begin() const {
+    return const_iterator{0,0,this};
+  }
+
+  [[nodiscard]] iterator end() {
+    internal::ThreadListChunkData data{num_thread_ids()};
+    return iterator{data.chunk_id, data.chunk_position, this};
+  }
+
+  [[nodiscard]] const_iterator end() const {
+    internal::ThreadListChunkData data{num_thread_ids()};
+    return const_iterator{data.chunk_id, data.chunk_position, this};
+  }
+
+ private:
 
   void initialize() {
     chunks[0].store(new internal::Uninitialized<T>[internal::ThreadListChunkData::thread_list_chunk_size], std::memory_order_relaxed);
@@ -206,7 +375,7 @@ class ThreadSpecific {
     }
   }
 
-  std::size_t get_chunk_size(std::size_t chunk_id) {
+  static std::size_t get_chunk_size(std::size_t chunk_id) {
     if (chunk_id == 0) return internal::ThreadListChunkData::thread_list_chunk_size;
     else return internal::ThreadListChunkData::thread_list_chunk_size << (chunk_id - 1);
   }
@@ -214,6 +383,10 @@ class ThreadSpecific {
   T& get_by_index(std::size_t chunk_id, std::size_t chunk_position) {
     if (chunk_id > 0 && chunks[chunk_id].load(std::memory_order_acquire) == nullptr) PARLAY_UNLIKELY
       ensure_chunk_exists(chunk_id);
+    return get_by_index_nocheck(chunk_id, chunk_position);
+  }
+
+  T& get_by_index_nocheck(std::size_t chunk_id, std::size_t chunk_position) {
     assert(chunks[chunk_id].load() != nullptr);
     return *(chunks[chunk_id].load(std::memory_order_relaxed)[chunk_position]);
   }
@@ -232,12 +405,15 @@ class ThreadSpecific {
 
   std::function<void(void*)> constructor;
   std::mutex growing_mutex;
-  std::array<std::atomic<internal::Uninitialized<T>*>, 25> chunks;
+  std::array<std::atomic<internal::Uninitialized<T>*>, n_chunks> chunks;
 
   // 25 chunks guarantees enough slots for any machine
   // with up to 2^48 bytes of addressable virtual memory,
   // assuming that threads are 8MB large.
 };
+
+static_assert(is_random_access_range_v<ThreadSpecific<int>>);
+static_assert(is_random_access_range_v<const ThreadSpecific<int>>);
 
 }  // namespace parlay
 
