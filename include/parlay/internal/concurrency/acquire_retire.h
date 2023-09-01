@@ -82,11 +82,12 @@ class intrusive_acquire_retire {
   template<typename U>
   U acquire(const std::atomic<U>& p) {
     static_assert(std::is_convertible_v<U, T*>, "acquire must read from a type that is convertible to T*");
+    std::atomic<T>& slot = data->announcement;
     U result;
     do {
       result = p.load(std::memory_order_seq_cst);
       PARLAY_PREFETCH(result, 0, 0);
-      data->announcement.store(static_cast<T*>(result), std::memory_order_seq_cst);
+      slot.store(static_cast<T*>(result), std::memory_order_seq_cst);
     } while (p.load(std::memory_order_seq_cst) != result);
     return result;
   }
@@ -138,38 +139,18 @@ class intrusive_acquire_retire {
   }
 
   void work_toward_ejects(size_t work = 1) {
-    auto id = worker_id();
     data->amortized_work += work;
     auto threshold = std::max<size_t>(30, delay * num_thread_ids());  // Always attempt at least 30 ejects
-    while (!in_progress[id] && amortized_work[id] >= threshold) {
-      amortized_work[id] = 0;
-      if (retired[id].size() == 0) break; // nothing to collect
-      in_progress[id] = true;
-      auto deferred = padded<std::vector<T*>>(std::move(retired[id]));
+    while (data->in_progress && data->amortized_work >= threshold) {
+      data->amortized_work = 0;
+      if (data->retired.get_size() == 0) break; // nothing to collect
+      data->in_progress = true;
 
-      std::unordered_multiset<T*> announced;
-      scan_slots([&](auto reserved) { announced.insert(reserved); });
+      std::unordered_set<T*> announced;
+      scan_slots([&](T* reserved) { announced.insert(reserved); });
+      data->retired.cleanup([&](T* p) { return announced.count(p) != 0; }, deleter);
 
-      // For a given deferred destruct, we first check if it is announced, and, if so,
-      // we defer it again. If it is not announced, it can be safely applied. If an
-      // object is deferred / announced multiple times, each announcement only protects
-      // against one of the deferred destructs, so for each object, the amount of
-      // destructs applied in total will be #deferred - #announced
-      auto f = [&](auto x) {
-        auto it = announced.find(x);
-        if (it == announced.end()) {
-          deleter(x);
-          return true;
-        } else {
-          announced.erase(it);
-          return false;
-        }
-      };
-
-      // Remove the deferred destructs that are successfully applied
-      deferred.erase(remove_if(deferred.begin(), deferred.end(), f), deferred.end());
-      retired[id].insert(retired[id].end(), deferred.begin(), deferred.end());
-      in_progress[id] = false;
+      data->in_progress = false;
     }
   }
 
