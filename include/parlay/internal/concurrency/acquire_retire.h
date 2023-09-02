@@ -23,7 +23,7 @@ namespace parlay {
 namespace internal {
 
 // intrusive_acquire_retire works on types T that expose a T* via
-// the ADL findable free function intrusive_ar_get_next(ptr)
+// the ADL findable free function intrusive_get_next(ptr)
 template<typename T, typename Deleter = std::default_delete<T>, size_t delay = 1>
 class intrusive_acquire_retire {
 
@@ -36,7 +36,7 @@ class intrusive_acquire_retire {
     }
 
     void push(T* p) noexcept {
-      intrusive_ar_get_next(p) = std::exchange(head, p);
+      intrusive_get_next(p) = std::exchange(head, p);
       size++;
     }
 
@@ -48,23 +48,23 @@ class intrusive_acquire_retire {
     void cleanup(F&& is_protected, Deleter& destroy) {
 
       while (head && !is_protected(head)) {
-        T* old = std::exchange(head, head->get_next());
+        T* old = std::exchange(head, intrusive_get_next(head));
         destroy(old);
         size--;
       }
 
       if (head) {
         T* prev = head;
-        T* current = intrusive_ar_get_next(head);
+        T* current = intrusive_get_next(head);
         while (current) {
           if (!is_protected(current)) {
-            intrusive_ar_get_next(prev) = intrusive_ar_get_next(current);
+            intrusive_get_next(prev) = intrusive_get_next(current);
             destroy(current);
-            current = intrusive_ar_get_next(prev);
+            current = intrusive_get_next(prev);
             size--;
           }
           else {
-            prev = std::exchange(current, intrusive_ar_get_next(current));
+            prev = std::exchange(current, intrusive_get_next(current));
           }
         }
       }
@@ -77,12 +77,12 @@ class intrusive_acquire_retire {
 
  public:
   explicit intrusive_acquire_retire(Deleter deleter_ = {}) :
-    deleter(std::move(deleter_)), data() {}
+      data(), deleter(std::move(deleter_)) {}
 
   template<typename U>
   U acquire(const std::atomic<U>& p) {
     static_assert(std::is_convertible_v<U, T*>, "acquire must read from a type that is convertible to T*");
-    std::atomic<T>& slot = data->announcement;
+    std::atomic<T*>& slot = data->announcement;
     U result;
     do {
       result = p.load(std::memory_order_seq_cst);
@@ -141,9 +141,9 @@ class intrusive_acquire_retire {
   void work_toward_ejects(size_t work = 1) {
     data->amortized_work += work;
     auto threshold = std::max<size_t>(30, delay * num_thread_ids());  // Always attempt at least 30 ejects
-    while (data->in_progress && data->amortized_work >= threshold) {
+    while (!(data->in_progress) && data->amortized_work >= threshold) {
       data->amortized_work = 0;
-      if (data->retired.get_size() == 0) break; // nothing to collect
+      if (data->retired.get_size() == 0) break;  // nothing to collect
       data->in_progress = true;
 
       std::unordered_set<T*> announced;
@@ -154,14 +154,6 @@ class intrusive_acquire_retire {
     }
   }
 
-  Deleter& get_deleter() noexcept {
-    return deleter;
-  }
-
-  const Deleter& get_deleter() const noexcept {
-    return deleter;
-  }
-
   struct ThreadData {
     std::atomic<T*> announcement{nullptr};
     bool in_progress{false};
@@ -170,11 +162,6 @@ class intrusive_acquire_retire {
   };
 
   ThreadSpecific<ThreadData> data;
-
-  //std::unique_ptr<padded<std::atomic<T*>>[]> announcements;
-  //std::unique_ptr<padded<bool>[]> in_progress;
-  //std::unique_ptr<padded<std::vector<T*>>[]> retired;
-  //std::unique_ptr<padded<size_t>[]> amortized_work;
   PARLAY_NO_UNIQUE_ADDR Deleter deleter;
 };
 

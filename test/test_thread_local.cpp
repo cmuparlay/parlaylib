@@ -5,6 +5,7 @@
 #include <thread>
 #include <vector>
 
+#include <parlay/slice.h>
 #include <parlay/thread_specific.h>
 #include <parlay/parallel.h>
 #include <parlay/primitives.h>
@@ -88,9 +89,12 @@ TEST(TestThreadLocal, TestThreadLocalUnique) {
 TEST(TestThreadLocal, TestThreadLocalIterate) {
   parlay::ThreadSpecific<int> list;
 
-  parlay::parallel_for(0, 1000000, [&](size_t) {
+  parlay::parallel_for(0, 1000, [&](size_t) {
     *list = static_cast<int>(parlay::my_thread_id());
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
   }, 1);
+
+  ASSERT_EQ(parlay::num_thread_ids(), parlay::num_workers());
 
   int tid = 0;
 
@@ -100,12 +104,210 @@ TEST(TestThreadLocal, TestThreadLocalIterate) {
 
 }
 
+TEST(TestThreadLocal, TestThreadLocalIterateReverse) {
+  parlay::ThreadSpecific<int> list;
+
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    *list = static_cast<int>(parlay::my_thread_id());
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  ASSERT_EQ(parlay::num_thread_ids(), parlay::num_workers());
+
+  int tid = parlay::num_thread_ids();
+
+  auto rev = parlay::make_slice(std::make_reverse_iterator(list.end()), std::make_reverse_iterator(list.begin()));
+
+  for (int x : rev) {
+    ASSERT_EQ(x, --tid);
+  }
+
+}
+
+TEST(TestThreadLocal, TestThreadLocalIterateInitialize) {
+  parlay::ThreadSpecific<int> list([](void* p) { new (p) int(42); });
+
+  // Ensure that each thread has an ID assigned without actually touching the list
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    parlay::my_thread_id();
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  ASSERT_EQ(parlay::num_thread_ids(), parlay::num_workers());
+
+  // Ensure that the list values are initialized
+  for (int x : list) {
+    ASSERT_EQ(x, 42);
+  }
+
+}
+
+TEST(TestThreadLocal, TestThreadLocalIterateReverseInitialize) {
+  parlay::ThreadSpecific<int> list([](void* p) { new (p) int(42); });
+
+  // Ensure that each thread has an ID assigned without actually touching the list
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    parlay::my_thread_id();
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  ASSERT_EQ(parlay::num_thread_ids(), parlay::num_workers());
+
+  auto rev = parlay::make_slice(std::make_reverse_iterator(list.end()), std::make_reverse_iterator(list.begin()));
+
+  for (int x : rev) {
+    ASSERT_EQ(x, 42);
+  }
+}
+
+TEST(TestThreadLocal, TestThreadLocalRandomAccessIterator) {
+  parlay::ThreadSpecific<int> list;
+
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    *list = static_cast<int>(parlay::my_thread_id());
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  ASSERT_EQ(parlay::num_thread_ids(), parlay::num_workers());
+
+  auto it = list.begin();
+
+  for (unsigned p = 0; p < parlay::num_thread_ids(); p++) {
+    auto val = it[p];
+    ASSERT_EQ(val, p);
+  }
+
+}
+
+TEST(TestThreadLocal, TestThreadLocalPlusIterator) {
+  parlay::ThreadSpecific<int> list;
+
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    *list = static_cast<int>(parlay::my_thread_id());
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  ASSERT_EQ(parlay::num_thread_ids(), parlay::num_workers());
+
+  auto it = list.begin();
+  auto current = it;
+  for (unsigned p = 0; p < parlay::num_thread_ids(); p++) {
+    auto next = (it + p);
+    ASSERT_EQ(*next, p);
+    ASSERT_EQ(current, next);
+    ++current;
+  }
+}
+
+TEST(TestThreadLocal, TestThreadLocalMinusIterator) {
+  parlay::ThreadSpecific<int> list;
+
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    *list = static_cast<int>(parlay::my_thread_id());
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  ASSERT_EQ(parlay::num_thread_ids(), parlay::num_workers());
+
+  auto it = list.end();
+  auto current = list.end();
+  for (unsigned p = 1; p <= parlay::num_thread_ids(); p++) {
+    auto next = (it - p);
+    ASSERT_EQ(*next, parlay::num_thread_ids() - p);
+    --current;
+    ASSERT_EQ(current, next);
+  }
+}
+
+TEST(TestThreadLocal, TestThreadLocalPlusIteratorInitialize) {
+  parlay::ThreadSpecific<int> list([](void* p) { new (p) int(42); });
+
+  // Ensure that each thread has an ID assigned without actually touching the list
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    parlay::my_thread_id();
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  ASSERT_EQ(parlay::num_thread_ids(), parlay::num_workers());
+
+  auto it = list.begin();
+  for (unsigned p = 0; p < parlay::num_thread_ids(); p++) {
+    auto val = *(it + p);
+    ASSERT_EQ(val, 42);
+  }
+}
+
+TEST(TestThreadLocal, TestThreadLocalMinusIteratorInitialize) {
+  parlay::ThreadSpecific<int> list([](void* p) { new (p) int(42); });
+
+  // Ensure that each thread has an ID assigned without actually touching the list
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    parlay::my_thread_id();
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  ASSERT_EQ(parlay::num_thread_ids(), parlay::num_workers());
+
+  auto it = list.end();
+  for (unsigned p = parlay::num_thread_ids(); p > 0; p--) {
+    auto val = *(it - p);
+    ASSERT_EQ(val, 42);
+  }
+}
+
+TEST(TestThreadLocal, TestThreadLocalIteratorDifference) {
+  parlay::ThreadSpecific<int> list;
+
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    *list = static_cast<int>(parlay::my_thread_id());
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  ASSERT_EQ(parlay::size(list), parlay::num_thread_ids());
+
+  auto it = list.begin();
+  for (unsigned p = 0; p < parlay::num_thread_ids(); p++) {
+    for (unsigned p2 = 0; p + p2 < parlay::num_thread_ids(); p2++) {
+      auto first = (it + p);
+      auto second = first + p2;
+      auto diff = second - first;
+      auto neg_diff = first - second;
+      ASSERT_EQ(diff, p2);
+      ASSERT_EQ(neg_diff, -static_cast<int>(p2));
+
+      auto again = it + (p + p2);
+      ASSERT_EQ(second, again);
+    }
+  }
+}
+
+TEST(TestThreadLocal, TestThreadLocalRandomAccessIteratorInitialize) {
+  parlay::ThreadSpecific<int> list([](void* p) { new (p) int(42); });
+
+  // Ensure that each thread has an ID assigned without actually touching the list
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    parlay::my_thread_id();
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  ASSERT_EQ(parlay::num_thread_ids(), parlay::num_workers());
+
+  auto it = list.begin();
+  for (unsigned p = 0; p < parlay::num_thread_ids(); p++) {
+    auto val = it[p];
+    ASSERT_EQ(val, 42);
+  }
+}
+
 TEST(TestThreadLocal, TestParallelIterate) {
   parlay::ThreadSpecific<int> list;
 
-  parlay::parallel_for(0, 1000000, [&](size_t) {
+  parlay::parallel_for(0, 1000, [&](size_t) {
     *list = static_cast<int>(parlay::my_thread_id());
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
   }, 1);
+
+  ASSERT_EQ(parlay::size(list), parlay::num_thread_ids());
 
   parlay::for_each(list, [](int x) {
     ASSERT_GE(x, 0);

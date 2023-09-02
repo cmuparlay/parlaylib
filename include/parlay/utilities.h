@@ -25,9 +25,6 @@
 
 #include "internal/debug_uninitialized.h"
 
-#if defined(__cpp_lib_bitops)
-#include <bit>
-#endif
 
 namespace parlay {
 

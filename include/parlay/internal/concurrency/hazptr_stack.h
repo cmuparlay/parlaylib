@@ -28,7 +28,9 @@ class hazptr_stack {
     Node* next;
     size_t length;
 
-    friend Node*& intrusive_ar_get_next(Node* node) {
+    // Allow the intrusive garbage collector to use the node's own next pointer
+    // instead of having to allocate its own memory to store the retired nodes
+    friend Node*& intrusive_get_next(Node* node) {
       return node->next;
     }
 
@@ -114,8 +116,8 @@ class hazptr_stack {
  private:
   std::atomic<Node*> head;
 
-  static acquire_retire<Node>& hazptr_instance() {
-    static acquire_retire<Node> instance;
+  static intrusive_acquire_retire<Node>& hazptr_instance() {
+    static intrusive_acquire_retire<Node> instance;
     return instance;
   }
 };

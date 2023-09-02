@@ -4,6 +4,7 @@
 
 #include <cstddef>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <functional>
@@ -96,7 +97,7 @@ extern inline const ThreadListChunkData& get_chunk_data() {
 }
 
 template<typename T>
-struct alignas(64) Uninitialized {
+struct alignas(std::max<std::size_t>(64, alignof(T))) Uninitialized {
   union {
     std::monostate empty;
     T value;
@@ -140,6 +141,9 @@ struct alignas(64) Uninitialized {
 template<typename T>
 class ThreadSpecific {
 
+  // 25 chunks guarantees enough slots for any machine
+  // with up to 2^48 bytes of addressable virtual memory,
+  // assuming that threads are 8MB large.
   static constexpr std::size_t n_chunks = 25;
 
  public:
@@ -255,10 +259,10 @@ class ThreadSpecific {
       if (diff < 0) return *this -= (-diff);
       assert(diff >= 0);
       position += diff;
-      if (position > get_chunk_size(chunk_id)) {
+      if (position >= get_chunk_size(chunk_id)) {
         do {
           position -= get_chunk_size(chunk_id++);
-        } while (position > get_chunk_size(chunk_id));
+        } while (position >= get_chunk_size(chunk_id));
         if (parent->chunks[chunk_id].load(std::memory_order_acquire) == nullptr) PARLAY_UNLIKELY
           parent->ensure_chunk_exists(chunk_id);
       }
@@ -278,7 +282,7 @@ class ThreadSpecific {
       pos -= diff;
       if (pos < 0) {
         do {
-          pos += get_chunk_size(--chunk_id);
+          pos += static_cast<difference_type>(get_chunk_size(--chunk_id));
         } while (pos < 0);
         if (parent->chunks[chunk_id].load(std::memory_order_acquire) == nullptr) PARLAY_UNLIKELY
           parent->ensure_chunk_exists(chunk_id);
@@ -295,12 +299,12 @@ class ThreadSpecific {
     }
 
     difference_type operator-(const iterator_t& other) const {
-      if (other < *this) return -(other - *this);
-      assert(other >= *this);
-      difference_type result = static_cast<difference_type>(position) - other.position;
-      auto chunk_id_ = chunk_id;
-      while (chunk_id_ < other.chunk_id) {
-        result += get_chunk_size(chunk_id_++);
+      if (other > *this) return -(other - *this);
+      assert(other <= *this);
+      auto result = static_cast<difference_type>(position) - static_cast<difference_type>(other.position);
+      auto chunk_id_ = other.chunk_id;
+      while (chunk_id_ < chunk_id) {
+        result += static_cast<difference_type>(get_chunk_size(chunk_id_++));
       }
       return result;
     }
@@ -376,6 +380,7 @@ class ThreadSpecific {
   }
 
   static std::size_t get_chunk_size(std::size_t chunk_id) {
+    assert(chunk_id < n_chunks);
     if (chunk_id == 0) return internal::ThreadListChunkData::thread_list_chunk_size;
     else return internal::ThreadListChunkData::thread_list_chunk_size << (chunk_id - 1);
   }
@@ -406,10 +411,6 @@ class ThreadSpecific {
   std::function<void(void*)> constructor;
   std::mutex growing_mutex;
   std::array<std::atomic<internal::Uninitialized<T>*>, n_chunks> chunks;
-
-  // 25 chunks guarantees enough slots for any machine
-  // with up to 2^48 bytes of addressable virtual memory,
-  // assuming that threads are 8MB large.
 };
 
 static_assert(is_random_access_range_v<ThreadSpecific<int>>);
