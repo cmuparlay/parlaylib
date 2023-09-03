@@ -21,8 +21,8 @@
 
 #include "../parallel.h"
 #include "../portability.h"
+#include "../relocation.h"
 #include "../type_traits.h"      // IWYU pragma: keep  // for is_trivially_relocatable
-#include "../utilities.h"
 
 #ifdef PARLAY_DEBUG_UNINITIALIZED
 #include "debug_uninitialized.h"

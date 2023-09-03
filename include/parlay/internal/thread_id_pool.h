@@ -7,7 +7,7 @@
 
 #include <atomic>
 #include <memory>
-#include <thread>
+#include <mutex>
 #include <utility>
 
 namespace parlay {

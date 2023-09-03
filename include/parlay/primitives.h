@@ -30,6 +30,7 @@
 #include "parallel.h"
 #include "random.h"
 #include "range.h"
+#include "relocation.h"
 #include "sequence.h"
 #include "slice.h"
 #include "type_traits.h"               // IWYU pragma: keep

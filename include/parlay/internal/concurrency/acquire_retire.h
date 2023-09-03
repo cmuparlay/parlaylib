@@ -2,20 +2,18 @@
 #ifndef PARLAY_INTERNAL_CONCURRENCY_ACQUIRE_RETIRE_H
 #define PARLAY_INTERNAL_CONCURRENCY_ACQUIRE_RETIRE_H
 
+#include <cassert>
 #include <cstddef>
 
 #include <algorithm>      // IWYU pragma: keep
 #include <atomic>
 #include <memory>
-#include <tuple>
 #include <type_traits>    // IWYU pragma: keep
 #include <unordered_set>
 #include <utility>        // IWYU pragma: keep
-#include <vector>
 
 #include "../../portability.h"
 #include "../../thread_specific.h"
-#include "../../utilities.h"
 
 // IWYU pragma: no_forward_declare parlay::padded
 
@@ -156,8 +154,8 @@ class intrusive_acquire_retire {
 
   struct ThreadData {
     std::atomic<T*> announcement{nullptr};
-    bool in_progress{false};
-    size_t amortized_work{0};
+    bool in_progress{false};                    // cppcheck-suppress unusedStructMember
+    size_t amortized_work{0};                   // cppcheck-suppress unusedStructMember
     RetiredList retired{};
   };
 

@@ -1,16 +1,20 @@
 
-#ifndef PARLAY_THREAD_LOCAL_H_
-#define PARLAY_THREAD_LOCAL_H_
+#ifndef PARLAY_THREAD_SPECIFIC_H_
+#define PARLAY_THREAD_SPECIFIC_H_
 
+#include <cassert>
 #include <cstddef>
 
 #include <algorithm>
 #include <array>
 #include <atomic>
 #include <functional>
+#include <iterator>
 #include <mutex>
+#include <new>
 #include <thread>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
 #include "internal/thread_id_pool.h"
@@ -39,9 +43,6 @@ inline std::size_t my_thread_id() {
 inline std::size_t num_thread_ids() {
   return internal::get_num_thread_ids();
 }
-
-template<typename T>
-class ThreadSpecific;
 
 namespace internal {
 
@@ -154,18 +155,26 @@ class ThreadSpecific {
   using difference_type = std::ptrdiff_t;
   using pointer = T*;
 
-  ThreadSpecific() : constructor([](void* p) { new (p) T{}; }) {
+  ThreadSpecific() : constructor([](std::size_t) { return T{}; }) {
     initialize();
   }
 
   template<typename F,
-      typename std::enable_if_t<std::is_invocable_v<F&, void*>, int> = 0>
+      typename std::enable_if_t<std::is_invocable_v<F&> && !std::is_invocable_v<F&, std::size_t>, int> = 0>
+  explicit ThreadSpecific(F&& constructor_)
+      : constructor([f = std::forward<F>(constructor_)](std::size_t) { return f(); }) {
+    initialize();
+  }
+
+  template<typename F,
+      typename std::enable_if_t<std::is_invocable_v<F&, std::size_t>, int> = 0>
   explicit ThreadSpecific(F&& constructor_) : constructor(std::forward<F>(constructor_)) {
     initialize();
   }
 
   ThreadSpecific(const ThreadSpecific&) = delete;
   ThreadSpecific& operator=(const ThreadSpecific&) = delete;
+  ThreadSpecific(ThreadSpecific&&) = delete;
 
   ~ThreadSpecific() {
     for (internal::Uninitialized<T>* chunk : chunks) {
@@ -218,7 +227,7 @@ class ThreadSpecific {
 
     iterator_t() = default;
 
-    /* implicit */ iterator_t(const iterator_t<false>& other)  //NOLINT
+    /* implicit */ iterator_t(const iterator_t<false>& other)  // cppcheck-suppress noExplicitConstructor    // NOLINT
         : chunk_id(other.chunk_id), position(other.position), parent(other.parent) { }
 
     T& operator*() const { return parent->get_by_index_nocheck(chunk_id, position); }
@@ -375,7 +384,7 @@ class ThreadSpecific {
     std::fill(chunks.begin() + 1, chunks.end(), nullptr);
     auto chunk = chunks[0].load(std::memory_order_relaxed);
     for (std::size_t i = 0; i < internal::ThreadListChunkData::thread_list_chunk_size; i++) {
-      constructor(static_cast<void*>(chunk[i].get()));
+      new (static_cast<void*>(chunk[i].get())) T(constructor(i));
     }
   }
 
@@ -402,13 +411,13 @@ class ThreadSpecific {
       auto chunk_size = get_chunk_size(chunk_id);
       auto chunk = new internal::Uninitialized<T>[chunk_size];
       for (std::size_t i = 0; i < chunk_size; i++) {
-        constructor(static_cast<void*>(chunk[i].get()));
+        new (static_cast<void*>(chunk[i].get())) T(constructor(chunk_size + i));
       }
       chunks[chunk_id].store(chunk, std::memory_order_release);
     }
   }
 
-  std::function<void(void*)> constructor;
+  std::function<T(std::size_t)> constructor;
   std::mutex growing_mutex;
   std::array<std::atomic<internal::Uninitialized<T>*>, n_chunks> chunks;
 };
@@ -418,4 +427,4 @@ static_assert(is_random_access_range_v<const ThreadSpecific<int>>);
 
 }  // namespace parlay
 
-#endif  // PARLAY_THREAD_LOCAL_H_
+#endif  // PARLAY_THREAD_SPECIFIC_H_

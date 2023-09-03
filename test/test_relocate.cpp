@@ -4,6 +4,7 @@
 #include <vector>
 #include <deque>
 
+#include <parlay/relocation.h>
 #include <parlay/type_traits.h>
 #include <parlay/utilities.h>
 

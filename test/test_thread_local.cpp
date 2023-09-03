@@ -40,10 +40,20 @@ TEST(TestThreadLocal, TestThreadLocal) {
 
 TEST(TestThreadLocal, TestThreadLocalCustomConstructor) {
 
-  parlay::ThreadSpecific<int> list([](void* p) { new (p) int{42}; });
+  parlay::ThreadSpecific<int> list([]() { return 42; });
 
   parlay::parallel_for(0, 1000000, [&](size_t) {
     ASSERT_EQ(*list, 42);
+  }, 1);
+
+}
+
+TEST(TestThreadLocal, TestThreadLocalCustomConstructorParam) {
+
+  parlay::ThreadSpecific<int> list([](std::size_t tid) { return tid; });
+
+  parlay::parallel_for(0, 1000000, [&](size_t) {
+    ASSERT_EQ(*list, parlay::my_thread_id());
   }, 1);
 
 }
@@ -63,7 +73,7 @@ TEST(TestThreadLocal, TestThreadLocalDestructor) {
       std::atomic<int>& destructions;
     };
 
-    parlay::ThreadSpecific<MyType> list([&](void* p) { new (p) MyType{constructions, destructions}; });
+    parlay::ThreadSpecific<MyType> list([&]() { return MyType{constructions, destructions}; });
 
     parlay::parallel_for(0, 1000000, [&](size_t) {
       ASSERT_EQ(list->destructions.load(), 0);
@@ -77,7 +87,7 @@ TEST(TestThreadLocal, TestThreadLocalDestructor) {
 TEST(TestThreadLocal, TestThreadLocalUnique) {
 
   // Make sure the atomic<bool>s are initialized to false.
-  parlay::ThreadSpecific<std::atomic<bool>> list([](void* p) { new (p) std::atomic<bool>{false}; });
+  parlay::ThreadSpecific<std::atomic<bool>> list([]() { return std::atomic<bool>{false}; });
 
   parlay::parallel_for(0, 100000, [&](size_t) {
     ASSERT_FALSE(list->exchange(true));
@@ -125,7 +135,7 @@ TEST(TestThreadLocal, TestThreadLocalIterateReverse) {
 }
 
 TEST(TestThreadLocal, TestThreadLocalIterateInitialize) {
-  parlay::ThreadSpecific<int> list([](void* p) { new (p) int(42); });
+  parlay::ThreadSpecific<int> list([]() { return 42; });
 
   // Ensure that each thread has an ID assigned without actually touching the list
   parlay::parallel_for(0, 1000, [&](size_t) {
@@ -143,7 +153,7 @@ TEST(TestThreadLocal, TestThreadLocalIterateInitialize) {
 }
 
 TEST(TestThreadLocal, TestThreadLocalIterateReverseInitialize) {
-  parlay::ThreadSpecific<int> list([](void* p) { new (p) int(42); });
+  parlay::ThreadSpecific<int> list([]() { return 42; });
 
   // Ensure that each thread has an ID assigned without actually touching the list
   parlay::parallel_for(0, 1000, [&](size_t) {
@@ -220,7 +230,7 @@ TEST(TestThreadLocal, TestThreadLocalMinusIterator) {
 }
 
 TEST(TestThreadLocal, TestThreadLocalPlusIteratorInitialize) {
-  parlay::ThreadSpecific<int> list([](void* p) { new (p) int(42); });
+  parlay::ThreadSpecific<int> list([]() { return 42; });
 
   // Ensure that each thread has an ID assigned without actually touching the list
   parlay::parallel_for(0, 1000, [&](size_t) {
@@ -238,7 +248,7 @@ TEST(TestThreadLocal, TestThreadLocalPlusIteratorInitialize) {
 }
 
 TEST(TestThreadLocal, TestThreadLocalMinusIteratorInitialize) {
-  parlay::ThreadSpecific<int> list([](void* p) { new (p) int(42); });
+  parlay::ThreadSpecific<int> list([]() { return 42; });
 
   // Ensure that each thread has an ID assigned without actually touching the list
   parlay::parallel_for(0, 1000, [&](size_t) {
@@ -282,7 +292,7 @@ TEST(TestThreadLocal, TestThreadLocalIteratorDifference) {
 }
 
 TEST(TestThreadLocal, TestThreadLocalRandomAccessIteratorInitialize) {
-  parlay::ThreadSpecific<int> list([](void* p) { new (p) int(42); });
+  parlay::ThreadSpecific<int> list([]() { return 42; });
 
   // Ensure that each thread has an ID assigned without actually touching the list
   parlay::parallel_for(0, 1000, [&](size_t) {

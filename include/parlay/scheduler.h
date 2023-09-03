@@ -7,20 +7,16 @@
 #include <cstdlib>
 
 #include <algorithm>
-#include <array>
 #include <atomic>
 #include <chrono>         // IWYU pragma: keep
-#include <iostream>
 #include <memory>
 #include <thread>
 #include <type_traits>    // IWYU pragma: keep
 #include <utility>
 #include <vector>
 
-#include "internal/work_stealing_deque.h"
+#include "internal/work_stealing_deque.h"         // IWYU pragma: keep
 #include "internal/work_stealing_job.h"
-
-#include "thread_specific.h"
 
 // IWYU pragma: no_include <bits/chrono.h>
 // IWYU pragma: no_include <bits/this_thread_sleep.h>

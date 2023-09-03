@@ -1,5 +1,7 @@
 #include "gtest/gtest.h"
 
+#include <parlay/parallel.h>
+
 #include <parlay/internal/concurrency/hazptr_stack.h>
 
 TEST(TestHazPtrStack, TestConstruction) {

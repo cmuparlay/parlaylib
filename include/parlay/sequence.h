@@ -13,6 +13,7 @@
 #include <cassert>
 #include <cstddef>
 
+#include <functional>          // IWYU pragma: keep
 #include <initializer_list>
 #include <iterator>
 #include <limits>
@@ -25,6 +26,7 @@
 // Falsely suggested for std::hash
 // IWYU pragma: no_include <string_view>
 // IWYU pragma: no_include <system_error>
+// IWYU pragma: no_include <variant>
 
 #include "alloc.h"
 #include "parallel.h"
