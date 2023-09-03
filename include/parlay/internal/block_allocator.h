@@ -179,7 +179,13 @@ struct block_allocator {
   }
 
   ~block_allocator() {
-    clear();
+    [[maybe_unused]] auto cleared = clear();
+#if !defined(NDEBUG) && !defined(PARLAY_ALLOC_ALLOW_LEAK)
+    if (!cleared) {
+      std::cerr << "There are un-freed blocks obtained from block_allocator. If this is intentional you may"
+                        "suppress this messsage with -DPARLAY_ALLOC_ALLOW_LEAK\n";
+    }
+#endif
   }
 
   void free(void* ptr) {
@@ -213,7 +219,7 @@ struct block_allocator {
       else {
         // Looks like the task got stolen and the new thread already had a
         // non-empty local list, so we can push the new one into the global
-        // poo for someone else to use in the future
+        // pool for someone else to use in the future
         global_stack.push(new_list);
       }
     }

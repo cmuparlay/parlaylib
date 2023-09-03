@@ -30,8 +30,12 @@ class hazptr_stack {
 
     // Allow the intrusive garbage collector to use the node's own next pointer
     // instead of having to allocate its own memory to store the retired nodes
-    friend Node*& intrusive_get_next(Node* node) {
+    friend Node* intrusive_get_next(Node* node) {
       return node->next;
+    }
+
+    friend void intrusive_set_next(Node* node, Node* next_) {
+      node->next = next_;
     }
 
     explicit Node(T t_) noexcept(std::is_nothrow_move_constructible_v<T>)

@@ -21,7 +21,7 @@ namespace parlay {
 namespace internal {
 
 // intrusive_acquire_retire works on types T that expose a T* via
-// the ADL findable free function intrusive_get_next(ptr)
+// the ADL findable free functions intrusive_get_next(ptr) & intrusive_set_next(ptr)
 template<typename T, typename Deleter = std::default_delete<T>, size_t delay = 1>
 class intrusive_acquire_retire {
 
@@ -34,7 +34,7 @@ class intrusive_acquire_retire {
     }
 
     void push(T* p) noexcept {
-      intrusive_get_next(p) = std::exchange(head, p);
+      intrusive_set_next(p, std::exchange(head, p));
       size++;
     }
 
@@ -56,9 +56,10 @@ class intrusive_acquire_retire {
         T* current = intrusive_get_next(head);
         while (current) {
           if (!is_protected(current)) {
-            intrusive_get_next(prev) = intrusive_get_next(current);
+            auto next = intrusive_get_next(current);
+            intrusive_set_next(prev, next);
             destroy(current);
-            current = intrusive_get_next(prev);
+            current = next;
             size--;
           }
           else {
