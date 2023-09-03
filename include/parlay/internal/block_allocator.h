@@ -30,6 +30,7 @@
 
 #include "memory_size.h"
 
+// IWYU pragma: no_include <array>
 // IWYU pragma: no_include <vector>
 
 namespace parlay {

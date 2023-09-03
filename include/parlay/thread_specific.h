@@ -5,8 +5,8 @@
 #include <cassert>
 #include <cstddef>
 
-#include <algorithm>
 #include <array>
+#include <algorithm>      // IWYU pragma: keep
 #include <atomic>
 #include <functional>
 #include <iterator>
@@ -98,9 +98,9 @@ extern inline const ThreadListChunkData& get_chunk_data() {
 }
 
 template<typename T>
-struct alignas(std::max<std::size_t>(64, alignof(T))) Uninitialized {
+struct Uninitialized {
   union {
-    std::monostate empty;
+    alignas(64) std::monostate empty;
     T value;
   };
 
@@ -380,6 +380,7 @@ class ThreadSpecific {
  private:
 
   void initialize() {
+    internal::get_chunk_data();  //  Force static initialization before any ThreadLocals are constructed
     chunks[0].store(new internal::Uninitialized<T>[internal::ThreadListChunkData::thread_list_chunk_size], std::memory_order_relaxed);
     std::fill(chunks.begin() + 1, chunks.end(), nullptr);
     auto chunk = chunks[0].load(std::memory_order_relaxed);

@@ -580,7 +580,7 @@ struct alignas(uint64_t) sequence_base {
     }
   };
 
-  sequence_base() : storage() {}
+  sequence_base() : storage() { num_workers();  /* Touch the scheduler to force it to initialize before any sequence */ }
   explicit sequence_base(const storage_impl& other) : storage(other) {}
   explicit sequence_base(storage_impl&& other) : storage(std::move(other)) {}
   ~sequence_base() {}

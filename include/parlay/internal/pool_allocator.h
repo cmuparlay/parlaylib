@@ -22,6 +22,8 @@
 
 #include "concurrency/hazptr_stack.h"
 
+// IWYU pragma: no_include <array>
+
 namespace parlay {
 namespace internal {
 

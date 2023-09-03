@@ -6,14 +6,16 @@
 #include <algorithm>
 #include <iterator>
 #include <memory>
-#include <new>
+#include <new>                 // IWYU pragma: keep
 #include <type_traits>
 #include <utility>
 
 #include "parallel.h"
 #include "range.h"             // IWYU pragma: keep
-#include "type_traits.h"
-#include "utilities.h"
+#include "type_traits.h"       // IWYU pragma: keep
+#include "utilities.h"         // IWYU pragma: keep
+
+#include "internal/debug_uninitialized.h"
 
 namespace parlay {
 
