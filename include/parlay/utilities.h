@@ -389,12 +389,22 @@ std::size_t size(const unique_array<T>& arr) {
 }
 
 template<typename T>
-T* begin(const unique_array<T>& arr) {
+T* begin(unique_array<T>& arr) {
   return &arr[0];
 }
 
 template<typename T>
-T* end(const unique_array<T>& arr) {
+T* end(unique_array<T>& arr) {
+  return &arr[0] + size(arr);
+}
+
+template<typename T>
+T const* begin(const unique_array<T>& arr) {
+  return &arr[0];
+}
+
+template<typename T>
+T const* end(const unique_array<T>& arr) {
   return &arr[0] + size(arr);
 }
 
@@ -471,8 +481,6 @@ struct alignas(Size) padded<T, Size, typename std::enable_if_t<std::is_scalar_v<
       -> std::enable_if_t<std::is_invocable_v<T, Ts...>, std::invoke_result_t<T, Ts...>> {
     return x(std::forward<Ts>(args)...);
   }
-
-  // Note: I couldn't figure out a way to make member-function pointers directly invocable :(
 
   T x;
 };

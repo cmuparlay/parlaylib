@@ -47,6 +47,7 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/thread_specific.h
     ${PARLAY_INCLUDE_DIR}/parlay/type_traits.h
     ${PARLAY_INCLUDE_DIR}/parlay/utilities.h
+    ${PARLAY_INCLUDE_DIR}/parlay/worker_specific.h
   IGNORE_DEFINITIONS
     PARLAY_CILK
     PARLAY_CILKPLUS

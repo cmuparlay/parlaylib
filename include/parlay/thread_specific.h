@@ -23,6 +23,7 @@
 #include "range.h"
 #include "type_traits.h"
 
+
 namespace parlay {
 
 // Returns a unique thread ID for the current running thread
@@ -123,10 +124,12 @@ struct Uninitialized {
 // By default, list elements are all value initialized, roughly meaning
 // that class types are default constructed, and builtin types are zero
 // initialized.  For custom initialization, you can pass a constructor
-// function which must construct the value in place, i.e., it should look
-// something like
-//
-//  [](void* p) { new (p) T{...}; }
+// function which returns the desired value.  The constructor function
+// can take zero or one arguments.  If it takes one argument, it will be
+// passed the thread ID that it is constructing for.  Note that the
+// elements are not guaranteed to be constructed by the thread that
+// they belong to, and they may be constructed in advance of any thread
+// actually taking ownership of that ID.
 //
 // A few things to note:
 //
@@ -139,6 +142,11 @@ struct Uninitialized {
 //   will find the item at that position in the same state that it was
 //   left by the previous thread.  Elements are only destroyed when the
 //   entire ThreadSpecific is destroyed.
+//
+//   Therefore, threads are responsible for manually cleaning up the
+//   contents of a ThreadSpecific and/or resetting it to a default value
+//   for the next thread that might claim the spot if they need to.
+//
 template<typename T>
 class ThreadSpecific {
 
@@ -183,10 +191,17 @@ class ThreadSpecific {
   }
 
   T& operator*() { return get(); }
-
   T* operator->() { return std::addressof(get()); }
 
   T& get() {
+    auto chunk_data = internal::get_chunk_data();
+    return get_by_index(chunk_data.chunk_id, chunk_data.chunk_position);
+  }
+
+  const T& operator*() const { return get(); }
+  T const* operator->() const { return std::addressof(get()); }
+
+  const T& get() const {
     auto chunk_data = internal::get_chunk_data();
     return get_by_index(chunk_data.chunk_id, chunk_data.chunk_position);
   }
@@ -223,20 +238,20 @@ class ThreadSpecific {
 
    public:
     using iterator_category = std::random_access_iterator_tag;
-    using reference = T&;
+    using reference = std::add_lvalue_reference_t<maybe_const_t<Const, T>>;
     using value_type = T;
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
-    using pointer = T*;
+    using pointer = std::add_pointer_t<maybe_const_t<Const, T>>;
 
     iterator_t() = default;
 
     /* implicit */ iterator_t(const iterator_t<false>& other)  // cppcheck-suppress noExplicitConstructor    // NOLINT
         : chunk_id(other.chunk_id), position(other.position), parent(other.parent) { }
 
-    T& operator*() const { return parent->get_by_index_nocheck(chunk_id, position); }
+    reference operator*() const { return parent->get_by_index_nocheck(chunk_id, position); }
 
-    T& operator[](std::size_t p) const {
+    reference operator[](std::size_t p) const {
       auto tmp = *this;
       tmp += p;
       return *tmp;
@@ -405,12 +420,23 @@ class ThreadSpecific {
     return get_by_index_nocheck(chunk_id, chunk_position);
   }
 
+  const T& get_by_index(std::size_t chunk_id, std::size_t chunk_position) const {
+    if (chunk_id > 0 && chunks[chunk_id].load(std::memory_order_acquire) == nullptr) PARLAY_UNLIKELY
+    ensure_chunk_exists(chunk_id);
+    return get_by_index_nocheck(chunk_id, chunk_position);
+  }
+
   T& get_by_index_nocheck(std::size_t chunk_id, std::size_t chunk_position) {
     assert(chunks[chunk_id].load() != nullptr);
     return *(chunks[chunk_id].load(std::memory_order_relaxed)[chunk_position]);
   }
 
-  void ensure_chunk_exists(std::size_t chunk_id) {
+  const T& get_by_index_nocheck(std::size_t chunk_id, std::size_t chunk_position) const {
+    assert(chunks[chunk_id].load() != nullptr);
+    return *(chunks[chunk_id].load(std::memory_order_relaxed)[chunk_position]);
+  }
+
+  void ensure_chunk_exists(std::size_t chunk_id) const {
     std::lock_guard<std::mutex> lock(growing_mutex);
     if (chunks[chunk_id].load(std::memory_order_relaxed) == nullptr) {
       auto chunk_size = get_chunk_size(chunk_id);
@@ -422,14 +448,15 @@ class ThreadSpecific {
     }
   }
 
-  std::function<T(std::size_t)> constructor;
-  std::mutex growing_mutex;
-  std::array<std::atomic<internal::Uninitialized<T>*>, n_chunks> chunks;
+  mutable std::function<T(std::size_t)> constructor;
+  mutable std::mutex growing_mutex;
+  mutable std::array<std::atomic<internal::Uninitialized<T>*>, n_chunks> chunks;
 };
 
 static_assert(is_random_access_range_v<ThreadSpecific<int>>);
 static_assert(is_random_access_range_v<const ThreadSpecific<int>>);
 
 }  // namespace parlay
+
 
 #endif  // PARLAY_THREAD_SPECIFIC_H_
