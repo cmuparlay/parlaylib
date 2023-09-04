@@ -118,14 +118,7 @@ struct block_allocator {
   }
 
   // Allocate n elements across however many lists are needed (rounded up)
-  void reserve(size_t n) {
-    size_t num_lists = num_thread_ids() + (n + list_length - 1) / list_length;
-    std::byte* start = allocate_blocks(list_length*num_lists);
-    for (size_t i = 0; i < num_lists; i++) {
-      std::byte* offset = start + i * list_length * block_size;
-      global_stack.push(initialize_list(offset));
-    }
-  }
+  [[deprecated]] void reserve(size_t) { }
 
   void print_stats() {
     size_t used = num_used_blocks();
@@ -138,7 +131,7 @@ struct block_allocator {
 
   explicit block_allocator(size_t block_size_,
     size_t block_align_ = alignof(std::max_align_t),
-    size_t reserved_blocks = 0,
+    [[maybe_unused]] size_t reserved_blocks = 0,
     size_t list_length_ = 0,
     size_t max_blocks_ = 0) :
       my_local_list(),                                                               // Each block needs to be at least
@@ -148,7 +141,6 @@ struct block_allocator {
       max_blocks(max_blocks_ == 0 ? (3 * getMemorySize() / block_size) / 4 : max_blocks_),
       blocks_allocated(0) {
 
-    reserve(reserved_blocks);
   }
 
   // Clears all memory ever allocated by this allocator. All allocated blocks

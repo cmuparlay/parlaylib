@@ -37,9 +37,12 @@ class ThreadIdPool : public std::enable_shared_from_this<ThreadIdPool> {
 
  public:
 
+  // Returns a unique thread ID for the current thread in the range [0...get_num_thread_ids())
   friend std::size_t get_thread_id();
 
+  // Returns the number of assigned thread IDs in the range [0...get_num_thread_ids())
   friend std::size_t get_num_thread_ids();
+
 
   ~ThreadIdPool() noexcept {
     size_t num_destroyed = 0;
@@ -80,7 +83,8 @@ class ThreadIdPool : public std::enable_shared_from_this<ThreadIdPool> {
   class ThreadIdOwner {
     friend class ThreadIdPool;
 
-    explicit ThreadIdOwner(ThreadIdPool& pool_) : pool(pool_.shared_from_this()), node(pool->acquire()), id(node->id) { }
+    explicit ThreadIdOwner(ThreadIdPool& pool_)
+        : pool(pool_.shared_from_this()), node(pool->acquire()), id(node->id) { }
 
     ~ThreadIdOwner() { pool->relinquish(node); }
 
