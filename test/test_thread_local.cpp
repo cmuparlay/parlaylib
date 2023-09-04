@@ -324,3 +324,20 @@ TEST(TestThreadLocal, TestParallelIterate) {
     ASSERT_LT(x, parlay::num_thread_ids());
   });
 }
+
+TEST(TestThreadLocal, TestLastElement) {
+  parlay::ThreadSpecific<int> list([]() { return 42; });
+
+  // Only touch the last element/chunk to make sure that the middle ones are also initialized
+  parlay::parallel_for(0, 1000, [&](size_t) {
+    if (parlay::my_thread_id() == parlay::num_thread_ids() - 1) {
+      *list = 42;
+    }
+    std::this_thread::sleep_for (std::chrono::milliseconds (10));
+  }, 1);
+
+  for (int x : list) {
+    ASSERT_EQ(x, 42);
+  }
+
+}
