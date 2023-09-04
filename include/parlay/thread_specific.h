@@ -199,8 +199,12 @@ class ThreadSpecific {
     std::size_t tid = 0;
     internal::Uninitialized<T>* chunk = chunks[0].load(std::memory_order_relaxed);
 
-    for (std::size_t j = 0; chunk != nullptr; chunk = chunks[++j].load(std::memory_order_acquire)) {
-      auto chunk_size = get_chunk_size(j);
+    for (std::size_t chunk_id = 0; tid < num_threads; chunk = chunks[++chunk_id].load(std::memory_order_acquire)) {
+      auto chunk_size = get_chunk_size(chunk_id);
+      if (!chunk) PARLAY_UNLIKELY {
+        ensure_chunk_exists(chunk_id);
+        chunk = chunks[chunk_id].load(std::memory_order_relaxed);
+      }
       for (std::size_t i = 0; tid < num_threads && i < chunk_size; i++, tid++) {
         f(*chunk[i]);
       }
