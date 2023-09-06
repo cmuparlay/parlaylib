@@ -4,11 +4,13 @@
 
 #include <cstddef>
 
+#include <iterator>
 #include <type_traits>
 #include <utility>
 
 #include "parallel.h"
 #include "range.h"
+#include "type_traits.h"
 #include "utilities.h"
 
 namespace parlay {
@@ -16,7 +18,18 @@ namespace parlay {
 template<typename T>
 class WorkerSpecific {
 
-  using rep_type = padded<T, 64>;
+  struct alignas(64) data {
+    // We take the value wrapped in a function call so that we can instantiate
+    // uncopyable types from prvalues using copy elision.  Otherwise, it would
+    // not be possible to initialize uncopyable types (e.g., std::atomic)
+    template<typename F>
+    explicit data(F&& f) : x(f()) { }
+
+    data(const data&) = delete;
+    data(data&&) = delete;
+
+    T x;
+  };
 
  public:
 
@@ -34,7 +47,8 @@ class WorkerSpecific {
 
   template<typename F,
     std::enable_if_t<std::is_invocable_v<F&, std::size_t>, int> = 0>
-  explicit WorkerSpecific(F&& f) : elements(make_unique_array<rep_type>(num_workers(), std::forward<F>(f))) { }
+  explicit WorkerSpecific(F&& f) : elements(make_unique_array<data>(num_workers(),
+      [f = std::forward<F>(f)](std::size_t i) { return [&f, i]() { return f(i); }; })) { }
 
   WorkerSpecific(const WorkerSpecific&) = delete;
   WorkerSpecific& operator=(const WorkerSpecific&) = delete;
@@ -42,11 +56,11 @@ class WorkerSpecific {
 
   T& operator*() { return get(); }
   T* operator->() { return std::addressof(get()); }
-  T& get() { return elements[worker_id()]; }
+  [[nodiscard]] T& get() { return elements[worker_id()].x; }
 
   const T& operator*() const { return get(); }
   T const* operator->() const { return std::addressof(get()); }
-  const T& get() const { return elements[worker_id()]; }
+  [[nodiscard]] const T& get() const { return elements[worker_id()].x; }
 
   template<typename F>
   void for_each(F&& f) {
@@ -58,7 +72,7 @@ class WorkerSpecific {
   class iterator_t {
     friend class WorkerSpecific<T>;
 
-    explicit iterator_t(rep_type* ptr_) : ptr(ptr_) { }
+    explicit iterator_t(data* ptr_) : ptr(ptr_) { }
 
    public:
     using iterator_category = std::random_access_iterator_tag;
@@ -68,12 +82,12 @@ class WorkerSpecific {
     using difference_type = std::ptrdiff_t;
     using pointer = std::add_pointer_t<maybe_const_t<Const, T>>;
 
-    iterator_t() = default;
+    iterator_t() : ptr(nullptr) { }
 
     /* implicit */ iterator_t(const iterator_t<false>& other) : ptr(other.ptr) { }  // cppcheck-suppress noExplicitConstructor    // NOLINT
 
-    reference operator*() const { return *ptr; }
-    reference operator[](std::size_t p) const { return ptr[p]; }
+    reference operator*() const { return ptr->x; }
+    reference operator[](std::size_t p) const { return ptr[p].x; }
 
     iterator_t& operator++() { ptr++; return *this; }
     iterator_t operator++(int) { auto tmp = *this; ++(*this); return tmp; }   //NOLINT
@@ -98,7 +112,7 @@ class WorkerSpecific {
     friend void swap(iterator_t& left, iterator_t& right) { std::swap(left.ptr, right.ptr); }
 
    private:
-    maybe_const_t<Const, rep_type>* ptr;
+    maybe_const_t<Const, data>* ptr;
   };
 
   using iterator = iterator_t<false>;
@@ -107,24 +121,24 @@ class WorkerSpecific {
   static_assert(is_random_access_iterator_v<iterator>);
   static_assert(is_random_access_iterator_v<const_iterator>);
 
-  iterator begin() {
+  [[nodiscard]] iterator begin() {
     return iterator{&elements[0]};
   }
 
-  iterator end() {
+  [[nodiscard]] iterator end() {
     return iterator{&elements[0] + num_workers()};
   }
 
-  const_iterator begin() const {
+  [[nodiscard]] const_iterator begin() const {
     return const_iterator{&elements[0]};
   }
 
-  const_iterator end() const {
+  [[nodiscard]] const_iterator end() const {
     return const_iterator{&elements[0] + num_workers()};
   }
 
  private:
-  unique_array<padded<T, 64>> elements;
+  unique_array<data> elements;
 };
 
 static_assert(is_random_access_range_v<WorkerSpecific<int>>);

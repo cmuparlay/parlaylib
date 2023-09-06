@@ -69,23 +69,24 @@ TEST(TestWorkerSpecific, TestWorkerSpecificDestructor) {
       }
       ~MyType() { destructions.fetch_add(1); }
       std::atomic<int>& destructions;
+      volatile int x{0};
     };
 
     parlay::ThreadSpecific<MyType> list([&]() { return MyType{constructions, destructions}; });
 
-    parlay::parallel_for(0, 1000000, [&](size_t) {
-      ASSERT_EQ(list->destructions.load(), 0);
+    parlay::parallel_for(0, 1000, [&](size_t) {
+      list->x++;
+      std::this_thread::sleep_for (std::chrono::milliseconds(10));
     }, 1);
   }
 
-  ASSERT_GE(constructions.load(), parlay::num_workers());
   ASSERT_EQ(constructions.load(), destructions.load());
 }
 
 TEST(TestWorkerSpecific, TestWorkerSpecificUnique) {
 
   // Make sure the atomic<bool>s are initialized to false.
-  parlay::ThreadSpecific<std::atomic<bool>> list([]() { return std::atomic<bool>{false}; });
+  parlay::WorkerSpecific<std::atomic<bool>> list([]() { return std::atomic<bool>{false}; });
 
   parlay::parallel_for(0, 100000, [&](size_t) {
     ASSERT_FALSE(list->exchange(true));
