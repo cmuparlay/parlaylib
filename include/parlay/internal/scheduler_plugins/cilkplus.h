@@ -38,6 +38,11 @@ inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool
   }
 }
 
+template <typename F>
+void execute_with_scheduler(unsigned int, F&&) {
+#error "parlay::execute_with_scheduler is only available in the Parlay scheduler and is not compatible with CilkPlus"
+}
+
 }  // namespace parlay
 
 #endif  // PARLAY_INTERNAL_SCHEDULER_PLUGINS_CILKPLUS_H_

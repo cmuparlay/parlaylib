@@ -363,6 +363,8 @@ TEST(TestThreadSpecific, TestLastElement) {
   }
 }
 
+#if defined(PARLAY_USING_PARLAY_SCHEDULER)
+
 TEST(TestThreadSpecific, TestMultipleSchedulers) {
   parlay::ThreadSpecific<std::atomic<bool>> list([]() { return std::atomic<bool>{false}; });
 
@@ -376,7 +378,9 @@ TEST(TestThreadSpecific, TestMultipleSchedulers) {
   };
 
   parlay::parallel_do(
-    [&]() { parlay::execute(2*std::thread::hardware_concurrency(), job); },
-    [&]() { parlay::execute(2*std::thread::hardware_concurrency(), job); }
+    [&]() { parlay::execute_with_scheduler(2*std::thread::hardware_concurrency(), job); },
+    [&]() { parlay::execute_with_scheduler(2*std::thread::hardware_concurrency(), job); }
   );
 }
+
+#endif  // defined(PARLAY_USING_PARLAY_SCHEDULER)

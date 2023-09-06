@@ -137,6 +137,8 @@ static void par_do3_if(bool do_parallel, Lf&& left, Mf&& mid, Rf&& right) {
 // Parlay's Homegrown Scheduler
 #else
 
+#define PARLAY_USING_PARLAY_SCHEDULER
+
 #include "scheduler.h"
 
 #include "internal/work_stealing_job.h"
@@ -216,7 +218,7 @@ inline void par_do(Lf&& left, Rf&& right, bool conservative) {
 // The scheduler instance is destroyed upon completion and can not be re-used. Creating a
 // scheduler is expensive, so it's not a good idea to use this for very cheap functions f.
 template <typename F>
-void execute(unsigned int p, F&& f) {
+void execute_with_scheduler(unsigned int p, F&& f) {
   internal::scheduler_type scheduler(p);
   std::invoke(std::forward<F>(f));
 }
