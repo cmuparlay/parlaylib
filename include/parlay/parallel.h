@@ -139,6 +139,9 @@ static void par_do3_if(bool do_parallel, Lf&& left, Mf&& mid, Rf&& right) {
 
 #include "scheduler.h"
 
+#include "internal/work_stealing_job.h"
+
+
 namespace parlay {
   
 namespace internal {
@@ -161,28 +164,25 @@ inline unsigned int init_num_workers() {
 #pragma warning(pop)
 #endif
 
-// Use a "Meyer singleton" to provide thread-safe 
-// initialisation and destruction of the scheduler
-//
-// The declaration of get_default_scheduler must be 
-// extern inline to ensure that there is only ever one 
-// copy of the scheduler. This is guaranteed by the C++
-// standard: 7.1.2/4 A static local variable in an
-// extern inline function always refers to the same
-// object.
-extern inline fork_join_scheduler& get_default_scheduler() {
-  static fork_join_scheduler fj(init_num_workers());
-  return fj;
+using scheduler_type = scheduler<WorkStealingJob>;
+
+extern inline scheduler_type& get_current_scheduler() {
+  auto current_scheduler = scheduler_type::get_current_scheduler();
+  if (current_scheduler == nullptr) {
+    static thread_local scheduler_type local_scheduler(init_num_workers());
+    return local_scheduler;
+  }
+  return *current_scheduler;
 }
 
 }  // namespace internal
 
 inline size_t num_workers() {
-  return internal::get_default_scheduler().num_workers();
+  return internal::get_current_scheduler().num_workers();
 }
 
 inline size_t worker_id() {
-  return internal::get_default_scheduler().worker_id();
+  return internal::get_current_scheduler().worker_id();
 }
 
 template <typename F>
@@ -199,8 +199,8 @@ inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool
     for (size_t i = start; i < end; i++) loop_body(i);
   }
   else if (end > start) {
-    internal::get_default_scheduler().parfor(start, end,
-     loop_body, static_cast<size_t>(granularity), conservative);
+    fork_join_scheduler::parfor(internal::get_current_scheduler(), start, end,
+      loop_body, static_cast<size_t>(granularity), conservative);
   }
 }
 
@@ -208,7 +208,7 @@ template <typename Lf, typename Rf>
 inline void par_do(Lf&& left, Rf&& right, bool conservative) {
   static_assert(std::is_invocable_v<Lf&&>);
   static_assert(std::is_invocable_v<Rf&&>);
-  return internal::get_default_scheduler().pardo(std::forward<Lf>(left), std::forward<Rf>(right), conservative);
+  return fork_join_scheduler::pardo(internal::get_current_scheduler(), std::forward<Lf>(left), std::forward<Rf>(right), conservative);
 }
 
 }  // namespace parlay
