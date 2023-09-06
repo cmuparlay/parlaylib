@@ -211,6 +211,16 @@ inline void par_do(Lf&& left, Rf&& right, bool conservative) {
   return fork_join_scheduler::pardo(internal::get_current_scheduler(), std::forward<Lf>(left), std::forward<Rf>(right), conservative);
 }
 
+// Execute the given function f() on p threads inside its own private scheduler instance
+//
+// The scheduler instance is destroyed upon completion and can not be re-used. Creating a
+// scheduler is expensive, so it's not a good idea to use this for very cheap functions f.
+template <typename F>
+void execute(unsigned int p, F&& f) {
+  internal::scheduler_type scheduler(p);
+  std::invoke(std::forward<F>(f));
+}
+
 }  // namespace parlay
 
 #endif

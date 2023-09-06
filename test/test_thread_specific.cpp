@@ -362,3 +362,21 @@ TEST(TestThreadSpecific, TestLastElement) {
     ASSERT_EQ(x, 42);
   }
 }
+
+TEST(TestThreadSpecific, TestMultipleSchedulers) {
+  parlay::ThreadSpecific<std::atomic<bool>> list([]() { return std::atomic<bool>{false}; });
+
+  // Every thread checks that no one else is accidentally sharing a slot with them
+  auto job = [&]() {
+    parlay::parallel_for(0, 100000, [&](size_t) {
+      ASSERT_FALSE(list->exchange(true));
+      std::this_thread::sleep_for(std::chrono::microseconds(50));
+      ASSERT_TRUE(list->exchange(false));
+    });
+  };
+
+  parlay::parallel_do(
+    [&]() { parlay::execute(2*std::thread::hardware_concurrency(), job); },
+    [&]() { parlay::execute(2*std::thread::hardware_concurrency(), job); }
+  );
+}
