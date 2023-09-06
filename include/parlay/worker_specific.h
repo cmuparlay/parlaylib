@@ -2,6 +2,7 @@
 #ifndef PARLAY_WORKER_SPECIFIC_H_
 #define PARLAY_WORKER_SPECIFIC_H_
 
+#include <cassert>
 #include <cstddef>
 
 #include <iterator>
