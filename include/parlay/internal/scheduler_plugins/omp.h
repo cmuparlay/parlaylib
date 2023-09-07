@@ -110,9 +110,10 @@ inline void par_do(Lf&& left, Rf&& right, bool) {
   }
 }
 
-template <typename F>
-void execute_with_scheduler(unsigned int, F&&) {
-#error "parlay::execute_with_scheduler is only available in the Parlay scheduler and is not compatible with OpenMP"
+template <typename... Fs>
+void execute_with_scheduler(Fs...) {
+  struct Illegal {};
+  static_assert((std::is_same_v<Illegal, Fs> && ...), "parlay::execute_with_scheduler is only available in the Parlay scheduler and is not compatible with OpenMP");
 }
 
 }  // namespace parlay

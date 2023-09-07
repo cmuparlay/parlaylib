@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 #include <algorithm>
+#include <functional>
 #include <string>
 #include <thread>
 #include <type_traits>  // IWYU pragma: keep

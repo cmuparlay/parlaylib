@@ -3,6 +3,8 @@
 
 #include <cstddef>
 
+#include <type_traits>
+
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
 
@@ -44,9 +46,10 @@ inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool
   }
 }
 
-template <typename F>
-void execute_with_scheduler(unsigned int, F&&) {
-#error "parlay::execute_with_scheduler is only available in the Parlay scheduler and is not compatible with OpenCilk"
+template <typename... Fs>
+void execute_with_scheduler(Fs...) {
+  struct Illegal {};
+  static_assert((std::is_same_v<Illegal, Fs> && ...), "parlay::execute_with_scheduler is only available in the Parlay scheduler and is not compatible with OpenCilk");
 }
 
 }  // namespace parlay
