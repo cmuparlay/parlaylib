@@ -14,6 +14,17 @@
 #include "type_traits.h"
 #include "utilities.h"
 
+#if !defined(NDEBUG) && defined(PARLAY_USING_PARLAY_SCHEDULER)
+#define PARLAY_DEBUG_WORKER_SPECIFIC
+#endif
+
+#if defined(PARLAY_DEBUG_WORKER_SPECIFIC)
+#define PARLAY_WORKER_SPECIFIC_CHECK_SCHEDULER assert(&internal::get_current_scheduler() == owning_scheduler &&  \
+  "parlay::WorkerSpecific<> must ONLY be used within the scheduler instance in which it was created.");
+#else
+#define PARLAY_WORKER_SPECIFIC_CHECK_SCHEDULER
+#endif
+
 namespace parlay {
 
 template<typename T>
@@ -50,7 +61,7 @@ class WorkerSpecific {
     std::enable_if_t<std::is_invocable_v<F&, std::size_t>, int> = 0>
   explicit WorkerSpecific(F&& f) : elements(make_unique_array<data>(num_workers(),
       [f = std::forward<F>(f)](std::size_t i) { return [&f, i]() { return f(i); }; }))
-#ifndef NDEBUG
+#if defined(PARLAY_DEBUG_WORKER_SPECIFIC)
       , owning_scheduler(std::addressof(internal::get_current_scheduler()))
 #endif
   { }
@@ -62,16 +73,14 @@ class WorkerSpecific {
   T& operator*() { return get(); }
   T* operator->() { return std::addressof(get()); }
   [[nodiscard]] T& get() {
-    assert(&internal::get_current_scheduler() == owning_scheduler &&
-           "parlay::WorkerSpecific<> must ONLY be used within the scheduler instance in which it was created.");
+    PARLAY_WORKER_SPECIFIC_CHECK_SCHEDULER;
     return elements[worker_id()].x;
   }
 
   const T& operator*() const { return get(); }
   T const* operator->() const { return std::addressof(get()); }
   [[nodiscard]] const T& get() const {
-    assert(&internal::get_current_scheduler() == owning_scheduler &&
-           "parlay::WorkerSpecific<> must ONLY be used within the scheduler instance in which it was created.");
+    PARLAY_WORKER_SPECIFIC_CHECK_SCHEDULER;
     return elements[worker_id()].x;
   }
 
@@ -135,33 +144,29 @@ class WorkerSpecific {
   static_assert(is_random_access_iterator_v<const_iterator>);
 
   [[nodiscard]] iterator begin() {
-    assert(&internal::get_current_scheduler() == owning_scheduler &&
-           "parlay::WorkerSpecific<> must ONLY be used within the scheduler instance in which it was created.");
+    PARLAY_WORKER_SPECIFIC_CHECK_SCHEDULER;
     return iterator{&elements[0]};
   }
 
   [[nodiscard]] iterator end() {
-    assert(&internal::get_current_scheduler() == owning_scheduler &&
-           "parlay::WorkerSpecific<> must ONLY be used within the scheduler instance in which it was created.");
+    PARLAY_WORKER_SPECIFIC_CHECK_SCHEDULER;
     return iterator{&elements[0] + num_workers()};
   }
 
   [[nodiscard]] const_iterator begin() const {
-    assert(&internal::get_current_scheduler() == owning_scheduler &&
-           "parlay::WorkerSpecific<> must ONLY be used within the scheduler instance in which it was created.");
+    PARLAY_WORKER_SPECIFIC_CHECK_SCHEDULER;
     return const_iterator{&elements[0]};
   }
 
   [[nodiscard]] const_iterator end() const {
-    assert(&internal::get_current_scheduler() == owning_scheduler &&
-           "parlay::WorkerSpecific<> must ONLY be used within the scheduler instance in which it was created.");
+    PARLAY_WORKER_SPECIFIC_CHECK_SCHEDULER;
     return const_iterator{&elements[0] + num_workers()};
   }
 
  private:
   unique_array<data> elements;
 
-#ifndef NDEBUG
+#if defined(PARLAY_DEBUG_WORKER_SPECIFIC)
   // In DEBUG mode only, remember the scheduler instance that this belongs to
   internal::scheduler_type* owning_scheduler;
 #endif
