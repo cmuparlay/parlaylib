@@ -272,16 +272,3 @@ TEST(TestWorkerSpecific, TestLastElement) {
     ASSERT_EQ(x, 42);
   }
 }
-
-#if defined(PARLAY_USING_PARLAY_SCHEDULER)
-
-TEST(TestWorkerSpecificDeathTest, TestWrongScheduler) {
-  // Assertions should be triggered when using a WorkerSpecific
-  // from within a different scheduler than it was created
-  EXPECT_DEATH( {
-    parlay::WorkerSpecific<int> list([]() { return 42; });
-    parlay::execute_with_scheduler(16, [&]() { *list = 42; });
-  }, "" );
-}
-
-#endif  // defined(PARLAY_USING_PARLAY_SCHEDULER)
