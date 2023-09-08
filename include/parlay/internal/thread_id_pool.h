@@ -13,6 +13,8 @@
 namespace parlay {
 namespace internal {
 
+using thread_id_type = unsigned int;
+
 // A ThreadIdPool hands out and maintains available unique dense IDs for active threads.
 // Each thread that requests an ID will get one in the range from [0...get_num_thread_ids()).
 // When the pool runs out of available IDs, it will allocate new ones, increasing the result
@@ -38,10 +40,10 @@ class ThreadIdPool : public std::enable_shared_from_this<ThreadIdPool> {
  public:
 
   // Returns a unique thread ID for the current thread in the range [0...get_num_thread_ids())
-  friend std::size_t get_thread_id();
+  friend thread_id_type get_thread_id();
 
   // Returns the number of assigned thread IDs in the range [0...get_num_thread_ids())
-  friend std::size_t get_num_thread_ids();
+  friend thread_id_type get_num_thread_ids();
 
 
   ~ThreadIdPool() noexcept {
@@ -67,10 +69,10 @@ class ThreadIdPool : public std::enable_shared_from_this<ThreadIdPool> {
   class ThreadId {
     friend class ThreadIdPool;
 
-    explicit ThreadId(const std::size_t id_) noexcept : id(id_), next(nullptr) { }
+    explicit ThreadId(const thread_id_type id_) noexcept : id(id_), next(nullptr) { }
 
    public:
-    const std::size_t id;
+    const thread_id_type id;
    private:
     ThreadId* next;
   };
@@ -93,7 +95,7 @@ class ThreadIdPool : public std::enable_shared_from_this<ThreadIdPool> {
     ThreadId* const node;
 
    public:
-    const std::size_t id;
+    const thread_id_type id;
   };
 
   // Grab a free ID from the available list, or if there are none available, allocate a new one.
@@ -142,11 +144,11 @@ class ThreadIdPool : public std::enable_shared_from_this<ThreadIdPool> {
   std::atomic<ThreadId*> available_ids;
 };
 
-inline std::size_t get_thread_id() {
+inline thread_id_type get_thread_id() {
   return ThreadIdPool::get_local_thread_id().id;
 }
 
-inline std::size_t get_num_thread_ids() {
+inline thread_id_type get_num_thread_ids() {
   return ThreadIdPool::instance().num_thread_ids.load();
 }
 

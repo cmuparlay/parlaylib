@@ -50,41 +50,37 @@
 
 namespace parlay {
 
-namespace internal {
-
-// Holds a pointer to the current local scheduler instance and the worker_id within the scheduler
-template<typename Scheduler>
-struct workerInfo {
-  static constexpr unsigned int UNINITIALIZED = std::numeric_limits<unsigned int>::max();
-
-  unsigned int worker_id;
-  Scheduler* my_scheduler;
-
-  workerInfo() : worker_id(UNINITIALIZED), my_scheduler(nullptr) {}
-  workerInfo(std::size_t worker_id_, Scheduler* s) : worker_id(worker_id_), my_scheduler(s) {}
-
-  workerInfo& operator=(const workerInfo&) = delete;
-  workerInfo(const workerInfo&) = delete;
-
-  workerInfo& operator=(workerInfo&& w) noexcept {
-    if (this != &w) {
-      worker_id = std::exchange(w.worker_id, UNINITIALIZED);
-      my_scheduler = std::exchange(w.my_scheduler, nullptr);
-    }
-    return *this;
-  }
-
-  workerInfo(workerInfo&& w) noexcept { *this = std::move(w); }
-};
-
-}  // namespace internal
 
 template <typename Job>
 struct scheduler {
+
+  using worker_id_type = unsigned int;
+
  private:
   static_assert(std::is_invocable_r_v<void, Job&>);
 
-  using worker_info_t = internal::workerInfo<scheduler<Job>>;
+  struct workerInfo {
+    static constexpr worker_id_type UNINITIALIZED = std::numeric_limits<worker_id_type>::max();
+
+    worker_id_type worker_id;
+    scheduler* my_scheduler;
+
+    workerInfo() : worker_id(UNINITIALIZED), my_scheduler(nullptr) {}
+    workerInfo(std::size_t worker_id_, scheduler* s) : worker_id(worker_id_), my_scheduler(s) {}
+
+    workerInfo& operator=(const workerInfo&) = delete;
+    workerInfo(const workerInfo&) = delete;
+
+    workerInfo& operator=(workerInfo&& w) noexcept {
+      if (this != &w) {
+        worker_id = std::exchange(w.worker_id, UNINITIALIZED);
+        my_scheduler = std::exchange(w.my_scheduler, nullptr);
+      }
+      return *this;
+    }
+
+    workerInfo(workerInfo&& w) noexcept { *this = std::move(w); }
+  };
 
   // After YIELD_FACTOR * P unsuccessful steal attempts, a
   // a worker will sleep briefly for SLEEP_FACTOR * P nanoseconds
@@ -96,11 +92,11 @@ struct scheduler {
   // before it goes to sleep to save CPU time.
   constexpr static std::chrono::microseconds STEAL_TIMEOUT{PARLAY_ELASTIC_STEAL_TIMEOUT};
 
-  static inline thread_local worker_info_t worker_info{};
+  static inline thread_local workerInfo worker_info{};
 
  public:
 
-  unsigned int num_threads;
+  const worker_id_type num_threads;
 
   // If the current thread is a worker of an existing scheduler, or the thread that spawned
   // a scheduler, return the most recent such scheduler.  Otherwise, returns null.
@@ -112,14 +108,14 @@ struct scheduler {
       : num_threads(num_workers),
         num_deques(num_threads),
         num_awake_workers(num_threads),
-        parent_worker_info(std::exchange(worker_info, worker_info_t{0, this})),
+        parent_worker_info(std::exchange(worker_info, workerInfo{0, this})),
         deques(num_deques),
         attempts(num_deques),
         spawned_threads(),
         finished_flag(false) {
 
     // Spawn num_threads many threads on startup
-    for (unsigned int i = 1; i < num_threads; i++) {
+    for (worker_id_type i = 1; i < num_threads; i++) {
       spawned_threads.emplace_back([&, i]() {
         worker_info = {i, this};
         worker();
@@ -168,8 +164,8 @@ struct scheduler {
     return deques[id].pop_bottom();
   }
 
-  unsigned int num_workers() { return num_threads; }
-  unsigned int worker_id() { return worker_info.worker_id; }
+  worker_id_type num_workers() { return num_threads; }
+  worker_id_type worker_id() { return worker_info.worker_id; }
 
   bool finished() const noexcept {
     return finished_flag.load(std::memory_order_acquire);
@@ -183,7 +179,7 @@ struct scheduler {
 
   int num_deques;
   std::atomic<size_t> num_awake_workers;
-  worker_info_t parent_worker_info;
+  workerInfo parent_worker_info;
   std::vector<internal::Deque<Job>> deques;
   std::vector<attempt> attempts;
   std::vector<std::thread> spawned_threads;
@@ -324,7 +320,7 @@ struct scheduler {
       std::this_thread::yield();
     }
 #endif
-    for (unsigned int i = 1; i < num_threads; i++) {
+    for (worker_id_type i = 1; i < num_threads; i++) {
       spawned_threads[i - 1].join();
     }
   }
@@ -357,19 +353,19 @@ class fork_join_scheduler {
   }
 
   template <typename F>
-  static void parfor(scheduler_t& scheduler, size_t start, size_t end, F f, size_t granularity = 0, bool conservative = false) {
+  static void parfor(scheduler_t& scheduler, size_t start, size_t end, F&& f, size_t granularity = 0, bool conservative = false) {
     if (end <= start) return;
     if (granularity == 0) {
       size_t done = get_granularity(start, end, f);
       granularity = std::max(done, (end - start) / static_cast<size_t>(128 * scheduler.num_threads));
       start += done;
     }
-    parfor_(scheduler, start, end, f, granularity, conservative);
+    parfor_(scheduler, start, end, std::forward<F>(f), granularity, conservative);
   }
 
  private:
   template <typename F>
-  static size_t get_granularity(size_t start, size_t end, F f) {
+  static size_t get_granularity(size_t start, size_t end, F&& f) {
     size_t done = 0;
     size_t sz = 1;
     unsigned long long int ticks = 0;
@@ -387,7 +383,7 @@ class fork_join_scheduler {
   }
 
   template <typename F>
-  static void parfor_(scheduler_t& scheduler, size_t start, size_t end, F f, size_t granularity, bool conservative) {
+  static void parfor_(scheduler_t& scheduler, size_t start, size_t end, F&& f, size_t granularity, bool conservative) {
     if ((end - start) <= granularity)
       for (size_t i = start; i < end; i++) f(i);
     else {

@@ -50,7 +50,7 @@ TEST(TestThreadSpecific, TestThreadSpecificCustomConstructor) {
 
 TEST(TestThreadSpecific, TestThreadSpecificCustomConstructorParam) {
 
-  parlay::ThreadSpecific<int> list([](std::size_t tid) { return tid; });
+  parlay::ThreadSpecific<int> list([](parlay::thread_id_type tid) { return tid; });
 
   parlay::parallel_for(0, 1000000, [&](size_t) {
     ASSERT_EQ(*list, parlay::my_thread_id());

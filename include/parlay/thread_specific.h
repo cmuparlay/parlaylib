@@ -26,11 +26,13 @@
 
 namespace parlay {
 
+using internal::thread_id_type;
+
 // Returns a unique thread ID for the current running thread
 // in the range of [0...num_thread_ids()).  Thread IDs are
 // guaranteed to be unique for all *live* threads, but they
 // are re-used after a thread dies and another is spawned.
-inline std::size_t my_thread_id() {
+inline thread_id_type my_thread_id() {
   return internal::get_thread_id();
 }
 
@@ -41,7 +43,7 @@ inline std::size_t my_thread_id() {
 // first requests one.  Therefore num_thread_ids() is *not*
 // guaranteed to be as large as the number of live threads if
 // those threads have never called my_thread_id().
-inline std::size_t num_thread_ids() {
+inline thread_id_type num_thread_ids() {
   return internal::get_num_thread_ids();
 }
 
@@ -65,7 +67,7 @@ class ThreadListChunkData {
   //   P, P, 2P, 4P, 8P, ...
   //
   // where P is the lowest power of two that is at least as large as the number of hardware threads.
-  static std::size_t compute_chunk_id(std::size_t id) {
+  static std::size_t compute_chunk_id(thread_id_type id) {
     std::size_t k = thread_list_chunk_size;
     std::size_t chunk = 0;
     while (k <= id) {
@@ -75,7 +77,7 @@ class ThreadListChunkData {
     return chunk;
   }
 
-  static std::size_t compute_chunk_position(std::size_t id, std::size_t chunk_id) {
+  static std::size_t compute_chunk_position(thread_id_type id, std::size_t chunk_id) {
     if (chunk_id == 0)
       return id;
     else {
@@ -85,10 +87,10 @@ class ThreadListChunkData {
     }
   }
 
-  explicit ThreadListChunkData(std::size_t thread_id_) noexcept : thread_id(thread_id_),
+  explicit ThreadListChunkData(thread_id_type thread_id_) noexcept : thread_id(thread_id_),
       chunk_id(compute_chunk_id(thread_id)), chunk_position(compute_chunk_position(thread_id, chunk_id)) { }
 
-  const std::size_t thread_id;
+  const thread_id_type thread_id;
   const std::size_t chunk_id;
   const std::size_t chunk_position;
 };
@@ -211,7 +213,7 @@ class ThreadSpecific {
     static_assert(std::is_invocable_v<F, T&>);
 
     auto num_threads = num_thread_ids();
-    std::size_t tid = 0;
+    thread_id_type tid = 0;
     internal::Uninitialized<T>* chunk = chunks[0].load(std::memory_order_relaxed);
 
     for (std::size_t chunk_id = 0; tid < num_threads; chunk = chunks[++chunk_id].load(std::memory_order_acquire)) {
@@ -448,7 +450,7 @@ class ThreadSpecific {
     }
   }
 
-  mutable std::function<T(std::size_t)> constructor;
+  mutable std::function<T(thread_id_type)> constructor;
   mutable std::mutex growing_mutex;
   mutable std::array<std::atomic<internal::Uninitialized<T>*>, n_chunks> chunks;
 };
