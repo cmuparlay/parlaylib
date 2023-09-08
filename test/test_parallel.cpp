@@ -236,3 +236,18 @@ TEST(TestParallel, TestNestedAlloc) {
     });
   });
 }
+
+#if defined(PARLAY_USING_PARLAY_SCHEDULER)
+
+TEST(TestParallel, TestMultipleSchedulers) {
+
+  auto* current_scheduler = std::addressof(parlay::internal::get_current_scheduler());
+
+  parlay::execute_with_scheduler(2*std::thread::hardware_concurrency(), [&]() {
+    auto* new_scheduler = std::addressof(parlay::internal::get_current_scheduler());
+    ASSERT_NE(current_scheduler, new_scheduler);
+  });
+
+}
+
+#endif  // defined(PARLAY_USING_PARLAY_SCHEDULER)

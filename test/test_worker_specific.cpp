@@ -280,9 +280,7 @@ TEST(TestWorkerSpecificDeathTest, TestWrongScheduler) {
   // from within a different scheduler than it was created
   EXPECT_DEATH( {
     parlay::WorkerSpecific<int> list([]() { return 42; });
-    parlay::execute_with_scheduler(16, [&]() {
-      parlay::execute_with_scheduler(16, [&]() { *list = 42; });
-    });
+    parlay::execute_with_scheduler(16, [&]() { *list = 42; });
   }, "" );
 }
 
