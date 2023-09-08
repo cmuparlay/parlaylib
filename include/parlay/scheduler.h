@@ -115,7 +115,7 @@ struct scheduler {
         finished_flag(false) {
 
     // Spawn num_threads many threads on startup
-    for (worker_id_type i = 1; i < num_threads; i++) {
+    for (worker_id_type i = 1; i < num_threads; ++i) {
       spawned_threads.emplace_back([&, i]() {
         worker_info = {i, this};
         worker();
@@ -320,7 +320,7 @@ struct scheduler {
       std::this_thread::yield();
     }
 #endif
-    for (worker_id_type i = 1; i < num_threads; i++) {
+    for (worker_id_type i = 1; i < num_threads; ++i) {
       spawned_threads[i - 1].join();
     }
   }
