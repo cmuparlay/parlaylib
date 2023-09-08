@@ -200,7 +200,7 @@ inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool
   }
   else if (end > start) {
     fork_join_scheduler::parfor(internal::get_current_scheduler(), start, end,
-      std::forward<F>(f), static_cast<size_t>(granularity), conservative);
+      [&f](std::size_t i) { f(i); }, static_cast<size_t>(granularity), conservative);
   }
 }
 
