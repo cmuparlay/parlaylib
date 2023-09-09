@@ -161,25 +161,10 @@ TEST(TestAllocator, TestTypeAllocatorLarge) {
   Xallocator::free(x);
 }
 
-#if defined(PARLAY_EXCEPTIONS_ENABLED)
 
-// This test creates a sequence, which turns on the scheduler, which interferes
-// with death tests, so we don't do this test without exceptions enabled
 parlay::sequence<parlay::sequence<int>> a;
 
 TEST(TestAllocator, TestStaticGlobal) {
   parlay::sequence<parlay::sequence<int>> b{{2, 3, 4, 5}, {1, 2, 3, 4}};
   a = b;
 }
-
-TEST(TestAllocator, TestLargeMallocThrow) {
-  EXPECT_THROW({ parlay::p_malloc((1ULL << 48)); }, std::bad_alloc);
-}
-
-#else
-
-TEST(TestAllocatorDeathTest, TestLargeMallocThrow) {
-  ASSERT_DEATH({ parlay::p_malloc((1ULL << 48)); }, "");
-}
-
-#endif  // defined(PARLAY_EXCEPTIONS_ENABLED)

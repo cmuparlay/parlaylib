@@ -97,7 +97,7 @@ namespace parlay {
 #endif
 
 template<typename Exception, typename... Args>
-[[noreturn]] PARLAY_NOINLINE PARLAY_COLD void throw_exception_or_abort(Args&&... args) {
+[[noreturn]] PARLAY_NOINLINE PARLAY_COLD void throw_exception_or_terminate(Args&&... args) {
 #if defined(PARLAY_EXCEPTIONS_ENABLED)
   throw Exception{std::forward<Args>(args)...};
 #else

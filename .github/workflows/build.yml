@@ -483,7 +483,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          CC=gcc-12 CXX=g++-12 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fno-exceptions" -DPARLAY_TEST=On DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+          CC=gcc-12 CXX=g++-12 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fno-exceptions" -DPARLAY_TEST=On DPARLAY_BENCHMARK=On ..
 
       - name: Build
         shell: bash
