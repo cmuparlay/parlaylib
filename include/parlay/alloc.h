@@ -98,6 +98,11 @@ inline size_t alloc_padding_size(size_t n) {  // in bytes
 
 }  // namespace internal
 
+// GCC doesn't like placement new into the offset buffer
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wplacement-new"
+#endif
 
 // Allocate size bytes of uninitialized storage. Optionally ask for an
 // aligned buffer of memory with the given alignment.
@@ -133,6 +138,9 @@ inline void p_free(void* ptr) {
   internal::get_default_allocator().deallocate(buffer, size_t{1} << size_t(h.log_size));
 }
 
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 // ----------------------------------------------------------------------------
 //                            Container allocator

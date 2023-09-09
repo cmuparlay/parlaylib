@@ -900,5 +900,35 @@ TEST(TestSequence, TestLessThan) {
   ASSERT_LT(s, s4);
 }
 
+#if defined(PARLAY_EXCEPTIONS_ENABLED)
+
+TEST(TestSequence, TestAtThrow) {
+  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  EXPECT_THROW({ s.at(9); }, std::out_of_range);
+}
+
+TEST(TestSequence, TestAtThrowConst) {
+  const auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
+  EXPECT_THROW({ s.at(9); }, std::out_of_range);
+}
+
+#else
+
+TEST(TestSequenceDeathTest, TestAt) {
+  ASSERT_EXIT({
+    auto s = parlay::sequence<int>({1,2,3,4,5,6,7,8,9});
+    s.at(9);
+  }, testing::KilledBySignal(SIGABRT), "sequence access out of bounds");
+}
+
+TEST(TestSequenceDeathTest, TestAtConst) {
+  ASSERT_EXIT({
+    const auto s = parlay::sequence<int>({1,2,3,4,5,6,7,8,9});
+    s.at(9);
+  }, testing::KilledBySignal(SIGABRT), "sequence access out of bounds");
+}
+
+#endif  // defined(PARLAY_EXCEPTIONS_ENABLED)
+
 // TODO: More thorough tests with custom allocators
 // to validate allocator usage.

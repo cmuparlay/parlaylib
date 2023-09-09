@@ -13,7 +13,7 @@ TEST(TestDelayedSequence, TestConstruction) {
 
 struct MyFunctor {
   std::unique_ptr<int> f;
-  MyFunctor(int _f) : f(std::make_unique<int>(_f)) { }
+  explicit MyFunctor(int _f) : f(std::make_unique<int>(_f)) { }
   MyFunctor(const MyFunctor& other) : f(std::make_unique<int>(*(other.f))) {}
   MyFunctor& operator=(const MyFunctor& other) {
     f = std::make_unique<int>(*(other.f));
@@ -180,3 +180,33 @@ TEST(TestDelayedSequence, TestDelayedSequenceOfMutableReferences) {
     ASSERT_EQ(*v[i], i+1);
   }
 }
+
+#if defined(PARLAY_EXCEPTIONS_ENABLED)
+
+TEST(TestDelayedSequence, TestAtThrow) {
+  auto s = parlay::delayed_seq<int>(9, [](int i) -> int { return i; });
+  EXPECT_THROW({ s.at(9); }, std::out_of_range);
+}
+
+TEST(TestDelayedSequence, TestAtThrowConst) {
+  const auto s = parlay::delayed_seq<int>(9, [](int i) -> int { return i; });
+  EXPECT_THROW({ s.at(9); }, std::out_of_range);
+}
+
+#else
+
+TEST(TestDelayedSequenceDeathTest, TestAt) {
+  ASSERT_EXIT({
+    auto s = parlay::delayed_seq<int>(9, [](int i) -> int { return i; });
+    s.at(9);
+  }, testing::KilledBySignal(SIGABRT), "Delayed sequence access out of range");
+}
+
+TEST(TestDelayedSequenceDeathTest, TestAtConst) {
+  ASSERT_EXIT({
+    const auto s = parlay::delayed_seq<int>(9, [](int i) -> int { return i; });
+    s.at(9);
+  }, testing::KilledBySignal(SIGABRT), "Delayed sequence access out of range");
+}
+
+#endif  // defined(PARLAY_EXCEPTIONS_ENABLED)

@@ -6,14 +6,18 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}
     ${PARLAY_INCLUDE_DIR}/parlay
   FILES
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/binary_search.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/block_allocator.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/block_delayed.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/bucket_sort.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/collect_reduce.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/counting_sort.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/file_map.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/group_by.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/heap_tree.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/integer_sort.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/pool_allocator.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/sample_sort.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/sequence_base.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/sequence_ops.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/stream_delayed.h

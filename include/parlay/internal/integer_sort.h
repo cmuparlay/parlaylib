@@ -2,17 +2,26 @@
 #ifndef PARLAY_INTEGER_SORT_H_
 #define PARLAY_INTEGER_SORT_H_
 
-#include <cmath>
-#include <cstdint>
+#include <cassert>
 #include <cstdio>
+
+#include <algorithm>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 
 #include "counting_sort.h"
 #include "sequence_ops.h"
-#include "quicksort.h"
 #include "uninitialized_sequence.h"
 #include "get_time.h"
 
 #include "../delayed_sequence.h"
+#include "../monoid.h"
+#include "../parallel.h"
+#include "../range.h"
+#include "../relocation.h"
+#include "../sequence.h"
 #include "../slice.h"
 #include "../utilities.h"
 
@@ -283,8 +292,9 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
           auto b = Tmp.cut(start, end);
           sequence<size_t> r;
 
+          auto new_parallelism = (parallelism * static_cast<float>(end - start)) / static_cast<float>(n + 1);
           r = integer_sort_r<typename std::negation<inplace_tag>::type, uninitialized_relocate_tag>(
-            a, b, a, g, shift_bits, num_inner_buckets, (parallelism * (end - start)) / (n + 1));
+            a, b, a, g, shift_bits, num_inner_buckets, new_parallelism);
 
           if (return_offsets) {
             size_t bstart = (std::min)(i * num_inner_buckets, num_buckets);
