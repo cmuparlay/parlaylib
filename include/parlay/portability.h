@@ -45,11 +45,20 @@ namespace parlay {
 // PARLAY_PREFETCH: Prefetch data into cache
 #if defined(__GNUC__)
 #define PARLAY_PREFETCH(addr, rw, locality) __builtin_prefetch ((addr), (rw), (locality))
-#elif defined(_WIN32)
+#elif defined(_MSC_VER)
 #define PARLAY_PREFETCH(addr, rw, locality)                                                 \
   PreFetchCacheLine(((locality) ? PF_TEMPORAL_LEVEL_1 : PF_NON_TEMPORAL_LEVEL_ALL), (addr))
 #else
 #define PARLAY_PREFETCH(addr, rw, locality)
+#endif
+
+
+#if defined(__cplusplus) && __cplusplus >= 202002L
+#define PARLAY_LIKELY [[likely]]
+#define PARLAY_UNLIKELY [[unlikely]]
+#else
+#define PARLAY_LIKELY
+#define PARLAY_UNLIKELY
 #endif
 
 }  // namespace parlay

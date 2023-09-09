@@ -30,6 +30,7 @@
 #include "parallel.h"
 #include "random.h"
 #include "range.h"
+#include "relocation.h"
 #include "sequence.h"
 #include "slice.h"
 #include "type_traits.h"               // IWYU pragma: keep
@@ -535,6 +536,8 @@ template <typename R, typename UnaryFunction>
 void for_each(R&& r , UnaryFunction&& f) {
   static_assert(is_random_access_range_v<R>);
   static_assert(std::is_invocable_v<UnaryFunction, range_reference_type_t<R>>);
+  // TODO: For many iterator types, calling operator[] is slower than ++.
+  // Would be nice if this could instead use ++ at the leaves
   parallel_for(0, parlay::size(r),
     [&f, it = std::begin(r)](size_t i) { f(it[i]); });
 }

@@ -17,6 +17,7 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/internal/sequence_base.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/sequence_ops.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/stream_delayed.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/thread_id_pool.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/transpose.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/work_stealing_job.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/common.h
@@ -39,11 +40,14 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/primitives.h
     ${PARLAY_INCLUDE_DIR}/parlay/random.h
     ${PARLAY_INCLUDE_DIR}/parlay/range.h
+    ${PARLAY_INCLUDE_DIR}/parlay/relocation.h
     ${PARLAY_INCLUDE_DIR}/parlay/scheduler.h
     ${PARLAY_INCLUDE_DIR}/parlay/sequence.h
     ${PARLAY_INCLUDE_DIR}/parlay/slice.h
+    ${PARLAY_INCLUDE_DIR}/parlay/thread_specific.h
     ${PARLAY_INCLUDE_DIR}/parlay/type_traits.h
     ${PARLAY_INCLUDE_DIR}/parlay/utilities.h
+    ${PARLAY_INCLUDE_DIR}/parlay/worker_specific.h
   IGNORE_DEFINITIONS
     PARLAY_CILK
     PARLAY_CILKPLUS

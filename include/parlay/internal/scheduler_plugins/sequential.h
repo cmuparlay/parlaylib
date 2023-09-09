@@ -3,6 +3,8 @@
 
 #include <cstddef>
 
+#include <functional>
+
 namespace parlay {
 
 // IWYU pragma: private, include "../../parallel.h"
@@ -31,6 +33,11 @@ template <typename Lf, typename Rf>
 inline void par_do(Lf&& left, Rf&& right, bool) {
   std::forward<Lf>(left)();
   std::forward<Rf>(right)();
+}
+
+template <typename F>
+void execute_with_scheduler(unsigned int, F&& f) {
+  std::invoke(std::forward<F>(f));
 }
 
 }  // namespace parlay

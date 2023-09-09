@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "../../range.h"
+#include "../../relocation.h"
 #include "../../sequence.h"
 #include "../../utilities.h"
 

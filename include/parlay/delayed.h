@@ -5,7 +5,7 @@
 #include <cstddef>
 
 #include <tuple>
-#include <type_traits>
+#include <type_traits>                      // IWYU pragma: keep
 #include <utility>
 
 #include "internal/delayed/filter.h"        // IWYU pragma: export

@@ -6,9 +6,8 @@
 
 #include <atomic>
 #include <thread>
-#include <type_traits>
+#include <type_traits>    // IWYU pragma: keep
 
-#include "atomic_wait.h"
 
 namespace parlay {
 

@@ -21,3 +21,10 @@ add_benchmark(standard)
 add_benchmark(parsing)
 add_benchmark(sequence)
 add_benchmark(delayed)
+
+if (PARLAY_BENCHMARK_FOLLY_TS)
+  add_benchmark(thread_specific)
+
+  find_package(folly REQUIRED)
+  target_link_libraries(bench_thread_specific PRIVATE folly glog dl double-conversion fmt gflags)
+endif()

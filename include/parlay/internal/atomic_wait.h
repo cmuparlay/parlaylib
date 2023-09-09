@@ -289,7 +289,7 @@ The strategy is chosen this way, by platform:
         }
 
     template <class _Tp, typename std::enable_if<__type_used_directly(_Tp), int>::type = 1>
-    void __cxx_atomic_try_wait_slow(_Tp const* ptr, _Tp val, int order) {
+    void __cxx_atomic_try_wait_slow(_Tp const* ptr, _Tp val, [[maybe_unused]] int order) {
     #ifdef __TABLE
         auto * const c = __contention(ptr);
         __atomic_fetch_add(&c->waiters, 1, __ATOMIC_RELAXED);

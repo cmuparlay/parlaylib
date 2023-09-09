@@ -20,17 +20,17 @@
 #include <algorithm>
 #include <atomic>
 #include <iostream>
-#include <memory>
 #include <new>
 #include <optional>
 
-#include "../parallel.h"
 #include "../utilities.h"
+#include "../thread_specific.h"
 
 #include "concurrency/hazptr_stack.h"
 
 #include "memory_size.h"
 
+// IWYU pragma: no_include <array>
 // IWYU pragma: no_include <vector>
 
 namespace parlay {
@@ -53,10 +53,9 @@ struct block_allocator {
     local_list() : sz(0), head(nullptr), mid(nullptr) {};
   };
 
-  const size_t thread_count;
   hazptr_stack<std::byte*> allocated_buffers;
   hazptr_stack<block*> global_stack;
-  std::unique_ptr<local_list[]> local_lists;
+  ThreadSpecific<local_list> my_local_list;
 
   size_t block_size;
   std::align_val_t block_align;
@@ -83,17 +82,18 @@ struct block_allocator {
   // Allocate a new list of list_length elements
 
   auto initialize_list(std::byte* buffer) const -> block* {
-    parallel_for (0, list_length - 1, [&] (size_t i) {
+    for (size_t i=0; i < list_length - 1; i++) {
       new (buffer + i * block_size) block{get_block(buffer, i+1)};
-    }, 0, true);
+    }
     new (buffer + (list_length - 1) * block_size) block{nullptr};
     return get_block(buffer, 0);
   }
 
   size_t num_used_blocks() {
     size_t free_blocks = global_stack.size()*list_length;
-    for (size_t i = 0; i < thread_count; ++i)
-      free_blocks += local_lists[i].sz;
+    my_local_list.for_each([&](auto&& list) {
+      free_blocks += list.sz;
+    });
     return blocks_allocated.load() - free_blocks;
   }
 
@@ -118,14 +118,7 @@ struct block_allocator {
   }
 
   // Allocate n elements across however many lists are needed (rounded up)
-  void reserve(size_t n) {
-    size_t num_lists = thread_count + (n + list_length - 1) / list_length;
-    std::byte* start = allocate_blocks(list_length*num_lists);
-    parallel_for(0, num_lists, [&] (size_t i) {
-      std::byte* offset = start + i * list_length * block_size;
-      global_stack.push(initialize_list(offset));
-    }, 1, true);
-  }
+  [[deprecated]] void reserve(size_t) { }
 
   void print_stats() {
     size_t used = num_used_blocks();
@@ -133,23 +126,21 @@ struct block_allocator {
     size_t sz = get_block_size();
     std::cout << "Used: " << used << ", allocated: " << allocated
 	      << ", block size: " << sz
-	      << ", bytes: " << sz*allocated << std::endl;
+	      << ", bytes: " << sz*allocated << "\n";
   }
 
   explicit block_allocator(size_t block_size_,
     size_t block_align_ = alignof(std::max_align_t),
-    size_t reserved_blocks = 0,
+    [[maybe_unused]] size_t reserved_blocks = 0,
     size_t list_length_ = 0,
     size_t max_blocks_ = 0) :
-      thread_count(num_workers()),
-      local_lists(std::make_unique<local_list[]>(thread_count)),                     // Each block needs to be at least
+      my_local_list(),                                                               // Each block needs to be at least
       block_size(std::max<size_t>(block_size_, sizeof(block))),    // <------------- // large enough to hold the struct
       block_align(std::align_val_t{std::max<size_t>(block_align_, min_alignment)}),  // representing a free block.
       list_length(list_length_ == 0 ? (default_list_bytes + block_size + 1) / block_size : list_length_),
       max_blocks(max_blocks_ == 0 ? (3 * getMemorySize() / block_size) / 4 : max_blocks_),
       blocks_allocated(0) {
 
-    reserve(reserved_blocks);
   }
 
   // Clears all memory ever allocated by this allocator. All allocated blocks
@@ -166,8 +157,9 @@ struct block_allocator {
     }
     else {
       // clear lists
-      for (size_t i = 0; i < thread_count; ++i)
-        local_lists[i].sz = 0;
+      my_local_list.for_each([](auto&& list) {
+        list.sz = 0;
+      });
 
       // throw away all allocated memory
       std::optional<std::byte*> x;
@@ -179,54 +171,54 @@ struct block_allocator {
   }
 
   ~block_allocator() {
-    clear();
+    [[maybe_unused]] auto cleared = clear();
+#if !defined(NDEBUG) && !defined(PARLAY_ALLOC_ALLOW_LEAK)
+    if (!cleared) {
+      std::cerr << "There are un-freed blocks obtained from block_allocator. If this is intentional you may"
+                        "suppress this messsage with -DPARLAY_ALLOC_ALLOW_LEAK\n";
+    }
+#endif
   }
 
   void free(void* ptr) {
-    size_t id = worker_id();
 
-    if (local_lists[id].sz == list_length+1) {
-      local_lists[id].mid = local_lists[id].head;
-    } else if (local_lists[id].sz == 2*list_length) {
-      global_stack.push(local_lists[id].mid->next);
-      local_lists[id].mid->next = nullptr;
-      local_lists[id].sz = list_length;
+    if (my_local_list->sz == list_length+1) {
+      my_local_list->mid = my_local_list->head;
+    } else if (my_local_list->sz == 2*list_length) {
+      global_stack.push(my_local_list->mid->next);
+      my_local_list->mid->next = nullptr;
+      my_local_list->sz = list_length;
     }
 
-    assert(id == worker_id());
-    auto new_node = new (ptr) block{local_lists[id].head};
-    local_lists[id].head = new_node;
-    local_lists[id].sz++;
+    auto new_node = new (ptr) block{my_local_list->head};
+    my_local_list->head = new_node;
+    my_local_list->sz++;
   }
 
   inline void* alloc() {
-    size_t id = worker_id();
-
-    if (local_lists[id].sz == 0)  {
+    if (my_local_list->sz == 0)  {
       auto new_list = get_list();
 
-      // !! Critical problem !! If this task got stolen during get_list(),
-      // the worker id may have changed, so we can't assume we are looking
-      // at the same local list, so we have to check the (possibly different)
-      // local list of the (possibly changed) worker id
-      id = worker_id();
+      // !! Critical problem !! If this task got stolen during get_list(), the
+      // running thread may have changed, so we can't assume we are looking at
+      // the same local list, so we have to double-check the (possibly different)
+      // local list of the (possibly changed) thread
 
-      if (local_lists[id].sz == 0) {
-        local_lists[id].head = new_list;
-        local_lists[id].sz = list_length;
+      if (my_local_list->sz == 0) {
+        my_local_list->head = new_list;
+        my_local_list->sz = list_length;
       }
       else {
         // Looks like the task got stolen and the new thread already had a
         // non-empty local list, so we can push the new one into the global
-        // poo for someone else to use in the future
+        // pool for someone else to use in the future
         global_stack.push(new_list);
       }
     }
 
-    assert(id == worker_id());
-    block* p = local_lists[id].head;
-    local_lists[id].head = local_lists[id].head->next;
-    local_lists[id].sz--;
+    block* p = my_local_list->head;
+    my_local_list->head = my_local_list->head->next;
+    my_local_list->sz--;
 
     // Note: block is trivial, so it is legal to not call its destructor
     // before returning it and allowing its storage to be reused

@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <iterator>
 #include <limits>
-#include <type_traits>
 #include <utility>
 
 #include "sequence_ops.h"
@@ -17,6 +16,7 @@
 
 #include "../monoid.h"
 #include "../parallel.h"
+#include "../relocation.h"
 #include "../sequence.h"
 #include "../slice.h"
 #include "../utilities.h"
