@@ -8,15 +8,24 @@
 #ifndef PARLAY_SAMPLE_SORT_H_
 #define PARLAY_SAMPLE_SORT_H_
 
-#include <cmath>
+#include <cassert>
 #include <cstdio>
-#include <cstring>
+
+#include <iterator>
+#include <limits>
+#include <type_traits>
 
 #include "bucket_sort.h"
 #include "quicksort.h"
 #include "sequence_ops.h"
 #include "transpose.h"
+#include "uninitialized_sequence.h"
 
+#include "../delayed_sequence.h"
+#include "../parallel.h"
+#include "../relocation.h"
+#include "../sequence.h"
+#include "../slice.h"
 #include "../utilities.h"
 
 namespace parlay {

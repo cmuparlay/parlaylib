@@ -13,6 +13,10 @@
 #endif
 #endif
 
+#include <cstdlib>
+
+#include <iostream>
+
 namespace parlay {
 
 // PARLAY_INLINE: Ask the compiler politely to inline the given function.
@@ -23,6 +27,25 @@ namespace parlay {
 #else
 #define PARLAY_INLINE inline
 #endif
+
+// PARLAY_NOINLINE: Ask the compiler to *not* inline the given function
+#if defined(__GNUC__)
+#define PARLAY_NOINLINE __attribute__((__noinline__))
+#elif defined(_MSC_VER)
+#define PARLAY_NOINLINE __declspec(noinline)
+#else
+#define PARLAY_NOINLINE
+#endif
+
+// PARLAY_COLD: Ask the compiler to place the given function far away from other code
+#if defined(__GNUC__)
+#define PARLAY_COLD __attribute__((__cold__))
+#elif defined(_MSC_VER)
+#define PARLAY_COLD
+#else
+#define PARLAY_COLD
+#endif
+
 
 // PARLAY_PACKED: Ask the compiler to pack a struct into less memory by not padding
 #if defined(__GNUC__)
@@ -60,6 +83,29 @@ namespace parlay {
 #define PARLAY_LIKELY
 #define PARLAY_UNLIKELY
 #endif
+
+// Check for exceptions. The standard suggests __cpp_exceptions. Clang/GCC defined __EXCEPTIONS.
+// MSVC disables them with _HAS_EXCEPTIONS=0.  Might not cover obscure compilers/STLs.
+//
+// Exceptions can be explicitly disabled in Parlay with PARLAY_NO_EXCEPTIONS.
+#if !defined(PARLAY_NO_EXCEPTIONS) &&                            \
+    ((defined(__cpp_exceptions) && __cpp_exceptions != 0) ||     \
+     (defined(__EXCEPTIONS)) ||                                  \
+     (defined(_HAS_EXCEPTIONS) && _HAS_EXCEPTIONS == 1) ||       \
+     (defined(_MSC_VER) && !defined(_HAS_EXCEPTIONS)))
+#define PARLAY_EXCEPTIONS_ENABLED
+#endif
+
+template<typename Exception, typename... Args>
+[[noreturn]] PARLAY_NOINLINE PARLAY_COLD void throw_exception_or_terminate(Args&&... args) {
+#if defined(PARLAY_EXCEPTIONS_ENABLED)
+  throw Exception{std::forward<Args>(args)...};
+#else
+  std::cerr << Exception{std::forward<Args>(args)...}.what() << "\n";
+  std::terminate();
+#endif
+}
+
 
 }  // namespace parlay
 

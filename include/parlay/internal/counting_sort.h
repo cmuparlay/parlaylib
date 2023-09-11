@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <iterator>
 #include <limits>
+#include <type_traits>
 #include <utility>
 
 #include "sequence_ops.h"

@@ -2,10 +2,20 @@
 #ifndef PARLAY_BUCKET_SORT_H_
 #define PARLAY_BUCKET_SORT_H_
 
+#include <cassert>
+#include <cstddef>
+
+#include <limits>
+
 #include "merge_sort.h"
 #include "quicksort.h"
-#include "sequence_ops.h"
 
+#include "uninitialized_sequence.h"
+
+#include "../parallel.h"
+#include "../relocation.h"
+#include "../sequence.h"
+#include "../slice.h"
 #include "../utilities.h"
 
 namespace parlay {
@@ -30,9 +40,9 @@ void radix_step_(slice<InIterator, InIterator> A,
     counts[i] = s;
   }
 
-  for (std::ptrdiff_t j = n - 1; j >= 0; j--) {
-    auto x = --counts[keys[j]];
-    uninitialized_relocate(&B[x], &A[j]);
+  for (size_t j = n; j > 0; j--) {
+    auto x = --counts[keys[j-1]];
+    uninitialized_relocate(&B[x], &A[j-1]);
   }
 }
 

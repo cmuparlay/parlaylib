@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "../alloc.h"
+#include "../portability.h"
 
 #include "debug_uninitialized.h"
 
@@ -156,7 +157,7 @@ class uninitialized_sequence {
     std::swap(impl.data, other.impl.data);
   }
   
-  size_type size() const { return impl.n; }
+  [[nodiscard]] size_type size() const { return impl.n; }
   
   value_type* data() { return impl.data; }
   
@@ -167,8 +168,8 @@ class uninitialized_sequence {
   
   value_type& at(size_t i) {
     if (i >= size()) {
-      throw std::out_of_range("uninitialized_sequence access out of bounds: length = " +
-                              std::to_string(size()) + ", index = " + std::to_string(i));
+      throw_exception_or_terminate<std::out_of_range>("uninitialized_sequence access out of bounds: length = " +
+                                                      std::to_string(size()) + ", index = " + std::to_string(i));
     }
     else {
       return impl.data[i];
@@ -177,8 +178,8 @@ class uninitialized_sequence {
   
   const value_type& at(size_t i) const {
     if (i >= size()) {
-      throw std::out_of_range("uninitialized_sequence access out of bounds: length = " +
-                              std::to_string(size()) + ", index = " + std::to_string(i));
+      throw_exception_or_terminate<std::out_of_range>("uninitialized_sequence access out of bounds: length = " +
+                                                      std::to_string(size()) + ", index = " + std::to_string(i));
     }
     else {
       return impl.data[i];

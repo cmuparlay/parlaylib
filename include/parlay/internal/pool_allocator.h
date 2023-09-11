@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "../portability.h"
 #include "../utilities.h"
 
 #include "block_allocator.h"
@@ -77,7 +78,6 @@ struct pool_allocator {
     }
 
     void* a = ::operator new(alloc_size, std::align_val_t{max_alignment});
-    if (a == nullptr) throw std::bad_alloc();
 
     large_allocated += n;
     return a;

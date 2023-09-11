@@ -25,6 +25,8 @@
 
 #if defined(PARLAY_NO_FILE_MAP) || defined(PARLAY_USE_FALLBACK_FILE_MAP)
 
+#include <cassert>
+
 #include <fstream>
 #include <string>
 

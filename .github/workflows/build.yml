@@ -465,6 +465,38 @@ jobs:
           cd build
           ctest -C Debug --no-tests=error --output-on-failure
 
+  noexcept:
+    name: ubuntu-22.04 GCC 12 Exceptions Disabled (Debug)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Compiler
+        shell: bash
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get -qq install gcc-12 g++-12
+
+      - name: Configure
+        shell: bash
+        run: |
+          mkdir build && cd build
+          CC=gcc-12 CXX=g++-12 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fno-exceptions" -DPARLAY_TEST=On DPARLAY_BENCHMARK=On ..
+
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          cmake --build . --config Debug
+
+      - name: Test
+        shell: bash
+        run: |
+          cd build
+          ctest -C Debug --no-tests=error --output-on-failure
+
   cppcheck:
     name: Cppcheck
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name

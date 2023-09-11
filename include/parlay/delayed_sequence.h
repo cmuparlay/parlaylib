@@ -271,11 +271,9 @@ class delayed_sequence {
   // Subscript access with bounds checking
   T at(size_t i) const {
     if (i < first || i >= last) {
-      throw std::out_of_range("Delayed sequence access out of"
-                              "range at " + std::to_string(i) +
-                              "for a sequence with bounds [" +
-                              std::to_string(first) + ", " +
-                              std::to_string(last) + ")");
+      throw_exception_or_terminate<std::out_of_range>("Delayed sequence access out of range at " + std::to_string(i) +
+                                                      "for a sequence with bounds [" + std::to_string(first) + ", " +
+                                                      std::to_string(last) + ")");
     }
     return f(i);
   }
@@ -297,13 +295,13 @@ class delayed_sequence {
 #endif
 
   // Size
-  size_t size() const {
+  [[nodiscard]] size_t size() const {
     assert(first <= last);
     return last - first;
   }
   
   // Is empty?
-  bool empty() const {
+  [[nodiscard]] bool empty() const {
     return size() == 0;
   }
   

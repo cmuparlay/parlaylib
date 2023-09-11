@@ -345,7 +345,6 @@ class fork_join_scheduler {
       execute_right();
     }
     else {
-      //sched->wait_for(right_job, conservative);
       auto done = [&]() { return right_job.finished(); };
       scheduler.wait_until(done, conservative);
       assert(right_job.finished());
