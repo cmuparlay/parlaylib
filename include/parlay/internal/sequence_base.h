@@ -357,7 +357,6 @@ struct alignas(uint64_t) sequence_base {
       uint64_t n : 48;
 
       long_seq(capacitated_buffer _buffer, uint64_t _n) : buffer(_buffer), n(_n) {}
-      ~long_seq() = default;
 
       void set_size(size_t new_size) { n = new_size; }
 
