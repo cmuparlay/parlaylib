@@ -17,7 +17,8 @@ namespace parlay {
 namespace internal {
 
 // Pretend implementation of P1478R1: Byte-wise atomic memcpy. Technically undefined behavior
-// since std::memcpy is not immune to data races, but on most hardware we should be okay.
+// since std::memcpy is not immune to data races, but on most hardware we should be okay. In
+// C++26 we can probably do this for real (assuming Concurrency TS 2 is accepted).
 void atomic_source_memcpy(void* dest, void* source, size_t count, std::memory_order order = std::memory_order_acquire) {
   std::memcpy(dest, source, count);
   std::atomic_thread_fence(order);
@@ -70,15 +71,34 @@ struct big_atomic {
 
   void store(const T& value) {
     auto num = version.load(std::memory_order_acquire);
-    if (num % 2 == 1) {
-      while (num == version.load(std::memory_order_relaxed)) {
-        std::this_thread::yield();
+    if (num % 2 == 0) {
+      // Attempt to take the seqlock and store a value
+      auto* indirect_val = type_allocator<big_atomic_indirect<T>>::create(value);
+      auto old = backup.load();
+      if (backup.compare_exchange_strong(old, indirect_val)) {
+        // Successfully installed backup value
+
+        if (version.compare_exchange_strong(num, num + 1)) {
+          // Successfully took the lock
+          internal::atomic_dest_memcpy(&fast_buffer, &value, sizeof(T));
+          version.store(num + 2, std::memory_order_release);
+          if (old) {
+            hazptr_instance().retire(old);
+          }
+          return;
+        }
+
       }
-      return;
+
+    }
+    if (num % 2 == 1) {
+
+
+
     }
     for (;;) {
       auto indirect_val = type_allocator<big_atomic_indirect<T>>::create(value);
-      
+
     }
   }
 
