@@ -179,7 +179,7 @@ struct allocator {
     }
   }
 
-  constexpr allocator() { internal::get_default_allocator(); };
+  constexpr allocator() { internal::get_default_allocator(); }
   template <class U> /* implicit */ constexpr allocator(const allocator<U>&) noexcept { }
 };
 
@@ -271,8 +271,8 @@ public:
   template <typename ... Args>
   static T* allocate(Args... args) { return create(std::forward<Args>(args)...); }
   static void retire(T* ptr) { destroy(ptr); }
-  static void init(size_t, size_t) {};
-  static void init() {};
+  static void init(size_t, size_t) {}
+  static void init() {}
   static void reserve([[maybe_unused]] size_t n = default_alloc_size) { }
   static void finish() { get_allocator().clear(); }
   static size_t block_size () { return get_allocator().get_block_size(); }

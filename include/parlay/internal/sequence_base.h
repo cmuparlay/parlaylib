@@ -398,7 +398,7 @@ struct alignas(uint64_t) sequence_base {
     // sequence.
     struct _data_impl {
       _data_impl() {}
-      ~_data_impl(){};
+      ~_data_impl(){}
 
       union {
         typename std::conditional<use_sso, short_seq, void*>::type short_mode;

@@ -96,7 +96,7 @@ struct reduce_by_key_helper {
   using result_type = std::pair<key_type, value_type>;
   Monoid monoid; Hash hash; Equal equal;
   reduce_by_key_helper(Monoid const &m, Hash const &h, Equal const &e) :
-      monoid(m), hash(h), equal(e) {};
+      monoid(m), hash(h), equal(e) {}
 
   template<typename T> static const key_type& get_key(const T& p) { return std::get<0>(p);}
   template<typename T> static key_type& get_key(T& p) { return std::get<0>(p);}
@@ -136,7 +136,7 @@ struct group_by_key_helper {
   using seq_type = sequence<val_type>;
   using result_type = std::pair<key_type,seq_type>;
   Hash hash; Equal equal;
-  group_by_key_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
+  group_by_key_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {}
   static const key_type& get_key(in_type const &p) { return std::get<0>(p);}
   static key_type& get_key(in_type &p) { return std::get<0>(p);}
   static key_type& get_key(result_type &p) {return std::get<0>(p);}
@@ -169,7 +169,7 @@ struct count_by_key_helper {
   using val_type = sum_type;
   using result_type = std::pair<key_type,val_type>;
   Hash hash; Equal equal;
-  count_by_key_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
+  count_by_key_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {}
   static const key_type& get_key(in_type const &k) {return k;}
   static key_type& get_key(in_type &k) {return k;}
   static key_type& get_key(result_type &p) {return std::get<0>(p);}
@@ -199,14 +199,14 @@ struct remove_duplicates_helper {
   using key_type = in_type;
   using result_type = in_type;
   Hash hash; Equal equal;
-  remove_duplicates_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {};
+  remove_duplicates_helper(Hash const &h, Equal const &e) : hash(h), equal(e) {}
   static const key_type& get_key(in_type const &k) { return k;}
   static key_type& get_key(in_type &k) { return k;}
   static void init(result_type &, in_type const&) {}
   static void update(result_type &, in_type const&) {}
   static void destruct_val(in_type &) {}
   template <typename Range>
-  static result_type reduce(Range S) {return S[0];};
+  static result_type reduce(Range S) {return S[0];}
 };
 
 // should be made more efficient by avoiding generating and then stripping counts
@@ -234,10 +234,10 @@ auto reduce_by_index(R&& A, size_t num_buckets, Monoid&& monoid = {}) {
     using key_type = std::tuple_element_t<0, in_type>;
     using val_type = std::tuple_element_t<1, in_type>;
     Monoid mon;
-    static key_type get_key(const in_type& a) { return std::get<0>(a); };
-    static val_type get_val(const in_type& a) { return std::get<1>(a); };
+    static key_type get_key(const in_type& a) { return std::get<0>(a); }
+    static val_type get_val(const in_type& a) { return std::get<1>(a); }
     val_type init() const {return mon.identity;}
-    void update(val_type& d, val_type const &a) const { d = mon(d, a); };
+    void update(val_type& d, val_type const &a) const { d = mon(d, a); }
     void combine(val_type& d, slice<in_type*,in_type*> s) const {
       auto vals = internal::delayed_map(s, [&] (in_type &v) { return std::get<1>(v); });
       d = internal::reduce(vals, mon);

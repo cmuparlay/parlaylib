@@ -772,7 +772,7 @@ inline bool operator<(const sequence<T,Alloc,EnableSSO> &a, const sequence<T,All
   auto ea = sa + (std::min)(a.size(),b.size());
   while (sa < ea && *sa == *sb) {sa++; sb++;}
   return sa == ea ? (a.size() < b.size()) : *sa < *sb;
-};
+}
 
 
 /* -------------------- Remove duplicates -------------------- */

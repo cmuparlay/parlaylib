@@ -69,7 +69,7 @@ class hashtable {
       TA(sequence<eType>(m, empty)) {
   }
 
-  ~hashtable() { };
+  ~hashtable() { }
 
   // prioritized linear probing
   //   a new key will bump an existing key up if it has a higher priority
