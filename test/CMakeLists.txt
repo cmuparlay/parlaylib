@@ -43,6 +43,7 @@ add_dtests(NAME test_transpose FILES test_transpose.cpp LIBS parlay)
 # -------------------------------- Concurrency ----------------------------------
 
 add_dtests(NAME test_hazptr_stack FILES test_hazptr_stack.cpp LIBS parlay)
+add_dtests(NAME test_big_atomic FILES test_big_atomic.cpp LIBS parlay)
 
 # -------------------------- Uninitialized memory testing ---------------------------
 
