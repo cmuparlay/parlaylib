@@ -19,12 +19,12 @@ namespace internal {
 // Pretend implementation of P1478R1: Byte-wise atomic memcpy. Technically undefined behavior
 // since std::memcpy is not immune to data races, but on most hardware we should be okay. In
 // C++26 we can probably do this for real (assuming Concurrency TS 2 is accepted).
-inline void atomic_load_per_byte_memcpy(void* dest, const void* source, size_t count, std::memory_order order = std::memory_order_acquire) {
+PARLAY_INLINE void atomic_load_per_byte_memcpy(void* dest, const void* source, size_t count, std::memory_order order = std::memory_order_acquire) {
   std::memcpy(dest, source, count);
   std::atomic_thread_fence(order);
 }
 
-inline void atomic_store_per_byte_memcpy(void* dest, const void* source, size_t count, std::memory_order order = std::memory_order_release) {
+PARLAY_INLINE void atomic_store_per_byte_memcpy(void* dest, const void* source, size_t count, std::memory_order order = std::memory_order_release) {
   std::atomic_thread_fence(order);
   std::memcpy(dest, source, count);
 }
@@ -32,7 +32,7 @@ inline void atomic_store_per_byte_memcpy(void* dest, const void* source, size_t 
 // Basically std::bit_cast from C++20 but with a slightly different interface. The goal
 // is to type pun from a byte representation into a valid object with valid lifetime.
 template<typename T>
-T bits_to_object(const char* src) {
+PARLAY_INLINE T bits_to_object(const char* src) {
   struct empty{};
   union { empty empty_{}; T value; };
   std::memcpy(&value, src, sizeof(T));
@@ -106,9 +106,9 @@ struct big_atomic {
       // could be a severe slowdown is updates are very frequent, since many reads will try
       // to help and waste work here...  Might be nice to optimize this so that it doesn't
       // try to help every time, but only every once in a while.
-      if (p.get_mark() == SLOW_MODE) {
-        try_seqlock_and_store(reader.num, p->value, p);
-      }
+      //if (p.get_mark() == SLOW_MODE) {
+      //  try_seqlock_and_store(reader.num, p->value, p);
+      //}
       return p->value;
     }
   }
@@ -190,7 +190,9 @@ struct big_atomic {
     if ((num % 2 == 0) && version.compare_exchange_strong(num, num + 1)) {
       internal::atomic_store_per_byte_memcpy(&fast_value, &desired, sizeof(T));
       version.store(num + 2, std::memory_order_release);
-      indirect_value.compare_exchange_strong(p, p.clear_mark());
+      auto unmarked = p;
+      unmarked.clear_mark();
+      indirect_value.compare_exchange_strong(p, unmarked);
     }
   }
 
