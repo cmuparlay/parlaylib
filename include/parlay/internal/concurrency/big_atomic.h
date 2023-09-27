@@ -9,6 +9,7 @@
 #include "../../utilities.h"
 
 #include "acquire_retire.h"
+#include "marked_ptr.h"
 
 #include "../../alloc.h"
 
@@ -38,8 +39,10 @@ T bits_to_object(char* src) {
   return value;
 }
 
+
 template<typename T>
 struct big_atomic_indirect {
+  explicit big_atomic_indirect(const T& value_) : value(value_) { }
   T value;
   big_atomic_indirect<T>* next_;    // Intrusive link for hazard pointers
 };
@@ -57,6 +60,17 @@ void intrusive_set_next(big_atomic_indirect<T>* p, big_atomic_indirect<T>* next)
 }  // namespace internal
 
 
+// The locking mechanism goes in this order:
+//  - sets the dirty bit on the ptr,
+//    - takes the seqlock
+//      - writes the new fast value
+//    - releases the seqlock
+//  - clears the dirty bit on the ptr
+//
+// The seqlock is strict in that only one thread can
+// acquire it, and that thread will release it, but
+// the dirty bit can be changed by a racing thread.
+
 
 template<typename T>
 struct big_atomic {
@@ -66,6 +80,7 @@ struct big_atomic {
 
   using version_type = std::size_t;
   using indirect_type = internal::big_atomic_indirect<T>;
+  using marked_indirect_ptr = marked_ptr<indirect_type>;
 
   using allocator = type_allocator<indirect_type>;
 
@@ -82,95 +97,91 @@ struct big_atomic {
 
   T load() {
     auto num = version.load(std::memory_order_acquire);
-    if (num % 2 == 0) {
-      alignas(T) char dest[sizeof(T)];
-      internal::atomic_source_memcpy(&dest, &fast_value, sizeof(T));
-      if (version.load(std::memory_order_relaxed) == num) return internal::bits_to_object<T>(dest);
-    }
-    auto p = hazptr_instance().acquire(indirect_value);
-    T result{*p};
-    hazptr_instance().release();
-    return result;
-  }
-
-  void store(const T& value) {
-    auto num = version.load(std::memory_order_acquire);
-    if (num % 2 == 0) {
-
-      auto current_indirect = indirect_value.load();
-
-      // Try to read the current fast value to back it up
-      alignas(T) char dest[sizeof(T)];
-      internal::atomic_source_memcpy(&dest, &fast_value, sizeof(T));
-
-      // Check that the object is unlocked, so we can assume the fast value is not torn
-      if (version.load(std::memory_order_relaxed) == num) {
-        // Successfully loaded fast value while unlocked.  Try to back it up, so we can proceed to store
-        auto* backup = type_allocator<indirect_type>::create(internal::bits_to_object<T>(dest));
-
-        // Try to back it up
-        if (indirect_value.compare_exchange_strong(current_indirect, backup)) {
-          // Successfully installed backup value.
-          // Retire the old backup that we replaced
-          hazptr_instance().retire(current_indirect);
-
-          auto expected = num;
-          if (version.compare_exchange_strong(expected, num + 1)) {
-              // Successfully acquired the lock
-              // Store the new fast copy and unlock
-              internal::atomic_dest_memcpy(&fast_value, &value, sizeof(T));
-              version.store(num + 2, std::memory_order_release);
-              return;
-          }
-          else if (expected == num + 2) {
-            // Someone else took the lock and stored their own value.
-            // In this case we can linearize before that store and
-            // just do nothing!!
-            return;
-          }
-          else if (expected == num + 1) {
-            // Fallthrough to bottom case
-          }
-        }
-        else {
-          // Failed backup -- another thread is racing us
-          allocator::destroy(backup);
-
-          // Fallthrough to bottom case
-        }
-
-      }
-      else {
-        // We got torn when trying to read for the backup. A store is in progress or
-        // has already finished
-
-        // Fallthrough to bottom case
-      }
+    alignas(T) char dest[sizeof(T)];
+    internal::atomic_source_memcpy(&dest, &fast_value, sizeof(T));
+    auto p = indirect_value.load();
+    if (p.get_mark() == 0 && num == version.load(std::memory_order_relaxed)) {
+      return internal::bits_to_object<T>(dest);
     }
     else {
-        // The object is already locked.  This means that the backup already contain(ed) a valid
-        // backup of the previous fast value.
-
-      // Fallthrough to bottom case
+      auto hazptr = hazptr_holder{};
+      auto p = hazptr.protect(indirect_value);
+      assert(p != nullptr);
+      return *p;
     }
+  }
 
-    // Someone else has acquired the lock.  We can not just linearize before them
-    // because their copy might not be done yet, so we need to at least try to
-    // make our store visible to the world.  Since the object is in locked mode,
-    // we can just store ourselves in the backup and that is good enough to then
-    // linearize before the in-flight store.
 
-    auto new_indirect = allocator::create(value);
-    auto old_indirect = indirect_value.exchange(new_indirect);  // <-- this is sketchy. need to prove that it isn't wrong.
+  void store(const T& desired) {
+    auto num = version.load(std::memory_order_acquire);
+    auto new_p = marked_indirect_ptr(allocator::create(desired)).set_mark(1);
+    auto old_p = indirect_value.exchange(new_p);
+    retire(old_p);
+    sync_to_fast(num, desired, new_p);
+  }
 
-    // We have successfully installed our value while the object is locked, so
-    // it is visible to readers, and we can linearize before the in-flight store'
-    if (old_indirect) {
-      hazptr_instance().retire(old_indirect);
+
+  bool compare_and_swap(const T& expected, const T& desired) {
+    auto num = version.load(std::memory_order_acquire);
+    
+    alignas(T) char dest[sizeof(T)];
+    internal::atomic_source_memcpy(&dest, &fast_value, sizeof(T));
+    auto p = indirect_value.load(std::memory_order_acquire);
+    
+    bool fast_valid = (p.get_mark() == 0 && num == version.load(std::memory_order_relaxed));
+
+    auto hazptr = hazptr_holder{};
+    p = (fast_valid) ? p : hazptr.protect(indirect_value);
+    T current = (fast_valid) ? internal::bits_to_object<T>(dest) : *p;
+
+    if (current != expected) {
+      return false;
+    }
+    else if (current == expected && expected == desired) {
+      return true;
+    }
+    
+    auto new_p = marked_indirect_ptr(allocator::create(desired)).set_mark(1);
+    auto old_p = p;
+    
+    if (indirect_value.compare_exchange_strong(p, new_p)
+         || (p == old_p.remove_mark() && indirect_value.compare_exchange_strong)) {
+           
+      retire(p);
+      sync_to_fast(num, desired, new_p);
+      return true;
+    }
+    else {
+      allocator::destroy(new_p.clear_mark());
+      return false;
     }
   }
 
  private:
+  
+  void sync_to_fast(version_type num, const T& desired, marked_indirect_ptr p) noexcept {
+    if ((num % 2 == 0) && version.compare_exchange_strong(num, num + 1)) {
+      internal::atomic_dest_memcpy(&fast_value, &desired, sizeof(T));
+      version.store(num + 2, std::memory_order_release);
+      indirect_value.compare_exchange_strong(p, p.remove_mark());
+    }
+  }
+  
+  class hazptr_holder {
+    marked_indirect_ptr protect(const std::atomic<marked_indirect_ptr>& src) const {
+      return hazptr_instance().acquire(src);
+    }
+    
+    ~hazptr_holder() {
+      hazptr_instance().release();
+    }
+  };
+
+  static void retire(T* p) {
+    if (p) {
+      hazptr_instance().retire(p);
+    }
+  }
 
   static internal::intrusive_acquire_retire<indirect_type>& hazptr_instance() {
     static internal::intrusive_acquire_retire<indirect_type> instance;
@@ -178,7 +189,7 @@ struct big_atomic {
   }
 
   std::atomic<version_type> version;
-  std::atomic<indirect_type*> indirect_value{nullptr};
+  std::atomic<marked_indirect_ptr> indirect_value{nullptr};
   char fast_value[sizeof(T)];
 };
 
