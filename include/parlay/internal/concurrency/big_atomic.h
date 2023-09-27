@@ -1,13 +1,13 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include <atomic>
-#include <utility>
 
 #include "../../alloc.h"
-#include "../../utilities.h"
 
 #include "acquire_retire.h"
 #include "marked_ptr.h"
@@ -33,7 +33,8 @@ inline void atomic_store_per_byte_memcpy(void* dest, const void* source, size_t 
 // is to type pun from a byte representation into a valid object with valid lifetime.
 template<typename T>
 T bits_to_object(const char* src) {
-  union { std::monostate empty{}; T value; };
+  struct empty{};
+  union { empty empty_{}; T value; };
   std::memcpy(&value, src, sizeof(T));
   return value;
 }

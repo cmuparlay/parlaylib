@@ -33,6 +33,7 @@ configure_danalysis(
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/terminal.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/delayed/zip.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/concurrency/acquire_retire.h
+    ${PARLAY_INCLUDE_DIR}/parlay/internal/concurrency/big_atomic.h
     ${PARLAY_INCLUDE_DIR}/parlay/internal/concurrency/hazptr_stack.h
     ${PARLAY_INCLUDE_DIR}/parlay/alloc.h
     ${PARLAY_INCLUDE_DIR}/parlay/delayed.h
