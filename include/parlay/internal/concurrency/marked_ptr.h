@@ -14,11 +14,11 @@ class marked_ptr {
  public:
   marked_ptr() : ptr(0) {}
 
-  /* implicit */ marked_ptr(std::nullptr_t) : ptr(0) {}
+  /* implicit */ marked_ptr(std::nullptr_t) : ptr(0) {}                 // NOLINT(google-explicit-constructor)
 
-  /* implicit */ marked_ptr(T *new_ptr) : ptr(reinterpret_cast<uintptr_t>(new_ptr)) {}
+  /* implicit */ marked_ptr(T *new_ptr) : ptr(reinterpret_cast<uintptr_t>(new_ptr)) {}      // NOLINT(google-explicit-constructor)
 
-  /* implicit */ operator T* () const { return get_ptr(); }
+  /* implicit */ operator T* () const { return get_ptr(); }             // NOLINT(google-explicit-constructor)
 
   typename std::add_lvalue_reference_t<T> operator*() const { return *(get_ptr()); }
 
@@ -34,9 +34,7 @@ class marked_ptr {
 
   bool operator!=(const T *other) const { return get_ptr() != other; }
 
-  operator bool() const noexcept { return get_ptr() != nullptr; }
-  
-  operator T*() const noexcept { return get_ptr(); }
+  operator bool() const noexcept { return get_ptr() != nullptr; }         // NOLINT(google-explicit-constructor)
 
   T* get_ptr() const { return reinterpret_cast<T*>(ptr & ~(ONE_BIT | TWO_BIT)); }
 

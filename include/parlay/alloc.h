@@ -236,6 +236,10 @@ class type_allocator {
 
 public:
 
+  // Force the underlying allocator to be initialized in case it
+  // needs to be to guarantee correct static destruction order.
+  static void init() { get_allocator(); };
+
   // Allocate uninitialized storage appropriate for storing an object of type T
   static T* alloc() {
     void* buffer = get_allocator().alloc();
@@ -271,8 +275,7 @@ public:
   template <typename ... Args>
   static T* allocate(Args... args) { return create(std::forward<Args>(args)...); }
   static void retire(T* ptr) { destroy(ptr); }
-  static void init(size_t, size_t) {};
-  static void init() {};
+  static void init(size_t, size_t) { get_allocator(); };
   static void reserve([[maybe_unused]] size_t n = default_alloc_size) { }
   static void finish() { get_allocator().clear(); }
   static size_t block_size () { return get_allocator().get_block_size(); }
