@@ -22,7 +22,7 @@ namespace internal {
 
 // intrusive_acquire_retire works on types T that expose a T* via
 // the ADL findable free functions intrusive_get_next(ptr) & intrusive_set_next(ptr)
-template<typename T, typename Deleter = std::default_delete<T>, size_t delay = 1>
+template<typename T, typename Deleter = std::default_delete<T>, size_t delay = 10>
 class intrusive_acquire_retire {
 
   struct RetiredList {
@@ -82,13 +82,15 @@ class intrusive_acquire_retire {
   U acquire(const std::atomic<U>& p) {
     static_assert(std::is_convertible_v<U, T*>, "acquire must read from a type that is convertible to T*");
     std::atomic<T*>& slot = data->announcement;
-    U result;
-    do {
-      result = p.load(std::memory_order_seq_cst);
+    U result = p.load(std::memory_order_acquire);
+    while (true) {
+      if (static_cast<T*>(result) == nullptr) return result;
       PARLAY_PREFETCH(result, 0, 0);
       slot.store(static_cast<T*>(result), std::memory_order_seq_cst);
-    } while (p.load(std::memory_order_seq_cst) != result);
-    return result;
+      U current = p.load(std::memory_order_acquire);
+      if (current == result) PARLAY_LIKELY return result;
+      else result = std::move(current);
+    }
   }
 
   void release() {
