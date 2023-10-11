@@ -141,8 +141,8 @@ struct big_atomic {
     auto new_p = marked_indirect_ptr(allocator::create(desired)).set_mark(SLOW_MODE);
     auto old_p = p;
     
-    if (indirect_value.compare_exchange_strong(p, new_p)
-         || (p == old_p.clear_mark() && indirect_value.compare_exchange_strong(p, new_p))) {
+    if (indirect_value.load(std::memory_order_relaxed) == p && indirect_value.compare_exchange_strong(p, new_p)
+         || (p == indirect_value.load(std::memory_order_relaxed) && p == old_p.clear_mark() && indirect_value.compare_exchange_strong(p, new_p))) {
            
       retire(p);
       try_seqlock_and_store(num, desired, new_p);
@@ -187,7 +187,7 @@ struct big_atomic {
   }
 
   void try_seqlock_and_store(version_type num, const T& desired, marked_indirect_ptr p) noexcept {
-    if ((num % 2 == 0) && version.compare_exchange_strong(num, num + 1)) {
+    if ((num % 2 == 0) && num == version.load(std::memory_order_relaxed) && version.compare_exchange_strong(num, num + 1)) {
       internal::atomic_store_per_byte_memcpy(&fast_value, &desired, sizeof(T));
       version.store(num + 2, std::memory_order_release);
       auto unmarked = p;
