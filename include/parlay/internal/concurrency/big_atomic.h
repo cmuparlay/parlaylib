@@ -9,7 +9,8 @@
 
 #include "../../alloc.h"
 
-#include "acquire_retire.h"
+//#include "acquire_retire.h"
+#include "hazard_ptr.h"
 #include "marked_ptr.h"
 
 namespace parlay {
@@ -55,15 +56,19 @@ struct big_atomic {
     explicit indirect_holder(const T& value_) : value(value_) { }
     T value;
     indirect_holder* next_;    // Intrusive link for hazard pointers
+
+    indirect_holder* get_next() {
+      return next_;
+    }
+
+    void set_next(indirect_holder* next) {
+      next_ = next;
+    }
+
+    void destroy() {
+      allocator::destroy(this);
+    }
   };
-
-  friend indirect_holder* intrusive_get_next(indirect_holder* p) {
-    return p->next_;
-  }
-
-  friend void intrusive_set_next(indirect_holder* p, indirect_holder* next) {
-    p->next_ = next;
-  }
 
  public:
 
@@ -141,7 +146,7 @@ struct big_atomic {
     auto new_p = marked_indirect_ptr(allocator::create(desired)).set_mark(SLOW_MODE);
     auto old_p = p;
     
-    if (indirect_value.load(std::memory_order_relaxed) == p && indirect_value.compare_exchange_strong(p, new_p)
+    if ((indirect_value.load(std::memory_order_relaxed) == p && indirect_value.compare_exchange_strong(p, new_p))
          || (p == indirect_value.load(std::memory_order_relaxed) && p == old_p.clear_mark() && indirect_value.compare_exchange_strong(p, new_p))) {
            
       retire(p);
@@ -198,7 +203,7 @@ struct big_atomic {
 
   struct hazptr_holder {
     marked_indirect_ptr protect(const std::atomic<marked_indirect_ptr>& src) const {
-      return hazptr_instance().acquire(src);
+      return hazptr_instance().protect(src);
     }
     
     ~hazptr_holder() {
@@ -212,10 +217,8 @@ struct big_atomic {
     }
   }
 
-  static constexpr auto dealloc = [](indirect_holder* p) { allocator::destroy(p); };
-
-  static internal::intrusive_acquire_retire<indirect_holder, decltype(dealloc)>& hazptr_instance() {
-    static internal::intrusive_acquire_retire<indirect_holder, decltype(dealloc)> instance(dealloc);
+  static HazardPointers<indirect_holder>& hazptr_instance() {
+    static HazardPointers<indirect_holder> instance{};
     return instance;
   }
 

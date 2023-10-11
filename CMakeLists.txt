@@ -62,6 +62,8 @@ endif()
 find_package(Threads REQUIRED)
 target_link_libraries(parlay INTERFACE Threads::Threads)
 
+find_package(folly REQUIRED)
+target_link_libraries(parlay INTERFACE folly glog dl double-conversion fmt gflags)
 
 message(STATUS "-------------------------------- Library options ------------------------------")
 
