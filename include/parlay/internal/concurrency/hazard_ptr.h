@@ -157,7 +157,7 @@ class HazardPointers {
     // only happen if the user spawns substantially more threads than were active
     // during the previous call to cleanup().  Therefore cleanup is always lock free
     // unless the number of threads has doubled since last time.
-    protected_set_type protected_set{2 * std::thread::hardware_concurrency()};
+    alignas(CACHE_LINE_ALIGNMENT) protected_set_type protected_set{2 * std::thread::hardware_concurrency()};
   };
 
   // Find an available hazard slot, or allocate a new one if none available.
@@ -240,8 +240,8 @@ class HazardPointers {
       if (ptr_to_protect == nullptr) {
         return result;
       }
-      PARLAY_PREFETCH(ptr_to_protect, 0, 0);
-      slot.store(ptr_to_protect, protection_order);
+      //PARLAY_PREFETCH(ptr_to_protect, 0, 0);
+      slot.store(ptr_to_protect, std::memory_order_relaxed);
 
       folly::asymmetric_thread_fence_light(std::memory_order_seq_cst);
 

@@ -15,6 +15,10 @@
 #include "../../portability.h"
 #include "../../thread_specific.h"
 
+
+ #include <folly/synchronization/AsymmetricThreadFence.h>
+
+
 // IWYU pragma: no_forward_declare parlay::padded
 
 namespace parlay {
@@ -86,7 +90,9 @@ class intrusive_acquire_retire {
     while (true) {
       if (static_cast<T*>(result) == nullptr) return result;
       PARLAY_PREFETCH(result, 0, 0);
-      slot.store(static_cast<T*>(result), std::memory_order_seq_cst);
+      slot.store(static_cast<T*>(result), std::memory_order_relaxed);
+      //slot.store(static_cast<T*>(result), std::memory_order_seq_cst);
+      folly::asymmetric_thread_fence_light(std::memory_order_seq_cst);
       U current = p.load(std::memory_order_acquire);
       if (current == result) PARLAY_LIKELY return result;
       else result = std::move(current);
@@ -132,7 +138,7 @@ class intrusive_acquire_retire {
   // Apply the function f to every currently announced value
   template<typename F>
   void scan_slots(F &&f) {
-    std::atomic_thread_fence(std::memory_order_seq_cst);
+    //folly::asymmetric_thread_fence_heavy(std::memory_order_seq_cst);
     data.for_each([&](auto&& local_data) {
       auto x = local_data.announcement.load(std::memory_order_seq_cst);
       if (x != nullptr) f(x);

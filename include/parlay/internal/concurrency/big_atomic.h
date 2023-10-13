@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include <atomic>
+#include <bit>
 
 #include "../../alloc.h"
 
@@ -34,10 +35,20 @@ PARLAY_INLINE void atomic_store_per_byte_memcpy(void* dest, const void* source, 
 // is to type pun from a byte representation into a valid object with valid lifetime.
 template<typename T>
 PARLAY_INLINE T bits_to_object(const char* src) {
-  struct empty{};
-  union { empty empty_{}; T value; };
-  std::memcpy(&value, src, sizeof(T));
-  return value;
+  return *reinterpret_cast<const T*>(src);  // Evil, scary, undefined behaviour!!! But its 20% faster :'(
+  /*
+  if constexpr(!std::is_trivially_default_constructible_v<T>) {
+    struct empty{};
+    union { empty empty_{}; T value; };
+    std::memcpy(&value, src, sizeof(T));
+    return value;
+  }
+  else {
+    T value;
+    std::memcpy(&value, src, sizeof(T));
+    return value;
+  }
+  */
 }
 
 }  // namespace internal
@@ -72,6 +83,7 @@ struct big_atomic {
 
  public:
 
+  using value_type = T;
   using version_type = std::size_t;
   using marked_indirect_ptr = marked_ptr<indirect_holder>;
 
@@ -98,31 +110,54 @@ struct big_atomic {
   }
 
   T load() {
-    auto reader = read_fast();
-    if (reader.fast_valid) {
-      return reader.get_fast();
-    }
+    //return fast_value;
+    //return *reinterpret_cast<const T*>(&fast_value);
+    //return std::bit_cast<T>(fast_value);
+    //return internal::bits_to_object<T>(fast_value);
+
+    auto ver = version.load(std::memory_order_acquire);
+    alignas(T) char buffer[sizeof(T)];
+    internal::atomic_load_per_byte_memcpy(&buffer, &fast_value, sizeof(T));
+    value_type v = internal::bits_to_object<T>(buffer);
+    auto p = indirect_value.load();
+    //std::atomic_thread_fence(std::memory_order_acquire);
+    //return internal::bits_to_object<T>(fast_value);
+    //return internal::bits_to_object<T>(buffer);
+    return v;
+    if (
+        //!is_marked(p) &&
+	ver == version.load(std::memory_order_relaxed))
+      return internal::bits_to_object<T>(buffer);
+
+
+    //std::abort();
+
+    //auto reader = read_fast();
+    //if (reader.fast_valid) {
+    //  return reader.get_fast();
+    //}
     else {
       auto hazptr = hazptr_holder{};
       auto p = hazptr.protect(indirect_value);
-      assert(p != nullptr);
+      assert(unmark_ptr(p) != nullptr);
       // Readers can help put the object back into "fast mode".  This is very good if updates
       // are infrequent since this will speed up all subsequent reads.  Unfortunately this
-      // could be a severe slowdown is updates are very frequent, since many reads will try
+      // could be a severe slowdown if updates are very frequent, since many reads will try
       // to help and waste work here...  Might be nice to optimize this so that it doesn't
       // try to help every time, but only every once in a while.
       //if (p.get_mark() == SLOW_MODE) {
       //  try_seqlock_and_store(reader.num, p->value, p);
       //}
-      return p->value;
+      return unmark_ptr(p)->value;
     }
+    
   }
 
   void store(const T& desired) {
     auto num = version.load(std::memory_order_acquire);
-    auto new_p = marked_indirect_ptr(allocator::create(desired)).set_mark(SLOW_MODE);
+    auto new_p = mark_ptr(allocator::create(desired));
     auto old_p = indirect_value.exchange(new_p);
-    retire(old_p);
+    retire(unmark_ptr(old_p));
     try_seqlock_and_store(num, desired, new_p);
   }
 
@@ -137,30 +172,30 @@ struct big_atomic {
     // the fast value is valid because otherwise our CAS below could ABA!!
     auto hazptr = hazptr_holder{};
     auto p = hazptr.protect(indirect_value);
-    assert(p != nullptr);
+    assert(unmark_ptr(p) != nullptr);
 
-    if (!Equal{}(p->value, expected)) {
+    if (!Equal{}(unmark_ptr(p)->value, expected)) {
       return false;
     }
 
-    auto new_p = marked_indirect_ptr(allocator::create(desired)).set_mark(SLOW_MODE);
+    auto new_p = mark_ptr(allocator::create(desired));
     auto old_p = p;
     
     if ((indirect_value.load(std::memory_order_relaxed) == p && indirect_value.compare_exchange_strong(p, new_p))
-         || (p == indirect_value.load(std::memory_order_relaxed) && p == old_p.clear_mark() && indirect_value.compare_exchange_strong(p, new_p))) {
+         || (p == indirect_value.load(std::memory_order_relaxed) && p == unmark_ptr(old_p) && indirect_value.compare_exchange_strong(p, new_p))) {
            
-      retire(p);
+      retire(unmark_ptr(p));
       try_seqlock_and_store(num, desired, new_p);
       return true;
     }
     else {
-      allocator::destroy(new_p.clear_mark());
+      allocator::destroy(unmark_ptr(new_p));
       return false;
     }
   }
 
   ~big_atomic() {
-    auto p = indirect_value.load(std::memory_order_acquire);
+    auto p = unmark_ptr(indirect_value.load(std::memory_order_acquire));
     if (p) {
       allocator::destroy(p);
     }
@@ -191,23 +226,22 @@ struct big_atomic {
     return reader;
   }
 
-  void try_seqlock_and_store(version_type num, const T& desired, marked_indirect_ptr p) noexcept {
+  void try_seqlock_and_store(version_type num, const T& desired, indirect_holder* p) noexcept {
     if ((num % 2 == 0) && num == version.load(std::memory_order_relaxed) && version.compare_exchange_strong(num, num + 1)) {
       internal::atomic_store_per_byte_memcpy(&fast_value, &desired, sizeof(T));
       version.store(num + 2, std::memory_order_release);
-      auto unmarked = p;
-      unmarked.clear_mark();
-      indirect_value.compare_exchange_strong(p, unmarked);
+      indirect_value.compare_exchange_strong(p, unmark_ptr(p));
     }
   }
 
   struct hazptr_holder {
-    marked_indirect_ptr protect(const std::atomic<marked_indirect_ptr>& src) const {
+    indirect_holder* protect(const std::atomic<indirect_holder*>& src) const {
       return hazptr_instance().protect(src);
+      //return src.load(std::memory_order_acquire);
     }
     
     ~hazptr_holder() {
-      hazptr_instance().release();
+      //hazptr_instance().release();
     }
   };
 
@@ -218,15 +252,19 @@ struct big_atomic {
   }
 
   static HazardPointers<indirect_holder>& hazptr_instance() {
-    static HazardPointers<indirect_holder> instance{};
-    return instance;
+    return get_hazard_list<indirect_holder>();
   }
 
   static constexpr uintptr_t SLOW_MODE = 1;
 
+  static constexpr indirect_holder* mark_ptr(indirect_holder* p) { return reinterpret_cast<indirect_holder*>(reinterpret_cast<uintptr_t>(p) | SLOW_MODE); }
+  static constexpr indirect_holder* unmark_ptr(indirect_holder* p) { return reinterpret_cast<indirect_holder*>(reinterpret_cast<uintptr_t>(p) & ~SLOW_MODE); }
+  static constexpr bool is_marked(indirect_holder* p) { return reinterpret_cast<uintptr_t>(p) & SLOW_MODE; }
+
+  std::atomic<indirect_holder*> indirect_value{nullptr};
   std::atomic<version_type> version;
-  std::atomic<marked_indirect_ptr> indirect_value{nullptr};
-  char fast_value[sizeof(T)];
+  alignas(16) char fast_value[sizeof(T)];  // Over-align in case 16-byte copies can use faster instructions (e.g., movdqa instead of movdqu on x86)
+  //T fast_value;
 };
 
 
