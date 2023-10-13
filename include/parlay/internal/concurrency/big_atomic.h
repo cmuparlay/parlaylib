@@ -118,14 +118,14 @@ struct big_atomic {
     auto ver = version.load(std::memory_order_acquire);
     alignas(T) char buffer[sizeof(T)];
     internal::atomic_load_per_byte_memcpy(&buffer, &fast_value, sizeof(T));
-    value_type v = internal::bits_to_object<T>(buffer);
+    //value_type v = internal::bits_to_object<T>(buffer);
     auto p = indirect_value.load();
     //std::atomic_thread_fence(std::memory_order_acquire);
     //return internal::bits_to_object<T>(fast_value);
     //return internal::bits_to_object<T>(buffer);
-    return v;
+    //return v;
     if (
-        //!is_marked(p) &&
+        !is_marked(p) &&
 	ver == version.load(std::memory_order_relaxed))
       return internal::bits_to_object<T>(buffer);
 
