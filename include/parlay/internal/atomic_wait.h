@@ -91,7 +91,7 @@ The strategy is chosen this way, by platform:
     #define __ABI
 #endif
 
-#if defined(__APPLE__) || defined(__linux__)
+#if defined(__APPLE__) || defined(__linux__) || defined(__CYGWIN__)
 
     #include <unistd.h>
     #include <sched.h>
@@ -137,7 +137,7 @@ The strategy is chosen this way, by platform:
     #define __NO_CONDVAR
     #define __NO_TABLE
 
-    
+
     #ifndef NOMINMAX
     #define PARLAY_DEFINED_NOMINMAX
     #define NOMINMAX
@@ -146,11 +146,12 @@ The strategy is chosen this way, by platform:
     #ifdef PARLAY_DEFINED_NOMINMAX
     #undef NOMINMAX
     #endif
-    
+
     #define __YIELD() Sleep(0)
     #define __SLEEP(x) Sleep(x)
     #define __YIELD_PROCESSOR() YieldProcessor()
 
+#if !defined(__clang__)
     #include <intrin.h>
     template <class _Tp>
     auto __atomic_load_n(_Tp const* a, int) -> typename std::remove_reference<decltype(*a)>::type {
@@ -158,6 +159,8 @@ The strategy is chosen this way, by platform:
         _ReadWriteBarrier();
         return t;
     }
+#endif
+
     #define __builtin_expect(e, v) (e)
 
     #if defined(_WIN32_WINNT) && (_WIN32_WINNT >= _WIN32_WINNT_WIN8) && !defined(__NO_FUTEX)
@@ -255,7 +258,7 @@ The strategy is chosen this way, by platform:
 #elif defined(__FUTEX)
 
         template <class _Tp, typename std::enable_if<!__type_used_directly(_Tp), int>::type = 1>
-        void __cxx_atomic_notify_all(_Tp const* ptr) {
+        void __cxx_atomic_notify_all([[maybe_unused]] _Tp const* ptr) {
     #if defined(__TABLE)
             auto * const c = __contention(ptr);
             __atomic_fetch_add(&c->version, 1, __ATOMIC_RELAXED);
@@ -326,9 +329,9 @@ The strategy is chosen this way, by platform:
         __cxx_atomic_try_wait_slow_fallback(ptr, val, order);
     }
     template <class _Tp>
-    __ABI void __cxx_atomic_notify_one(_Tp const* ptr) { }
+    __ABI void __cxx_atomic_notify_one([[maybe_unused]] _Tp const* ptr) { }
     template <class _Tp>
-    __ABI void __cxx_atomic_notify_all(_Tp const* ptr) { }
+    __ABI void __cxx_atomic_notify_all([[maybe_unused]] _Tp const* ptr) { }
 
 #endif // __FUTEX || __CONDVAR
 
