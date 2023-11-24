@@ -26,10 +26,27 @@
 
 namespace parlay {
 
+struct empty {};
+
+template<typename T>
+struct uninitialized {
+  union {
+    empty empty_;
+    T value;
+  };
+  uninitialized() : empty_{} { }
+};
+
+// Returns a void* to the given object, stripping cv qualifiers.
+template<class T>
+PARLAY_INLINE constexpr void* voidify(T& obj) noexcept {
+  return const_cast<void*>(static_cast<const volatile void*>(std::addressof(obj)));
+}
+
 // Obtains a pointer to an object of type T located at the address represented
 // by p. Essentially performs std::launder(reinterpret_cast<T*>(p)).
 template<typename T>
-[[nodiscard]] constexpr T* from_bytes(std::byte* p) noexcept {
+[[nodiscard]] PARLAY_INLINE constexpr T* from_bytes(std::byte* p) noexcept {
   // std::launder not available on older compilers
 #ifdef __cpp_lib_launder
   return std::launder(reinterpret_cast<T*>(p));
@@ -38,11 +55,24 @@ template<typename T>
 #endif
 }
 
+// Given storage containing valid bits for object of type T, produce an object of type T
+// with the same object representation.
+//
+// i.e., basically std::bit_cast from C++20 but with a slightly different interface. The
+// goal is to type pun from a byte representation into a valid object with valid lifetime.
+template<typename T>
+PARLAY_INLINE T bits_to_object(const char* src) {
+  if constexpr (!std::is_trivially_default_constructible_v<T>) {
+    uninitialized<T> holder;
+    std::memcpy(&holder.value, src, sizeof(T));
+    return holder.value;
+  } else {
+    T value;
+    std::memcpy(&value, src, sizeof(T));
+    return value;
+  }
+}
 
-template <class T>
-size_t log2_up(T);
-
-struct empty {};
 
 typedef uint32_t flags;
 const flags no_flag = 0;
@@ -70,22 +100,66 @@ inline void move_uninitialized(T& a, type_identity_t<T>& b) {
   new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
 
-// Relocate a single object into uninitialized memory, leaving
-// the source memory uninitialized afterwards.
+// Relocate the object located at source into dest (required to be uninitialized memory),
+// leaving source uninitialized.
+//
+// Effects: Equivalent to:
+//
+//    struct guard { T *t; ~guard() { destroy_at(t); } } g{source};
+//    return ::new (voidify(*dest)) T(std::move(*source));
+
+// except that if T is trivially relocatable, side effects associated with the relocation
+// of the value of *source might not happen.
+//
+#if defined(__cpp_lib_trivially_relocatable)
+using std::relocate_at;
+#else
 template<typename T>
-inline void uninitialized_relocate(T* to, T* from) noexcept(is_nothrow_relocatable<T>::value) {
+PARLAY_INLINE T* relocate_at(T* source, T* dest)
+    noexcept(is_trivially_relocatable_v<T> || std::is_nothrow_move_constructible_v<T>) {
   if constexpr (is_trivially_relocatable<T>::value) {
-    std::memcpy(static_cast<void*>(to), static_cast<void*>(from), sizeof(T));
+    std::memcpy(voidify(*dest), voidify(*source), sizeof(T));
+    return dest;
   }
   else {
     static_assert(std::is_move_constructible<T>::value);
     static_assert(std::is_destructible<T>::value);
-    PARLAY_ASSERT_UNINITIALIZED(*to);
-    ::new (to) T(std::move(*from));
-    from->~T();
-    PARLAY_ASSERT_UNINITIALIZED(*from);
+    PARLAY_ASSERT_UNINITIALIZED(*dest);
+    struct guard { T *t; ~guard() { std::destroy_at(t); PARLAY_ASSERT_UNINITIALIZED(*from); } } g{source};
+    return ::new (voidify(*dest)) T(std::move(*source));
   }
 }
+#endif
+
+// Relocate the object located at source into the return value, leaving source uninitialized.
+//
+// Effects: Equivalent to:
+//
+//    remove_cv_t<T> t = std::move(source);
+//    destroy_at(source);
+//    return t;
+
+// except that if T is trivially relocatable, side effects associated with the relocation
+// of the object’s value might not happen.
+//
+#if defined(__cpp_lib_trivially_relocatable)
+using std::relocate;
+#else
+template<typename T>
+[[nodiscard]] PARLAY_INLINE std::remove_cv_t<T> relocate(T* source)
+    noexcept(is_trivially_relocatable_v<T> || std::is_nothrow_move_constructible_v<T>) {
+  if constexpr (is_trivially_relocatable<T>::value) {
+    return bits_to_object<std::remove_cv<T>>(static_cast<const char*>(voidify(*source)));
+  }
+  else {
+    static_assert(std::is_move_constructible<T>::value);
+    static_assert(std::is_destructible<T>::value);
+    std::remove_cv_t<T> t = std::move(source);
+    std::destroy_at(source);
+    return t;
+  }
+}
+#endif
 
 /* Hashing functions for various integer types */
 
@@ -352,7 +426,7 @@ void assign_dispatch(T& dest, const type_identity_t<T>& val, uninitialized_copy_
 // Uninitialized relocate dispatch -- destructively move val into dest
 template<typename T>
 void assign_dispatch(T& dest, T& val, uninitialized_relocate_tag) {
-  uninitialized_relocate(&dest, &val);
+  relocate_at(&val, &dest);
 }
 
 

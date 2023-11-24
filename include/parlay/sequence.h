@@ -67,7 +67,7 @@ using sequence_default_allocator = std::allocator<T>;
 //  EnableSSO:  true to enable small-size optimization
 //
 template<typename T, typename Allocator = internal::sequence_default_allocator<T>, bool EnableSSO = std::is_same<T, char>::value>
-class sequence : protected sequence_internal::sequence_base<T, Allocator, EnableSSO> {
+class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::sequence_base<T, Allocator, EnableSSO> {
 
   static_assert(std::is_same_v<typename std::remove_cv_t<T>, T>, "sequences must have a non-const, non-volatile value_type");
   static_assert(std::is_same_v<typename std::decay_t<T>, T>, "sequences must not have an array, reference, or function value_type");
@@ -723,6 +723,20 @@ class sequence : protected sequence_internal::sequence_base<T, Allocator, Enable
   }
 };
 
+#if defined(PARLAY_MUST_SPECIALIZE_IS_TRIVIALLY_RELOCATABLE)
+
+// Mark sequences as trivially relocatable. A sequence is always
+// trivially relocatable as long as the allocator is, because:
+//  1) Sequences only use small-size optimization when the element
+//     type is trivial, so the buffer of trivial elements is
+//     trivially relocatable.
+//  2) Sequences that are not small-size optimized are just a
+//     pointer/length pair, which are trivially relocatable
+template<typename T, typename Alloc, bool EnableSSO>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<Alloc>), parlay::sequence<T, Alloc, EnableSSO>);
+
+#endif
+
 // A short_sequence is a dynamic array supporting parallel modification operations
 // that may also perform small-size optimization. For sequences of trivial types
 // whose elements fit in 15 bytes or fewer, the sequence will be stored inline and
@@ -786,17 +800,6 @@ inline auto to_short_sequence(R&& r) -> short_sequence<T, Alloc> {
       "You called parlay::to_sequence on a delayed (block-iterable) range. You probably meant to call parlay::delayed::to_sequence");
   return {std::begin(r), std::end(r)};
 }
-
-// Mark sequences as trivially relocatable. A sequence is always
-// trivially relocatable as long as the allocator is, because:
-//  1) Sequences only use small-size optimization when the element
-//     type is trivial, so the buffer of trivial elements is
-//     trivially relocatable.
-//  2) Sequences that are not small-size optimized are just a
-//     pointer/length pair, which are trivially relocatable
-template<typename T, typename Alloc, bool EnableSSO>
-struct is_trivially_relocatable<sequence<T, Alloc, EnableSSO>>
-    : std::bool_constant<is_trivially_relocatable_v<Alloc>> {};
 
 
 }  // namespace parlay

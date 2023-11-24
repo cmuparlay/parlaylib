@@ -42,7 +42,7 @@ void radix_step_(slice<InIterator, InIterator> A,
 
   for (size_t j = n; j > 0; j--) {
     auto x = --counts[keys[j-1]];
-    uninitialized_relocate(&B[x], &A[j-1]);
+    relocate_at(&A[j - 1], &B[x]);
   }
 }
 

@@ -26,7 +26,7 @@ struct NotTriviallyRelocatable {
 };
 
 // A type that is trivially relocatable because it is
-// trivially movable and trivally destructible
+// trivially movable and trivially destructible
 struct TriviallyRelocatable {
   int x;
   explicit TriviallyRelocatable(int _x) : x(_x) { }
@@ -79,8 +79,8 @@ TEST(TestRelocate, TestNotTriviallyRelocatable) {
   ASSERT_EQ(from->x, 42);
   ASSERT_EQ(from->px, &(from->x));
   // -- Now from points to a valid object, and to points to uninitialized memory
-  
-  parlay::uninitialized_relocate(to, from);
+
+  parlay::relocate_at(from, to);
   ASSERT_EQ(to->x, 42);
   ASSERT_EQ(to->px, &(to->x));
   // -- Now to points to a valid object, and from points to uninitialized memory
@@ -99,8 +99,8 @@ TEST(TestRelocate, TestTriviallyRelocatable) {
   new (from) TriviallyRelocatable(42);
   ASSERT_EQ(from->x, 42);
   // -- Now from points to a valid object, and to points to uninitialized memory
-  
-  parlay::uninitialized_relocate(to, from);
+
+  parlay::relocate_at(from, to);
   ASSERT_EQ(to->x, 42);
   // -- Now to points to a valid object, and from points to uninitialized memory
   
@@ -118,8 +118,8 @@ TEST(TestRelocate, TestCustomTriviallyRelocatable) {
   new (from) MyTriviallyRelocatable(42);
   ASSERT_EQ(*(from->x), 42);
   // -- Now from points to a valid object, and to points to uninitialized memory
-  
-  parlay::uninitialized_relocate(to, from);
+
+  parlay::relocate_at(from, to);
   ASSERT_EQ(*(to->x), 42);
   // -- Now to points to a valid object, and from points to uninitialized memory
   

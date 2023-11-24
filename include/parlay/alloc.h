@@ -154,7 +154,7 @@ inline void p_free(void* ptr) {
 //    std::vector<int, parlay::allocator<int>>
 //
 template <typename T>
-struct allocator {
+struct PARLAY_TRIVIALLY_RELOCATABLE allocator {
   using value_type = T;
   T* allocate(size_t n) {
     // Use headerless blocks straight from the pool if the alignment is suitable,
@@ -183,8 +183,13 @@ struct allocator {
   template <class U> /* implicit */ constexpr allocator(const allocator<U>&) noexcept { }
 };
 
+#if defined(PARLAY_MUST_SPECIALIZE_IS_TRIVIALLY_RELOCATABLE)
+
 template<typename T>
-struct is_trivially_relocatable<allocator<T>> : std::true_type {};
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(allocator<T>);
+
+#endif
+
 
 template <class T, class U>
 bool operator==(const allocator<T>&, const allocator<U>&) { return true; }

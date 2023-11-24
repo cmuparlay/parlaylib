@@ -1,15 +1,10 @@
 // Useful type traits used mostly internally by Parlay
 //
-// Many inspired by this video, and the following standards
-// proposals:
+// Many inspired by this video:
 //  - https://www.youtube.com/watch?v=MWBfmmg8-Yo
-//  - http://open-std.org/JTC1/SC22/WG21/docs/papers/2014/n4034.pdf
-//  - https://quuxplusone.github.io/blog/code/object-relocation-in-terms-of-move-plus-destroy-draft-7.html
 //
-// Includes:
-//  - priority_tag
-//  - is_trivial_allocator
-//  - is_trivially_relocatable / is_nothrow_relocatable
+// Notable inclusions:
+//  - is_trivially_relocatable
 //
 
 #ifndef PARLAY_TYPE_TRAITS_H_
@@ -17,11 +12,15 @@
 
 #include <cstddef>
 
+#include <array>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <type_traits>
+#include <tuple>
 #include <utility>       // IWYU pragma: keep
+#include <variant>
 
 // IWYU pragma: no_include <iterator>
 
@@ -230,56 +229,183 @@ inline constexpr bool is_trivial_allocator_v = is_trivial_allocator<Alloc, T>::v
 template<typename T>
 struct is_trivial_allocator<std::allocator<T>, T> : std::true_type {};
 
-/*  ----------------- Trivially relocatable. ---------------------
-    A type T is called trivially relocatable if, given a pointer
-    p to an object of type T, and a pointer q to unintialized
-    memory large enough for an object of type T, then
 
-    new (q) T(std::move(*p));
-    p->~T();
+/*  ----------------- Trivially relocatable. ---------------------
+
+    A type T is called trivially relocatable if, given a pointer p
+    to an object of type T, and a pointer q to uninitialized memory
+    large enough for an object of type T, then
+
+      new (q) T(std::move(*p));
+      p->~T();
 
     is equivalent to
 
-    std::memcpy(p, q, sizeof(T));
+      std::memcpy(p, q, sizeof(T));
 
-    Any type that is trivially move constructible and trivially
-    destructible is therefore trivially relocatable. User-defined
-    types that are not obviously trivially relocatable can be
-    annotated as such by specializing the is_trivially_relocatable
-    type.
+    Any type that is trivially copyable is trivially relocatable, but many types
+    that are not trivially copyable are trivially relocatable. User-defined types
+    that are not obviously trivially relocatable can be annotated as such (with
+    care). This is used to optimize parlay::sequence so that it can reallocate
+    much faster, and is also used by sorting algorithms for faster swapping of
+    ranges of elements and individual elements.
 
-    See proposal D1144R0 for copious details:
-    https://quuxplusone.github.io/blog/code/object-relocation-in-terms-of-move-plus-destroy-draft-7.html
+    See proposal P1144 for copious details:
+    https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p1144r9.html
 */
 
-template <typename T>
-struct is_trivially_relocatable :
-        std::bool_constant<std::is_trivially_move_constructible<T>::value &&
-                           std::is_trivially_destructible<T>::value> { };
+// Standard language support for trivially relocatable (currently P1144)
+#if defined(__cpp_impl_trivially_relocatable)
 
-template <typename T> struct is_nothrow_relocatable :
-        std::bool_constant<is_trivially_relocatable<T>::value ||
-                           (std::is_nothrow_move_constructible<T>::value &&
-                            std::is_nothrow_destructible<T>::value)> { };
+template<typename T>
+using is_trivially_relocatable = std::is_trivially_relocatable<T>;
+
+// Clang's builtin with some (very limited) support for trivial relocatability
+#elif defined(__has_builtin)
+#if __has_builtin(__is_trivially_relocatable)
+
+template<typename T>
+struct is_trivially_relocatable : std::bool_constant<__is_trivially_relocatable(T)> { };
+
+#define PARLAY_MUST_SPECIALIZE_IS_TRIVIALLY_RELOCATABLE
+
+#else
+
+template<typename T>
+struct is_trivially_relocatable : std::is_trivially_copyable<T> { };
+
+#define PARLAY_MUST_SPECIALIZE_IS_TRIVIALLY_RELOCATABLE
+
+#endif
+#else
+
+template<typename T>
+struct is_trivially_relocatable : std::is_trivially_copyable<T> { };
+
+#define PARLAY_MUST_SPECIALIZE_IS_TRIVIALLY_RELOCATABLE
+
+#endif
 
 template<typename T>
 inline constexpr bool is_trivially_relocatable_v = is_trivially_relocatable<T>::value;
 
+#if defined(__cpp_impl_trivially_relocatable)
+#define PARLAY_TRIVIALLY_RELOCATABLE [[trivially_relocatable]]
+#else
+#define PARLAY_TRIVIALLY_RELOCATABLE
+#endif
+
+
+#if defined(PARLAY_MUST_SPECIALIZE_IS_TRIVIALLY_RELOCATABLE)
+
+#define PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(...)                              \
+  struct is_trivially_relocatable<__VA_ARGS__> : std::true_type {};
+
+#define PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF(cond, ...)                     \
+  struct is_trivially_relocatable<__VA_ARGS__> : std::bool_constant<cond> {};
+
+
+// We list all the types that ought to be trivially relocatable under any
+// sensible implementation. It is possible that some of these are wrong.
+
 template<typename T>
-inline constexpr bool is_nothrow_relocatable_v = is_nothrow_relocatable<T>::value;
-
-// The standard allocator is stateless, so it is trivially relocatable,
-// but unfortunately it is not detected as such, so we mark it manually.
-// This is important because parlay::sequence<T, Alloc> is only trivially
-// relocatable when its allocator is trivially relocatable.
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::allocator<T>);
 
 template<typename T>
-struct is_trivially_relocatable<std::allocator<T>> : std::true_type {};
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::shared_ptr<T>);
 
-template <typename T1, typename T2>
-struct is_trivially_relocatable<std::pair<T1,T2>> : 
-    std::bool_constant<is_trivially_relocatable<T1>::value &&
-		       is_trivially_relocatable<T2>::value> {};
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::weak_ptr<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::optional<T>);
+
+template<typename T, typename Deleter>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<Deleter>), std::unique_ptr<T, Deleter>);
+
+template<typename T1, typename T2>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<T1> &&
+                                        is_trivially_relocatable_v<T2>), std::pair<T1, T2>);
+
+template<typename T, std::size_t N>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<T>), std::array<T, N>);
+
+template <typename... T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<T> && ...), std::tuple<T...>);
+
+template <typename... T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<T> && ...), std::variant<T...>);
+
+
+// Container implementations can differ widely by vendor, so we don't want to specialize these
+// with a broad brush.  Instead, only specialize them for stdlibs that we are confident about.
+
+// Specializations for libc++.  Mostly deduced from Arthur's libc++ implementation:
+// https://github.com/Quuxplusone/libcxx/blob/trivially-relocatable/test/libcxx/type_traits/is_trivially_relocatable.pass.cpp
+#if defined(_LIBCPP_VERSION)
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::deque<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::forward_list<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::vector<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::string<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_set<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_map<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_multiset<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_multimap<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::stack<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::queue<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::priority_queue<T>);
+
+
+// Specializations for GCC.  Haven't checked any types other than std::string,
+// std::deque, std::vector, and the first is not actually trivially relocatable.
+#elif defined(__GLIBCXX__)
+
+// GCC std::string is *not* trivially relocatable because when the string is
+// in short-size mode, the data pointer points into itself :'(
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::deque<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::vector<T>);
+
+
+// Specializations for Microsoft STL.  Haven't checked any types other than
+// std::string or std::vector, but those look good.
+#elif defined(_MSC_VER)
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::string<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::vector<T>);
+
+#endif
+
+
+#endif
 
 }  // namespace parlay
 
