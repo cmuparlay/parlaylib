@@ -1011,7 +1011,7 @@ auto flatten(sequence<sequence<T>>&& r) {
   size_t len = internal::scan_inplace(make_slice(offsets), plus<size_t>());
   auto res = sequence<T>::uninitialized(len);
   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
-    uninitialized_relocate_n(std::begin(res)+offsets[i], std::begin(it[i]), it[i].size());
+    parlay::uninitialized_relocate(std::begin(it[i]), std::end(it[i]), std::begin(res)+offsets[i]);
     clear_relocated(it[i]);
   });
   r.clear();

@@ -562,7 +562,16 @@ struct alignas(uint64_t) sequence_base {
         auto n = size();
         auto dest_buffer = new_buffer.data();
         auto current_buffer = data();
-        uninitialized_relocate_n_a(dest_buffer, current_buffer, n, *this);
+
+        if constexpr (is_trivial_allocator_v<T_allocator_type, T>) {
+          parlay::uninitialized_relocate_n(current_buffer, n, dest_buffer);
+        }
+        else {
+          parallel_for(0, n, [&](size_t i){
+            std::allocator_traits<T_allocator_type>::construct(alloc, std::addressof(dest_buffer[i]), std::move(current_buffer[i]));
+            std::allocator_traits<T_allocator_type>::destroy(alloc, std::addressof(current_buffer[i]));
+          });
+        }
 
         // Destroy the old stuff
         if (!is_small()) {

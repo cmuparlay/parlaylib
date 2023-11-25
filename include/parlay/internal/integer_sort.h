@@ -80,10 +80,10 @@ void seq_radix_sort_(slice<InIterator, InIterator> In,
   }
   
   if (swapped && inplace) {
-    uninitialized_relocate_n(In.begin(), Out.begin(), In.size());
+    parlay::uninitialized_relocate(Out.begin(), Out.end(), In.begin());
   }
   else if (!swapped && !inplace) {
-    uninitialized_relocate_n(Out.begin(), In.begin(), Out.size());
+    parlay::uninitialized_relocate(In.begin(), In.end(), Out.begin());
   }
 }
 
@@ -105,10 +105,10 @@ void seq_radix_sort(slice<InIterator, InIterator> In,
     size_t n = In.size();
     if (odd) {
       // We could just use assign_dispatch(Tmp[i], In[i]) for each i, but we
-      // can optimize better by calling destructive_move_slice, since this
+      // can optimize better by calling uninitialized_relocate, since this
       // has the ability to memcpy multiple elements at once
       if constexpr (std::is_same_v<assignment_tag, uninitialized_relocate_tag>) {
-        uninitialized_relocate_n(Tmp.begin(), In.begin(), Tmp.size());
+        parlay::uninitialized_relocate(In.begin(), In.end(), Tmp.begin());
       }
       else {
         for (size_t i = 0; i < n; i++)
@@ -117,7 +117,7 @@ void seq_radix_sort(slice<InIterator, InIterator> In,
       seq_radix_sort_(Tmp, Out, g, key_bits, false);
     } else {
       if constexpr (std::is_same_v<assignment_tag, uninitialized_relocate_tag>) {
-        uninitialized_relocate_n(Out.begin(), In.begin(), Out.size());
+        parlay::uninitialized_relocate(In.begin(), In.end(), Out.begin());
       }
       else {
         for (size_t i = 0; i < n; i++)
@@ -219,7 +219,7 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
       // uninitialized_relocate_n, which can memcpy multiple elements at a time
       // to save on performing every copy individually.
       if constexpr (std::is_same_v<assignment_tag, uninitialized_relocate_tag>) {
-        uninitialized_relocate_n(Out.begin(), In.begin(), Out.size());
+        parlay::uninitialized_relocate(In.begin(), In.end(), Out.begin());
       }
       else {
         parallel_for(0, In.size(), [&](size_t i) {
@@ -248,7 +248,7 @@ sequence<size_t> integer_sort_r(slice<InIterator, InIterator> In,
   
     if constexpr (inplace_tag::value == true) {
       if (!one_bucket) {
-        uninitialized_relocate_n(In.begin(), Out.begin(), In.size());
+        parlay::uninitialized_relocate(Out.begin(), Out.end(), In.begin());
       }
     }
     

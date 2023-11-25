@@ -18,7 +18,7 @@ namespace internal {
 template<typename T>
 class uninitialized_storage {
   using value_type = T;
-  typename std::aligned_storage<sizeof(T), alignof(T)>::type storage;
+  alignas(T) char storage [sizeof(T)];
 
  public:
   uninitialized_storage() {

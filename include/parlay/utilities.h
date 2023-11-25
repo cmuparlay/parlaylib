@@ -35,9 +35,13 @@ struct uninitialized {
     T value;
   };
   uninitialized() : empty_{} { }
+  ~uninitialized() { }
 };
 
-// Returns a void* to the given object, stripping cv qualifiers.
+static_assert(std::is_default_constructible_v<uninitialized<std::unique_ptr<int>>>);
+static_assert(std::is_destructible_v<uninitialized<std::unique_ptr<int>>>);
+
+// Returns a raw void* to the given object, stripping cv qualifiers.
 template<class T>
 PARLAY_INLINE constexpr void* voidify(T& obj) noexcept {
   return const_cast<void*>(static_cast<const volatile void*>(std::addressof(obj)));
@@ -60,6 +64,13 @@ template<typename T>
 //
 // i.e., basically std::bit_cast from C++20 but with a slightly different interface. The
 // goal is to type pun from a byte representation into a valid object with valid lifetime.
+//
+// Note the subtle difference between from_bytes (above) and bits_to_object. from_bytes(p)
+// assumes that an object of type T with valid lifetime *already exists* at the memory
+// location p, and you just want to get your hands on it, while bits_to_object assumes
+// that src contains a byte pattern that represent a T object, but no such T object
+// actually exists at that location. bits_to_object creates a copy of the bytes at src
+// and starts the lifetime of a valid object of type T (assuming T is trivially copyable).
 template<typename T>
 PARLAY_INLINE T bits_to_object(const char* src) {
   if constexpr (!std::is_trivially_default_constructible_v<T>) {
@@ -83,19 +94,19 @@ const flags fl_conservative = 8;
 const flags fl_inplace = 16;
 
 template <typename T>
-inline void assign_uninitialized(T& a, const type_identity_t<T>& b) {
+PARLAY_INLINE void assign_uninitialized(T& a, const type_identity_t<T>& b) {
   PARLAY_ASSERT_UNINITIALIZED(a);
   new (static_cast<T*>(std::addressof(a))) T(b);
 }
 
 template <typename T>
-inline auto assign_uninitialized(T& a, type_identity_t<T>&& b) {
+PARLAY_INLINE auto assign_uninitialized(T& a, type_identity_t<T>&& b) {
   PARLAY_ASSERT_UNINITIALIZED(a);
   new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
 
 template <typename T>
-inline void move_uninitialized(T& a, type_identity_t<T>& b) {
+PARLAY_INLINE void move_uninitialized(T& a, type_identity_t<T>& b) {
   PARLAY_ASSERT_UNINITIALIZED(a);
   new (static_cast<T*>(std::addressof(a))) T(std::move(b));
 }
@@ -125,7 +136,7 @@ PARLAY_INLINE T* relocate_at(T* source, T* dest)
     static_assert(std::is_move_constructible<T>::value);
     static_assert(std::is_destructible<T>::value);
     PARLAY_ASSERT_UNINITIALIZED(*dest);
-    struct guard { T *t; ~guard() { std::destroy_at(t); PARLAY_ASSERT_UNINITIALIZED(*from); } } g{source};
+    struct guard { T *t; ~guard() { std::destroy_at(t); PARLAY_ASSERT_UNINITIALIZED(*t); } } g{source};
     return ::new (voidify(*dest)) T(std::move(*source));
   }
 }

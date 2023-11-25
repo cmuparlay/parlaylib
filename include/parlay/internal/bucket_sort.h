@@ -128,7 +128,7 @@ void base_sort(slice<InIterator, InIterator> in,
   else {
     quicksort(in.begin(), in.size(), f);
     if (!inplace) {
-      uninitialized_relocate_n(out.begin(), in.begin(), in.size());
+      parlay::uninitialized_relocate(in.begin(), in.end(), out.begin());
     }
   }
 }

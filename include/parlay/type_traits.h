@@ -36,6 +36,14 @@ struct type_identity {
 template<typename T>
 using type_identity_t = typename type_identity<T>::type;
 
+// Provides the member type equivalent to T with its cv-ref qualifiers removed
+template<typename T>
+struct remove_cvref : type_identity<std::remove_cv_t<std::remove_reference_t<T>>> { };
+
+// Equal to T with its cv-ref qualifiers removed
+template<typename T>
+using remove_cvref_t = typename remove_cvref<T>::type;
+
 // Given a pointer-to-member (object or function), returns
 // the type of the class in which the member lives
 template<typename T>
@@ -236,8 +244,8 @@ struct is_trivial_allocator<std::allocator<T>, T> : std::true_type {};
     to an object of type T, and a pointer q to uninitialized memory
     large enough for an object of type T, then
 
-      new (q) T(std::move(*p));
-      p->~T();
+      ::new (voidify(*q)) T(std::move(*p));
+      std::destroy_at(p);
 
     is equivalent to
 
