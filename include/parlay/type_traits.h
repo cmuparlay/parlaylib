@@ -413,7 +413,7 @@ PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::vector<T>);
 // std::string or std::vector, but those look good.
 #elif defined(_MSC_VER)
 
-template<typename T>
+template<>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::string);
 
 template<typename T>
