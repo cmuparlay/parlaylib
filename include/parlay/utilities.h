@@ -59,31 +59,6 @@ template<typename T>
 #endif
 }
 
-// Given storage containing valid bits for object of type T, produce an object of type T
-// with the same object representation.
-//
-// i.e., basically std::bit_cast from C++20 but with a slightly different interface. The
-// goal is to type pun from a byte representation into a valid object with valid lifetime.
-//
-// Note the subtle difference between from_bytes (above) and bits_to_object. from_bytes(p)
-// assumes that an object of type T with valid lifetime *already exists* at the memory
-// location p, and you just want to get your hands on it, while bits_to_object assumes
-// that src contains a byte pattern that represent a T object, but no such T object
-// actually exists at that location. bits_to_object creates a copy of the bytes at src
-// and starts the lifetime of a valid object of type T (assuming T is trivially copyable).
-template<typename T>
-PARLAY_INLINE T bits_to_object(const char* src) {
-  if constexpr (!std::is_trivially_default_constructible_v<T>) {
-    uninitialized<T> holder;
-    std::memcpy(&holder.value, src, sizeof(T));
-    return holder.value;
-  } else {
-    T value;
-    std::memcpy(&value, src, sizeof(T));
-    return value;
-  }
-}
-
 
 typedef uint32_t flags;
 const flags no_flag = 0;
@@ -158,17 +133,13 @@ using std::relocate;
 #else
 template<typename T>
 [[nodiscard]] PARLAY_INLINE std::remove_cv_t<T> relocate(T* source)
-    noexcept(is_trivially_relocatable_v<T> || std::is_nothrow_move_constructible_v<T>) {
-  if constexpr (is_trivially_relocatable<T>::value) {
-    return bits_to_object<std::remove_cv<T>>(static_cast<const char*>(voidify(*source)));
-  }
-  else {
-    static_assert(std::is_move_constructible<T>::value);
-    static_assert(std::is_destructible<T>::value);
-    std::remove_cv_t<T> t = std::move(source);
-    std::destroy_at(source);
-    return t;
-  }
+    noexcept(std::is_nothrow_move_constructible_v<T>) {
+
+  static_assert(std::is_move_constructible<T>::value);
+  static_assert(std::is_destructible<T>::value);
+  std::remove_cv_t<T> t = std::move(*source);
+  std::destroy_at(source);
+  return t;
 }
 #endif
 

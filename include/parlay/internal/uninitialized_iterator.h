@@ -12,11 +12,11 @@ namespace parlay {
 namespace internal {
 
 // Given a container of uninitialized<T>, you can wrap its iterators with
-// uninitialized_iterator_adapter to get an iterator whose value type is T!
+// uninitialized_iterator_adaptor to get an iterator whose value type is T!
 //
 // The resulting iterator will have the same iterator category as Iterator.
 template<typename Iterator>
-class uninitialized_iterator_adapter {
+class uninitialized_iterator_adaptor {
  public:
   using iterator_category = parlay::iterator_category_t<Iterator>;
   using difference_type = parlay::iterator_difference_type_t<Iterator>;
@@ -24,38 +24,39 @@ class uninitialized_iterator_adapter {
   using reference = std::add_lvalue_reference_t<value_type>;
   using pointer = std::add_pointer_t<value_type>;
 
-  uninitialized_iterator_adapter(Iterator it_) : it(it_) {}
+  explicit uninitialized_iterator_adaptor(Iterator it_) : it(it_) {}
 
   reference operator*() const { return it->value; }
 
-  pointer operator->() { return std::addressof(it->value); }
+  pointer operator->() const { return std::addressof(it->value); }
 
-  uninitialized_iterator_adapter& operator++() {
+  uninitialized_iterator_adaptor& operator++() {
     ++it;
     return *this;
   }
 
-  friend void swap(uninitialized_iterator_adapter& left, uninitialized_iterator_adapter& right) noexcept {
+  friend void swap(uninitialized_iterator_adaptor& left, uninitialized_iterator_adaptor& right) noexcept {
     std::swap(left.it, right.it);
   }
 
   // ------------------------ Enabled if input iterator ------------------------
 
   template<typename It = Iterator>
-  auto operator++(int) -> std::enable_if_t<parlay::is_input_iterator_v<It>, uninitialized_iterator_adapter> {
+  auto operator++(int)
+      -> std::enable_if_t<parlay::is_input_iterator_v<It>, uninitialized_iterator_adaptor> {
     auto tmp = *this;
     ++(*this);
     return tmp;
   }
 
   template<typename It = Iterator>
-  auto operator==(const uninitialized_iterator_adapter& other) const
+  auto operator==(const uninitialized_iterator_adaptor& other) const
       -> std::enable_if_t<parlay::is_input_iterator_v<It>, bool> {
     return it == other.it;
   }
 
   template<typename It = Iterator>
-  auto operator!=(const uninitialized_iterator_adapter& other) const
+  auto operator!=(const uninitialized_iterator_adaptor& other) const
       -> std::enable_if_t<parlay::is_input_iterator_v<It>, bool> {
     return it != other.it;
   }
@@ -64,18 +65,18 @@ class uninitialized_iterator_adapter {
 
   // Can't SFINAE special member functions so this is close enough until C++20
   template<typename It = Iterator, std::enable_if_t<parlay::is_forward_iterator_v<It>, int> = 0>
-  uninitialized_iterator_adapter() : it{} {}
+  uninitialized_iterator_adaptor() : it{} {}
 
   // ------------------------ Enabled if bidirectional iterator ------------------------
 
   template<typename It = Iterator>
-  auto operator--() -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adapter&> {
+  auto operator--() -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adaptor&> {
     it--;
     return *this;
   }
 
   template<typename It = Iterator>
-  auto operator--(int) -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adapter> {
+  auto operator--(int) -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adaptor> {
     auto tmp = *this;
     --(*this);
     return tmp;
@@ -85,14 +86,14 @@ class uninitialized_iterator_adapter {
 
   template<typename It = Iterator>
   auto operator+=(difference_type diff)
-      -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adapter&> {
+      -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adaptor&> {
     it += diff;
     return *this;
   }
 
   template<typename It = Iterator>
   auto operator+(difference_type diff) const
-      -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adapter> {
+      -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adaptor> {
     auto result = *this;
     result += diff;
     return result;
@@ -100,21 +101,21 @@ class uninitialized_iterator_adapter {
 
   template<typename It = Iterator>
   auto operator-=(difference_type diff)
-      -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adapter&> {
+      -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adaptor&> {
     it -= diff;
     return *this;
   }
 
   template<typename It = Iterator>
   auto operator-(difference_type diff) const
-      -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adapter> {
+      -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, uninitialized_iterator_adaptor> {
     auto result = *this;
     result -= diff;
     return result;
   }
 
   template<typename It = Iterator>
-  auto operator-(const uninitialized_iterator_adapter& other) const
+  auto operator-(const uninitialized_iterator_adaptor& other) const
       -> std::enable_if_t<parlay::is_bidirectional_iterator_v<It>, difference_type> {
     return it - other.it;
   }
@@ -125,25 +126,25 @@ class uninitialized_iterator_adapter {
   }
 
   template<typename It = Iterator>
-  auto operator<(const uninitialized_iterator_adapter& other) const
+  auto operator<(const uninitialized_iterator_adaptor& other) const
       -> std::enable_if_t<parlay::is_random_access_iterator_v<It>, bool> {
     return it < other.it;
   }
 
   template<typename It = Iterator>
-  auto operator<=(const uninitialized_iterator_adapter& other) const
+  auto operator<=(const uninitialized_iterator_adaptor& other) const
       -> std::enable_if_t<parlay::is_random_access_iterator_v<It>, bool> {
     return it <= other.it;
   }
 
   template<typename It = Iterator>
-  auto operator>(const uninitialized_iterator_adapter& other) const
+  auto operator>(const uninitialized_iterator_adaptor& other) const
       -> std::enable_if_t<parlay::is_random_access_iterator_v<It>, bool> {
     return it > other.it;
   }
 
   template<typename It = Iterator>
-  auto operator>=(const uninitialized_iterator_adapter& other) const
+  auto operator>=(const uninitialized_iterator_adaptor& other) const
       -> std::enable_if_t<parlay::is_random_access_iterator_v<It>, bool> {
     return it >= other.it;
   }

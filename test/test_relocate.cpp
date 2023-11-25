@@ -71,7 +71,7 @@ static_assert(parlay::is_trivially_relocatable_v<TriviallyRelocatable>);
 static_assert(parlay::is_trivially_relocatable_v<MyTriviallyRelocatable>);
 
 
-TEST(TestRelocate, TestNotTriviallyRelocatable) {
+TEST(TestRelocateAt, TestNotTriviallyRelocatable) {
   parlay::uninitialized<NotTriviallyRelocatable> a, b;
   NotTriviallyRelocatable* source = &a.value;
   NotTriviallyRelocatable* dest = &b.value;
@@ -92,7 +92,7 @@ TEST(TestRelocate, TestNotTriviallyRelocatable) {
 }
 
 
-TEST(TestRelocate, TestTriviallyRelocatable) {
+TEST(TestRelocateAt, TestTriviallyRelocatable) {
   parlay::uninitialized<TriviallyRelocatable> a, b;
   TriviallyRelocatable* source = &a.value;
   TriviallyRelocatable* dest = &b.value;
@@ -111,7 +111,7 @@ TEST(TestRelocate, TestTriviallyRelocatable) {
 }
 
 
-TEST(TestRelocate, TestCustomTriviallyRelocatable) {
+TEST(TestRelocateAt, TestCustomTriviallyRelocatable) {
   parlay::uninitialized<MyTriviallyRelocatable> a, b;
   MyTriviallyRelocatable* source = &a.value;
   MyTriviallyRelocatable* dest = &b.value;
@@ -129,6 +129,14 @@ TEST(TestRelocate, TestCustomTriviallyRelocatable) {
   // -- Both source and dest point to uninitialized memory
 }
 
+
+TEST(TestRelocate, TestRelocate) {
+  alignas(std::unique_ptr<int>) char storage[sizeof(std::unique_ptr<int>)];
+  auto* up = ::new (&storage) std::unique_ptr<int>{std::make_unique<int>(42)};
+
+  auto x = parlay::relocate(up);
+  ASSERT_EQ(*x, 42);
+}
 
 template <typename TestParams>
 class TestRangeRelocate : public testing::Test { };
@@ -184,10 +192,10 @@ TYPED_TEST(TestRangeRelocate, TestTriviallyRelocatable) {
 
   // -- Now source points to a range of valid objects, and dest points to a range of uninitialized objects
 
-  auto source_begin = parlay::internal::uninitialized_iterator_adapter{source.begin()};
-  auto source_end = parlay::internal::uninitialized_iterator_adapter{source.end()};
-  auto dest_begin = parlay::internal::uninitialized_iterator_adapter{dest.begin()};
-  auto dest_end = parlay::internal::uninitialized_iterator_adapter{dest.end()};
+  auto source_begin = parlay::internal::uninitialized_iterator_adaptor{source.begin()};
+  auto source_end = parlay::internal::uninitialized_iterator_adaptor{source.end()};
+  auto dest_begin = parlay::internal::uninitialized_iterator_adaptor{dest.begin()};
+  auto dest_end = parlay::internal::uninitialized_iterator_adaptor{dest.end()};
 
   if constexpr (TypeParam::use_iterator) {
     auto result = parlay::uninitialized_relocate(source_begin, source_end, dest_begin);

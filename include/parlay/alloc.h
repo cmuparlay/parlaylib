@@ -154,7 +154,7 @@ inline void p_free(void* ptr) {
 //    std::vector<int, parlay::allocator<int>>
 //
 template <typename T>
-struct PARLAY_TRIVIALLY_RELOCATABLE allocator {
+struct allocator {
   using value_type = T;
   T* allocate(size_t n) {
     // Use headerless blocks straight from the pool if the alignment is suitable,
@@ -183,12 +183,10 @@ struct PARLAY_TRIVIALLY_RELOCATABLE allocator {
   template <class U> /* implicit */ constexpr allocator(const allocator<U>&) noexcept { }
 };
 
-#if defined(PARLAY_MUST_SPECIALIZE_IS_TRIVIALLY_RELOCATABLE)
-
-template<typename T>
-PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(allocator<T>);
-
-#endif
+// Allocator should be trivially copyable since it is stateless and has no user-provided copy
+// constructor.  This should guarantee that it is also trivially relocatable.
+static_assert(std::is_trivially_copyable_v<allocator<int>>);
+static_assert(is_trivially_relocatable_v<allocator<int>>);
 
 
 template <class T, class U>

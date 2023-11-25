@@ -335,10 +335,11 @@ template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::weak_ptr<T>);
 
 template<typename T>
-PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::optional<T>);
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<T>), std::optional<T>);
 
 template<typename T, typename Deleter>
-PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<Deleter>), std::unique_ptr<T, Deleter>);
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<Deleter> &&
+    is_trivially_relocatable_v<typename std::unique_ptr<T, Deleter>::pointer>), std::unique_ptr<T, Deleter>);
 
 template<typename T1, typename T2>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<T1> &&
@@ -355,10 +356,12 @@ PARLAY_ASSUME_TRIVIALLY_RELOCATABLE_IF((is_trivially_relocatable_v<T> && ...), s
 
 
 // Container implementations can differ widely by vendor, so we don't want to specialize these
-// with a broad brush.  Instead, only specialize them for stdlibs that we are confident about.
+// with a broad brush.  Instead, only specialize them for stdlibs that we are confident about,
+// or, more specifically, stdlibs that Arthur is confident about :D
+//
+// https://quuxplusone.github.io/blog/2019/02/20/p1144-what-types-are-relocatable/
 
-// Specializations for libc++.  Mostly deduced from Arthur's libc++ implementation:
-// https://github.com/Quuxplusone/libcxx/blob/trivially-relocatable/test/libcxx/type_traits/is_trivially_relocatable.pass.cpp
+// Specializations for libc++.
 #if defined(_LIBCPP_VERSION)
 
 template<typename T>
@@ -367,11 +370,16 @@ PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::deque<T>);
 template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::forward_list<T>);
 
+// std::vector and std::string are not trivially relocatable in libc++ debug mode
+#if !defined(_LIBCPP_DEBUG_MODE)
+
 template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::vector<T>);
 
 template<>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::string);
+
+#endif
 
 template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_set<T>);
@@ -395,8 +403,7 @@ template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::priority_queue<T>);
 
 
-// Specializations for GCC.  Haven't checked any types other than std::string,
-// std::deque, std::vector, and the first is not actually trivially relocatable.
+// Specializations for GCC.
 #elif defined(__GLIBCXX__)
 
 // GCC std::string is *not* trivially relocatable because when the string is
@@ -406,12 +413,20 @@ template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::deque<T>);
 
 template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::forward_list<T>);
+
+template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::vector<T>);
 
 
-// Specializations for Microsoft STL.  Haven't checked any types other than
-// std::string or std::vector, but those look good.
+// Specializations for Microsoft STL.
 #elif defined(_MSC_VER)
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::deque<T>);
+
+template<typename T>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::forward_list<T>);
 
 template<>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::string);
