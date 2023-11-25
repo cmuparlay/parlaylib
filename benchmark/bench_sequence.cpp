@@ -57,7 +57,7 @@ struct NotRelocatable {
   std::unique_ptr<int> x;
   NotRelocatable() = default;
   NotRelocatable(int x_) : x(std::make_unique<int>(x_)) { }
-  NotRelocatable(NotRelocatable&& other) : x(std::move(other.x)) { }
+  NotRelocatable(NotRelocatable&& other) noexcept : x(std::move(other.x)) { }
   ~NotRelocatable() { }
 };
 static_assert(!parlay::is_trivially_relocatable_v<NotRelocatable>);

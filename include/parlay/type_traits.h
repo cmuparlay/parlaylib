@@ -272,7 +272,7 @@ struct is_trivial_allocator<std::allocator<T>, T> : std::true_type {};
 */
 
 // Standard language support for trivially relocatable (currently P1144)
-#if defined(__cpp_impl_trivially_relocatable)
+#if defined(__cpp_lib_trivially_relocatable)
 
 template<typename T>
 using is_trivially_relocatable = std::is_trivially_relocatable<T>;
