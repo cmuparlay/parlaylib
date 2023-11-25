@@ -15,10 +15,19 @@
 #include <array>
 #include <deque>
 #include <functional>
+#include <forward_list>
+#include <list>
+#include <map>
 #include <memory>
 #include <optional>
+#include <queue>
+#include <set>
+#include <stack>
+#include <string>
 #include <type_traits>
 #include <tuple>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>       // IWYU pragma: keep
 #include <variant>
 
@@ -361,20 +370,20 @@ PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::forward_list<T>);
 template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::vector<T>);
 
-template<typename T>
-PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::string<T>);
+template<>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::string);
 
 template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_set<T>);
 
-template<typename T>
-PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_map<T>);
+template<typename K, typename V>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_map<K, V>);
 
 template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_multiset<T>);
 
-template<typename T>
-PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_multimap<T>);
+template<typename K, typename V>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::unordered_multimap<K, V>);
 
 template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::stack<T>);
@@ -405,7 +414,7 @@ PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::vector<T>);
 #elif defined(_MSC_VER)
 
 template<typename T>
-PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::string<T>);
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::string);
 
 template<typename T>
 PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(std::vector<T>);
