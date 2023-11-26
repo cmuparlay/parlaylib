@@ -1279,7 +1279,7 @@ auto kth_smallest_copy(Range&& in, size_t k, Compare&& less = {}) {
   auto [offsets, total] = parlay::scan(sums);
   assert(total == n);
 
-  auto id = std::upper_bound(offsets.begin(), offsets.end(), k) - offsets.begin() - 1;
+  auto id = static_cast<size_t>(std::upper_bound(offsets.begin(), offsets.end(), k) - offsets.begin()) - 1;
   auto bucket_length = ((id == offsets.size() - 1) ? total : offsets[id+1]) - offsets[id];
 
   // Grab the contents of the bucket containing the k'th element.  Exclude the pivot
