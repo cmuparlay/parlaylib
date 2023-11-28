@@ -152,7 +152,11 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
 
   bool operator!=(const sequence_type& b) const { return !(*this == b); }
 
-  void swap(sequence_type& b) { storage.swap(b.storage); }
+  void swap(sequence_type& b) noexcept { storage.swap(b.storage); }
+
+  inline friend void swap(sequence& a, sequence& b) noexcept {
+    a.swap(b);
+  }
 
   size_type size() const { return storage.size(); }
 
@@ -202,27 +206,24 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
   // Constructs a sequence consisting of n copies of t
   sequence(size_t n, const value_type& t) : sequence_base_type() { initialize_fill(n, t); }
 
-  // Constructs a sequence consisting of the elements
-  // in the given iterator range
-  template<typename Iterator_>
-  sequence(Iterator_ i, Iterator_ j) : sequence_base_type() {
-    initialize_dispatch(i, j, std::is_integral<Iterator_>());
+  // Constructs a sequence consisting of the elements in the given iterator range
+  template<typename Iterator_,
+        std::enable_if_t<is_input_iterator_v<Iterator_>, int> = 0>
+  sequence(Iterator_ first, Iterator_ last) : sequence_base_type() {
+    initialize_range(first, last);
   }
 
   // Constructs a sequence from the elements of the given initializer list
   //
   // Note: cppcheck flags all implicit constructors. This one is okay since
   // we want to convert initializer lists into sequences.
-  sequence(std::initializer_list<value_type> l) :
-      sequence_base_type() {  // cppcheck-suppress noExplicitConstructor
-    initialize_range(std::begin(l), std::end(l),
-                     typename std::iterator_traits<decltype(std::begin(l))>::iterator_category());
+  sequence(std::initializer_list<value_type> l) : sequence_base_type() {  // cppcheck-suppress noExplicitConstructor
+    initialize_range(std::begin(l), std::end(l));
   }
 
   sequence_type& operator=(std::initializer_list<value_type> l) {
     storage.clear();
-    initialize_range(std::begin(l), std::end(l),
-                     typename std::iterator_traits<decltype(std::begin(l))>::iterator_category());
+    initialize_range(std::begin(l), std::end(l));
     return *this;
   }
 
@@ -237,13 +238,12 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
       storage.ensure_capacity(size() + 1);
       p = begin() + pos;
 
-      // Note that "it" is guaranteed to remain valid even after
-      // the call to move_append since we ensured that there was
-      // sufficient capacity already, so a second reallocation will
-      // never happen after this point
+      // Note that "it" is guaranteed to remain valid even after the call to
+      // append since we ensured that there was sufficient capacity already,
+      // so a second reallocation will never happen after this point
       auto the_tail = pop_tail(p);
       auto it = emplace_back(std::forward<Args>(args)...);
-      move_append(the_tail);
+      append(std::move(the_tail));
       return it;
     }
   }
@@ -260,30 +260,42 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
 
   iterator push_back(value_type&& v) { return emplace_back(std::move(v)); }
 
-  template<typename Iterator_>
+  iterator append(size_t n, const value_type& v) {
+    return append_n(n, v);
+  }
+
+  template<typename Iterator_,
+      std::enable_if_t<is_input_iterator_v<Iterator_>, int> = 0>
   iterator append(Iterator_ first, Iterator_ last) {
-    return append_dispatch(first, last, std::is_integral<Iterator_>());
+    return append_range(first, last);
   }
 
-  template<typename R>
+  template<typename R,
+      std::enable_if_t<is_input_range_v<R>, int> = 0>
   iterator append(R&& r) {
-    return append(std::begin(r), std::end(r));
+    return append_range(std::begin(r), std::end(r));
   }
 
-  // Append the given sequence r. Since r is an rvalue, we can
-  // move its elements instead of copying them. Furthermore, if
-  // the current sequence is empty and doesn't own a large buffer,
-  // we can simply move assign the entire sequence r
+  // Append the given sequence r. Since r is an rvalue, we can relocate its elements directly
+  // instead of copying them. Furthermore, if the current sequence is empty and doesn't own a
+  // large buffer, we can simply move assign the entire sequence r
   iterator append(sequence_type&& r) {
+    // Note: We check the capacity because an append should never cause the capacity to decrease,
+    // since this could throw away a large reserve and lead to unexpected reallocations.
     if (empty() && capacity() <= r.size()) {
       *this = std::move(r);
       return begin();
     } else {
-      return append(std::make_move_iterator(std::begin(r)), std::make_move_iterator(std::end(r)));
+      auto new_size = size() + r.size();
+      storage.ensure_capacity(new_size);
+      auto append_begin = end();
+      parlay::uninitialized_relocate(r.begin(), r.end(), append_begin);
+      clear_relocated(r);            // Ditch the buffer without destruction since relocation
+      assert(r.empty());             // leaves the elements in a destroyed state.
+      storage.set_size(new_size);
+      return append_begin;
     }
   }
-
-  iterator append(size_t n, const value_type& t) { return append_n(n, t); }
 
   iterator insert(iterator p, const value_type& t) { return emplace(p, t); }
 
@@ -291,9 +303,10 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
 
   iterator insert(iterator p, size_t n, const value_type& t) { return insert_n(p, n, t); }
 
-  template<typename Iterator_>
-  iterator insert(iterator p, Iterator_ i, Iterator_ j) {
-    return insert_dispatch(p, i, j, std::is_integral<Iterator_>());
+  template<typename Iterator_,
+           std::enable_if_t<is_input_iterator_v<Iterator_>, int> = 0>
+  iterator insert(iterator p, Iterator_ first, Iterator_ last) {
+    return insert_range(p, first, last);
   }
 
   template<typename Range,
@@ -301,11 +314,15 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
                       is_input_range_v<Range> &&
                       std::is_constructible_v<value_type, range_reference_type_t<Range>>, int> = 0>
   iterator insert(iterator p, Range&& r) {
-    return insert(p, std::begin(r), std::end(r));
+    return insert_range(p, std::begin(r), std::end(r));
   }
 
   iterator insert(iterator p, sequence_type&& r) {
-    return insert(p, std::make_move_iterator(std::begin(r)), std::make_move_iterator(std::end(r)));
+    auto idx = p - begin();
+    auto the_tail = pop_tail(p);
+    append(std::move(r));
+    append(std::move(the_tail));
+    return begin() + idx;   // p might be invalidated since append could reallocate
   }
 
   iterator insert(iterator p, std::initializer_list<value_type> l) {
@@ -320,7 +337,7 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
       auto pos = q - begin();
       auto the_tail = pop_tail(q + 1);
       pop_back();
-      move_append(the_tail);
+      append(std::move(the_tail));
       return begin() + pos;
     }
   }
@@ -329,7 +346,7 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
     auto pos = q1 - begin();
     auto the_tail = pop_tail(q2);
     resize(size() - (q2 - q1));
-    move_append(the_tail);
+    append(std::move(the_tail));
     return begin() + pos;
   }
 
@@ -373,10 +390,11 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
 
   size_t capacity() const { return storage.capacity(); }
 
-  template<typename Iterator_>
-  void assign(Iterator_ i, Iterator_ j) {
+  template<typename Iterator_,
+      std::enable_if_t<is_input_iterator_v<Iterator_>, int> = 0>
+  void assign(Iterator_ first, Iterator_ last) {
     storage.clear();
-    initialize_dispatch(i, j, std::is_integral<Iterator_>());
+    initialize_range(first, last);
   }
 
   void assign(size_t n, const value_type& v) {
@@ -427,17 +445,14 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
 
   auto subseq(size_type s, size_type e) const { return to_sequence(cut(s,e)); }
 
-  // Remove all elements of the subsequence beginning at the element
-  // pointed to by p, and return a new sequence consisting of those
-  // removed elements.
+  // Remove all elements of the subsequence beginning at the element pointed
+  // to by p, and return a new sequence consisting of those removed elements.
   sequence_type pop_tail(iterator p) {
     if (p == end()) {
       return sequence_type{};
     } else {
-      sequence_type the_tail(std::make_move_iterator(p), std::make_move_iterator(end()));
-      if constexpr (!std::is_trivially_destructible_v<value_type>) {
-        parallel_for(0, end() - p, [&](size_t i) { storage.destroy(&p[i]); });
-      }
+      auto the_tail = sequence_type::uninitialized(end() - p);
+      parlay::uninitialized_relocate(p, end(), the_tail.begin());
       storage.set_size(p - begin());
       return the_tail;
     }
@@ -526,16 +541,14 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
     }, granularity);
   }
 
-  // Implement initialize_default manually rather than
-  // calling initialize_fill(n, value_type()) because
-  // this allows us to store a sequence of uncopyable
-  // types provided that no reallocation ever happens.
+  // Implement initialize_default manually rather than calling initialize_fill(n, value_type()) because
+  // this allows us to store a sequence of uncopyable types provided that no reallocation ever happens.
   void initialize_default(size_t n) {
     storage.initialize_capacity(n);
     auto buffer = storage.data();
     parallel_for(0, n, [&](size_t i) {      // Calling initialize with
-      storage.initialize(buffer + i);       // no arguments performs
-    }, initialization_granularity(n));      // value initialization
+      storage.initialize(buffer + i);                 // no arguments performs
+    }, initialization_granularity(n));       // value initialization
     storage.set_size(n);
   }
 
@@ -548,59 +561,30 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
     storage.set_size(n);
   }
 
-  template<typename InputIterator_>
-  void initialize_range(InputIterator_ first, InputIterator_ last, std::input_iterator_tag) {
-    for (; first != last; ++first) {
-      push_back(*first);
-    }
-  }
-
-  template<typename ForwardIterator_>
-  void initialize_range(ForwardIterator_ first, ForwardIterator_ last, std::forward_iterator_tag) {
-    auto n = std::distance(first, last);
-    storage.initialize_capacity(n);
-    auto buffer = storage.data();
-    for (size_t i = 0; first != last; i++, ++first) {
-      storage.initialize(buffer + i, *first);
-    }
-    storage.set_size(n);
-  }
-
-  template<typename RandomAccessIterator_>
-  void initialize_range(RandomAccessIterator_ first, RandomAccessIterator_ last, std::random_access_iterator_tag) {
-    auto n = std::distance(first, last);
-    storage.initialize_capacity(n);
-    auto buffer = storage.data();
-    parallel_for(0, n, [&](size_t i) {
-      storage.initialize(buffer + i, first[i]);
-    }, copy_granularity(n));
-    storage.set_size(n);
-  }
-
-  // Use tag dispatch to distinguish between the (n, value)
-  // constructor and the iterator pair constructor
-
-  template<typename Integer_>
-  void initialize_dispatch(Integer_ n, Integer_ v, std::true_type) {
-    initialize_fill(n, v);
-  }
-
   template<typename Iterator_>
-  void initialize_dispatch(Iterator_ first, Iterator_ last, std::false_type) {
-    initialize_range(first, last, typename std::iterator_traits<Iterator_>::iterator_category());
-  }
+  void initialize_range(Iterator_ first, Iterator_ last) {
+    static_assert(is_input_iterator_v<Iterator_>);
 
-  // Use tag dispatch to distinguish between the (n, value)
-  // append operation and the iterator pair append operation
-
-  template<typename Integer_>
-  iterator append_dispatch(Integer_ first, Integer_ last, std::true_type) {
-    return append_n(first, last);
-  }
-
-  template<typename Iterator_>
-  iterator append_dispatch(Iterator_ first, Iterator_ last, std::false_type) {
-    return append_range(first, last, typename std::iterator_traits<Iterator_>::iterator_category());
+    if constexpr (is_random_access_iterator_v<Iterator_>) {
+      auto n = std::distance(first, last);
+      storage.initialize_capacity(n);
+      auto buffer = storage.data();
+      parallel_for(0, n, [&](size_t i) {
+        storage.initialize(buffer + i, first[i]);
+      }, copy_granularity(n));
+      storage.set_size(n);
+    }
+    else if (is_forward_iterator_v<Iterator_>) {
+      auto n = std::distance(first, last);
+      storage.initialize_capacity(n);
+      std::uninitialized_copy(first, last, storage.data());
+      storage.set_size(n);
+    }
+    else {
+      for (; first != last; ++first) {
+        push_back(*first);
+      }
+    }
   }
 
   iterator append_n(size_t n, const value_type& t) {
@@ -613,52 +597,36 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
     return it;
   }
 
-  // Distinguish between different types of iterators
-  // InputIterators and ForwardIterators can not be used
-  // in parallel, so they operate sequentially.
-
-  template<typename InputIterator_>
-  iterator append_range(InputIterator_ first, InputIterator_ last, std::input_iterator_tag) {
-    size_t n = 0;
-    for (; first != last; first++, n++) {
-      push_back(*first);
-    }
-    return end() - n;
-  }
-
-  template<typename ForwardIterator_>
-  iterator append_range(ForwardIterator_ first, ForwardIterator_ last, std::forward_iterator_tag) {
-    auto n = std::distance(first, last);
-    storage.ensure_capacity(size() + n);
-    auto it = end();
-    std::uninitialized_copy(first, last, it);
-    storage.set_size(size() + n);
-    return it;
-  }
-
-  template<typename RandomAccessIterator_>
-  iterator append_range(RandomAccessIterator_ first, RandomAccessIterator_ last, std::random_access_iterator_tag) {
-    auto n = std::distance(first, last);
-    storage.ensure_capacity(size() + n);
-    auto it = end();
-    parallel_for(0, n, [&](size_t i) {
-      storage.initialize(it + i, first[i]);
-    }, copy_granularity(n));
-    storage.set_size(size() + n);
-    return it;
-  }
-
-  // Use tag dispatch to distinguish between the (n, value)
-  // insert operation and the iterator pair insert operation
-
-  template<typename Integer_>
-  iterator insert_dispatch(iterator p, Integer_ n, Integer_ v, std::true_type) {
-    return insert_n(p, n, v);
-  }
 
   template<typename Iterator_>
-  iterator insert_dispatch(iterator p, Iterator_ first, Iterator_ last, std::false_type) {
-    return insert_range(p, first, last);
+  iterator append_range(Iterator_ first, Iterator_ last) {
+    static_assert(is_input_iterator_v<Iterator_>);
+
+    if constexpr (is_random_access_iterator_v<Iterator_>) {
+      auto n = std::distance(first, last);
+      storage.ensure_capacity(size() + n);
+      auto it = end();
+      parallel_for(0, n, [&](size_t i) {
+        storage.initialize(it + i, first[i]);
+      }, copy_granularity(n));
+      storage.set_size(size() + n);
+      return it;
+    }
+    else if constexpr (is_forward_iterator_v<Iterator_>) {
+      auto n = std::distance(first, last);
+      storage.ensure_capacity(size() + n);
+      auto it = end();
+      std::uninitialized_copy(first, last, it);
+      storage.set_size(size() + n);
+      return it;
+    }
+    else {
+      size_t n = 0;
+      for (; first != last; first++, n++) {
+        push_back(*first);
+      }
+      return end() - n;
+    }
   }
 
   iterator insert_n(iterator p, size_t n, const value_type& v) {
@@ -668,29 +636,24 @@ class PARLAY_TRIVIALLY_RELOCATABLE sequence : protected sequence_internal::seque
     storage.ensure_capacity(size() + n);
     p = begin() + pos;
 
-    // Note that "it" is guaranteed to remain valid even after
-    // the call to move_append since we ensured that there was
-    // sufficient capacity already, so a second reallocation will
-    // never happen after this point
+    // Note that "it" is guaranteed to remain valid even after the call to
+    // append since we ensured that there was sufficient capacity already,
+    // so a second reallocation will never happen after this point
     auto the_tail = pop_tail(p);
     auto it = append_n(n, v);
-    move_append(the_tail);
+    append(std::move(the_tail));
     return it;
   }
 
   template<typename Iterator_>
   iterator insert_range(iterator p, Iterator_ first, Iterator_ last) {
+    static_assert(is_input_iterator_v<Iterator_>);
+
     auto the_tail = pop_tail(p);
     auto it = append(first, last);
     auto pos = it - begin();
-    move_append(the_tail);
+    append(std::move(the_tail));
     return begin() + pos;
-  }
-
-  // Append the given range, moving its elements into this sequence
-  template<typename R>
-  void move_append(R&& r) {
-    append(std::make_move_iterator(std::begin(r)), std::make_move_iterator(std::end(r)));
   }
 
   // Return true if this sequence compares equal to the sequence
@@ -805,12 +768,6 @@ inline auto to_short_sequence(R&& r) -> short_sequence<T, Alloc> {
 }  // namespace parlay
 
 namespace std {
-
-// exchange the values of a and b
-template<typename T, typename Allocator, bool EnableSSO>
-inline void swap(parlay::sequence<T, Allocator, EnableSSO>& a, parlay::sequence<T, Allocator, EnableSSO>& b) {
-  a.swap(b);
-}
 
 // compute a suitable hash value for a sequence
 template<typename T, typename Allocator, bool EnableSSO>
