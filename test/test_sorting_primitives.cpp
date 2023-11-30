@@ -298,7 +298,7 @@ TEST(TestSortingPrimitives, TestStableIntegerSortInplaceNonContiguous) {
 }
 
 TEST(TestSortingPrimitives, TestCountingSort) {
-  const size_t num_buckets = size_t{1} << 16;
+  size_t num_buckets = 1ULL << 16;
   auto s = parlay::tabulate(100000, [num_buckets](unsigned long long i) -> unsigned long long {
     return (50021 * i + 61) % num_buckets;
   });
@@ -311,7 +311,7 @@ TEST(TestSortingPrimitives, TestCountingSort) {
 }
 
 TEST(TestSortingPrimitives, TestCountingSortUnstable) {
-  const size_t num_buckets = size_t{1} << 16;
+  size_t num_buckets = 1ULL << 16;
   auto s = parlay::tabulate(100000, [num_buckets](long long i) -> UnstablePair {
     UnstablePair x;
     x.x = (53 * i + 61) % num_buckets;
