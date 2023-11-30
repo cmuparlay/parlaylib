@@ -47,7 +47,7 @@ class file_map {
       assert(fstat_res != -1);
       assert(S_ISREG(sb.st_mode));
     
-      char *p = static_cast<char*>(mmap(0, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
+      char *p = static_cast<char*>(mmap(nullptr, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
       assert(p != MAP_FAILED);
       [[maybe_unused]] int close_p = ::close(fd);
       assert(close_p != -1);

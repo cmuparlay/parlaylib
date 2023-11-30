@@ -107,7 +107,7 @@ struct Uninitialized {
     T value;
   };
 
-  Uninitialized() noexcept { };
+  Uninitialized() noexcept { }
 
   T& operator*() { return value; }
 

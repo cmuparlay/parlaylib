@@ -291,7 +291,7 @@ inline chars to_chars(long v) {
 
 inline chars to_chars(int v) {
   return to_chars((long) v);
-};
+}
 
 inline chars to_chars(unsigned long v) {
   constexpr int max_len = 21;
@@ -302,7 +302,7 @@ inline chars to_chars(unsigned long v) {
 
 inline chars to_chars(unsigned int v) {
   return to_chars((unsigned long) v);
-};
+}
 
 #ifdef __GNUC__
 #pragma GCC diagnostic push
@@ -336,7 +336,7 @@ inline chars to_chars(double v) {
 
 inline chars to_chars(float v) {
   return to_chars((double) v);
-};
+}
 
 inline chars to_chars(const std::string& s) {
   return chars::from_function(s.size(), [&](size_t i) -> char { return s[i]; });

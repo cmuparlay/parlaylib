@@ -39,7 +39,7 @@ struct triangle {
 // Since we often check multiple points against a single circle
 // this reduces the work.
 // Projects onto a parobola and does a planeside test.
-auto in_circle (point a, point b, point d) {
+inline auto in_circle (point a, point b, point d) {
   struct vect { double x,y,z;};
   auto project = [=] (point p) {
     double px = p.x-d.x; double py = p.y-d.y;
