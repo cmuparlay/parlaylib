@@ -469,7 +469,7 @@ struct padded;
 // Use user-defined conversions to pad primitive types
 template<typename T, size_t Size>
 struct alignas(Size) padded<T, Size, typename std::enable_if_t<std::is_scalar_v<T>>> {
-  padded() : x{} {};
+  padded() : x{} {}
   /* implicit */ padded(T _x) : x(_x) { }       // cppcheck-suppress noExplicitConstructor    // NOLINT
   /* implicit */ operator T&() & { return x; }                                                // NOLINT
   /* implicit */ operator const T&() const& { return x; }                                     // NOLINT

@@ -91,7 +91,7 @@ struct block_delayed_flatten_t :
    public:
     using iterator_category = std::forward_iterator_tag;
     using reference = range_reference_type_t<range_reference_type_t<base_view_type>>;
-    using value_type = range_value_type_t<range_reference_type_t<base_view_type>>;;
+    using value_type = range_value_type_t<range_reference_type_t<base_view_type>>;
     using difference_type = std::ptrdiff_t;
     using pointer = void;
 

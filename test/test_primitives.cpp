@@ -307,9 +307,10 @@ TEST(TestPrimitives, TestAnyOf) {
   auto s1 = parlay::reverse(parlay::tabulate(50000, [](int i) { return 2*i; }));
   auto s2 = parlay::reverse(parlay::tabulate(50000, [](int i) { return 2*i + 1; }));
 
-  ASSERT_TRUE(parlay::any_of(s, [](int x) { return x % 2 == 0; }));
-  ASSERT_TRUE(parlay::any_of(s1, [](int x) { return x % 2 == 0; }));
-  ASSERT_FALSE(parlay::any_of(s2, [](int x) { return x % 2 == 0; }));
+  ASSERT_TRUE(parlay::any_of(s, [](int x) { return x == 0; }));         // Single match
+  ASSERT_TRUE(parlay::any_of(s, [](int x) { return x % 2 == 0; }));     // Multiple matches
+  ASSERT_TRUE(parlay::any_of(s1, [](int x) { return x % 2 == 0; }));    // All are matches
+  ASSERT_FALSE(parlay::any_of(s2, [](int x) { return x % 2 == 0; }));   // No matches
 }
 
 TEST(TestPrimitives, TestNoneOf) {
@@ -827,6 +828,18 @@ TEST(TestPrimitives, TestRank) {
   }
 }
 
+TEST(TestPrimitives, TestKthSmallestCopySmall) {
+  std::default_random_engine eng{2022};
+  auto s = parlay::to_sequence(parlay::iota<size_t>(2000));
+  std::shuffle(s.begin(), s.end(), eng);
+
+  // Test every possible rank. We need n > 1000 since that's the base
+  // case where the implementation just sorts and returns the answer.
+  for (size_t i = 0; i < 2000; i++) {
+    ASSERT_EQ(parlay::kth_smallest_copy(s, i), i);
+  }
+}
+
 TEST(TestPrimitives, TestKthSmallestCopy) {
   std::default_random_engine eng{2022};
   auto s = parlay::to_sequence(parlay::iota<size_t>(100000));
@@ -836,6 +849,7 @@ TEST(TestPrimitives, TestKthSmallestCopy) {
   ASSERT_EQ(parlay::kth_smallest_copy(s, 50000), 50000);
   ASSERT_EQ(parlay::kth_smallest_copy(s, 99999), 99999);
 
+  // Test a few spaced out ranks
   for (size_t i = 7919; i < 100000; i+= 7907) {
     ASSERT_EQ(parlay::kth_smallest_copy(s, i), i);
   }
@@ -853,4 +867,12 @@ TEST(TestPrimitives, TestKthSmallest) {
   for (size_t i = 7919; i < 100000; i+= 7907) {
     ASSERT_EQ(*parlay::kth_smallest(s, i), i);
   }
+}
+
+TEST(TestPrimitives, TestKthSmallestAllDuplicates) {
+  parlay::sequence<int> a(2000, 1);
+  int k = 1000;
+  auto result = parlay::kth_smallest(a, k);
+  ASSERT_NE(result, a.end());
+  ASSERT_EQ(*result, 1);
 }

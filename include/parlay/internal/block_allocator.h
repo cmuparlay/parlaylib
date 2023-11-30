@@ -50,7 +50,7 @@ struct block_allocator {
     size_t sz;
     block* head;
     block* mid;
-    local_list() : sz(0), head(nullptr), mid(nullptr) {};
+    local_list() : sz(0), head(nullptr), mid(nullptr) {}
   };
 
   hazptr_stack<std::byte*> allocated_buffers;

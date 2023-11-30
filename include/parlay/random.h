@@ -62,8 +62,8 @@ struct random_generator {
 
 struct random {
  public:
-  random(size_t seed) : state(seed){};
-  random() : state(0){};
+  random(size_t seed) : state(seed){}
+  random() : state(0){}
   random fork(uint64_t i) const { return random(static_cast<size_t>(hash64(hash64(i + state)))); }
   random next() const { return fork(0); }
   size_t ith_rand(uint64_t i) const { return static_cast<size_t>(hash64(i + state)); }
