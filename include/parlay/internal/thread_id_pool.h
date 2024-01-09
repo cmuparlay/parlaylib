@@ -47,7 +47,7 @@ class ThreadIdPool : public std::enable_shared_from_this<ThreadIdPool> {
 
 
   ~ThreadIdPool() noexcept {
-    size_t num_destroyed = 0;
+    [[maybe_unused]] size_t num_destroyed = 0;
     for (auto current = available_ids.load(std::memory_order_relaxed); current; num_destroyed++) {
       auto old = std::exchange(current, current->next);
       delete old;
