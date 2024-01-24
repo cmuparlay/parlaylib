@@ -16,6 +16,7 @@
 #include <cstdlib>
 
 #include <iostream>
+#include <utility>
 
 namespace parlay {
 
@@ -76,12 +77,14 @@ namespace parlay {
 #endif
 
 
-#if defined(__cplusplus) && __cplusplus >= 202002L
+#if defined(__has_cpp_attribute)
+#if __has_cpp_attribute(likely) && __has_cpp_attribute(unlikely)
 #define PARLAY_LIKELY [[likely]]
 #define PARLAY_UNLIKELY [[unlikely]]
 #else
 #define PARLAY_LIKELY
 #define PARLAY_UNLIKELY
+#endif
 #endif
 
 // Check for exceptions. The standard suggests __cpp_exceptions. Clang/GCC defined __EXCEPTIONS.
