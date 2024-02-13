@@ -398,23 +398,23 @@ extern inline contended_t * __contention(volatile void const * p) {
 
 namespace parlay {
 
-    template <class _Tp>
-    void atomic_wait_explicit(const std::atomic<_Tp>* a, parlay::type_identity_t<_Tp> val, std::memory_order order) {
+    template <class Tp_>
+    void atomic_wait_explicit(const std::atomic<Tp_>* a, parlay::type_identity_t<Tp_> val, std::memory_order order) {
         std::atomic_wait_explicit(a, val, order);
     }
 
-    template <class _Tp>
-    void atomic_wait(const std::atomic<_Tp>* a, parlay::type_identity_t<_Tp> val) {
+    template <class Tp_>
+    void atomic_wait(const std::atomic<Tp_>* a, parlay::type_identity_t<Tp_> val) {
         std::atomic_wait(a, val);
     }
 
-    template <class _Tp>
-    void atomic_notify_one(std::atomic<_Tp>* a) {
+    template <class Tp_>
+    void atomic_notify_one(std::atomic<Tp_>* a) {
         std::atomic_notify_one(a);
     }
 
-    template <class _Tp>
-    void atomic_notify_all(std::atomic<_Tp>* a) {
+    template <class Tp_>
+    void atomic_notify_all(std::atomic<Tp_>* a) {
         std::atomic_notify_all(a);
     }
 
