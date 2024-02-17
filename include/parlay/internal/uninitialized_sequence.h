@@ -152,7 +152,7 @@ class uninitialized_sequence {
   const_reverse_iterator crbegin() const { return std::make_reverse_iterator(cend()); }
   const_reverse_iterator crend() const { return std::make_reverse_iterator(cbegin()); }
   
-  void swap(uninitialized_sequence<T, Alloc>& other) {
+  void swap(uninitialized_sequence<T, Alloc>& other) noexcept {
     std::swap(impl.n, other.impl.n);
     std::swap(impl.data, other.impl.data);
   }

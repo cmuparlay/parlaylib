@@ -28,7 +28,7 @@ void merge_sort_(slice<InIterator, InIterator> In,
     insertion_sort(In.begin(), In.size(), f);
     if (!inplace) {
       for (size_t i = 0; i < In.size(); i++) {
-        uninitialized_relocate(&Out[i], &In[i]);
+        relocate_at(&In[i], &Out[i]);
       }
     }
   }

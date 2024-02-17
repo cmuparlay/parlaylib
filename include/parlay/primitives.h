@@ -1011,7 +1011,7 @@ auto flatten(sequence<sequence<T>>&& r) {
   size_t len = internal::scan_inplace(make_slice(offsets), plus<size_t>());
   auto res = sequence<T>::uninitialized(len);
   parallel_for(0, parlay::size(r), [&, it = std::begin(r)](size_t i) {
-    uninitialized_relocate_n(std::begin(res)+offsets[i], std::begin(it[i]), it[i].size());
+    parlay::uninitialized_relocate(std::begin(it[i]), std::end(it[i]), std::begin(res)+offsets[i]);
     clear_relocated(it[i]);
   });
   r.clear();
@@ -1279,7 +1279,7 @@ auto kth_smallest_copy(Range&& in, size_t k, Compare&& less = {}) {
   auto [offsets, total] = parlay::scan(sums);
   assert(total == n);
 
-  auto id = static_cast<size_t>(std::upper_bound(offsets.begin(), offsets.end(), k) - offsets.begin() - 1);
+  auto id = static_cast<size_t>(std::upper_bound(offsets.begin(), offsets.end(), k) - offsets.begin()) - 1;
   auto bucket_length = ((id == offsets.size() - 1) ? total : offsets[id+1]) - offsets[id];
 
   // Grab the contents of the bucket containing the k'th element.  Exclude the pivot

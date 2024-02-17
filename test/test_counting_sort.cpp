@@ -92,13 +92,6 @@ TEST(TestCountingSort, TestCountingSortInplaceNonContiguous) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
-namespace parlay {
-// Specialize std::unique_ptr to be considered trivially relocatable
-template<typename T>
-struct is_trivially_relocatable<std::unique_ptr<T>> : public std::true_type {
-};
-}
-
 TEST(TestCountingSort, TestCountingSortInplaceUniquePtr) {
   auto s = parlay::tabulate(100000, [](long long i) {
     return std::make_unique<long long>((51 * i + 61) % num_buckets);

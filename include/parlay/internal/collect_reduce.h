@@ -271,7 +271,7 @@ auto seq_collect_reduce_sparse(Slice A, Helper const &helper) {
   auto r = r_s.begin();
   size_t j = 0;
   for (size_t i = 0; i < table_size; i++)
-    if (flags[i]) uninitialized_relocate(&r[j++], &table[i]);
+    if (flags[i]) relocate_at(&table[i], &r[j++]);
   assert(j == count);
   return r_s;
 }

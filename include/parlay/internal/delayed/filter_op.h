@@ -85,7 +85,7 @@ struct block_delayed_filter_op_t :
       }
     }
     auto res = sequence<result_type>::uninitialized(n);
-    uninitialized_relocate_n(res.begin(), temp.begin(), n);
+    parlay::uninitialized_relocate_n(temp.begin(), n, res.begin());
     return res;
   }
 

@@ -320,7 +320,7 @@ auto count_sort_inplace(slice<InIterator, InIterator> In, KeyS const& Keys, size
   using value_type = typename slice<InIterator, InIterator>::value_type;
   auto Tmp = uninitialized_sequence<value_type>(In.size());
   auto a = count_sort<uninitialized_relocate_tag>(In, make_slice(Tmp), make_slice(Keys), num_buckets);
-  uninitialized_relocate_n(In.begin(), Tmp.begin(), In.size());
+  parlay::uninitialized_relocate(Tmp.begin(), Tmp.end(), In.begin());
   return a.first;
 }
 
