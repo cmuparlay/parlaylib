@@ -24,17 +24,15 @@ int main(int argc, char* argv[]) {
     catch (...) {}
     if (n == 0) {
       G = utils::read_symmetric_graph_from_file(argv[1]);
-      GT = G;
       n = G.size();
     } else {
-      G = utils::rmat_graph(n, 20*n);
-      GT = utils::transpose(G);
+      G = utils::rmat_symmetric_graph(n, 20*n);
     }
     utils::print_graph_stats(G);
     parlay::sequence<vertex> result;
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
-      result = LDD<vertex>(.5, G, GT);
+      result = LDD<vertex>(.5, G);
       t.next("low_diameter_decomposition");
     }
 
