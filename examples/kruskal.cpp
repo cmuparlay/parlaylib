@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
   using edges = parlay::sequence<std::pair<vertex,vertex>>;
   using utils = graph_utils<vertex>;
 
-  auto usage = "Usage: min_spanning_tree <n> || min_spanning_tree <filename>";
+  auto usage = "Usage: kruskal <n> || kruskal <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n = 0;
