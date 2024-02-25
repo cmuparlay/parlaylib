@@ -1,10 +1,10 @@
 #include <utility>
 #include <random>
+#include <optional>
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/random.h>
-#include <parlay/internal/get_time.h>
 
 using rg = typename parlay::random_generator;
 std::uniform_int_distribution<int> dis(0,1);

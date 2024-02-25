@@ -11,7 +11,8 @@ set(EXAMPLES "primes" "BFS" "word_counts" "tokens" "filter" "linefit"
   "fast_fourier_transform" "bucketed_dijkstra" "push_relabel_max_flow" 
   "knuth_morris_pratt" "huffman_tree" "decision_tree_c45" "karatsuba" "suffix_tree"
   "2d_linear_program" "box_kdtree" "radix_tree" "ray_trace" "hash_map" "oct_tree"
-  "3d_range" "rectangle_intersection" "star_connectivity" "ldd_connectivity" "boruvka")
+  "3d_range" "rectangle_intersection" "star_connectivity" "ldd_connectivity" "boruvka"
+  "counting_sort")
 
 function(add_example NAME)
   add_executable(${NAME} ${NAME}.cpp)
