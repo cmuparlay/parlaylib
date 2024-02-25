@@ -25,11 +25,13 @@ The examples are as follows, broken down into categories.
 - betweenness_centrality : a BFS implementation of betweenness centrality
 - BFS : breadth first search from a given source
 - BFS_ligra : same, but using the ligra interface that supports forward/backwards optimization
+- boruvka : boruvka's minimum-spanning-forest algorithm
 - bucketed_dijkstra : a version of dijkstra's algorithm for single source shortest paths that uses a bucketed priority queue
 - filter_kruskal : a version of Kruskal's minimum-spanning-forest algorithm that avoids sorting all edges
 - graph_color : graph coloring based on the greedy degree heuristic
 - kcore : returns the "coreness" of every vertex of a graph.
 - kruskal : Parallel Kruskal's minimum-spanning-forest algorithm.
+- ldd_connectivity : graph connectivity using low diameter decomposition
 - le_list : Least elements lists for vertices of a graph.
 - low_diameter_decomposition : returns a decomposition of a graph such that beta*m edges cross between components, and each component has radius log(n)/beta.
 - maximal_independent_set : greedy (lexicographically first) MIS on random permutation of vertices
@@ -39,6 +41,7 @@ The examples are as follows, broken down into categories.
 - set_cover : approximate set cover with (1 + epsilon) (ln n) approximation guarantee
 - spanning_tree : union-find implementation of spanning forest
 - spectral_separator : graph separator based on second-least eigenvector of Laplacian
+- star_connectivity : graph connectivity using star contraction
 - triangle_count : count the number of triangles in an undirected graph
 
 ## Numerical
@@ -85,6 +88,7 @@ The examples are as follows, broken down into categories.
 
 ## Sorting etc.
 
+- counting_sort : parallel counting sort for a smallish number of buckets
 - kth_smallest : randomized algorithm to report the kth smallest element of an unsorted sequence
 - mergesort : merge sort
 - quicksort : quick sort
