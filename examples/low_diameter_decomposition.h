@@ -23,7 +23,7 @@ template <typename vertex>
 using graph = parlay::sequence<parlay::sequence<vertex>>;
 
 template <typename vertex>
-auto LDD(float beta, const graph<vertex>& G, const graph<vertex>& GT) {
+parlay::sequence<vertex> LDD(float beta, const graph<vertex>& G, const graph<vertex>& GT) {
   long n = G.size();
   parlay::random_generator g(0);
   std::exponential_distribution<float> exp(beta);

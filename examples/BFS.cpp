@@ -32,13 +32,29 @@ int main(int argc, char* argv[]) {
     }
     utils::print_graph_stats(G);
     nested_seq result;
-    parlay::internal::timer t("Time");
-    for (int i=0; i < 3; i++) {
-      result = BFS(1, G);
-      t.next("BFS");
+
+    // first simple version
+    {
+      parlay::internal::timer t("Time");
+      for (int i=0; i < 5; i++) {
+	result = BFS_simple(1, G);
+	t.next("BFS");
+      }
+
+      long visited = parlay::reduce(parlay::map(result, parlay::size_of()));
+      std::cout << "num vertices visited: " << visited << std::endl;
     }
 
-    long visited = parlay::reduce(parlay::map(result, parlay::size_of()));
-    std::cout << "num vertices visited: " << visited << std::endl;
+    // then with delayed sequnces
+    {
+      parlay::internal::timer t("Time");
+      for (int i=0; i < 5; i++) {
+	result = BFS(1, G);
+	t.next("BFS (delayed sequences)");
+      }
+
+      long visited = parlay::reduce(parlay::map(result, parlay::size_of()));
+      std::cout << "num vertices visited: " << visited << std::endl;
+    }
   }
 }
