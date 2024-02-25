@@ -4,7 +4,7 @@
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 
-#include "low_diameter_decomposition.h"
+#include "ldd_connectivity.h"
 #include "helper/graph_utils.h"
 
 // **************************************************************
@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
   using graph = parlay::sequence<parlay::sequence<vertex>>;
   using utils = graph_utils<vertex>;
 
-  auto usage = "Usage: low_diameter_decomposition <n> || low_diameter_decomposition <filename>";
+  auto usage = "Usage: ldd_connectivity <n> || ldd_connectivity <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n = 0;
@@ -29,14 +29,16 @@ int main(int argc, char* argv[]) {
       G = utils::rmat_symmetric_graph(n, 20*n);
     }
     utils::print_graph_stats(G);
-    parlay::sequence<vertex> result;
+    std::pair<parlay::sequence<vertex>, parlay::sequence<vertex>> result;
     parlay::internal::timer t("Time");
     for (int i=0; i < 5; i++) {
-      result = LDD<vertex>(.5, G);
-      t.next("low_diameter_decomposition");
+      result = ldd_connectivity(G);
+      t.next("ldd_connectivity");
     }
 
-    auto cluser_ids = parlay::remove_duplicates(result);
-    std::cout << "num clusters: " << cluser_ids.size() << std::endl;
+    auto r = parlay::histogram_by_index(result.first, n);
+    long loc = (parlay::max_element(r) - r.begin());
+    std::cout << "number of components   = " << result.second.size()
+	      << "\nlargest component size = " << r[loc] << std::endl;
   }
 }

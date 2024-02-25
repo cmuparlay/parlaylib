@@ -4,6 +4,7 @@
 #include <parlay/primitives.h>
 #include <parlay/delayed.h>
 #include <parlay/sequence.h>
+#include <parlay/internal/get_time.h>
 
 #include "helper/ligra_light.h"
 
@@ -23,10 +24,11 @@ template <typename vertex>
 using graph = parlay::sequence<parlay::sequence<vertex>>;
 
 template <typename vertex>
-parlay::sequence<vertex> LDD(float beta, const graph<vertex>& G, const graph<vertex>& GT) {
+parlay::sequence<vertex> LDD(float beta, const graph<vertex>& G, long seed = 0) {
   long n = G.size();
-  parlay::random_generator g(0);
+  parlay::random_generator g(seed);
   std::exponential_distribution<float> exp(beta);
+  parlay::internal::timer t("ldd",false);
 
   // generate exp distribution and bucket based on it
   auto exps = parlay::tabulate(n, [&] (long i) {
@@ -34,7 +36,8 @@ parlay::sequence<vertex> LDD(float beta, const graph<vertex>& G, const graph<ver
   int max_e = parlay::reduce(exps, parlay::maximum<int>());
   auto buckets = parlay::group_by_index(parlay::delayed::tabulate(n, [&] (vertex i) {
     return std::pair(max_e - exps[i], i);}), max_e + 1);
-
+  t.next("gen distribution");
+  
   // -1 indicates unvisited
   auto labels = parlay::tabulate<std::atomic<vertex>>(n, [] (long i) {
     return -1;});
@@ -43,8 +46,9 @@ parlay::sequence<vertex> LDD(float beta, const graph<vertex>& G, const graph<ver
     vertex expected = -1;
     return labels[v].compare_exchange_strong(expected, labels[u]);};
   auto cond_f = [&] (vertex v) { return labels[v] == -1;};
-  auto frontier_map = ligra::edge_map(G, GT, edge_f, cond_f);
-
+  auto frontier_map = ligra::edge_map(G, G, edge_f, cond_f);
+  t.next("init");
+  
   ligra::vertex_subset<vertex> frontier;
   for (int i = 0; i <= max_e; i++) {
     // add unvisited vertices from the next bucket to the frontier on each step
@@ -52,7 +56,9 @@ parlay::sequence<vertex> LDD(float beta, const graph<vertex>& G, const graph<ver
       if (labels[v] != -1) return false;
       labels[v] = v;
       return true;}));
+    t.next("add to frontier");
     frontier = frontier_map(frontier);
+    t.next("process frontier");
   }
 
   // pull out of atomic sequence
