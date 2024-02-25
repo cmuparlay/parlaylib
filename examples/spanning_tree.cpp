@@ -17,7 +17,7 @@ using edges = parlay::sequence<edge>;
 using utils = graph_utils<vertex>;
 
 int main(int argc, char* argv[]) {
-  auto usage = "Usage: spanning_tree <n>";
+  auto usage = "Usage: spanning_forest <n> || spanning_forest <filename>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n = 0;

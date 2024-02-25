@@ -10,8 +10,8 @@
 // Input must be a sequence of unsigned integer type.  Uses a modified
 // and optimized version of the algorithm from:
 //   Apostolico, Iliopoulos, Landau, Schieber, and Vishkin.
-//   Optimal parallel suffix tree construction.
-//   STOC '94.
+//   Parallel construction of a suffix tree with applications
+//   Algorithmica, 1988
 // The work is O(n log n) work in the worst case, but for most inputs
 // it does O(n) work beyond a sort on constant length integer keys.
 // The depth is O(log^2 n) assuming the sort is within that bound.

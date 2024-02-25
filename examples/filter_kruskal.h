@@ -23,7 +23,7 @@ using edges = parlay::sequence<std::tuple<vertex,vertex,wtype>>;
 template <typename vertex, typename wtype>
 parlay::sequence<long> min_spanning_forest(const edges<vertex,wtype>& E, long n) {
   long m = E.size();
-  using indexed_edge = std::tuple<float,long,vertex,vertex>;
+  using indexed_edge = std::tuple<wtype,long,vertex,vertex>;
 
   parlay::sequence<bool> in_mst(m, false); // marks if edge i in MST
   union_find<vertex> UF(n);

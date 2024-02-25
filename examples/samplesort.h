@@ -29,7 +29,7 @@ void sample_sort_(Range in, Range out, Less less, int level=1) {
   long cutoff = 256;
   if (n <= cutoff || level > 2) {
     parlay::copy(in, out);
-    std::sort(out.begin(), out.end());
+    std::stable_sort(out.begin(), out.end());
     return;
   }
 
