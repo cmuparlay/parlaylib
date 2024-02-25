@@ -6,7 +6,6 @@
 #include <parlay/sequence.h>
 #include <parlay/delayed.h>
 #include <parlay/utilities.h>
-#include <parlay/internal/get_time.h>
 
 #include "star_connectivity.h"
 
@@ -17,9 +16,9 @@ using edge = std::pair<vertex,vertex>;
 using w_edge = std::pair<edge,w_type>;
 
 parlay::sequence<w_type> boruvka(const parlay::sequence<w_edge>& E,
-			       const parlay::sequence<vertex> V,
-  			       parlay::sequence<std::atomic<w_type>>& W,
-  			       parlay::sequence<vertex>& P) {
+				 const parlay::sequence<vertex> V,
+				 parlay::sequence<std::atomic<w_type>>& W,
+				 parlay::sequence<vertex>& P) {
   //std::cout << E.size() << ", " << V.size() << std::endl;
 
   if (E.size() == 0) return parlay::sequence<w_type>();
