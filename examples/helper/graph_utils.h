@@ -4,7 +4,7 @@
 #include <parlay/sequence.h>
 #include <parlay/io.h>
 
-namespace delayed = parlay::delayed;
+namespace delay = parlay::delayed;
 
 template <typename vertex>
 struct graph_utils {
@@ -30,10 +30,10 @@ struct graph_utils {
   // transpose a directed graph
   // i.e. generate the backward edges for every forward edges
   static graph transpose(const graph& G) {
-    auto pairs = delayed::flatten(parlay::tabulate(G.size(), [&] (vertex i) {
-      return delayed::map(G[i], [=] (auto ngh) {
+    auto pairs = parlay::delayed::flatten(parlay::tabulate(G.size(), [&] (vertex i) {
+      return parlay::delayed::map(G[i], [=] (auto ngh) {
         return std::pair(ngh, i);});}));
-    return group_by_index(delayed::to_sequence(pairs), G.size());
+    return group_by_index(parlay::delayed::to_sequence(pairs), G.size());
   }
 
   // symmetrize and remove self edges from a graph
@@ -55,8 +55,9 @@ struct graph_utils {
   }
 
   static edges to_edges(const graph& G) {
-    return delayed::to_sequence(delayed::flatten(parlay::tabulate(G.size(), [&] (vertex u) {
-      return delayed::map(G[u], [=] (vertex v) {return std::pair(u,v);});})));
+    return parlay::delayed::to_sequence(
+      parlay::delayed::flatten(parlay::tabulate(G.size(), [&] (vertex u) {
+        return parlay::delayed::map(G[u], [=] (vertex v) {return std::pair(u,v);});})));
   }
 
   // adds random weights so (u,v) and (v,u) have same weight
