@@ -21,7 +21,6 @@ int main(int argc, char* argv[]) {
     catch (...) { std::cout << usage << std::endl; return 1; }
 
     long num_buckets = 256;
-    long num_partitions = std::min<long>(1000l, n / (256 * 16) + 1);
 
     parlay::random_generator gen;
     std::uniform_int_distribution<long> dis(0, num_buckets - 1);
@@ -32,11 +31,13 @@ int main(int argc, char* argv[]) {
       return dis(r);});
     
     parlay::internal::timer t("Time");
-    parlay::sequence<long> result;
+    parlay::sequence<long> result(n);
     for (int i=0; i < 5; i++) {
-      result = data;
       t.start();
-      result = counting_sort(data, data, num_buckets, num_partitions);
+      counting_sort(data.begin(), data.end(),
+		    result.begin(),
+		    data.begin(),
+		    num_buckets);
       t.next("counting_sort");
     }
 
