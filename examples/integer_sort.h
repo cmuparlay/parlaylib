@@ -1,14 +1,12 @@
 #include <algorithm>
 #include <functional>
-#include <random>
+#include <cmath>
 
 #include <parlay/parallel.h>
 #include <parlay/primitives.h>
-#include <parlay/random.h>
 #include <parlay/slice.h>
-#include <parlay/utilities.h>
+#include <parlay/delayed.h>
 
-#include "helper/heap_tree.h"
 #include "counting_sort.h"
 
 // **************************************************************
@@ -74,7 +72,6 @@ void radix_sort(Range in, Range out, long bits, bool inplace) {
   }
 }
 
-//  A wraper that calls integer_sort_
 template <typename Range>
 parlay::sequence<typename Range::value_type>
 integer_sort(Range& in, long bits) {
