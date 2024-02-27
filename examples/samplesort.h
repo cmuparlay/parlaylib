@@ -9,6 +9,7 @@
 #include <parlay/utilities.h>
 
 #include "helper/heap_tree.h"
+#include "counting_sort.h"
 
 // **************************************************************
 // Sample sort
@@ -29,7 +30,7 @@ void sample_sort_(Range in, Range out, Less less, int level=1) {
   long cutoff = 256;
   if (n <= cutoff || level > 2) {
     parlay::copy(in, out);
-    std::stable_sort(out.begin(), out.end());
+    std::sort(out.begin(), out.end());
     return;
   }
 
@@ -58,7 +59,7 @@ void sample_sort_(Range in, Range out, Less less, int level=1) {
     return ss.find(in[i], less);});
 
   // sort into the buckets
-  auto [keys,offsets] = parlay::internal::count_sort(in, bucket_ids, num_buckets);
+  auto [keys,offsets] = counting_sort(in, bucket_ids, num_buckets);
 
   // now recursively sort each bucket
   parlay::parallel_for(0, num_buckets, [&, &keys = keys, &offsets = offsets] (long i) {
