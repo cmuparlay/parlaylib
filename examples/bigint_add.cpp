@@ -5,6 +5,7 @@
 
 #include <parlay/primitives.h>
 #include <parlay/random.h>
+#include <parlay/internal/get_time.h>
 
 #include "bigint_add.h"
 
