@@ -2,8 +2,9 @@
 #include <string>
 #include <random>
 
-#include "parlay/primitives.h"
-#include "parlay/random.h"
+#include <parlay/primitives.h>
+#include <parlay/random.h>
+#include <parlay/internal/get_time.h>
 
 #include "oct_tree.h"
 

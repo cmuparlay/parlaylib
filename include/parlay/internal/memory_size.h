@@ -5,7 +5,8 @@
  *          http://creativecommons.org/licenses/by/3.0/deed.en_US
  */
 
-#pragma once
+#ifndef PARLAY_MEMORY_SIZE_H_
+#define PARLAY_MEMORY_SIZE_H_
 
 #if defined(_WIN32)
 
@@ -102,3 +103,5 @@ static size_t getMemorySize() {
   return 0L; /* Unknown OS. */
 #endif
 }
+
+#endif // PARLAY_MEMORY_SIZE_H_

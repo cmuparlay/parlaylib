@@ -3,6 +3,7 @@
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
+#include <parlay/internal/get_time.h>
 
 #include "spectral_separator.h"
 #include "helper/graph_utils.h"

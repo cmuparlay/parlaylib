@@ -1,9 +1,10 @@
 #include <iostream>
 #include <string>
 
-#include "parlay/parallel.h"
-#include "parlay/primitives.h"
-#include "parlay/sequence.h"
+#include <parlay/parallel.h>
+#include <parlay/primitives.h>
+#include <parlay/sequence.h>
+#include <parlay/internal/get_time.h>
 
 #include "set_cover.h"
 #include "helper/graph_utils.h"

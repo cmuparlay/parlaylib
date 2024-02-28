@@ -7,6 +7,7 @@
 #include <parlay/primitives.h>
 #include <parlay/random.h>
 #include <parlay/sequence.h>
+#include <parlay/internal/get_time.h>
 
 #include "integer_sort.h"
 
@@ -21,23 +22,23 @@ int main(int argc, char* argv[]) {
     try { n = std::stol(argv[1]); }
     catch (...) { std::cout << usage << std::endl; return 1; }
 
-    using int_type = int;
+    using int_type = unsigned int;
 	
     parlay::random_generator gen;
     std::uniform_int_distribution<int_type> dis(0, n-1);
     int bits = std::ceil(std::log2(n));
     
-    // generate random long values
+    // generate random int_type values between 0 and n
     parlay::sequence<int_type> data = parlay::tabulate(n, [&] (long i) {
       auto r = gen[i];
       return dis(r);});
 
     parlay::internal::timer t("Time");
     parlay::sequence<int_type> result;
-    for (int i=0; i < 5; i++) {
-      result.clear();
+    for (int i = 0; i < 5; i++) {
+      result = data;
       t.start();
-      result = ::integer_sort(data,bits);
+      ::integer_sort(result, bits);
       t.next("integer_sort");
     }
 
