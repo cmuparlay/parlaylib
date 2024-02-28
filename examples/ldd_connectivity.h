@@ -8,7 +8,13 @@
 #include "star_connectivity.h"
 
 // **************************************************************
-// Graph Connectivity using Low Diameter Decomposition
+// Graph Connectivity using Low Diameter Decomposition (LDD)
+// From the paper:
+//  A simple and practical linear-work parallel algorithm for connectivity
+//  Shun, Dhulipala, Blelloch
+//  SPAA '14
+// The theoretical algorithms applied LDD recursively.   This implementation
+// just uses one level, then switches to star contraction.
 // **************************************************************
 template <typename vertex>
 using graph = parlay::sequence<parlay::sequence<vertex>>;
@@ -29,7 +35,7 @@ ldd_connectivity(const graph<vertex>& G, float beta = .5) {
 
   // Extract the remaining vertices
   parlay::sequence<vertex> V_r = parlay::pack_index<vertex>(parlay::tabulate(n, [&] (vertex v) {
-							  return P[v] == v;}));
+							       return P[v] == v;}));
 
   // Finish off with star contraction on remaining graph
   auto roots = star_contract(E_r, V_r, P, parlay::random_generator(0));

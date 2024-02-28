@@ -4,6 +4,7 @@
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/io.h>
+#include <parlay/internal/get_time.h>
 
 #include "knuth_shuffle.h"
 

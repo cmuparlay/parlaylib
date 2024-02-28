@@ -2,9 +2,10 @@
 #include <string>
 #include <random>
 
-#include "parlay/primitives.h"
-#include "parlay/random.h"
-#include "parlay/io.h"
+#include <parlay/primitives.h>
+#include <parlay/random.h>
+#include <parlay/io.h>
+#include <parlay/internal/get_time.h>
 
 #include "box_kdtree.h"
 

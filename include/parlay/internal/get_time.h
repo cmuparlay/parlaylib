@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PARLAY_GET_TIME_H_
+#define PARLAY_GET_TIME_H_
 
 #include <chrono>
 #include <iomanip>
@@ -84,3 +85,5 @@ public:
 
   }
 }
+
+#endif  // PARLAY_GET_TIME_H_

@@ -2,6 +2,7 @@
 #include <string>
 
 #include <parlay/sequence.h>
+#include <parlay/internal/get_time.h>
 
 #include "primes.h"
 

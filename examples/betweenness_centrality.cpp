@@ -7,6 +7,7 @@
 #include <parlay/sequence.h>
 #include <parlay/random.h>
 #include <parlay/io.h>
+#include <parlay/internal/get_time.h>
 
 #include "betweenness_centrality.h"
 #include "helper/graph_utils.h"

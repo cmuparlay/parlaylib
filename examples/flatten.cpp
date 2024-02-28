@@ -1,7 +1,9 @@
 #include <iostream>
 #include <string>
+#include <cmath>
 
 #include <parlay/sequence.h>
+#include <parlay/internal/get_time.h>
 
 #include "flatten.h"
 
