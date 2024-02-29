@@ -34,6 +34,7 @@ The examples are as follows, broken down into categories.
 - ldd_connectivity : graph connectivity using low diameter decomposition
 - le_list : Least elements lists for vertices of a graph.
 - low_diameter_decomposition : returns a decomposition of a graph such that beta*m edges cross between components, and each component has radius log(n)/beta.
+- lubys : luby's algorithm for maximal independent set (MIS)
 - maximal_independent_set : greedy (lexicographically first) MIS on random permutation of vertices
 - maximal_matching : greedy (lexicographically first) maximal matching on random permutation of edges
 - pagerank : Page and Brin's algorithm for ranking pages in the web graph
@@ -89,6 +90,7 @@ The examples are as follows, broken down into categories.
 ## Sorting etc.
 
 - counting_sort : parallel counting sort for a smallish number of buckets
+- integer_sort : a radix-based integer sort
 - kth_smallest : randomized algorithm to report the kth smallest element of an unsorted sequence
 - mergesort : merge sort
 - quicksort : quick sort

@@ -6,7 +6,6 @@
 #include <parlay/delayed.h>
 #include <parlay/random.h>
 #include <parlay/monoid.h>
-#include <parlay/internal/get_time.h>
 
 // **************************************************************
 // Luby's algorithm for Maximal Independent Set (MIS).  From:
@@ -19,14 +18,14 @@
 
 // Note graph is copied since it is mutated internally
 template <typename graph>
-parlay::sequence<bool> MIS(graph& G_in) {
+parlay::sequence<bool> MIS(const graph& G_in) {
   using vertex = typename graph::value_type::value_type;
   long n = G_in.size();
   parlay::random_generator gen(0);
   std::uniform_int_distribution<int> dis(0,1000000000);
 
   // first round uses G_in then uses G_nxt
-  graph* G = &G_in;
+  const graph* G = &G_in;
   graph G_nxt(n);
   
   // Each vertex is either in the set, out of the set, or unknown (initially)
@@ -63,13 +62,12 @@ parlay::sequence<bool> MIS(graph& G_in) {
     // only keep edges for which both endpoints are unknown
     for_each(V, [&] (vertex u) {
       G_nxt[u] = parlay::filter((*G)[u], [&] (vertex v) {
-	       return states[v] == Unknown;});});
+	            return states[v] == Unknown;});});
     
     // advanced state of random number generator
     gen = gen[n];
     G = &G_nxt;
   }
 
-  return parlay::map(states, [] (auto& s) {
-	     return s.load() == InSet;});
+  return parlay::map(states, [] (auto& s) {return s.load() == InSet;});
 }
