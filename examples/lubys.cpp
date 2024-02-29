@@ -28,6 +28,7 @@ int main(int argc, char* argv[]) {
       n = G.size();
     } else {
       G = utils::rmat_symmetric_graph(n, 20*n);
+      n = G.size();
     }
     utils::print_graph_stats(G);
     parlay::internal::timer t("Time");
@@ -36,7 +37,15 @@ int main(int argc, char* argv[]) {
       in_set = MIS(G);
       t.next("lubys");
     }
+    
+    // check whether an mis
+    bool bad_mis = parlay::any_of(parlay::iota(n), [&] (vertex u) {
+      return ((in_set[u] && parlay::any_of(G[u], [&] (vertex v) {return in_set[v];}))  ||
+	      (!in_set[u] && parlay::none_of(G[u], [&] (vertex v) {return in_set[v];})));});
 
+    if (bad_mis > 0) 
+      std::cout << "not a maximal independent set" << std::endl;
+      
     int num_in_set = parlay::reduce(parlay::map(in_set,[] (bool a) {return a ? 1 : 0;}));
     std::cout << "number in set: " << num_in_set << std::endl;
   }

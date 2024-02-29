@@ -6,6 +6,7 @@
 #include <parlay/delayed.h>
 #include <parlay/random.h>
 #include <parlay/monoid.h>
+#include <parlay/internal/get_time.h>
 
 // **************************************************************
 // Luby's algorithm for Maximal Independent Set (MIS).  From:
@@ -18,15 +19,19 @@
 
 // Note graph is copied since it is mutated internally
 template <typename graph>
-parlay::sequence<bool> MIS(graph G) {
+parlay::sequence<bool> MIS(graph& G_in) {
   using vertex = typename graph::value_type::value_type;
-  long n = G.size();
+  long n = G_in.size();
   parlay::random_generator gen(0);
   std::uniform_int_distribution<int> dis(0,1000000000);
 
+  // first round uses G_in then uses G_nxt
+  graph* G = &G_in;
+  graph G_nxt(n);
+  
   // Each vertex is either in the set, out of the set, or unknown (initially)
   enum state : char {InSet, OutSet, Unknown};
-  auto states = parlay::tabulate<std::atomic<state>>(G.size(), [&] (long i) {
+  auto states = parlay::tabulate<std::atomic<state>>(n, [&] (long i) {
 			return Unknown;});
 
   // initial active vetices (all of them)
@@ -40,28 +45,29 @@ parlay::sequence<bool> MIS(graph G) {
 
     // pick random priorities for the remaining vertices
     for_each(V, [&] (vertex u) {auto r = gen[u]; priority[u] = dis(r);});
-
+  
     // for each remaining vertex, if it has a local max priority then
     // add it to the MIS and remove neighbors
     for_each(V, [&] (vertex u) {
       if (priority[u] > 
-	  reduce(parlay::delayed::map(G[u], [&] (vertex v) {return priority[v];}),
+	  reduce(parlay::delayed::map((*G)[u], [&] (vertex v) {return priority[v];}),
 		 parlay::maxm<vertex>())) {
 	states[u] = InSet;
-	for_each(G[u], [&] (vertex v) {
+	for_each((*G)[u], [&] (vertex v) {
           if (states[v] == Unknown) states[v] = OutSet;});
       }});
-
+    
     // only keep vertices that are still unknown
     V = parlay::filter(V, [&] (vertex u) {return states[u] == Unknown;});
 
     // only keep edges for which both endpoints are unknown
     for_each(V, [&] (vertex u) {
-      G[u] = parlay::filter(G[u], [&] (vertex v) {
+      G_nxt[u] = parlay::filter((*G)[u], [&] (vertex v) {
 	       return states[v] == Unknown;});});
-
+    
     // advanced state of random number generator
     gen = gen[n];
+    G = &G_nxt;
   }
 
   return parlay::map(states, [] (auto& s) {
