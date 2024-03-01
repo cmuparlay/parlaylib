@@ -2,6 +2,7 @@
 
 #include <parlay/primitives.h>
 #include <parlay/delayed.h>
+#include <parlay/monoid.h>
 
 // **************************************************************
 // Fits a set of points to a line minimizing chi-squared.

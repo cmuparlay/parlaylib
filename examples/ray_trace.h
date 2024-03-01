@@ -1,6 +1,11 @@
 #include <limits>
 #include <algorithm>
+#include <array>
+#include <utility>
+
 #include "parlay/primitives.h"
+#include "parlay/sequence.h"
+
 #include "box_kdtree.h"
 
 // **************************************************************

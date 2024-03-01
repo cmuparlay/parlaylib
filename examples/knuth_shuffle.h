@@ -1,5 +1,6 @@
 #include <atomic>
 #include <utility>
+#include <functional>
 
 #include <parlay/parallel.h>
 #include <parlay/primitives.h>

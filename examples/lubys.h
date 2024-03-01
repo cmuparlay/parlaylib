@@ -48,9 +48,11 @@ parlay::sequence<bool> MIS(const graph& G_in) {
     // for each remaining vertex, if it has a local max priority then
     // add it to the MIS and remove neighbors
     for_each(V, [&] (vertex u) {
-      if (priority[u] > 
-	  reduce(parlay::delayed::map((*G)[u], [&] (vertex v) {return priority[v];}),
-		 parlay::maxm<vertex>())) {
+      // if (priority[u] > 
+      // 	  reduce(parlay::delayed::map((*G)[u], [&] (vertex v) {return priority[v];}),
+      // 		 parlay::maxm<vertex>())) {
+      if (parlay::find_if((*G)[u], [&] (vertex v) {
+   	        return priority[v] >= priority[u];}) == (*G)[u].end()) {
 	states[u] = InSet;
 	for_each((*G)[u], [&] (vertex v) {
           if (states[v] == Unknown) states[v] = OutSet;});

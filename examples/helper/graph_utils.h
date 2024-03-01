@@ -1,7 +1,9 @@
 #include <iostream>
 #include <string>
+
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
+#include <parlay/delayed.h>
 #include <parlay/io.h>
 
 namespace delay = parlay::delayed;

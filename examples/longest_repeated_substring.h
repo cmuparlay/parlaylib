@@ -1,4 +1,5 @@
-#include <parlay/sequence.h>
+#include <tuple>
+
 #include <parlay/primitives.h>
 
 #include "suffix_array.h"

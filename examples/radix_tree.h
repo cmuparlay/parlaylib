@@ -1,5 +1,8 @@
-#include "parlay/sequence.h"
-#include "parlay/primitives.h"
+#include <utility>
+
+#include <parlay/parallel.h>
+#include <parlay/sequence.h>
+#include <parlay/primitives.h>
 
 #include "cartesian_tree.h"
 

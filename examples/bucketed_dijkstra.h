@@ -1,3 +1,5 @@
+#include <utility>
+#include <algorithm>
 #include <atomic>
 
 #include <parlay/primitives.h>

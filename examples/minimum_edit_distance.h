@@ -1,4 +1,3 @@
-#include <atomic>
 #include <utility>
 
 #include <parlay/parallel.h>
@@ -6,6 +5,7 @@
 #include <parlay/sequence.h>
 
 #include "helper/speculative_for.h"
+
 // **************************************************************
 // Mininum Edit Distance of two sequences
 // Uses dynamic program parallelizing across diagonals of

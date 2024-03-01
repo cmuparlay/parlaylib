@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/delayed.h>

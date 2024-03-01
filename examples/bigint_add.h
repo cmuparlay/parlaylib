@@ -4,6 +4,8 @@
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
+#include <parlay/delayed.h>
+#include <parlay/monoid.h>
 
 // **************************************************************
 // Adds two "big integers" of arbitrary precision.  Supports signed

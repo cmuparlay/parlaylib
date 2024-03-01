@@ -1,6 +1,8 @@
 #pragma once
+#include <atomic>
 
 #include <parlay/primitives.h>
+#include <parlay/sequence.h>
 
 // The following supports both "link" (a directed union) and "find".
 // They are safe to run concurrently as long as there is no cycle among
