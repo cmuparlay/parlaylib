@@ -2,10 +2,10 @@
 
 #include <algorithm>
 #include <atomic>
-#include <optional>
-#include <utility>
-#include <iostream>
 #include <functional>
+#include <optional>
+#include <iostream>
+#include <utility>
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
@@ -47,7 +47,7 @@ struct hash_map {
 
  public:
   hash_map(long size, Hash&& hash = {}, Equal&& equal = {}) 
-    : m(100 + static_cast<index>(1.5 * size)),
+    : m(100 + static_cast<long>(1.5 * static_cast<float>(size))),
       hash(hash), equal(equal),
       H(parlay::sequence<entry>(m)) {}
 

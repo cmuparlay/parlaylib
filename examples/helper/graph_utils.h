@@ -1,9 +1,14 @@
+#include <utility>
+#include <algorithm>
 #include <iostream>
 #include <string>
+#include <random>
+#include <type_traits>
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/delayed.h>
+#include <parlay/random.h>
 #include <parlay/io.h>
 
 namespace delay = parlay::delayed;
@@ -138,19 +143,19 @@ struct graph_utils {
   }
 
   static graph rmat_graph(long n, long m, double a=.5, double b=.15, double c=.15) {
-    int logn = round(log2(n));
+    int logn = static_cast<int>(round(log2(static_cast<int>(n))));
     auto edges = rmat_edges_(logn, m, a, b, c);
     return parlay::group_by_index(edges, 1 << logn);
   }
 
   static graph rmat_symmetric_graph(long n, long m, double a=.5, double b=.15, double c=.15) {
-    int logn = round(log2(n));
+    int logn = static_cast<int>(round(log2(static_cast<int>(n))));
     auto edges = rmat_edges_(logn, m/2, a, b, c);
     return symmetrize(edges, 1 << logn);
   }
 
   static graph grid_graph(long n) {
-    vertex sqn = sqrt(n);
+    vertex sqn = static_cast<vertex>(std::sqrt(static_cast<float>(n)));
     parlay::sequence<vertex> offsets({-1-sqn,-sqn,1-sqn,-1,1,-1+sqn,sqn,1+sqn});
     return parlay::tabulate(sqn*sqn, [&] (vertex u) {
       auto nghs = map(offsets, [&] (vertex o) {return u+o;});
