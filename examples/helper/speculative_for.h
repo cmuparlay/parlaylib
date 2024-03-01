@@ -1,8 +1,12 @@
 #pragma once
 
 #include <limits>
+#include <atomic>
+#include <algorithm>
 
 #include <parlay/primitives.h>
+#include <parlay/sequence.h>
+#include <parlay/delayed.h>
 #include <parlay/utilities.h>
 
 // Uses the approach of deterministic reservations.  Basically it

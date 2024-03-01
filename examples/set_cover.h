@@ -8,6 +8,7 @@
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
 #include <parlay/utilities.h>
+#include <parlay/monoid.h>
 
 #include "helper/speculative_for.h"
 

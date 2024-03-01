@@ -1,5 +1,9 @@
 #include <limits>
 #include <algorithm>
+#include <array>
+#include <tuple>
+#include <utility>
+
 #include "parlay/primitives.h"
 #include "parlay/delayed.h"
 #include "parlay/internal/get_time.h"

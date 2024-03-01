@@ -1,16 +1,17 @@
 #include <algorithm>
+#include <utility>
 
-#include "parlay/primitives.h"
 #include "parlay/parallel.h"
+#include "parlay/primitives.h"
 #include "parlay/sequence.h"
 
 #include "box_kdtree.h"
 
 // **************************************************************
 // Reports for a set of rectangles in 3d the other rectangle they intersect.
-// Rectangles must be stored in a kd-tree, where every rectangle appears
+// Rectangles are first placed in a kd-tree, where every rectangle appears
 // in every leaf of the tree for which it intersects.
-// Can use the the surface area heuristic (SAH) to build the tree, but
+// Use the the surface area heuristic (SAH) to build the tree, but
 // any method will work.
 // See box_kdtree for format of tree.
 // Does not report rectangles that intersect at a boundary.

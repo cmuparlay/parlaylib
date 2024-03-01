@@ -1,9 +1,10 @@
+#include <utility>
 #include <cmath>
 
 #include <parlay/parallel.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
-#include <parlay/internal/get_time.h>
+#include <parlay/delayed.h>
 
 // **************************************************************
 // Suffix Array.

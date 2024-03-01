@@ -1,9 +1,14 @@
 #include <random>
 #include <limits>
 #include <iostream>
+#include <atomic>
+#include <utility>
+#include <cmath>
+
+#include <parlay/parallel.h>
 #include <parlay/primitives.h>
-#include <parlay/random.h>
-#include <parlay/internal/get_time.h>
+#include <parlay/sequence.h>
+
 #include "helper/ligra_light.h"
 
 // **************************************************************
@@ -81,7 +86,6 @@ auto truncated_bfs(graph& G, graph& GT,
 		  sequence<distance>& delta_ro,
 		  sequence<std::atomic<distance>>& delta,
 		  le_list& L){
-  parlay::internal::timer t;
   vertex n = G.size();
   auto vtxs = sequence<struct vertex_info>(n);
   distance dist = 0;

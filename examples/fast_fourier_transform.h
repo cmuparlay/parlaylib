@@ -1,6 +1,7 @@
 #include <complex>
 #include <cmath>
 
+#include <parlay/parallel.h>
 #include <parlay/sequence.h>
 #include <parlay/primitives.h>
 #include <parlay/delayed.h>

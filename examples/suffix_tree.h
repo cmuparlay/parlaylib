@@ -1,7 +1,8 @@
+#include <parlay/primitives.h>
+
 #include "suffix_array.h"
 #include "longest_common_prefix.h"
 #include "radix_tree.h"
-#include "parlay/io.h"
 
 // **************************************************************
 // Suffix Tree.

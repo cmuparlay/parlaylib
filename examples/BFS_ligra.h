@@ -1,5 +1,4 @@
 #include <atomic>
-#include <utility>
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>

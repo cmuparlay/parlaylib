@@ -4,6 +4,8 @@
 #include <atomic>
 #include <optional>
 #include <utility>
+#include <iostream>
+#include <functional>
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>

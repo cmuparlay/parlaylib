@@ -1,5 +1,9 @@
 #include <chrono>
 #include <limits>
+#include <utility>
+#include <atomic>
+#include <algorithm>
+#include <iostream>
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>

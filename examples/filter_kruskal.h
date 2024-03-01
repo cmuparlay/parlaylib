@@ -2,6 +2,7 @@
 
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
+#include <parlay/delayed.h>
 
 #include "helper/union_find.h"
 #include "helper/speculative_for.h"
