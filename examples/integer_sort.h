@@ -56,7 +56,7 @@ void radix_sort(Range in, Range out, long bits, bool inplace) {
 
     // extract the needed bits for the keys
     auto keys = parlay::delayed::tabulate(n, [&] (long i) {
-      return (in[i] >> bits - radix_bits) & (num_buckets-1);});
+       return (in[i] >> (bits - radix_bits)) & (num_buckets-1);});
   
     // sort in into the out based on keys
     auto offsets = counting_sort(in.begin(), in.end(), out.begin(), keys.begin(),

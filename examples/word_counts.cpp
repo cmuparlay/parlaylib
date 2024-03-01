@@ -25,8 +25,8 @@ int main(int argc, char* argv[]) {
     charseq str = parlay::chars_from_file(argv[2]);
 
     // clean up by just keeping alphabetic chars, and lowercase them
-    str = parlay::map(str, [] (unsigned char c) -> char {
-      return std::isalpha(c) ? std::tolower(c) : ' '; });
+    str = parlay::map(str, [] (char c) -> char {
+            return std::isalpha(c) ? static_cast<char>(std::tolower(c)) : ' '; });
 
     parlay::sequence<std::pair<parlay::chars, long>> counts;
     parlay::internal::timer t("Time");

@@ -26,7 +26,6 @@ int main(int argc, char* argv[]) {
     catch (...) {}
     if (n == 0) {
       G = utils::read_symmetric_graph_from_file(argv[1]);
-      n = G.size();
     } else {
       G = utils::rmat_graph(n, 20*n);
     }

@@ -1,9 +1,9 @@
 #include <iostream>
 #include <string>
 
+#include <parlay/internal/get_time.h>
 #include <parlay/primitives.h>
 #include <parlay/random.h>
-#include <parlay/internal/get_time.h>
 
 #include "hash_map.h"
 
@@ -11,7 +11,7 @@
 // Driver
 // **************************************************************
 int main(int argc, char* argv[]) {
-  auto usage = "hash_map <n>";
+  const auto usage = "hash_map <n>";
   if (argc != 2) std::cout << usage << std::endl;
   else {
     long n;
