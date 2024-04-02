@@ -24,13 +24,13 @@ void fft_recursive(long n, long s, T const* in, T* out, T const* w) {
      out[1] = in[0] - in[s];
   } else {
     parlay::par_do_if(n >= 256,
-		      [&] {fft_recursive(n/2, 2*s, in, out, w);},
-		      [&] {fft_recursive(n/2, 2*s, in+s, out+n/2, w);});
+                      [&] {fft_recursive(n/2, 2*s, in, out, w);},
+                      [&] {fft_recursive(n/2, 2*s, in+s, out+n/2, w);});
     parlay::parallel_for(0, n/2, [&] (long i) {
-	T p = out[i];
-	T q = out[i+n/2] * w[i * s]; 
-	out[i] = p + q;
-	out[i+n/2] = p - q;}, 1000);
+        T p = out[i];
+        T q = out[i+n/2] * w[i * s]; 
+        out[i] = p + q;
+        out[i+n/2] = p - q;}, 1000);
   }
 }
 
@@ -72,16 +72,16 @@ auto complex_fft(const parlay::sequence<complex>& a) {
 // loop-based fft (assumes A is in bit-reveresed order)
 template <typename T>
 auto fft_base(parlay::sequence<T>& A,
-	      const parlay::sequence<T>& w) {
+              const parlay::sequence<T>& w) {
   long n = A.size();
   int is = n/2;
   for (int s = 1; s < n; s = s*2, is = is/2) 
     for (int i = 0; i < n; i += 2*s)
       for (int j = 0; j < s; j++) {
-	T p = A[i + j];
-	T q = A[i + j + s] * w[j*is]; 
-	A[i + j] = p + q;
-	A[i + j + s] = p - q;
+        T p = A[i + j];
+        T q = A[i + j + s] * w[j*is]; 
+        A[i + j] = p + q;
+        A[i + j + s] = p - q;
       }
 }
 
@@ -103,22 +103,22 @@ auto fft_transpose(const parlay::sequence<parlay::sequence<T>>& cols, T nth_root
   parlay::sequence<T> wc = powers(std::pow(nth_root, num_cols), num_rows);
   auto columns = parlay::tabulate(num_cols, [&] (long i) {
       auto c = parlay::tabulate(num_rows, [&] (long j) {
-	  return cols[i][br[j]];});
+          return cols[i][br[j]];});
       fft_base(c, wc);
       auto w = powers(std::pow(nth_root, i), num_rows);
       // rotate to avoid stride problems with set-associative cache 
       return parlay::tabulate(num_rows, [&] (long j) {
-	  int k = (num_rows + j - i) & (num_rows - 1);
-	  return c[k]*w[k];});});
+          int k = (num_rows + j - i) & (num_rows - 1);
+          return c[k]*w[k];});});
 
   // transpose and process rows
   br = bit_reverse(num_cols);
   auto wr = powers(std::pow(nth_root, num_rows), num_cols);
   return parlay::tabulate(num_rows, [&] (long j) {
       auto row = parlay::tabulate(num_cols, [&] (long i) {
-	  return columns[i][i+j & (num_rows - 1)];}); // transpose
+          return columns[i][i+j & (num_rows - 1)];}); // transpose
       auto r = parlay::tabulate(num_cols, [&] (long i) {
-	  return row[br[i]];});
+          return row[br[i]];});
       fft_base(r, wr);
       return r;});
 }

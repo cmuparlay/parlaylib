@@ -32,8 +32,8 @@ struct vect3d {
     return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];}
   vect3d cross(vect3d b) const {
     return vect3d(a[1]*b[2] - a[2]*b[1],
-		a[2]*b[0] - a[0]*b[2],
-		a[0]*b[1] - a[1]*b[0]); }
+                a[2]*b[0] - a[0]*b[2],
+                a[0]*b[1] - a[1]*b[0]); }
   coord& operator[](int i) {return a[i];};
   vect3d() : a({0.0,0.0,0.0}) {}
   vect3d(coord x, coord y, coord z) : a({x,y,z}) {}
@@ -54,8 +54,8 @@ range get_range(coord c0, coord c1, coord c2) {
 
 inline bool in_box(point3d p, Bounding_Box B) {
   return (p[0] >= (B[0][0] - epsilon) && p[0] <= (B[0][1] + epsilon) &&
-	  p[1] >= (B[1][0] - epsilon) && p[1] <= (B[1][1] + epsilon) &&
-	  p[2] >= (B[2][0] - epsilon) && p[2] <= (B[2][1] + epsilon));
+          p[1] >= (B[1][0] - epsilon) && p[1] <= (B[1][1] + epsilon) &&
+          p[2] >= (B[2][0] - epsilon) && p[2] <= (B[2][1] + epsilon));
 }
 
 // Code for ray_triangle_intersect is based on:
@@ -98,9 +98,9 @@ coord ray_triangle_intersect(ray r, triangle tri) {
 // The triangles are given by n indices I into the triangle array Tri.
 // -1 is returned if there is no intersection
 index_t find_ray(ray r,
-		 parlay::sequence<index_t> const &I, 
-		 Triangles const &Tri,
-		 Bounding_Box B) {
+                 parlay::sequence<index_t> const &I, 
+                 Triangles const &Tri,
+                 Bounding_Box B) {
   auto [o, d] = r;
   index_t n = I.size();
   coord tMin = std::numeric_limits<coord>::max();
@@ -166,7 +166,7 @@ parlay::sequence<index_t> ray_cast(const Triangles &triangles, const Rays &rays)
   auto boxes = parlay::tabulate(triangles.size(), [&] (size_t i) {
       auto [p0,p1,p2] = triangles[i];
       return Bounding_Box{get_range(p0[0],p1[0],p2[0]),get_range(p0[1],p1[1],p2[1]),
-	  get_range(p0[2],p1[2],p2[2])};});
+          get_range(p0[2],p1[2],p2[2])};});
   
   tree_node* R = kdtree_from_boxes(boxes);
 

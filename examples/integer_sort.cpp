@@ -1,5 +1,4 @@
 #include <iostream>
-#include <string>
 #include <random>
 #include <cmath>
 
@@ -23,10 +22,10 @@ int main(int argc, char* argv[]) {
     catch (...) { std::cout << usage << std::endl; return 1; }
 
     using int_type = unsigned int;
-	
+        
     parlay::random_generator gen;
     std::uniform_int_distribution<int_type> dis(0, n-1);
-    int bits = std::ceil(std::log2(n));
+    int num_bits = std::ceil(std::log2(n));
     
     // generate random int_type values between 0 and n
     parlay::sequence<int_type> data = parlay::tabulate(n, [&] (long i) {
@@ -38,11 +37,12 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < 5; i++) {
       result = data;
       t.start();
-      ::integer_sort(result, bits);
+      ::integer_sort(result, num_bits);
       t.next("integer_sort");
     }
 
     auto first_ten = result.head(10);
-    std::cout << "first 10 elements: " << parlay::to_chars(first_ten) << std::endl;
+    std::cout << "first 10 elements: " << parlay::to_chars(first_ten)
+              << std::endl;
   }
 }

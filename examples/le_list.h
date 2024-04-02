@@ -51,7 +51,7 @@ public:
     // create n empty le-lists, each of size capacity
     A = tabulate(n, [=] (vertex i) {
           return tabulate(capacity, [] (int j){
-	    return std::make_pair((vertex) 0, max_distance);});});
+            return std::make_pair((vertex) 0, max_distance);});});
     // initial sizes are 0
     sizes = tabulate<std::atomic<int>>(n, [] (vertex i) {return 0;});
   }
@@ -68,7 +68,7 @@ public:
   // lists is unspecified.
   sequence<sequence<std::pair<vertex,distance>>> pack() {
     return tabulate(sizes.size(), [&] (int i){
-	     return to_sequence(A[i].head(sizes[i]));});
+             return to_sequence(A[i].head(sizes[i]));});
   }
 };
 
@@ -81,11 +81,11 @@ struct vertex_info{
 
 template <typename vertex, typename graph>
 auto truncated_bfs(graph& G, graph& GT,
-		  sequence<vertex>& srcs,
-		  sequence<vertex>& order,
-		  sequence<distance>& delta_ro,
-		  sequence<std::atomic<distance>>& delta,
-		  le_list& L){
+                  sequence<vertex>& srcs,
+                  sequence<vertex>& order,
+                  sequence<distance>& delta_ro,
+                  sequence<std::atomic<distance>>& delta,
+                  le_list& L){
   vertex n = G.size();
   auto vtxs = sequence<struct vertex_info>(n);
   distance dist = 0;
@@ -102,21 +102,21 @@ auto truncated_bfs(graph& G, graph& GT,
   // function to apply on each edge s->d
   auto edge_f = [&] (vertex s, vertex d) -> bool {
     if ((vtxs[d].root_ro == Empty
-	 || order[vtxs[s].root_ro] < order[vtxs[d].root_ro])
-	&& (dist < delta_ro[d])) {
+         || order[vtxs[s].root_ro] < order[vtxs[d].root_ro])
+        && (dist < delta_ro[d])) {
       // if d is unvisited or root priority of d is larger than s,
       // and distance to d is greater than current distance,
       // then try to update the root of d
       auto less = [&] (vertex newv, vertex old) {
-		    return (old == Empty || (order[newv] < order[old]));};
+                    return (old == Empty || (order[newv] < order[old]));};
 
       if (write_min(&vtxs[d].root, vtxs[s].root_ro, less)) {
-	L.insert(d, vtxs[s].root_ro, dist);
-	// update nearest distance to d
-	write_min(&delta[d], dist, std::less<distance>());
-	// only true if first to update d (avoids duplicates in frontier)
-	distance old = vtxs[d].step;
-	return (dist > old) && vtxs[d].step.compare_exchange_strong(old, dist);
+        L.insert(d, vtxs[s].root_ro, dist);
+        // update nearest distance to d
+        write_min(&delta[d], dist, std::less<distance>());
+        // only true if first to update d (avoids duplicates in frontier)
+        distance old = vtxs[d].step;
+        return (dist > old) && vtxs[d].step.compare_exchange_strong(old, dist);
       }
       return false;
     }
@@ -128,7 +128,7 @@ auto truncated_bfs(graph& G, graph& GT,
   // in this chunk by the highest priority in the chunk.
   auto cond_f = [&] (vertex d) {
     return (dist < delta_ro[d] &&
-	    (vtxs[d].root == Empty || order[vtxs[d].root] != start));
+            (vtxs[d].root == Empty || order[vtxs[d].root] != start));
   };
 
   auto frontier_map = ligra::edge_map(G, GT, edge_f, cond_f);
@@ -156,7 +156,7 @@ auto create_le_list(Graph& G, Graph& GT, sequence<vertex>& order) {
 
   // initial distances of "infinity"
   auto delta = tabulate<std::atomic<distance>>(n, [] (vertex i) {
-		     return max_distance;});
+                     return max_distance;});
   
   // BFS using prefix doubling, i.e. increasing prefixes of doubling size
   for(vertex r = 0; r < n; r = 2*r + 1){
@@ -171,11 +171,11 @@ auto create_le_list(Graph& G, Graph& GT, sequence<vertex>& order) {
   parallel_for(0, n, [&] (vertex i){
     //Sort lists in order of increasing vertex number (based on permutation)
     sort_inplace(lists[i], [&] (auto p1, auto p2) {
-		     return inv_order[p1.first] < inv_order[p2.first];});
+                     return inv_order[p1.first] < inv_order[p2.first];});
 
     //Prune lists for "extra elements"
     auto flags = tabulate(lists[i].size(), [&lists, i] (int j){
-		   return j==0 || lists[i][j].second < lists[i][j-1].second;});
+                   return j==0 || lists[i][j].second < lists[i][j-1].second;});
     lists[i] = pack(lists[i],flags);
   });
   return lists;

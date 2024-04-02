@@ -30,12 +30,12 @@ ldd_connectivity(const graph<vertex>& G, float beta = .5) {
 
   // Extract the remaining edges
   auto E_r = parlay::flatten(parlay::tabulate(n, [&] (vertex u) {
-	      auto remain = filter(G[u], [&] (vertex v) {return P[u] != P[v];});
-	      return map(remain, [&] (vertex v) {return edge(P[u],P[v]);}, 1000);}));
+              auto remain = filter(G[u], [&] (vertex v) {return P[u] != P[v];});
+              return map(remain, [&] (vertex v) {return edge(P[u],P[v]);}, 1000);}));
 
   // Extract the remaining vertices
   parlay::sequence<vertex> V_r = parlay::pack_index<vertex>(parlay::tabulate(n, [&] (vertex v) {
-							       return P[v] == v;}));
+                                                               return P[v] == v;}));
 
   // Finish off with star contraction on remaining graph
   auto roots = star_contract(E_r, V_r, P, parlay::random_generator(0));

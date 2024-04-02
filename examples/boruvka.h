@@ -16,9 +16,9 @@ using edge = std::pair<vertex,vertex>;
 using w_edge = std::pair<edge,w_type>;
 
 parlay::sequence<w_type> boruvka(const parlay::sequence<w_edge>& E,
-				 const parlay::sequence<vertex> V,
-				 parlay::sequence<std::atomic<w_type>>& W,
-				 parlay::sequence<vertex>& P) {
+                                 const parlay::sequence<vertex> V,
+                                 parlay::sequence<std::atomic<w_type>>& W,
+                                 parlay::sequence<vertex>& P) {
   //std::cout << E.size() << ", " << V.size() << std::endl;
 
   if (E.size() == 0) return parlay::sequence<w_type>();
@@ -36,7 +36,7 @@ parlay::sequence<w_type> boruvka(const parlay::sequence<w_edge>& E,
       return (W[u] == e.second || W[v] == e.second);});
   
   auto V_new = star_contract(map(Es, [] (w_edge e) {return e.first;}),
-			     V, P, parlay::random_generator(0));
+                             V, P, parlay::random_generator(0));
   
   // update edges to new endpoints and filter out self edges
   auto ES = parlay::delayed::map(E, [&] (w_edge e) {

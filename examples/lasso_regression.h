@@ -131,7 +131,7 @@ void solve_lasso(const sparse_matrix& AT, const vector& y,
     // Convergence check
     if (step > 0) {
       if (max_change <= (step + 1) * delta_threshold || counter > 100) {
-        step--;	counter = 0;
+        step--;        counter = 0;
       }
     } else { // Only use actual objective on last step.
       real obj = objective(Ax, x, y, lambda);

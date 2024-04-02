@@ -26,9 +26,9 @@ std::uniform_real_distribution<double> rdis(0.0,1.0);
 template <typename vertex>
 parlay::sequence<vertex>
 star_contract(const parlay::sequence<std::pair<vertex,vertex>>& E,
-	      parlay::sequence<vertex> V,
-	      parlay::sequence<vertex>& parents,
-	      rg generator) {
+              parlay::sequence<vertex> V,
+              parlay::sequence<vertex>& parents,
+              rg generator) {
   using edge = std::pair<vertex, vertex>;
 
   // std::cout << "size : " << E.size() << ", " << V.size() << std::endl;
@@ -67,7 +67,7 @@ star_contract(const parlay::sequence<std::pair<vertex,vertex>>& E,
 template <typename vertex>
 std::pair<parlay::sequence<vertex>, parlay::sequence<vertex>>
 star_connectivity_simple(const parlay::sequence<std::pair<vertex,vertex>>& E,
-			 long n) {
+                         long n) {
   using edge = std::pair<vertex, vertex>;
   auto parents = parlay::tabulate(n, [] (vertex i) {return i;});
   auto roots = star_contract(E, parents, parents, rg(0));
@@ -82,9 +82,9 @@ star_connectivity_simple(const parlay::sequence<std::pair<vertex,vertex>>& E,
 template <typename vertex>
 parlay::sequence<vertex>
 star_contract_sample(const parlay::sequence<std::pair<vertex,vertex>>& E,
-		     parlay::sequence<vertex> V,
-		     parlay::sequence<vertex>& parents,
-		     rg generator) {
+                     parlay::sequence<vertex> V,
+                     parlay::sequence<vertex>& parents,
+                     rg generator) {
   using edge = std::pair<vertex, vertex>;
 
   // std::cout << "size : " << E.size() << ", " << V.size() << std::endl;
@@ -97,8 +97,8 @@ star_contract_sample(const parlay::sequence<std::pair<vertex,vertex>>& E,
     float frac = V.size() * 3.0 / E.size();
     rg r = generator[0];
     auto Ee = parlay::map_maybe(parlay::iota(E.size()), [&] (long i) {
-	rg r = generator[i];
-	return rdis(r) < frac ? std::optional<edge>(E[i]) : std::optional<edge>();});
+        rg r = generator[i];
+        return rdis(r) < frac ? std::optional<edge>(E[i]) : std::optional<edge>();});
     return star_contract_sample(Ee, V, parents, generator[E.size()]);
   }
 
@@ -131,7 +131,7 @@ star_contract_sample(const parlay::sequence<std::pair<vertex,vertex>>& E,
 template <typename vertex>
 std::pair<parlay::sequence<vertex>, parlay::sequence<vertex>>
 star_connectivity(const parlay::sequence<std::pair<vertex,vertex>>& E,
-		  long n) {
+                  long n) {
   using edge = std::pair<vertex, vertex>;
   auto parents = parlay::tabulate(n, [] (vertex i) {return i;});
 

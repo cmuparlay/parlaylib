@@ -64,7 +64,7 @@ struct radix_tree {
     // the same LCP value.  The following identifies the roots of such
     // subtrees, and labels each with an index.
     auto root_flags = parlay::tabulate(n - 1, [&] (index i) {
-	return (i == Parents[i] || lcps[i] != lcps[Parents[i]]);});
+        return (i == Parents[i] || lcps[i] != lcps[Parents[i]]);});
     auto root_locs = parlay::pack_index(root_flags);
     index num_roots = root_locs.size();
     parlay::sequence<index> root_ids(n-1);
@@ -73,36 +73,36 @@ struct radix_tree {
     // find root of subtree for location i
     auto cluster_root = [&] (index i) {
       while (i != Parents[i] && lcps[i] == lcps[Parents[i]])
-	  i = Parents[i];
+          i = Parents[i];
       return i;};
     // overall root
     root = root_ids[*parlay::find_if(root_ids, [&] (long i) {
-	return Parents[i] == i;})];
+        return Parents[i] == i;})];
 
     // For each root of a subtree return a pair of the index of its
     // parent subtree root node, and its index*2 + 1.
     auto internal = parlay::delayed_tabulate(num_roots, [&] (index i) {
-	if (i == root) return std::pair{num_roots,2*i+1};
-	index j = root_locs[i];
-	index parent = root_ids[cluster_root(Parents[j])];
-	return std::pair{parent, 2 * i + 1};});
+        if (i == root) return std::pair{num_roots,2*i+1};
+        index j = root_locs[i];
+        index parent = root_ids[cluster_root(Parents[j])];
+        return std::pair{parent, 2 * i + 1};});
 
     // For each leaf (one per input string) return a pair
     // of the index of its parent subtree root node, and 2* its index.
     auto leaves = parlay::delayed_tabulate(n, [&] (index i) {
-	// for each element of SA find larger LCP on either side
-	// the root of its subtree will be its parent in the radix tree
-	index parent = (i == 0) ? 0 : ((i==n-1) ? i-1 : (lcps[i-1] > lcps[i] ? i-1 : i));
-	parent = root_ids[cluster_root(parent)];
-	return std::pair{parent, 2*i}; });
+        // for each element of SA find larger LCP on either side
+        // the root of its subtree will be its parent in the radix tree
+        index parent = (i == 0) ? 0 : ((i==n-1) ? i-1 : (lcps[i-1] > lcps[i] ? i-1 : i));
+        parent = root_ids[cluster_root(parent)];
+        return std::pair{parent, 2*i}; });
 
     // generate a mapping from node indices to indices of their children
     auto groups = parlay::group_by_index(parlay::append(internal, leaves), num_roots+1);
     
     // Create nodes. 
     tree = parlay::tabulate(num_roots, [&] (index i) {
-	index j = root_locs[i];
-	return node{lcps[j], j, std::move(groups[i])};});
+        index j = root_locs[i];
+        return node{lcps[j], j, std::move(groups[i])};});
   }
 
   radix_tree() {}

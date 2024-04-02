@@ -35,7 +35,7 @@ long minimum_edit_distance(const Seq& s1, const Seq& s2) {
                        int* col_in, int* col_out, auto s2, int m,
                        int diag) {
     parlay::sequence<int> row(n);
-    for (int i=0; i < n; i++)	row[i] = row_in[i];
+    for (int i=0; i < n; i++)        row[i] = row_in[i];
     for (int j=0; j < m; j++) {
       int prev = col_in[j];
       for (int i=0; i < n; i++) {

@@ -74,7 +74,7 @@ struct tree_node {
   bool is_leaf() {return left == nullptr;}
 
   tree_node(tree_node* L, tree_node* R, 
-	   int cut_dim, float cut_off, Bounding_Box B) 
+           int cut_dim, float cut_off, Bounding_Box B) 
     : left(L), right(R), cut_dim(cut_dim), 
       cut_off(cut_off), box(B) {
     n = L->n + R->n;
@@ -99,9 +99,9 @@ struct tree_node {
     if (!is_leaf()) {
       if (left == nullptr || right == nullptr) abort();
       parlay::par_do_if(n > 1000,
-			[&] () { node_allocator.retire(left);},
-			[&] () { node_allocator.retire(right);}
-			);};
+                        [&] () { node_allocator.retire(left);},
+                        [&] () { node_allocator.retire(right);}
+                        );};
   }
 };
 
@@ -158,8 +158,8 @@ cut_info best_cut(parlay::sequence<event> const &E, range r, range r1, range r2)
 using events_pair = std::pair<parlay::sequence<event>, parlay::sequence<event>>;
 
 events_pair split_events(const parlay::sequence<range> &box_ranges,
-			 const parlay::sequence<event> &events,
-			 float cut_off) {
+                         const parlay::sequence<event> &events,
+                         float cut_off) {
   index_t n = events.size();
   auto lower = parlay::sequence<bool>::uninitialized(n);
   auto upper = parlay::sequence<bool>::uninitialized(n);
@@ -173,9 +173,9 @@ events_pair split_events(const parlay::sequence<range> &box_ranges,
 
 // n is the number of events (i.e. twice the number of triangles)
 tree_node* generate_node(Ranges &boxes,
-			 Events events,
-			 Bounding_Box B, 
-			 size_t maxDepth) {
+                         Events events,
+                         Bounding_Box B, 
+                         size_t maxDepth) {
   index_t n = events[0].size();
   if (n <= 2 || maxDepth == 0) 
     return tree_node::node_allocator.allocate(std::move(events), n, B);
@@ -218,9 +218,9 @@ tree_node* generate_node(Ranges &boxes,
   for (int i=0; i < 3; i++) events[i] = parlay::sequence<event>();
   tree_node *L, *R;
   parlay::par_do([&] () {L = generate_node(boxes, std::move(left_events),
-					   BBL, maxDepth-1);},
-		 [&] () {R = generate_node(boxes, std::move(right_events),
-					   BBR, maxDepth-1);});
+                                           BBL, maxDepth-1);},
+                 [&] () {R = generate_node(boxes, std::move(right_events),
+                                           BBR, maxDepth-1);});
   return tree_node::node_allocator.allocate(L, R, cut_dim, cut_off, B);
 }
 
@@ -236,9 +236,9 @@ auto kdtree_from_boxes(Boxes& boxes) {
     events[d] = parlay::sequence<event>(2*n);
     ranges[d] = parlay::sequence<range>(n);
     parlay::parallel_for(0, n, [&] (size_t i) {
-	events[d][2*i] = event(boxes[i][d][0], i, false);
-	events[d][2*i+1] = event(boxes[i][d][1], i, true);
-	ranges[d][i] = boxes[i][d];});
+        events[d][2*i] = event(boxes[i][d][0], i, false);
+        events[d][2*i+1] = event(boxes[i][d][1], i, true);
+        ranges[d][i] = boxes[i][d];});
     parlay::sort_inplace(events[d], [] (event a, event b) {return a.v < b.v;});
     boundingBox[d] = range{events[d][0].v, events[d][2*n-1].v};
   }
