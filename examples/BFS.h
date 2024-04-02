@@ -57,9 +57,9 @@ auto BFS(vertex start, const graph& G) {
 
     // keep the v that succeed in setting the visited array
     frontier = delayed::to_sequence(delayed::map_maybe(out, [&] (vertex v) {
-      bool expected = false;									    
+      bool expected = false;                                                                            
       if ((!visited[v]) && visited[v].compare_exchange_strong(expected, true))
-	return std::optional<vertex>(v);
+        return std::optional<vertex>(v);
       return std::optional<vertex>();}));
   }
 

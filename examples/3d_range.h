@@ -75,8 +75,8 @@ struct search {
     leaf* TL = static_cast<leaf*>(T);
     for (int i = 0; i < TL->size; i++)
       if (TL->pts[i].id != p.id &&
-	  distance_squared(TL->pts[i].pnt) < r * r)
-	in_range.push_back(TL->pts[i].id); }
+          distance_squared(TL->pts[i].pnt) < r * r)
+        in_range.push_back(TL->pts[i].id); }
   
   // looks for points within range for p in subtree rooted at T.
   // Can return immediately if radius does not intersect the box.
@@ -85,8 +85,8 @@ struct search {
       if (T->is_leaf) add_leaf(T);
       else {
         interior* TI = static_cast<interior*>(T);
-	range_search_down(TI->left);
-	range_search_down(TI->right);
+        range_search_down(TI->left);
+        range_search_down(TI->right);
       }
     }
   }

@@ -18,7 +18,7 @@
 //   Query takes O(block_size) time
 // **************************************************************
 template <typename Seq, typename Less = std::less<typename Seq::value_type>,
-	  typename Uint=unsigned int>
+          typename Uint=unsigned int>
 class range_min {
  public:
   range_min(Seq &a, Less&& less = {}, long block_size=32)

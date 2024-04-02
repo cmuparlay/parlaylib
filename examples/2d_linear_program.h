@@ -77,7 +77,7 @@ auto linear_program_2d(const constraints& H_in, constraint c) {
     long top = std::min(2*i, n);
     // check for a violating constraint from i to top
     long loc = parlay::reduce(parlay::delayed_tabulate(top-i, [&] (long j) {
-	  return violate(p, H[i+j]) ? i+j : n;}), parlay::minimum<long>());
+          return violate(p, H[i+j]) ? i+j : n;}), parlay::minimum<long>());
 
     if (loc == n) i = top; // no violing constraint found, repeat and double again
     else { // found a violating constraint at location loc
@@ -85,11 +85,11 @@ auto linear_program_2d(const constraints& H_in, constraint c) {
       // i.e. H[loc] x c and h x c have opposite signs
       coord cr = cross(H[loc],c);
       auto Hf = parlay::filter(H.cut(0,loc), [&] (constraint h) {
-	  return cr * cross(h,c) < 0;});
+          return cr * cross(h,c) < 0;});
 
       // find the tightest such constraint
       auto min = [&] (constraint a, constraint b) {
-	return cr * (project(H[loc], a) - project(H[loc], b)) > 0 ? a : b;};
+        return cr * (project(H[loc], a) - project(H[loc], b)) > 0 ? a : b;};
       constraint cx = parlay::reduce(Hf, parlay::binary_op(min,constraint{0.,0.,0.}));
 
       // update the optimal point and the index i

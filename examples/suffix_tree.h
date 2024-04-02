@@ -24,8 +24,8 @@ radix_tree<index> suffix_tree(const Str& S) {
   parlay::for_each(result.tree, [&] (auto& node) {
       node.string_idx = SA[node.string_idx];
       node.children = parlay::map(node.children, [&] (index i) {
-	  // leaf if (i%2 == 0), otherwise internal
-	  return (i % 2 == 0) ? 2 * SA[i/2] : i;}, 1000);});
+          // leaf if (i%2 == 0), otherwise internal
+          return (i % 2 == 0) ? 2 * SA[i/2] : i;}, 1000);});
   return result;
 }
 
@@ -39,8 +39,8 @@ long find(const radix_tree<index>& T, const Str& str, const sStr& search_str) {
     // check if any children match on first character
     for (auto child : T.get_children(current))
       if (str[T.get_string(child) + depth] == search_str[depth]) {
-	new_node = child;
-	break;
+        new_node = child;
+        break;
       }
     if (new_node == current) return -1l; // none found
     index new_depth = T.is_leaf(new_node) ? str.size() - T.get_string(new_node) : T.get_depth(new_node);

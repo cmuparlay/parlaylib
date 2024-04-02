@@ -23,9 +23,9 @@
 // **************************************************************
 
 template <typename K,
-	  typename V,
-	  typename Hash = parlay::hash<K>,
-	  typename Equal = std::equal_to<>>
+          typename V,
+          typename Hash = parlay::hash<K>,
+          typename Equal = std::equal_to<>>
 struct hash_map {
  private:
   using KV = std::pair<K,V>;
@@ -57,27 +57,27 @@ struct hash_map {
     while (true) {
       state status = H[i].status;
       if (status == full || status == tomb) {
-	if (H[i].key == k) {
-	  if (status == full) return false;
-	  else if (H[i].status.compare_exchange_strong(status, locked)) {
-	    H[i].value = v;
-	    H[i].status = full;
-	    return true;	    
-	  }
-	} else {
-	  if (count++ == std::min(1000l,m)) {
-	    std::cout << "Hash table overfull" << std::endl;
-	    return false;
-	  }
-	  i = next_index(i);
-	}
+        if (H[i].key == k) {
+          if (status == full) return false;
+          else if (H[i].status.compare_exchange_strong(status, locked)) {
+            H[i].value = v;
+            H[i].status = full;
+            return true;            
+          }
+        } else {
+          if (count++ == std::min(1000l,m)) {
+            std::cout << "Hash table overfull" << std::endl;
+            return false;
+          }
+          i = next_index(i);
+        }
       } else if (status == empty) {
-	if (H[i].status.compare_exchange_strong(status, locked)) {
-	  H[i].key = k;
-	  H[i].value = v;
-	  H[i].status = full;
-	  return true;
-	}
+        if (H[i].status.compare_exchange_strong(status, locked)) {
+          H[i].key = k;
+          H[i].value = v;
+          H[i].status = full;
+          return true;
+        }
       }
     }
   }
@@ -96,11 +96,11 @@ struct hash_map {
     while (true) {
       if (H[i].status == empty || H[i].status == locked) return {};
       if (H[i].key == k) {
-	state old = full;
-	if (H[i].status == full &&
-	    H[i].status.compare_exchange_strong(old, tomb)) 
-	  return std::move(H[i].value);
-	else return {};
+        state old = full;
+        if (H[i].status == full &&
+            H[i].status.compare_exchange_strong(old, tomb)) 
+          return std::move(H[i].value);
+        else return {};
       }
       i = next_index(i);
     }
@@ -108,12 +108,12 @@ struct hash_map {
 
   parlay::sequence<K> keys() {
     return parlay::map_maybe(H, [] (const entry &x) {
-	return (x.status == full) ? std::optional{x.key} : std::optional<K>{};});
+        return (x.status == full) ? std::optional{x.key} : std::optional<K>{};});
   }
 
   size_t size() {
     return parlay::reduce(parlay::delayed_map(H, [&] (auto const &x) -> long {
-	  return x.status == full;}));
+          return x.status == full;}));
   }
 };
 

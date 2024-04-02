@@ -3,9 +3,7 @@
 
 #include <parlay/sequence.h>
 #include <parlay/primitives.h>
-#include <parlay/delayed.h>
 #include <parlay/random.h>
-#include <parlay/monoid.h>
 
 // **************************************************************
 // Luby's algorithm for Maximal Independent Set (MIS).  From:
@@ -18,7 +16,7 @@
 
 // Note graph is copied since it is mutated internally
 template <typename graph>
-parlay::sequence<bool> MIS(const graph& G_in) {
+parlay::sequence<bool> luby_MIS(const graph& G_in) {
   using vertex = typename graph::value_type::value_type;
   long n = G_in.size();
   parlay::random_generator gen(0);
@@ -28,10 +26,11 @@ parlay::sequence<bool> MIS(const graph& G_in) {
   const graph* G = &G_in;
   graph G_nxt(n);
   
-  // Each vertex is either in the set, out of the set, or unknown (initially)
+  // Each vertex is either in the set, out of the set, or unknown
+  // (initially)
   enum state : char {InSet, OutSet, Unknown};
   auto states = parlay::tabulate<std::atomic<state>>(n, [&] (long i) {
-			return Unknown;});
+                        return Unknown;});
 
   // initial active vetices (all of them)
   auto V = parlay::tabulate(n, [] (vertex i) {return i;});
@@ -43,18 +42,16 @@ parlay::sequence<bool> MIS(const graph& G_in) {
   while (V.size() > 0) {
 
     // pick random priorities for the remaining vertices
-    for_each(V, [&] (vertex u) {auto r = gen[u]; priority[u] = dis(r);});
+    for_each(V, [&] (vertex u) {
+                  auto r = gen[u]; priority[u] = dis(r);});
   
     // for each remaining vertex, if it has a local max priority then
     // add it to the MIS and remove neighbors
     for_each(V, [&] (vertex u) {
-      // if (priority[u] > 
-      // 	  reduce(parlay::delayed::map((*G)[u], [&] (vertex v) {return priority[v];}),
-      // 		 parlay::maxm<vertex>())) {
       if (parlay::find_if((*G)[u], [&] (vertex v) {
-   	        return priority[v] >= priority[u];}) == (*G)[u].end()) {
-	states[u] = InSet;
-	for_each((*G)[u], [&] (vertex v) {
+                return priority[v] >= priority[u];}) == (*G)[u].end()) {
+        states[u] = InSet;
+        for_each((*G)[u], [&] (vertex v) {
           if (states[v] == Unknown) states[v] = OutSet;});
       }});
     
@@ -64,12 +61,13 @@ parlay::sequence<bool> MIS(const graph& G_in) {
     // only keep edges for which both endpoints are unknown
     for_each(V, [&] (vertex u) {
       G_nxt[u] = parlay::filter((*G)[u], [&] (vertex v) {
-	            return states[v] == Unknown;});});
+                    return states[v] == Unknown;});});
     
     // advanced state of random number generator
     gen = gen[n];
-    G = &G_nxt;
+    G = &G_nxt; // only needed on first iteration
   }
 
+  // convert to booleans indicating if in the MIS
   return parlay::map(states, [] (auto& s) {return s.load() == InSet;});
 }

@@ -59,20 +59,20 @@ bigint add(const Bigint1& a, const Bigint2& b, bool extra_one=false) {
   } else { // do in parallel
     // check which digits will carry or propagate
     auto c = delayed::tabulate(na, [&] (long i) {
-	double_digit s = a[i] + static_cast<double_digit>(B(i));
-	s += (i == 0 && extra_one);
-	return static_cast<carry>(2 * (s == mask) + (s >> digit_len));}); 
+        double_digit s = a[i] + static_cast<double_digit>(B(i));
+        s += (i == 0 && extra_one);
+        return static_cast<carry>(2 * (s == mask) + (s >> digit_len));}); 
 
     // use scan to do the propagation
     auto f = [] (carry a, carry b) {return (b == propagate) ? a : b;};
     auto cc = delayed::scan(c, parlay::binary_op(f, propagate)).first;
     auto z = delayed::zip(cc, parlay::iota(na));
     result = delayed::to_sequence(delayed::map(z, [&] (auto p) {
-    	auto [ci, i] = p;
-    	return a[i] + B(i) + ci;}));
+            auto [ci, i] = p;
+            return a[i] + B(i) + ci;}));
     //auto cc = parlay::scan(c, parlay::binary_op(f, propagate)).first;
     //result = parlay::tabulate(na, [&] (long i) {
-    //	return a[i] + B(i) + cc[i];});
+    //        return a[i] + B(i) + cc[i];});
   }
   if ((a_sign == b_sign) && ((result[na-1] >> (digit_len - 1)) != a_sign))
     result.push_back(a_sign ? mask : 1u);
@@ -83,5 +83,5 @@ template <typename Bigint1, typename Bigint2>
 bigint subtract(const Bigint1& a, const Bigint2& b) {
   // effectively negate b and add
   return add(a, delayed::map(b, [] (auto bv) {return ~bv;}),
-	     true);
+             true);
 }

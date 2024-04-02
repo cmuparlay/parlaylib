@@ -30,21 +30,23 @@ int main(int argc, char* argv[]) {
     auto data = parlay::tabulate(n, [&] (long i) {
       auto r = gen[i];
       return dis(r);});
-    
+
     parlay::internal::timer t("Time");
     parlay::sequence<long> result(n);
     for (int i=0; i < 5; i++) {
       t.start();
       counting_sort(data.begin(), data.end(),
-		    result.begin(),
-		    data.begin(),
-		    num_buckets);
+                    result.begin(),
+                    data.begin(),
+                    num_buckets);
       t.next("counting_sort");
     }
 
     auto first_ten = result.head(10);
     auto last_ten = result.tail(10);
-    std::cout << "first 10 elements: " << parlay::to_chars(first_ten) << std::endl;
-    std::cout << "last 10 elements: " << parlay::to_chars(last_ten) << std::endl;
+    std::cout << "first 10 elements: " << parlay::to_chars(first_ten)
+              << std::endl;
+    std::cout << "last 10 elements: " << parlay::to_chars(last_ten)
+              << std::endl;
   }
 }
