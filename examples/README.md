@@ -77,7 +77,8 @@ The examples are as follows, broken down into categories.
 ## Geometry and Graphics
 
 - 2d_linear_program : solve linear program max c^Tx, Ax <= b, in 2 dimensions.
-- delaunay : Delaunay triangulation in 2 dimensions
+- convex_hull_3d : convex hull of points in 3 dimensions using parallel incremental algorithm
+- delaunay : Delaunay triangulation in 2 dimensions using parallel incremental algorithm
 - oct_tree : the z-tree variant of oct trees in any constant dimension
 - knn : k-nearest-neighbors of a set of points in constant dimension
 - quickhull : convex hull of points in 2 dimensions using quickhull algorithm
