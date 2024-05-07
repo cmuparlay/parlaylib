@@ -77,7 +77,9 @@ struct Delaunay {
     auto a = parlay::merge(t1->conflicts, t2->conflicts);
     auto is_in_circle = in_circle(points[t[0]],points[t[1]],points[t[2]]);
     auto keep = parlay::tabulate(a.size(), [&] (long i) {
+        // throw out the first point and one of the copies if appears in both
       return ((i != 0) && (a[i].id != a[i-1].id) &&
+              // allways keep a point if it appears in both
               ((i+1 < a.size() && a[i].id == a[i+1].id) ||
                is_in_circle(a[i])));},500);
     return parlay::pack(a, keep);
@@ -88,6 +90,7 @@ struct Delaunay {
   // 2d Delaunay instead of arbitrary convex hull
   void process_edge(triangle_ptr& t1, edge e, triangle_ptr& t2) {
     if (t1->conflicts.size() == 0 && t2->conflicts.size() == 0) {
+      // only add triangles to mesh when they are definitely in there
       mesh.insert(t1->t,true); mesh.insert(t2->t,true);
       t1 = t2 = nullptr;
     } else if (earliest(t2) == earliest(t1)) {
@@ -119,7 +122,6 @@ struct Delaunay {
       mesh(hash_map<tri,bool>(2*P.size())),
       edges(hash_map<edge,triangle_ptr>(6*P.size())),
       n(P.size()) {
-    points = P;
     // enclosing triangle
     point p0{n,0.0,100.0};
     point p1{n+1,100.0,-100.0};
@@ -127,6 +129,7 @@ struct Delaunay {
     points = parlay::append(P, Points({p0, p1, p2}));
     auto t = std::make_shared<triangle>(tri{n, n+1, n+2}, P);
     n += 3;
+    // a dummy triangle with no points, for the boundary
     auto te = std::make_shared<triangle>(tri{-1, -1, -1}, Points());
     std::shared_ptr<triangle> te2, te3, t2, t3;
     t2 = t3 = t;
