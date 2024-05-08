@@ -40,6 +40,7 @@ int main(int argc, char* argv[]) {
 	parlay::for_each(pairs, [&] (auto p) {
 	    m.find(p.second);});
 	t.next("hash_map : find");
+        keys = m.keys();
     }
 
     std::cout << "number of unique keys: " << keys.size() << std::endl;
