@@ -1,10 +1,12 @@
-#include <utility>
+#include <array>
 #include <memory>
 #include <optional>
+#include <tuple>
+#include <utility>
 
+#include <parlay/parallel.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
-#include <parlay/utilities.h>
 
 #include "hash_map.h"
 
@@ -81,11 +83,13 @@ struct Convex_Hull_3d {
   // convex hull in 3d space
   void process_ridge(triangle_ptr& t1, edge r, triangle_ptr& t2) {
     if (t1->conflicts.size() == 0 && t2->conflicts.size() == 0) {
+      t1 = t2 = nullptr; // allow to be reclaimed
       return;
     } else if (min_conflicts(t2) == min_conflicts(t1)) {
       // H \ {t1, t2}
       convex_hull.remove(t1->t);
       convex_hull.remove(t2->t);
+      t1 = t2 = nullptr; // allow to be reclaimed
     } else if (min_conflicts(t2) < min_conflicts(t1)) {
       process_ridge(t2, r, t1);
     } else {
@@ -107,16 +111,18 @@ struct Convex_Hull_3d {
       // H <- (H \ {t1}) U {t}
       convex_hull.remove(t1->t);
       convex_hull.insert(t, true);
-
+      t1 = nullptr; // allow to be reclaimed
+      
       auto check_edge = [&] (edge e, triangle_ptr& tp) {
         auto key = (e[0] < e[1]) ? e : edge{e[1], e[0]};
         if (map_facets.insert(key, tp)) return;
         auto tt = map_facets.remove(key).value();
         process_ridge(tp, e, tt);};
 
+      auto t_new_1 = t_new; auto t_new_2 = t_new;
       parlay::par_do3([&] {process_ridge(t_new, r, t2);},
-                      [&] {check_edge(edge{r[0], pid}, t_new);},
-                      [&] {check_edge(edge{r[1], pid}, t_new);});
+                      [&] {check_edge(edge{r[0], pid}, t_new_1);},
+                      [&] {check_edge(edge{r[1], pid}, t_new_2);});
     }
   }
 
@@ -157,17 +163,18 @@ struct Convex_Hull_3d {
       });
 
     // The 6 ridges of the initial tetrahedron along with their neighboring triangles
-    std::tuple<int, int, edge> ridges[6] =
-      {{0, 1, edge{1, 2}},
-       {0, 2, edge{0, 2}},
-       {0, 3, edge{0, 1}},
-       {1, 2, edge{2, 3}},
-       {1, 3, edge{1, 3}},
-       {2, 3, edge{0, 3}}};
+    std::tuple<triangle_ptr, triangle_ptr, edge> ridges[6] =
+      {{t[0], t[1], edge{1, 2}},
+       {t[0], t[2], edge{0, 2}},
+       {t[0], t[3], edge{0, 1}},
+       {t[1], t[2], edge{2, 3}},
+       {t[1], t[3], edge{1, 3}},
+       {t[2], t[3], edge{0, 3}}};
+    for (auto& x : t) x = nullptr; // allow to be reclaimed
 
     parlay::parallel_for(0, 6, [&](auto i) {
-        auto [t1_idx, t2_idx, e] = ridges[i];
-        process_ridge(t[t1_idx], e, t[t2_idx]); });
+        auto [t1, t2, e] = ridges[i];
+        process_ridge(t1, e, t2); }, 1);
   }
 };
 

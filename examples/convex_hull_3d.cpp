@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 
     parlay::internal::timer t("Time");
     parlay::sequence<tri> result;
-    for (int i=0; i < 5; i++) {
+    for (int i=0; i < 20; i++) {
       result = convex_hull_3d(points);
       t.next("convex_hull_3d");
     }

@@ -1,10 +1,11 @@
-#include <utility>
+#include <array>
 #include <memory>
 #include <optional>
+#include <utility>
 
+#include <parlay/parallel.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>
-#include <parlay/utilities.h>
 
 #include "hash_map.h"
 
@@ -105,6 +106,7 @@ struct Delaunay {
         auto key = (e[0] < e[1]) ? e : edge{e[1], e[0]};
         if (edges.insert(key, tp)) return;
         auto tt = *edges.remove(key);
+        //auto tt = *edges.find(key);
         process_edge(tp, e, tt);};
       auto ta1 = t1; auto tb1 = t1;
       parlay::par_do3([&] {check_edge(edge{p, e[0]}, ta1);},
