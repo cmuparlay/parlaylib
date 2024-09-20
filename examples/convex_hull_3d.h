@@ -47,20 +47,21 @@ struct triangle {
 // opposite side of a plane defined by three other points (a, b, c).
 // It first takes the 4 points (a, b, c, p) and returns a function
 // which takes the point q, answering the query.  Since we often check
-// multiple points against a single circle this reduces the work.
+// multiple points q for being opposite to p, this reduces the work.
 // Works by taking the cross product of c->a and c->b and checking that
 // the dot of this with c->p and c->q have opposite signs.
 inline auto is_opposite (point a, point b, point c, point p) {
-  auto v_from_c = [=] (point p) { return vect(p.x - c.x, p.y - c.y, p.z - c.z);};
+  auto minus = [] (point p1, point p2) { return vect(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);};
   auto dot = [] (vect v1, vect v2) { return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z;};
   auto cross = [] (vect v1, vect v2) {
     return vect{v1.y*v2.z - v1.z*v2.y,
                 v1.z*v2.x - v1.x*v2.z,
                 v1.x*v2.y - v1.y*v2.x};};
-  vect cp = cross(v_from_c(a), v_from_c(b));
-  bool p_side = dot(cp, v_from_c(p)) > 0.0;
+  vect cp = cross(minus(a, c), minus(b, c));
+  bool p_side = dot(cp, minus(p, c)) > 0.0;
   return [=] (point q) -> bool {
-    return ((dot(cp, v_from_c(q)) > 0.0) != p_side);};
+    bool q_side = dot(cp, minus(q, c)) > 0.0;
+    return (q_side != p_side);};
 }
 
 // **************************************************************
@@ -72,8 +73,8 @@ using Points = parlay::sequence<point>;
 struct Convex_Hull_3d {
   using triangle_ptr = std::shared_ptr<triangle>;
   hash_map<edge, triangle_ptr> map_facets;
-  Points points;
   hash_map<tri, bool> convex_hull;
+  Points points;
   point_id n;
 
   point_id min_conflicts(triangle_ptr& t) {
@@ -83,13 +84,11 @@ struct Convex_Hull_3d {
   // convex hull in 3d space
   void process_ridge(triangle_ptr& t1, edge r, triangle_ptr& t2) {
     if (t1->conflicts.size() == 0 && t2->conflicts.size() == 0) {
-      t1 = t2 = nullptr; // allow to be reclaimed
       return;
     } else if (min_conflicts(t2) == min_conflicts(t1)) {
       // H \ {t1, t2}
       convex_hull.remove(t1->t);
       convex_hull.remove(t2->t);
-      t1 = t2 = nullptr; // allow to be reclaimed
     } else if (min_conflicts(t2) < min_conflicts(t1)) {
       process_ridge(t2, r, t1);
     } else {
@@ -111,7 +110,6 @@ struct Convex_Hull_3d {
       // H <- (H \ {t1}) U {t}
       convex_hull.remove(t1->t);
       convex_hull.insert(t, true);
-      t1 = nullptr; // allow to be reclaimed
       
       auto check_edge = [&] (edge e, triangle_ptr& tp) {
         auto key = (e[0] < e[1]) ? e : edge{e[1], e[0]};
@@ -128,7 +126,7 @@ struct Convex_Hull_3d {
 
   // toplevel routine
   // The result is set of facets: result_facets
-  // assum that P has more than 4 points
+  // assumes that P has at least 4 points, and all points are in general position
   Convex_Hull_3d(const Points& P) :
       map_facets(hash_map<edge, triangle_ptr>(6*P.size())),
       convex_hull(hash_map<tri, bool>(6*P.size())),
@@ -170,7 +168,6 @@ struct Convex_Hull_3d {
        {t[1], t[2], edge{2, 3}},
        {t[1], t[3], edge{1, 3}},
        {t[2], t[3], edge{0, 3}}};
-    for (auto& x : t) x = nullptr; // allow to be reclaimed
 
     parlay::parallel_for(0, 6, [&](auto i) {
         auto [t1, t2, e] = ridges[i];

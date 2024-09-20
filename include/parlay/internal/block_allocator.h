@@ -30,6 +30,10 @@
 
 #include "memory_size.h"
 
+#ifdef UseHugepages
+#include <sys/mman.h>
+#endif
+
 // IWYU pragma: no_include <array>
 // IWYU pragma: no_include <vector>
 
@@ -39,7 +43,13 @@ namespace internal {
 struct block_allocator {
  private:
 
-  static inline constexpr size_t default_list_bytes = (1 << 18) - 64;  // in bytes
+#ifdef UseHugepages
+  static inline constexpr size_t huge_page_size = (1ul << 21);
+  static inline constexpr size_t default_list_bytes = huge_page_size - 64;  // in bytes
+#else
+  static inline constexpr size_t default_list_bytes = (1ul << 18) - 64;  // in bytes
+#endif
+  
   static inline constexpr size_t min_alignment = 128;  // for cache line padding
 
   struct block {
@@ -98,7 +108,14 @@ struct block_allocator {
   }
 
   auto allocate_blocks(size_t num_blocks) -> std::byte* {
-    auto buffer = static_cast<std::byte*>(::operator new(num_blocks * block_size, block_align));
+    long total_bytes = num_blocks * block_size;
+#ifdef UseHugepages
+    auto buffer = static_cast<std::byte*>(::operator new(total_bytes, std::align_val_t{huge_page_size}));
+    madvise(buffer, total_bytes, MADV_HUGEPAGE);
+#else
+    auto buffer = static_cast<std::byte*>(::operator new(total_bytes, block_align));
+#endif
+    
     assert(buffer != nullptr);
 
     blocks_allocated.fetch_add(num_blocks);
