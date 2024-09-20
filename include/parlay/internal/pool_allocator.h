@@ -22,6 +22,10 @@
 
 #include "concurrency/hazptr_stack.h"
 
+#ifdef UseHugepages
+#include <sys/mman.h>
+#endif
+
 // IWYU pragma: no_include <array>
 
 namespace parlay {
@@ -42,6 +46,7 @@ namespace internal {
 struct pool_allocator {
 
   // Maximum alignment guaranteed by the allocator
+  #
   static inline constexpr size_t max_alignment = 128;
   
  private:
@@ -73,11 +78,20 @@ struct pool_allocator {
 
     // Alloc size must be a multiple of the alignment
     // Round up to the next multiple.
-    if (alloc_size % max_alignment != 0) {
-      alloc_size += (max_alignment - (alloc_size % max_alignment));
+#ifdef UseHugepages
+    unsigned long alignment = 1ul << 21;
+#else
+    unsigned long alignment = max_alignment;
+#endif
+
+    if (alloc_size % alignment != 0) {
+      alloc_size += (alignment - (alloc_size % alignment));
     }
 
-    void* a = ::operator new(alloc_size, std::align_val_t{max_alignment});
+    void* a = ::operator new(alloc_size, std::align_val_t{alignment});
+#ifdef UseHugepages
+    madvise(a, alloc_size, MADV_HUGEPAGE);
+#endif
 
     large_allocated += n;
     return a;

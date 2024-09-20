@@ -17,6 +17,8 @@
 #include "type_traits.h"  // IWYU pragma: keep
 #include "utilities.h"
 
+//#define UseHugepages 1
+
 #include "internal/block_allocator.h"
 #include "internal/memory_size.h"
 #include "internal/pool_allocator.h"
