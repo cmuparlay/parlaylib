@@ -108,7 +108,7 @@ struct block_allocator {
   }
 
   auto allocate_blocks(size_t num_blocks) -> std::byte* {
-    long total_bytes = num_blocks * block_size;
+    size_t total_bytes = num_blocks * block_size;
 #ifdef UseHugepages
     auto buffer = static_cast<std::byte*>(::operator new(total_bytes, std::align_val_t{huge_page_size}));
     madvise(buffer, total_bytes, MADV_HUGEPAGE);
