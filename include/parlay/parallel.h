@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 #include <algorithm>
+#include <atomic>
 #include <functional>
 #include <string>
 #include <thread>
@@ -169,16 +170,55 @@ inline unsigned int init_num_workers() {
 
 using scheduler_type = scheduler<WorkStealingJob>;
 
+  bool is_running() {
+    static std::atomic<long> cnt = 0;
+    return cnt++;
+  }
+
+// struct default_scheduler {
+//   static std::atomic<long> cnt;
+//   static bool is_running() { return cnt > 0;}
+//   scheduler_type scheduler;
+//   default_scheduler(int p) : scheduler(p) { cnt++;}
+//   ~default_scheduler() { cnt--; }
+// };
+
+//   std::atomic<long> default_scheduler::cnt = 0;
+
+// A default scheduler is created if the user does not use
+// execute_with_scheduler. Only one is allowed at a time, and cnt is
+// used to check for proper usage.  For example, we do not support
+// creating multiple c++ threads and each creating a default
+// scheduler.  Also initialization of non-local (scope) thread_local
+// variables with parlay functions are problematic, and not supported.
+// In particular such initialization can happen before the scheduler
+// information is installed in the thread, so they will have no
+// pointer to a scheduler and will try to create a new default
+// scheduler (this can cause infinite recursion).  Checking if_running
+// prevents this, i.e. does not allow creating a new default scheduler
+// if the parent is already running one. 
 extern inline scheduler_type& get_current_scheduler() {
   auto current_scheduler = scheduler_type::get_current_scheduler();
   if (current_scheduler == nullptr) {
-    static thread_local scheduler_type local_scheduler(init_num_workers());
-    return local_scheduler;
+    if (is_running()) {
+        std::cout << "IMPROPER USE of parlay scheduler: possible causes are:\n"
+                  << "- Trying to create more than one default scheduler.\n"
+                  << "  Use parlay::execute_with_scheduler to create additional schedulers.\n"
+                  << "- Using parlay in the initialization of a nonlocal (i.e., static storage\n"
+                  << "  duration) thread_local variable.  This is not supported."
+                  << std::endl;
+        std::abort();
+      }
+    // Allocating into buffer prevents the destructor being run at
+    // termination, which can be unsafe due to ordering of destructors.
+    alignas(scheduler_type) static char buffer[sizeof(scheduler_type)];
+    static auto default_scheduler = new (&buffer) scheduler_type(init_num_workers());
+    return *default_scheduler;
   }
   return *current_scheduler;
 }
 
-}  // namespace internal
+}  // Namespace internal
 
 inline size_t num_workers() {
   return internal::get_current_scheduler().num_workers();
