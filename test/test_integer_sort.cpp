@@ -9,11 +9,8 @@
 
 #include "sorting_utils.h"
 
-namespace parlay {
-  // Specialize std::unique_ptr to be considered trivially destructive movable
-  template<typename T>
-  struct is_trivially_relocatable<std::unique_ptr<T>> : public std::true_type { };
-}
+static_assert(parlay::is_trivially_relocatable_v<std::unique_ptr<int>>);
+
 
 TEST(TestIntegerSort, TestIntegerSortEmptyInput) {
   auto s = parlay::sequence<int>(0);
@@ -42,21 +39,23 @@ TEST(TestIntegerSort, TestIntegerSortInplaceUniquePtr) {
   }
 }
 
-// HeapInt is both copyable and trivially destructive movable
-struct HeapInt {
+// HeapInt is both copyable and trivially relocatable
+struct PARLAY_TRIVIALLY_RELOCATABLE HeapInt {
   int* x;
   HeapInt(int _x) : x(new int(_x)) { }
   ~HeapInt() { if (x != nullptr) delete x; }
   HeapInt(const HeapInt& other) : x(new int(*(other.x))) { }
-  HeapInt(HeapInt&& other) : x(other.x) {
+  HeapInt(HeapInt&& other) noexcept : x(other.x) {
     other.x = nullptr;
   }
   HeapInt& operator=(const HeapInt& other) {
-    if (x != nullptr) delete x;
-    x = new int(*(other.x));
+    if (this != &other) {
+      if (x != nullptr) delete x;
+      x = new int(*(other.x));
+    }
     return *this;
   }
-  HeapInt& operator=(HeapInt&& other) {
+  HeapInt& operator=(HeapInt&& other) noexcept {
     if (x != nullptr) delete x;
     x = other.x;
     other.x = nullptr;
@@ -68,11 +67,15 @@ struct HeapInt {
   }
 };
 
+#if defined(PARLAY_MUST_SPECIALIZE_IS_TRIVIALLY_RELOCATABLE)
 namespace parlay {
-  // Specialize std::unique_ptr to be considered trivially relocatable
-  template<>
-  struct is_trivially_relocatable<HeapInt> : public std::true_type { };
+
+template<>
+PARLAY_ASSUME_TRIVIALLY_RELOCATABLE(HeapInt);
+
 }
+#endif
+
 
 TEST(TestIntegerSort, TestIntegerSortCopyAndDestructiveMove) {
   auto s = parlay::tabulate(100000, [](int i) {

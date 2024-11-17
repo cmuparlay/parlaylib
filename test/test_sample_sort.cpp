@@ -101,12 +101,6 @@ TEST(TestSampleSort, TestSortInplaceUncopyable) {
   ASSERT_TRUE(std::is_sorted(std::begin(s), std::end(s)));
 }
 
-namespace parlay {
-  // Specialize std::unique_ptr to be considered trivially relocatable
-  template<typename T>
-  struct is_trivially_relocatable<std::unique_ptr<T>> : public std::true_type { };
-}
-
 TEST(TestSampleSort, TestSortInplaceUniquePtr) {
   auto s = parlay::tabulate(100000, [](long long int i) {
     return std::make_unique<long long int>((50021 * i + 61) % (1 << 20));

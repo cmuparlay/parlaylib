@@ -42,7 +42,7 @@ void radix_step_(slice<InIterator, InIterator> A,
 
   for (size_t j = n; j > 0; j--) {
     auto x = --counts[keys[j-1]];
-    uninitialized_relocate(&B[x], &A[j-1]);
+    relocate_at(&A[j - 1], &B[x]);
   }
 }
 
@@ -128,7 +128,7 @@ void base_sort(slice<InIterator, InIterator> in,
   else {
     quicksort(in.begin(), in.size(), f);
     if (!inplace) {
-      uninitialized_relocate_n(out.begin(), in.begin(), in.size());
+      parlay::uninitialized_relocate(in.begin(), in.end(), out.begin());
     }
   }
 }

@@ -178,7 +178,7 @@ void sample_sort_inplace_(slice<InIterator, InIterator> In,
 
     // Sample block is already sorted, so we don't need to sort it again.
     // We can just move it straight over into the other sorted blocks
-    uninitialized_relocate_n(Tmp.begin(), sample_set.begin(), sample_set_size);
+    parlay::uninitialized_relocate(sample_set.begin(), sample_set.end(), Tmp.begin());
 
     // move data from blocks to buckets
     auto bucket_offsets =

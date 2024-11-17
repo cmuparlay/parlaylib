@@ -395,7 +395,7 @@ TEST(TestSequence, TestMoveAppendToEmptyAfterReserve) {
 
 TEST(TestSequence, TestAppendMoveNonTrivial) {
   auto s1 = parlay::sequence<std::unique_ptr<int>>{};
-  auto s2 = parlay::sequence<std::unique_ptr<int>>{};
+  auto s2 = std::vector<std::unique_ptr<int>>{};
   
   s1.emplace_back(std::make_unique<int>(5));
   s2.emplace_back(std::make_unique<int>(6));
@@ -403,7 +403,7 @@ TEST(TestSequence, TestAppendMoveNonTrivial) {
   ASSERT_FALSE(s1.empty());
   ASSERT_FALSE(s2.empty());
   
-  s1.append(std::move(s2));
+  s1.append(std::make_move_iterator(s2.begin()), std::make_move_iterator(s2.end()));
   
   ASSERT_EQ(s1.size(), 2);
   ASSERT_EQ(s2[0], nullptr);
@@ -411,6 +411,19 @@ TEST(TestSequence, TestAppendMoveNonTrivial) {
   ASSERT_NE(s1[1], nullptr);
   ASSERT_EQ(*s1[0], 5);
   ASSERT_EQ(*s1[1], 6);
+}
+
+TEST(TestSequence, TestAppendSequenceRvalue) {
+  auto s1 = parlay::sequence<std::unique_ptr<int>>::from_function(1000,
+      [](int i) { return std::make_unique<int>(i); });
+  auto s2 = parlay::sequence<std::unique_ptr<int>>::from_function(1000,
+       [](int i) { return std::make_unique<int>(i+1000); });
+  s1.append(std::move(s2));
+  ASSERT_TRUE(s2.empty());  // move from should leave s2 empty
+  ASSERT_EQ(s1.size(), 2000);
+  for (int i = 0; i < 2000; i++) {
+    ASSERT_EQ(*s1[i], i);
+  }
 }
 
 TEST(TestSequence, TestInsert) {
@@ -903,13 +916,17 @@ TEST(TestSequence, TestLessThan) {
 #if defined(PARLAY_EXCEPTIONS_ENABLED)
 
 TEST(TestSequence, TestAtThrow) {
-  auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
-  EXPECT_THROW({ s.at(9); }, std::out_of_range);
+  EXPECT_THROW({
+    auto s = parlay::sequence<int>({1,2,3,4,5,6,7,8,9});
+    s.at(9);
+  }, std::out_of_range);
 }
 
 TEST(TestSequence, TestAtThrowConst) {
-  const auto s = parlay::sequence<int>{1,2,3,4,5,6,7,8,9};
-  EXPECT_THROW({ s.at(9); }, std::out_of_range);
+  EXPECT_THROW({
+    const auto s = parlay::sequence<int>({1,2,3,4,5,6,7,8,9});
+    s.at(9);
+  }, std::out_of_range);
 }
 
 #else

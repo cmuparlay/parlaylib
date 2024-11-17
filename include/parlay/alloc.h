@@ -185,8 +185,11 @@ struct allocator {
   template <class U> /* implicit */ constexpr allocator(const allocator<U>&) noexcept { }
 };
 
-template<typename T>
-struct is_trivially_relocatable<allocator<T>> : std::true_type {};
+// Allocator should be trivially copyable since it is stateless and has no user-provided copy
+// constructor.  This should guarantee that it is also trivially relocatable.
+static_assert(std::is_trivially_copyable_v<allocator<int>>);
+static_assert(is_trivially_relocatable_v<allocator<int>>);
+
 
 template <class T, class U>
 bool operator==(const allocator<T>&, const allocator<U>&) { return true; }
