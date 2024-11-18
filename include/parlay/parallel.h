@@ -170,20 +170,20 @@ inline unsigned int init_num_workers() {
 
 using scheduler_type = scheduler<WorkStealingJob>;
 
-  bool is_running() {
-    static std::atomic<long> cnt = 0;
-    return cnt++;
-  }
+  // bool is_running() {
+  //   static std::atomic<long> cnt = 0;
+  //   return cnt++;
+  // }
 
-// struct default_scheduler {
-//   static std::atomic<long> cnt;
-//   static bool is_running() { return cnt > 0;}
-//   scheduler_type scheduler;
-//   default_scheduler(int p) : scheduler(p) { cnt++;}
-//   ~default_scheduler() { cnt--; }
-// };
+struct default_scheduler {
+  static std::atomic<long> cnt;
+  static bool is_running() { return cnt > 0;}
+  scheduler_type scheduler;
+  default_scheduler(int p) : scheduler(p) { cnt++;}
+  ~default_scheduler() { cnt--; }
+};
 
-//   std::atomic<long> default_scheduler::cnt = 0;
+  std::atomic<long> default_scheduler::cnt = 0;
 
 // A default scheduler is created if the user does not use
 // execute_with_scheduler. Only one is allowed at a time, and cnt is
@@ -200,7 +200,7 @@ using scheduler_type = scheduler<WorkStealingJob>;
 extern inline scheduler_type& get_current_scheduler() {
   auto current_scheduler = scheduler_type::get_current_scheduler();
   if (current_scheduler == nullptr) {
-    if (is_running()) {
+    if (default_scheduler::is_running()) {
         std::cout << "IMPROPER USE of parlay scheduler: possible causes are:\n"
                   << "- Trying to create more than one default scheduler.\n"
                   << "  Use parlay::execute_with_scheduler to create additional schedulers.\n"
@@ -211,9 +211,11 @@ extern inline scheduler_type& get_current_scheduler() {
       }
     // Allocating into buffer prevents the destructor being run at
     // termination, which can be unsafe due to ordering of destructors.
-    alignas(scheduler_type) static char buffer[sizeof(scheduler_type)];
-    static auto default_scheduler = new (&buffer) scheduler_type(init_num_workers());
-    return *default_scheduler;
+    //alignas(scheduler_type) static char buffer[sizeof(scheduler_type)];
+    //static auto default_scheduler = new (&buffer) scheduler_type(init_num_workers());
+    //     return *default_scheduler.;
+    static default_scheduler df(init_num_workers());
+    return df.scheduler;
   }
   return *current_scheduler;
 }
