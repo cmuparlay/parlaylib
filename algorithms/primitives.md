@@ -538,7 +538,7 @@ auto histogram_by_index(Range&& r, Integer_ m)
 
 **histogram_by_key** takes a random-access range `A` and returns a sequence of key-value pairs, where the keys are the unique elements of `A`, and the values are the number of occurrences of the corresponding key in `A`. The key elements of `r` must be hashable and equality comparable. The second version of the function allows a custom hash function and equality predicate to be supplied. The hash function should return identical hashes for any pair of elements that the equality predicate deems equal. The order of the returned sequence is unspecified, as it depends on the hash function. An optional template argument, `sum_type` allows the type of the counter values to be customized. The default type is `size_t`. 
 
-**histogram_by_index** takes an integer-valued random-access range `r` and a maximum value `m` and returns a sequence of length `m`, such that the i''th value of the sequence contains the number of occurrences of `i` in `r`. Every element in `r` must be at most `m`.
+**histogram_by_index** takes an integer-valued random-access range `r` and a maximum value `m` and returns a sequence of length `m`, such that the i''th value of the sequence contains the number of occurrences of `i` in `r`. Every element in `r` must be at most `m-1`.
 
 
 
