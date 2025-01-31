@@ -474,7 +474,82 @@ RC_GTEST_PROP(TestPrimitivePropertyBased,
   RC_ASSERT(expected2 == actual2);
 }
 
+RC_GTEST_PROP(TestPrimitivePropertyBased,
+              testRemoveDuplicates,
+              (const std::vector<int> &original)) {
+  auto expected = parlay::unique(parlay::sort(original));
+  auto actual = parlay::sort(parlay::remove_duplicates(original));
+  RC_ASSERT(expected == actual);
+}
 
+RC_GTEST_PROP(TestPrimitivePropertyBased,
+              testRemoveDuplicatesOrdered,
+              (const std::vector<int> &original)) {
+  auto expected = parlay::sort(parlay::remove_duplicates(original));
+  auto actual = parlay::remove_duplicates_ordered(original);
+  RC_ASSERT(expected == actual);
+}
+
+RC_GTEST_PROP(TestPrimitivePropertyBased,
+              testRemoveDuplicatesIntegers,
+              (const std::vector<int> &original)) {
+  // FIXME: does not work if the list is empty (block_size = 0 in collect_reduce_few)
+  RC_PRE(!original.empty());
+  auto transformed = parlay::map(original, [](int num) {return std::abs(num);});
+  int max;
+  if (original.empty()) {
+    max = 0;
+  } else {
+    max = *parlay::max_element(transformed);
+  }
+  // FIXME: SIGFPE/SIGABRT if there is an element equal to max in the input
+  max++;
+  auto expected = parlay::sort(parlay::remove_duplicates(transformed));
+  auto actual = parlay::remove_duplicate_integers(transformed, max);
+  RC_ASSERT(expected == actual);
+}
+
+RC_GTEST_PROP(TestPrimitivePropertyBased,
+              testAppend,
+              (std::vector<int> list1, const std::vector<int> &list2)) {
+  auto actual = parlay::append(list1, list2);
+  list1.insert(list1.end(), list2.begin(), list2.end());
+  RC_ASSERT(std::equal(list1.begin(), list1.end(), actual.begin()));
+}
+
+RC_GTEST_PROP(TestPrimitivePropertyBased,
+              testMapMaybe,
+              (const std::vector<int> &list, int threshold, int map_constant)) {
+  const int MOD = 4;
+  threshold %= MOD;
+  auto map_function = [=](int num) {
+    return num ^ map_constant;
+  };
+  auto filter_function = [=](int num) {
+    return num % MOD < threshold;
+  };
+  auto map_maybe_function = [=](int num) {
+    if (filter_function(num)) {
+      return std::optional<int>(map_function(num));
+    }
+    return std::optional<int>();
+  };
+  auto expected = parlay::map(parlay::filter(list, filter_function), map_function);
+  auto actual = parlay::map_maybe(list, map_maybe_function);
+  RC_ASSERT(expected == actual);
+}
+
+RC_GTEST_PROP(TestPrimitivePropertyBased,
+              testZip,
+              (const std::vector<int> &list1, const std::vector<int> &list2)) {
+  size_t n = std::min(list1.size(), list2.size());
+  parlay::sequence<std::tuple<int, int>> expected(n);
+  for (size_t i = 0; i < n; i++) {
+    expected[i] = std::tuple<int, int>(list1[i], list2[i]);
+  }
+  auto actual = parlay::zip(list1, list2);
+  RC_ASSERT(expected == actual);
+}
 
 RC_GTEST_PROP(TestPrimitivePropertyBased,
               testRank,
