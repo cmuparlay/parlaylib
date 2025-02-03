@@ -1022,7 +1022,7 @@ auto flatten(sequence<sequence<T>>&& r) {
 
 // Return true if the given character is considered whitespace.
 // Whitespace characters are ' ', '\f', '\n', '\r'. '\t'. '\v'.
-bool inline is_whitespace(unsigned char c) {
+bool inline is_whitespace(char c) {
   return std::isspace(c);
 }
 
