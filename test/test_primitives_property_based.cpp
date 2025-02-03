@@ -30,52 +30,52 @@ RC_GTEST_PROP(TestPrimitivePropertyBased,
   RC_ASSERT(list == list2);
 }
 
+template <class T>
+struct exclusive_or {
+  T operator()(T a, T b) { return a ^ b; }
+};
+
 RC_GTEST_PROP(TestPrimitivePropertyBased,
               testReduce,
               (const std::vector<int64_t> &list)) {
-  int64_t reduce = parlay::reduce(list);
-  RC_ASSERT(reduce == std::accumulate(list.begin(), list.end(), 0LL));
+  int64_t expected = std::reduce(list.begin(), list.end(), 0LL, exclusive_or<int64_t>());
+  int64_t actual = parlay::reduce(list, parlay::monoid(exclusive_or<int64_t>(), 0LL));
+  RC_ASSERT(expected == actual);
 
-  // FIXME: segfaults for empty lists. Is this the expected behavior? Surely a runtime check is not that expensive.
+  // Legacy monoid segfaults on an empty list
   RC_PRE(!list.empty());
 
-  int64_t reduce_max = parlay::reduce(list, parlay::maxm<int64_t>());
-  RC_ASSERT(reduce_max == *std::max_element(list.begin(), list.end()));
-}
-
-RC_GTEST_PROP(TestPrimitivePropertyBased,
-              testReduceBool,
-              (const parlay::sequence<bool> &list)) {
-  parlay::monoid monoid([](int x, int y) {return x+y;}, 0);
-  int actual = parlay::reduce(list, monoid);
-  int expected = parlay::reduce(parlay::map(list, [](bool b) {return (int)b;}));
+  // Test legacy monoid
+  expected = *std::max_element(list.begin(), list.end());
+  actual = parlay::reduce(list, parlay::maxm<int64_t>());
   RC_ASSERT(expected == actual);
 }
 
 RC_GTEST_PROP(TestPrimitivePropertyBased,
               testScan,
-              (const std::vector<long long> &s)) {
+              (const std::vector<int> &s)) {
   // There must be at least one element
   RC_PRE(!s.empty());
+  parlay::monoid monoid(exclusive_or<int>(), 0);
   // Test scan
-  auto [scan_result, total] = parlay::scan(s);
-  auto partial_sums = parlay::sequence<long long>(s.size());
-  std::partial_sum(std::begin(s), std::end(s) - 1, std::begin(partial_sums) + 1);
+  auto [scan_result, total] = parlay::scan(s, monoid);
+  auto partial_sums = parlay::sequence<int>(s.size());
+  std::partial_sum(std::begin(s), std::end(s) - 1, std::begin(partial_sums) + 1, exclusive_or<int>());
   RC_ASSERT(scan_result == partial_sums);
-  RC_ASSERT(total == std::accumulate(std::begin(s), std::end(s), 0LL));
+  RC_ASSERT(total == std::accumulate(std::begin(s), std::end(s), 0, exclusive_or<int>()));
   // Test scan_inplace
-  auto scan_result2 = parlay::sequence<long long>(s.begin(), s.end());
-  auto total2 = parlay::scan_inplace(scan_result2);
+  auto scan_result2 = parlay::sequence<int>(s.begin(), s.end());
+  auto total2 = parlay::scan_inplace(scan_result2, monoid);
   RC_ASSERT(scan_result == scan_result2);
   RC_ASSERT(total == total2);
 
   // Test scan inclusive
-  scan_result = parlay::scan_inclusive(s);
-  std::partial_sum(std::begin(s), std::end(s), std::begin(partial_sums));
+  scan_result = parlay::scan_inclusive(s, monoid);
+  std::partial_sum(std::begin(s), std::end(s), std::begin(partial_sums), exclusive_or<int>());
   RC_ASSERT(scan_result == partial_sums);
   // Test scan inplace inclusive
-  scan_result2 = parlay::sequence<long long>(s.begin(), s.end());
-  parlay::scan_inclusive_inplace(scan_result2);
+  scan_result2 = parlay::sequence<int>(s.begin(), s.end());
+  parlay::scan_inclusive_inplace(scan_result2, monoid);
   RC_ASSERT(scan_result == scan_result2);
 }
 
@@ -351,8 +351,11 @@ RC_GTEST_PROP(TestPrimitivePropertyBased,
 
 RC_GTEST_PROP(TestPrimitivePropertyBased,
               testRemove,
-              (std::vector<int> list1, int index)) {
-  for (int value : {index, list1.empty() ? -1 : list1[index % list1.size()]}) {
+              (std::vector<int> list1, int num, size_t index)) {
+  // Try to remove
+  // (1) A random number
+  // (2) The element at a random index
+  for (int value : {num, list1.empty() ? -1 : list1[index % list1.size()]}) {
     auto actual = parlay::remove(list1, value);
     auto expected = std::remove(list1.begin(), list1.end(), value);
     RC_ASSERT(std::equal(list1.begin(), expected, actual.begin()));
@@ -383,7 +386,7 @@ RC_GTEST_PROP(TestPrimitivePropertyBased,
 RC_GTEST_PROP(TestPrimitivePropertyBased,
               testFlattenSplitSameDelayed,
               (parlay::sequence<int> list1, int num)) {
-  auto map_function = [=](int x) {return x * num;};
+  auto map_function = [=](int x) {return x / 2 + 1;};
   auto expected = parlay::map(list1, map_function);
   // Randomly split, map, and then flatten. Should be the same as mapping the original list.
   int mod = std::abs(num) % 103 + 1;
@@ -402,7 +405,10 @@ RC_GTEST_PROP(TestPrimitivePropertyBased,
   auto expected = parlay::map(parlay::sequence<std::smatch>(words_begin, words_end), [](const auto& match) {
     return parlay::to_sequence(match.str());
   });
-  auto actual = parlay::tokens(str);
+  // FIXME: UBSAN doesn't like this line unless we convert std::string to parlay::sequence because
+  //  a char gets passed to is_whitespace, which expects an unsigned char, resulting in an implicit
+  //  conversion.
+  auto actual = parlay::tokens(parlay::to_sequence(str));
   RC_ASSERT(expected == actual);
 }
 
@@ -438,13 +444,13 @@ RC_GTEST_PROP(TestPrimitivePropertyBased,
     }
   });
   for(int i = 0; i < LIMIT; i++) {
-    int expected = expected_counts[i - OFFSET];
+    int expected = expected_counts[(char)(i - OFFSET)];
     int actual = actual_counts[i].load();
     RC_ASSERT(expected == actual);
   }
 }
 
-auto split_by_predicate(const parlay::sequence<int> &list, std::function<bool(int)> pred) {
+auto split_by_predicate(const parlay::sequence<int> &list, const std::function<bool(int)>& pred) {
   parlay::sequence<parlay::sequence<int>> result;
   parlay::sequence<int> current;
   for (int num : list) {
@@ -468,7 +474,7 @@ RC_GTEST_PROP(TestPrimitivePropertyBased,
   auto expected = split_by_predicate(list1, pred);
   RC_ASSERT(expected == actual);
 
-  auto map_function = [=](auto lst) {return std::accumulate(lst.begin(), lst.end(), 0); };
+  auto map_function = [=](auto lst) {return std::accumulate(lst.begin(), lst.end(), 0, exclusive_or<int>()); };
   auto expected2 = parlay::map(parlay::split_at(list1, flags), map_function);
   auto actual2 = parlay::map_split_at(list1, flags, map_function);
   RC_ASSERT(expected2 == actual2);
@@ -492,10 +498,10 @@ RC_GTEST_PROP(TestPrimitivePropertyBased,
 
 RC_GTEST_PROP(TestPrimitivePropertyBased,
               testRemoveDuplicatesIntegers,
-              (const std::vector<int> &original)) {
+              (const std::vector<uint16_t> &original)) {
   // FIXME: does not work if the list is empty (block_size = 0 in collect_reduce_few)
   RC_PRE(!original.empty());
-  auto transformed = parlay::map(original, [](int num) {return std::abs(num);});
+  auto transformed = parlay::map(original, [](uint16_t num) {return (int)num;});
   int max;
   if (original.empty()) {
     max = 0;
@@ -566,7 +572,7 @@ RC_GTEST_PROP(TestPrimitivePropertyBased,
 
 RC_GTEST_PROP(TestPrimitivePropertyBased,
               testRankWithIota,
-              (const std::vector<int> &v, int seed)) {
+              (const std::vector<int> &v, size_t seed)) {
   // n shouldn't be too large, otherwise the test will take forever
   size_t n = v.size();
   auto list = parlay::map(parlay::iota(n), [](auto x) {return (unsigned long)x;});
@@ -579,7 +585,7 @@ RC_GTEST_PROP(TestPrimitivePropertyBased,
 
 RC_GTEST_PROP(TestPrimitivePropertyBased,
               testKthSmallest,
-              (std::vector<int> list, int seed)) {
+              (std::vector<int> list, size_t seed)) {
   RC_PRE(!list.empty());
   size_t n = list.size();
   auto sorted = parlay::sort(list);
