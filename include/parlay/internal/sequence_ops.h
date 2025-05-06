@@ -21,9 +21,9 @@ namespace parlay {
 namespace internal {
 
 // Return a sequence consisting of the elements
-//   f(0), f(1), ... f(n)
+//   f(0), f(1), ... f(n-1)
 template<typename UnaryOp>
-auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
+auto tabulate(size_t n, UnaryOp&& f, size_t granularity = 0) {
   static_assert(std::is_invocable_v<UnaryOp, size_t>);
   static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, size_t>>);
   static_assert(!std::is_array_v<std::invoke_result_t<UnaryOp, size_t>>);
@@ -32,9 +32,9 @@ auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
 }
 
 // Return a sequence consisting of the elements
-//   f(0), f(1), ... f(n)
+//   f(0), f(1), ... f(n-1)
 template<typename T, typename UnaryOp>
-auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
+auto tabulate(size_t n, UnaryOp&& f, size_t granularity = 0) {
   static_assert(std::is_invocable_v<UnaryOp, size_t>);
   static_assert(!std::is_void_v<std::invoke_result_t<UnaryOp, size_t>>);
   static_assert(!std::is_array_v<std::invoke_result_t<UnaryOp, size_t>>);
@@ -44,6 +44,7 @@ auto tabulate(size_t n, UnaryOp&& f, size_t granularity=0) {
 
 // Return a sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
+// where n is the size of r.
 template<typename R, typename UnaryOp>
 auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
   static_assert(is_random_access_range_v<R>);
@@ -54,7 +55,7 @@ auto map(R&& r, UnaryOp&& f, size_t granularity=0) {
 }
 
 // Return a delayed sequence consisting of the elements
-//   f(0), f(1), ... f(n)
+//   f(0), f(1), ... f(n-1)
 template<typename F>
 auto delayed_tabulate(size_t n, F f) {
   static_assert(std::is_invocable_v<const F&, size_t>);
@@ -65,7 +66,7 @@ auto delayed_tabulate(size_t n, F f) {
 }
 
 // Return a delayed sequence consisting of the elements
-//   f(0), f(1), ... f(n)
+//   f(0), f(1), ... f(n-1)
 template<typename T, typename F>
 auto delayed_tabulate(size_t n, F f) {
   static_assert(std::is_invocable_v<const F&, size_t>);
@@ -74,7 +75,7 @@ auto delayed_tabulate(size_t n, F f) {
 }
 
 // Return a delayed sequence consisting of the elements
-//   f(0), f(1), ... f(n)
+//   f(0), f(1), ... f(n-1)
 template<typename T, typename V, typename F>
 auto delayed_tabulate(size_t n, F f) {
   static_assert(std::is_invocable_v<const F&, size_t>);
@@ -84,6 +85,7 @@ auto delayed_tabulate(size_t n, F f) {
 
 // Return a delayed sequence consisting of the elements
 //   f(r[0]), f(r[1]), ..., f(r[n-1])
+// where n is the size of r.
 //
 // If r is a temporary, the delayed sequence will take
 // ownership of it by moving it. If r is a reference,
