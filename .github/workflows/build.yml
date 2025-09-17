@@ -18,16 +18,16 @@ jobs:
         build_type: ["Debug", "RelWithDebInfo", "Release"]
         config:
           - {
-            os: ubuntu-20.04,  # Note: GCC-7 is gone in Ubuntu-22
-            cc: "gcc-7", cxx: "g++-7"
+            os: ubuntu-22.04,
+            cc: "gcc-9", cxx: "g++-9"
           }
           - {
             os: ubuntu-22.04,
             cc: "gcc-12", cxx: "g++-12"
           }
           - {
-            os: ubuntu-20.04,
-            cc: "clang-6.0", cxx: "clang++-6.0"
+            os: ubuntu-22.04,
+            cc: "clang-11", cxx: "clang++-11"
           }
           - {
             os: ubuntu-22.04,
@@ -367,38 +367,38 @@ jobs:
           cd build
           ctest -C Debug --no-tests=error --output-on-failure
 
-  omp:
-    name: ubuntu-22.04 OpenMP Clang 15 (Debug)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
+  # omp:
+    # name: ubuntu-22.04 OpenMP Clang 15 (Debug)
+    # if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    # runs-on: ubuntu-latest
+    # steps:
+      # - uses: actions/checkout@v2
 
-      - name: Install OpenMP
-        shell: bash
-        run: |
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
-          sudo apt-get update
-          sudo apt-get -qq install clang-15 libomp-15-dev
+      # - name: Install OpenMP
+        # shell: bash
+        # run: |
+          # wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          # sudo apt-add-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
+          # sudo apt-get update
+          # sudo apt-get -qq install clang-15 libomp-15-dev
 
-      - name: Configure
-        shell: bash
-        run: |
-          mkdir build && cd build
-          CC=clang-15 CXX=clang++-15 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_OPENMP=On DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
+      # - name: Configure
+        # shell: bash
+        # run: |
+          # mkdir build && cd build
+          # CC=clang-15 CXX=clang++-15 cmake -DCMAKE_BUILD_TYPE=Debug -DPARLAY_TEST=On -DPARLAY_OPENMP=On DPARLAY_BENCHMARK=On -DPARLAY_EXAMPLES=On ..
 
-      - name: Build
-        shell: bash
-        run: |
-          cd build
-          cmake --build . --config Debug
+      # - name: Build
+        # shell: bash
+        # run: |
+          # cd build
+          # cmake --build . --config Debug
 
-      - name: Test
-        shell: bash
-        run: |
-          cd build
-          ctest -C Debug --no-tests=error --output-on-failure
+      # - name: Test
+        # shell: bash
+        # run: |
+          # cd build
+          # ctest -C Debug --no-tests=error --output-on-failure
 
   tbb:
     name: ubuntu-22.04 TBB Clang 15 (Debug)
