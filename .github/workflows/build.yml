@@ -129,9 +129,9 @@ jobs:
           - { cc: "gcc-12", cxx: "g++-12" }
           - { cc: "clang-15", cxx: "clang++-15" }
 
-    name: windows-2019 WSL Ubuntu 22.04 ${{ matrix.config.cxx }} (Debug)
+    name: windows-2025 WSL Ubuntu 22.04 ${{ matrix.config.cxx }} (Debug)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
-    runs-on: windows-2019
+    runs-on: windows-2025
     defaults:
       run:
         shell: wsl-bash {0}
@@ -291,12 +291,12 @@ jobs:
           ctest -C Debug --no-tests=error --output-on-failure
 
 #  cilk-plus:
-#    name: windows-2019 WSL Ubuntu-18.04 Cilk Plus GCC-7 (Debug)
+#    name: windows-2025 WSL Ubuntu-18.04 Cilk Plus GCC-7 (Debug)
 #    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
 #
 #    # Note: GCC-7 on Ubuntu 20 removed Cilk Plus, so we have to go back in time to
 #    # Ubuntu 18 which GitHub stopped supporting, so we go through WSL instead.
-#    runs-on: windows-2019
+#    runs-on: windows-2025
 #    defaults:
 #      run:
 #        shell: wsl-bash {0}
