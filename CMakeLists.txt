@@ -189,36 +189,45 @@ message(STATUS "---------------------------------- Unit Tests ------------------
 option(PARLAY_TEST  "Build unit tests"       OFF)
 
 if (PARLAY_TEST)
-  # Set CMake options for GoogleTest
-  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-  set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-  set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
-  set(gtest_disable_pthreads ON CACHE BOOL "" FORCE)
-
-  # Download and configure GoogleTest
-  include(FetchContent)
-  FetchContent_Declare(googletest
-    GIT_REPOSITORY  https://github.com/google/googletest.git
-    GIT_TAG         main
-  )
-  FetchContent_GetProperties(googletest)
-  if(NOT googletest_POPULATED)
-    message(STATUS "testing: Configuring GoogleTest")
-    FetchContent_Populate(googletest)  
-    set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE BOOL "")
-    add_subdirectory(${googletest_SOURCE_DIR}
-                     ${googletest_BINARY_DIR}
-                     EXCLUDE_FROM_ALL)
+  find_package(GTest)
+  find_library(GMock NAME gmock gmock_main)
+  if(NOT GTest_FOUND OR GMock-NOTFOUND)
+	  if(FETCH_CONTENT_FULLY_DISCONNECTED)
+		  message(FATAL_ERROR "GoogleTest/GoogleMock not found, enable downloads or install them")
+	  else()
+		  # Set CMake options for GoogleTest
+		  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+		  set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+		  set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+		  set(gtest_disable_pthreads ON CACHE BOOL "" FORCE)
+		  # Download and configure GoogleTest
+		  include(FetchContent)
+		  FetchContent_Declare(googletest
+			  GIT_REPOSITORY  https://github.com/google/googletest.git
+			  GIT_TAG         main
+			  FIND_PACKAGE_ARGS NAMES GTest
+		  )
+		  FetchContent_GetProperties(googletest)
+		  if(NOT googletest_POPULATED)
+			  message(STATUS "testing: Configuring GoogleTest")
+			  FetchContent_Populate(googletest)  
+			  set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE BOOL "")
+			  add_subdirectory(${googletest_SOURCE_DIR}
+				  ${googletest_BINARY_DIR}
+				  EXCLUDE_FROM_ALL)
+		  endif()
+	  endif()
   endif()
-
   # Include test targets
   message(STATUS "testing: Enabled")
   include(CTest)
+  link_libraries(gmock gmock_main gtest gtest_main)
   add_subdirectory(test)
 
 else()
   message(STATUS "testing: Disabled (enable with -DPARLAY_TEST=On)")
 endif()
+
 
 # -------------------------------------------------------------------
 #                       Benchmarks
