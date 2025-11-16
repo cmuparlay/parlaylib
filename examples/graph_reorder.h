@@ -53,11 +53,11 @@ void recursive_reorder(parlay::sequence<w_edge>& E,
   // Priorities are tagged with id to break ties
   // Must firsrt clear W at all active vertices
   parlay::for_each(V, [&] (vertex& v) {
-      W[v].store(tagged_w_type(std::numeric_limits<float>::lowest(),0));});
+      W[v].store(tagged_w_type{std::numeric_limits<float>::lowest(),0});});
   parlay::parallel_for(0, E.size(), [&] (edge_id i) {
       auto [u, v] = E[i].first;
       //auto w = tagged_w_type(std::round(std::log2(E[i].second / (Sizes[u] * Sizes[v]))), i);
-      auto w = tagged_w_type(E[i].second / (Sizes[u] * Sizes[v]), i);
+      auto w = tagged_w_type{E[i].second / (Sizes[u] * Sizes[v]), i};
       parlay::write_min(&W[v], w, greater);
       parlay::write_min(&W[u], w, greater);});
 
