@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     utils::print_graph_stats(G);
     long count;
     parlay::internal::timer t("Time");
-    for (int i=0; i < 1; i++) {
+    for (int i=0; i < 3; i++) {
       count = triangle_count(G);
       t.next("triangle count");
     }
