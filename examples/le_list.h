@@ -49,7 +49,7 @@ public:
   le_list(vertex n) {
     capacity = K_CAP * ((int) std::floor(std::log2(n)) + 1);
     // create n empty le-lists, each of size capacity
-    A = tabulate(n, [=] (vertex i) {
+    A = tabulate(n, [&] (vertex i) {
           return tabulate(capacity, [] (int j){
             return std::make_pair((vertex) 0, max_distance);});});
     // initial sizes are 0

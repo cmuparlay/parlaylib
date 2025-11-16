@@ -37,8 +37,13 @@ struct graph_utils {
   // transpose a directed graph
   // i.e. generate the backward edges for every forward edges
   static graph transpose(const graph& G) {
+    long n = G.size();
     auto pairs = parlay::delayed::flatten(parlay::tabulate(G.size(), [&] (vertex i) {
       return parlay::delayed::map(G[i], [=] (auto ngh) {
+        if (ngh < 0 || ngh >= n) {
+          std::cout << "in utils::transpose, neighbor " << ngh << " is out of range" << std::endl;
+          std::abort();
+        }
         return std::pair(ngh, i);});}));
     return group_by_index(parlay::delayed::to_sequence(pairs), G.size());
   }
@@ -157,10 +162,21 @@ struct graph_utils {
   static graph grid_graph(long n) {
     vertex sqn = static_cast<vertex>(std::sqrt(static_cast<float>(n)));
     parlay::sequence<vertex> offsets({-1-sqn,-sqn,1-sqn,-1,1,-1+sqn,sqn,1+sqn});
-    return parlay::tabulate(sqn*sqn, [&] (vertex u) {
-      auto nghs = map(offsets, [&] (vertex o) {return u+o;});
-      return filter(nghs, [=] (vertex v) {
-        return (v >= 0 && v < sqn*sqn && abs(u % sqn - v % sqn) < 2);});});
+    return parlay::flatten(parlay::tabulate(sqn, [&] (vertex y) {
+      parlay::sequence<vertex> yoffsets({-sqn,0,sqn});
+      if (y == 0) yoffsets = parlay::sequence<vertex>({0,sqn});
+      if (y == sqn - 1) yoffsets = parlay::sequence<vertex>({-sqn,0});
+      return parlay::tabulate(sqn, [&] (vertex x) {
+        parlay::sequence<vertex> xoffsets({-1,0,1});
+        if (x == 0) xoffsets = parlay::sequence<vertex>({0,1});
+        if (x == sqn - 1) xoffsets = parlay::sequence<vertex>({-1,0});
+        vertices out;
+        vertex v = x + sqn * y;
+        for (auto ox : xoffsets) 
+          for (auto oy : yoffsets)
+            if (ox != 0 || oy != 0)
+              out.push_back(v + ox + oy);
+        return out;});}));
   }
 
   static void print_graph_stats(const graph& G) {
