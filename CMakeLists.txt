@@ -210,6 +210,17 @@ if (PARLAY_TEST)
                      ${googletest_BINARY_DIR}
                      EXCLUDE_FROM_ALL)
   endif()
+  # Download and configure rapidcheck
+  # Must enable Google Test integration since everything else relies on Google Test
+  set(RC_ENABLE_GTEST ON CACHE BOOL "" FORCE)
+  FetchContent_Declare(
+          rapid_check
+          GIT_REPOSITORY https://github.com/emil-e/rapidcheck.git
+          GIT_TAG ff6af6fc683159deb51c543b065eba14dfcf329b
+          GIT_SHALLOW TRUE
+          GIT_PROGRESS ON
+  )
+  FetchContent_MakeAvailable(rapid_check)
 
   # Include test targets
   message(STATUS "testing: Enabled")

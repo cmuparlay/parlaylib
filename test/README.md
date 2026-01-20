@@ -2,11 +2,11 @@
 
 *This documentation is intended for developers/contributors of ParlayLib*
 
-Parlay is accompanied by a set of unit tests intended to assert the correctness of its data structures and primitives, and to mitigate the risk of introducing bugs during updates. If you are contributing code to Parlay, you should add appropriate unit tests to ensure that your code is tested, and update any existing unit tests that are affected by your changes. Always remember to run the tests locally before comitting changes.
+Parlay is accompanied by a set of unit tests intended to assert the correctness of its data structures and primitives, and to mitigate the risk of introducing bugs during updates. If you are contributing code to Parlay, you should add appropriate unit tests to ensure that your code is tested, and update any existing unit tests that are affected by your changes. Always remember to run the tests locally before committing changes.
 
 ## Configuring the build for testing
 
-To configure the CMake project to run the tests, you'll need to add the flag `-DPARLAY_TEST=On`. You should also ensure that the build is in *Debug* mode, by adding the flag `-DCMAKE_BUILD_TYPE=Debug`. In order to maintain a separation between your test environment and benchmark environment, it is a good habbit to initialize them as separate CMake builds in different directories. Creating a Debug build with tests enabled can be achieved with these minimal commands from the repository root.
+To configure the CMake project to run the tests, you'll need to add the flag `-DPARLAY_TEST=On`. You should also ensure that the build is in *Debug* mode, by adding the flag `-DCMAKE_BUILD_TYPE=Debug`. In order to maintain a separation between your test environment and benchmark environment, it is a good habit to initialize them as separate CMake builds in different directories. Creating a Debug build with tests enabled can be achieved with these minimal commands from the repository root.
 
 ```
 mkdir -p build/Debug && cd build/Debug
@@ -21,11 +21,13 @@ Once the build is configured, you can build the tests either by running `make` i
 
 ## Running the tests
 
-The compiled tests are located in the *test* subdirectory of your configured build directory. Tests can be ran individually from here. Alternatively, running the target `test` (i.e. running `make test` or `cmake --build . --target test`), or executing the `ctest` command will run all of the tests.
+The compiled tests are located in the *test* subdirectory of your configured build directory. Tests can be run individually from here. Alternatively, running the target `test` (i.e. running `make test` or `cmake --build . --target test`), or executing the `ctest` command will run all tests.
+
+Property-based tests can be adjusted to run for more iterations and with larger data sets at the expense of longer time spent on testing. See [the documentation](https://github.com/emil-e/rapidcheck/blob/ff6af6fc683159deb51c543b065eba14dfcf329b/doc/configuration.md) for ways to adjust them.
 
 ## Building and running sanitizer-instrumented tests
 
-All of the unit tests can also be compiled with [AddressSanitizer](https://clang.llvm.org/docs/AddressSanitizer.html) (ASAN), [UndefinedBehaviourSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) (UBSAN), and [MemorySanitizer](https://clang.llvm.org/docs/MemorySanitizer.html) (MSAN). Enabling ASAN and UBSAN is easy as long as you have a compiler that supports their full functionality. [Clang](https://clang.llvm.org/) is recommended, since GCC does not support the full functionality of these tools.
+All unit tests can also be compiled with [AddressSanitizer](https://clang.llvm.org/docs/AddressSanitizer.html) (ASAN), [UndefinedBehaviourSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) (UBSAN), and [MemorySanitizer](https://clang.llvm.org/docs/MemorySanitizer.html) (MSAN). Enabling ASAN and UBSAN is easy as long as you have a compiler that supports their full functionality. [Clang](https://clang.llvm.org/) is recommended, since GCC does not support the full functionality of these tools.
 
 To enable ASAN and UBSAN, add, to your CMake build configurations, the flags `-DBUILD_ASAN_TESTS=On`, and `-DBUILD_UBSAN_TESTS=On` respectively. With these flags enabled, each unit test will also be compiled to an additional target with the respective sanitizers enabled. Running the `test` target as above will run both the instrumented and non-instrumented tests. Alternatively, to run a specific subset of the tests, we also provide the targets
 * `check`: Run only the non-instrumented tests
@@ -33,18 +35,20 @@ To enable ASAN and UBSAN, add, to your CMake build configurations, the flags `-D
 * `check-ubsan`: Run only the tests instrumented with UBSAN
 * `check-msan`: Run only the tests instrumented with MSAN
 
-Enabling MSAN is a little bit more complicated, since, unlike ASAN and UBSAN, MSAN only works when all linked code, including the standard library, is instrumented. This means that you need a separately compiled copy of the standard library that has already been instrumented with MSAN. Some instructions on how to do this are provided [here](https://github.com/google/sanitizers/wiki/MemorySanitizerLibcxxHowTo). Once you have built an MSAN-instrumented libc++, you should provide its location to the CMake build configuration via `-DLIBCXX_MSAN_PATH=<path/to/instrumented/libcxx>`. Finally, the unit tests with MSAN-instrumentation can enabled by adding to the CMake build configuration, the flag `-DBUILD_MSAN_TESTS=On`.
+Enabling MSAN is a little bit more complicated, since, unlike ASAN and UBSAN, MSAN only works when all linked code, including the standard library, is instrumented. This means that you need a separately compiled copy of the standard library that has already been instrumented with MSAN. Some instructions on how to do this are provided [here](https://github.com/google/sanitizers/wiki/MemorySanitizerLibcxxHowTo). Once you have built an MSAN-instrumented libc++, you should provide its location to the CMake build configuration via `-DLIBCXX_MSAN_PATH=<path/to/instrumented/libcxx>`. Finally, the unit tests with MSAN-instrumentation can be enabled by adding to the CMake build configuration, the flag `-DBUILD_MSAN_TESTS=On`.
 
 ## Running memcheck tests
 
-Tests can also be ran with memcheck ([Valgrind](https://valgrind.org/)) by adding the flag `-DENABLE_MEMCHECK_TESTS=On` to the CMake build configuration. This will add additional test targets which can be ran with the entire suite of tests, or separately by invoking the `check-memcheck` target.
+Tests can also be run with memcheck ([Valgrind](https://valgrind.org/)) by adding the flag `-DENABLE_MEMCHECK_TESTS=On` to the CMake build configuration. This will add additional test targets which can be run with the entire suite of tests, or separately by invoking the `check-memcheck` target.
 
 ## Adding new tests
 
-All of the tests in the suite are written using the [Google Test](https://github.com/google/googletest) framework. To add a new test set, write a new test cpp file in the *<project_root>/test* directory in the Google Test format. Then, register it in *<project_root>/test/CMakeLists.txt* with the line
+Most tests in the suite are written using the [Google Test](https://github.com/google/googletest) framework. To add a new test set, write a new test cpp file in the *<project_root>/test* directory in the Google Test format. Then, register it in *<project_root>/test/CMakeLists.txt* with the line
 
 ```
 add_dtests(NAME <your_test_name> FILES <your_test_cpp_files> LIBS parlay)
 ```
 
-If necessary, multiple cpp files can be listed after the FILES option. You can also specify additional libraries that need to be linked with the test, if necessary, by adding them after the LIBS option.
+The remaining unit tests are property-based tests written using the [rapidcheck](https://github.com/emil-e/rapidcheck) framework. See [rapidcheck's instructions](https://github.com/emil-e/rapidcheck/blob/ff6af6fc683159deb51c543b065eba14dfcf329b/doc/gtest.md) for more information. To register rapidcheck tests, follow the format of `add_dtests` above and include  `rapidcheck_gtest` after the LIBS option.
+
+If necessary, multiple cpp files can be listed after the FILES option. You can also specify additional libraries that need to be linked with the test (such as `rapidcheck_gtest`) by adding them after the LIBS option.
