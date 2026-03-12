@@ -1,3 +1,5 @@
+#pragma once
+
 #include "suffix_array.h"
 #include "longest_common_prefix.h"
 #include "radix_tree.h"

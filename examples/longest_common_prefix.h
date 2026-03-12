@@ -1,3 +1,5 @@
+#pragma once
+
 #include <parlay/sequence.h>
 #include <parlay/primitives.h>
 #include <parlay/internal/get_time.h>

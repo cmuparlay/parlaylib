@@ -1,3 +1,5 @@
+#pragma once
+
 #include <parlay/delayed.h>
 #include <parlay/primitives.h>
 #include <parlay/sequence.h>

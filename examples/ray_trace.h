@@ -1,3 +1,5 @@
+#pragma once
+
 #include <limits>
 #include <algorithm>
 #include "parlay/primitives.h"

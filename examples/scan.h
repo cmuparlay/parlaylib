@@ -1,3 +1,5 @@
+#pragma once
+
 #include <algorithm>
 
 #include <parlay/parallel.h>

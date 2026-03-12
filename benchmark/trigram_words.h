@@ -1,3 +1,5 @@
+#pragma once
+
 // This code is part of the Problem Based Benchmark Suite (PBBS)
 // Copyright (c) 2010 Guy Blelloch and the PBBS team
 //
