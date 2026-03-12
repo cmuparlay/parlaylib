@@ -1,3 +1,5 @@
+#pragma once
+
 #include <parlay/sequence.h>
 
 #include "helper/speculative_for.h"
