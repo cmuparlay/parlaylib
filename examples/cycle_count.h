@@ -1,5 +1,4 @@
 #include <atomic>
-#include <random>
 
 #include <parlay/parallel.h>
 #include <parlay/primitives.h>
@@ -24,14 +23,12 @@ struct lnk {
 
 long cycle_count(parlay::sequence<long>& permutation) {
   long n = permutation.size();
-  parlay::random_generator gen(0);
-  std::uniform_int_distribution<long> dis(0, n-1);
+  auto priority = parlay::random_permutation(n);
   parlay::sequence<lnk> links(n);
   parlay::parallel_for(0, n, [&] (long i) {
     links[i].next = &links[permutation[i]];
     links[permutation[i]].prev = &links[i];
-    auto r = gen[i];
-    links[i].p = dis(r);
+    links[i].p = priority[i];
   });
 
   parlay::parallel_for(0, n, [&] (long i) {
@@ -40,6 +37,7 @@ long cycle_count(parlay::sequence<long>& permutation) {
     links[i].is_leaf = links[i].degree == 0;});
 
   auto roots = parlay::tabulate(n, [&] (long i) {
+    if (permutation[i] == i) return 1;
     if (!links[i].is_leaf) return 0;
     lnk* l = &links[i];
     do {
