@@ -83,8 +83,11 @@ struct hash_map {
   std::optional<V> find(const K& k) {
     index i = first_index(k);
     while (true) {
-      if (H[i].status != full) return {};
-      if (H[i].key == k) return H[i].value;
+      if (H[i].status == empty || H[i].status == locked) return {};
+      if (H[i].key == k) {
+        if (H[i].status == full) return H[i].value;
+        else return {};
+      }
       i = next_index(i);
     }
   }
