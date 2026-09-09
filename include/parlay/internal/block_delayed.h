@@ -39,23 +39,25 @@ struct flatten_iterator {
   using value_type = typename in_range_t::value_type;
   in_iter_t in_iter;
   out_iter_t out_iter;
+  out_iter_t out_end;   // end of the outer range; never dereferenced
   flatten_iterator& operator++() {
     //std::cout << (*out_iter).end() - (*out_iter).begin() << std::endl;
     ++in_iter;
     while (in_iter == (*out_iter).end()) {// if at end of inner range
       //std::cout << "moving to next outer" << std::endl;
       ++out_iter;                      // move to next outer
+      if (out_iter == out_end) break;  // past the last inner range: this is the end
       in_iter = (*out_iter).begin();   // and set inner to start
     }
     return *this;
   }
   value_type operator*() const {return *in_iter;}
-  flatten_iterator(in_iter_t in_iter, out_iter_t out_iter) :
-      in_iter(in_iter), out_iter(out_iter) {
+  flatten_iterator(in_iter_t in_iter, out_iter_t out_iter, out_iter_t out_end) :
+      in_iter(in_iter), out_iter(out_iter), out_end(out_end) {
     //std::cout << "in flatten init: " << (*out_iter).end() - (*out_iter).begin() << std::endl;
   }
-  flatten_iterator(out_iter_t out_iter) :
-      in_iter((*out_iter).begin()), out_iter(out_iter) {}
+  flatten_iterator(out_iter_t out_iter, out_iter_t out_end) :
+      in_iter((*out_iter).begin()), out_iter(out_iter), out_end(out_end) {}
 };
 
 template <typename IDS>
@@ -71,7 +73,8 @@ struct block_delayed_sequence {
   iterator end() {return rng.begin();}
   block_delayed_sequence(parlay::sequence<IDS> sub_ranges_, size_t n)
       : sub_ranges(std::move(sub_ranges_)),
-        rng(stream_delayed::forward_delayed_sequence(flatten_iterator(sub_ranges.begin()),n)) {}
+        rng(stream_delayed::forward_delayed_sequence(
+            flatten_iterator(sub_ranges.begin(), sub_ranges.end()), n)) {}
 
   parlay::sequence<IDS> sub_ranges; // to iterate over each block
   range_type rng;  // to iterate over the whole sequence
@@ -246,7 +249,8 @@ auto flatten(Seq &seq) {
                 - offsets.begin() - 1);
     out_iter_t out_iter = seq.begin()+j;
     in_iter_t in_iter = (*out_iter).begin() + (start - offsets[j]);
-    return stream_delayed::forward_delayed_sequence(flatten_iterator(in_iter, out_iter), len);
+    return stream_delayed::forward_delayed_sequence(
+        flatten_iterator(in_iter, out_iter, seq.end()), len);
   }, 1);
   return block_delayed_sequence(std::move(results), n);
 }
