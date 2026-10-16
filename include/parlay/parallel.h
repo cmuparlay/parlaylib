@@ -179,7 +179,7 @@ struct default_scheduler {
   static std::atomic<long> cnt;
   static bool is_running() { return cnt > 0;}
   scheduler_type scheduler;
-  default_scheduler(int p) : scheduler(p) { cnt++;}
+  explicit default_scheduler(unsigned int p) : scheduler(p) { cnt++;}
   ~default_scheduler() { cnt--; }
 };
 
