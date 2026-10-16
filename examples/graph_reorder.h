@@ -45,7 +45,7 @@ void recursive_reorder(parlay::sequence<w_edge>& E,
   if (E.size() == 0) { 
     auto vsizes = parlay::tabulate(V.size(), [&] (long i) {return Sizes[V[i]];});
     auto [offsets, sum] = parlay::scan(vsizes);
-    parlay::parallel_for(0, V.size(), [&] (long i) {Sizes[V[i]] = offsets[i];});
+    parlay::parallel_for(0, V.size(), [&, &offsets=offsets] (long i) {Sizes[V[i]] = offsets[i];});
     return;
   }
 
