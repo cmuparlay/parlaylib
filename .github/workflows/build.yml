@@ -42,7 +42,7 @@ jobs:
           }
           - {
             os: macos-latest,
-            cc: "gcc-12", cxx: "g++-12"
+            cc: "gcc-15", cxx: "g++-15"
           }
           - {
             os: macos-latest,
