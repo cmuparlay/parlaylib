@@ -1286,7 +1286,8 @@ auto kth_smallest_copy(Range&& in, size_t k, Compare&& less = {}) {
   // elements from the bucket when recursing in case there is a massive number of
   // duplicates of the pivot element
   auto filtered_bucket = parlay::pack(in, parlay::tabulate(n, [&] (size_t i) -> bool {
-    return ids[i] == id && (ids[i] == sample_size || it[i] != pivots[ids[i]]);
+    return ids[i] == id && (ids[i] == sample_size ||
+                            less(it[i], pivots[ids[i]]) || less(pivots[ids[i]], it[i]));
   }));
   assert(filtered_bucket.size() <= bucket_length);
   auto filtered_bucket_length = filtered_bucket.size();
