@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 
 #include <deque>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -40,6 +41,27 @@ TEST(TestGroupBy, TestGroupByKeySorted) {
   ASSERT_EQ(grouped[0].second.size(), 3);
   ASSERT_EQ(grouped[1].second.size(), 5);
   ASSERT_EQ(grouped[2].second.size(), 3);
+}
+
+TEST(TestGroupBy, TestGroupByKeyOrderedCustomComparatorUnsignedKeys) {
+  std::vector<std::pair<unsigned, int>> a = {{1, 10}, {3, 30}, {2, 20}, {3, 31}, {1, 11}};
+
+  // Descending order
+  auto desc = parlay::group_by_key_ordered(a, std::greater<>{});
+  ASSERT_EQ(desc.size(), 3);
+  ASSERT_EQ(desc[0].first, 3);
+  ASSERT_EQ(desc[1].first, 2);
+  ASSERT_EQ(desc[2].first, 1);
+  ASSERT_EQ(desc[0].second.size(), 2);
+  ASSERT_EQ(desc[1].second.size(), 1);
+  ASSERT_EQ(desc[2].second.size(), 2);
+
+  // Keys are equivalent when they have the same parity
+  auto parity = parlay::group_by_key_ordered(a, [](unsigned x, unsigned y) { return (x & 1) < (y & 1); });
+  ASSERT_EQ(parity.size(), 2);
+  ASSERT_EQ(parity[0].first, 2);
+  ASSERT_EQ(parity[0].second.size(), 1);  // even keys: {2,20}
+  ASSERT_EQ(parity[1].second.size(), 4);  // odd keys: 1, 3, 3, 1
 }
 
 TEST_P(TestGroupByP, TestGroupByKeySortedLarge) {
