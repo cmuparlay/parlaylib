@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <tuple>      // IWYU pragma: keep
+#include <type_traits>
 #include <utility>
 
 #include "../monoid.h"
@@ -61,7 +62,10 @@ auto group_by_key_ordered(Range&& S, Comp&& less) {
 
   sequence<KV> sorted;
   auto comp = internal::compare_pairs_by_key(less);
-  if constexpr(std::is_integral_v<K> && std::is_unsigned_v<K> && sizeof(KV) <= 16) {
+  // integer_sort orders by the raw key, which only matches the grouping below for std::less
+  constexpr bool is_std_less = std::is_same_v<std::decay_t<Comp>, std::less<>> ||
+                               std::is_same_v<std::decay_t<Comp>, std::less<K>>;
+  if constexpr(is_std_less && std::is_integral_v<K> && std::is_unsigned_v<K> && sizeof(KV) <= 16) {
     sorted = internal::integer_sort(make_slice(S), internal::get_key);
   } else {
     sorted = internal::sample_sort(make_slice(S), comp, true);
