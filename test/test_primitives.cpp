@@ -869,6 +869,29 @@ TEST(TestPrimitives, TestKthSmallest) {
   }
 }
 
+TEST(TestPrimitives, TestKthSmallestEquivalentElements) {
+  auto cmp = [](const auto& a, const auto& b) { return a.first < b.first; };
+
+  parlay::sequence<std::pair<int, int>> all_equal(100000);
+  for (size_t i = 0; i < all_equal.size(); i++)
+    all_equal[i] = {7, static_cast<int>(i)};
+  ASSERT_EQ(parlay::kth_smallest_copy(all_equal, 50000, cmp).first, 7);
+  ASSERT_EQ(parlay::kth_smallest(all_equal, 50000, cmp)->first, 7);
+
+  parlay::sequence<int> ones(100000, 1);
+  ASSERT_EQ(*parlay::kth_smallest(ones, 50000), 1);
+
+  std::default_random_engine eng{2022};
+  parlay::sequence<std::pair<int, int>> s(100000);
+  for (size_t i = 0; i < s.size(); i++)
+    s[i] = {static_cast<int>(eng() % 5), static_cast<int>(i)};
+  auto sorted = parlay::sort(s, cmp);
+  for (size_t k : {size_t{0}, size_t{1}, size_t{25000}, size_t{50000}, size_t{99999}}) {
+    ASSERT_EQ(parlay::kth_smallest_copy(s, k, cmp).first, sorted[k].first);
+    ASSERT_EQ((*parlay::kth_smallest(s, k, cmp)).first, sorted[k].first);
+  }
+}
+
 TEST(TestPrimitives, TestKthSmallestAllDuplicates) {
   parlay::sequence<int> a(2000, 1);
   int k = 1000;
